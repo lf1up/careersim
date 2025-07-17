@@ -1,6 +1,6 @@
-# careersim - AI-Powered Career Skills Simulator
+# CareerSim - AI-Powered Career Skills Simulator
 
-**careersim** is a direct-to-consumer (B2C) web application designed to help individuals master critical career skills through hyper-realistic, AI-powered simulations. Users can practice challenging professional situations—from job interviews to difficult conversations—in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
+**CareerSim** is a direct-to-consumer (B2C) web application designed to help individuals master critical career skills through hyper-realistic, AI-powered simulations. Users can practice challenging professional situations—from job interviews to difficult conversations—in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
 
 ## ✨ Concept Overview
 
@@ -36,7 +36,7 @@ A post-simulation review page that provides deep, actionable insights.
     * **Language Metrics:** Analysis of word choice, question-to-statement ratio, and use of collaborative vs. directive language.
 * **AI-Generated Feedback:** Personalized tips on what went well and specific suggestions for improvement.
 
-##  monetization Monetization Model
+## 💵 Monetization Model
 
 A flexible model designed to attract a wide user base and drive conversions.
 
@@ -77,13 +77,15 @@ This app is for any individual looking to invest in their professional developme
 | **Michael Reyes** | The Disengaged High-Performer | Intelligent but bored and unmotivated | Giving Constructive Feedback |
 | **Chloe Davis** | The Eager but Anxious Junior | Hardworking but lacks confidence | Delegating a Task |
 
+(see [PERSONAS.md](PERSONAS.md) for more details)
+
 ## 🛠️ Proposed Technology Stack
 
-* **Frontend:** React (with TypeScript)
+* **Frontend:** React.js (with TypeScript)
 * **Backend:** Node.js (with Nuxt.js)
 * **Database:** PostgreSQL (for structured data), Vector Database (for AI knowledge)
 * **AI/LLM:** Google Gemini API, OpenAI GPT API, or DeepSeek (self-hosted)
-* **Deployment:** Cloud platform like AWS or Google Cloud
+* **Deployment:** Cloud platform like AWS, Google Cloud or DigitalOcean (hot start)
 
 ## 🔮 Future Vision & Roadmap
 
