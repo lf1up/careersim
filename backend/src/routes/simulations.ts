@@ -5,6 +5,95 @@ import { Simulation, SimulationStatus } from '@/entities/Simulation';
 
 const router: any = Router();
 
+/**
+ * @swagger
+ * /api/simulations:
+ *   get:
+ *     summary: Get all published simulations
+ *     tags: [Simulations]
+ *     security:
+ *       - bearerAuth: []
+ *       - {}
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category ID
+ *       - in: query
+ *         name: difficulty
+ *         schema:
+ *           type: string
+ *           enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+ *         description: Filter by difficulty level
+ *     responses:
+ *       200:
+ *         description: List of simulations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 simulations:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         format: uuid
+ *                       title:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       difficulty:
+ *                         type: string
+ *                         enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+ *                       estimatedDuration:
+ *                         type: integer
+ *                       category:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                       persona:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
+ *       500:
+ *         description: Server error
+ */
 // Get all published simulations (public endpoint with optional auth)
 router.get('/', optionalAuth as any, async (req: AuthenticatedRequest, res: Response) => {
   try {

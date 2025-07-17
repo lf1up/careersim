@@ -22,6 +22,147 @@ export enum SessionStatus {
   PAUSED = 'paused',
 }
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     SimulationSession:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "123e4567-e89b-12d3-a456-426614174000"
+ *         status:
+ *           type: string
+ *           enum: [started, in_progress, completed, abandoned, paused]
+ *           example: "completed"
+ *         startedAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           example: "2024-01-15T10:30:00Z"
+ *         completedAt:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           example: "2024-01-15T11:00:00Z"
+ *         durationSeconds:
+ *           type: integer
+ *           minimum: 0
+ *           example: 1800
+ *         messageCount:
+ *           type: integer
+ *           minimum: 0
+ *           example: 15
+ *         overallScore:
+ *           type: number
+ *           format: decimal
+ *           nullable: true
+ *           minimum: 0
+ *           maximum: 100
+ *           example: 87.5
+ *         scores:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             communication:
+ *               type: number
+ *               example: 85
+ *             problemSolving:
+ *               type: number
+ *               example: 90
+ *             emotional:
+ *               type: number
+ *               example: 80
+ *             outcome:
+ *               type: number
+ *               example: 95
+ *         userGoals:
+ *           type: string
+ *           nullable: true
+ *           example: "Practice interviewing for senior developer role"
+ *         sessionMetadata:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             userAgent:
+ *               type: string
+ *               example: "Mozilla/5.0..."
+ *             deviceType:
+ *               type: string
+ *               example: "desktop"
+ *             inputMethod:
+ *               type: string
+ *               enum: [text, voice, mixed]
+ *               example: "text"
+ *             pauseCount:
+ *               type: number
+ *               example: 2
+ *             averageResponseTime:
+ *               type: number
+ *               example: 15.5
+ *         userFeedback:
+ *           type: string
+ *           nullable: true
+ *           example: "Great practice session, very realistic"
+ *         userRating:
+ *           type: integer
+ *           nullable: true
+ *           minimum: 1
+ *           maximum: 5
+ *           example: 4
+ *         completionData:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             objectivesAchieved:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Demonstrated technical knowledge", "Showed leadership skills"]
+ *             keyMoments:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Handled difficult question well", "Good closing statement"]
+ *             improvementAreas:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Be more specific in examples", "Ask more questions"]
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T11:00:00Z"
+ *         user:
+ *           $ref: '#/components/schemas/User'
+ *         simulation:
+ *           $ref: '#/components/schemas/Simulation'
+ *         messages:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/SessionMessage'
+ *         analytics:
+ *           $ref: '#/components/schemas/PerformanceAnalytics'
+ *         isCompleted:
+ *           type: boolean
+ *           example: true
+ *         isInProgress:
+ *           type: boolean
+ *           example: false
+ *         durationMinutes:
+ *           type: number
+ *           example: 30
+ *         formattedDuration:
+ *           type: string
+ *           example: "30m 0s"
+ */
+
 @Entity('simulation_sessions')
 export class SimulationSession {
   @PrimaryGeneratedColumn('uuid')

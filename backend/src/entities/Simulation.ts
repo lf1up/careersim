@@ -27,6 +27,158 @@ export enum SimulationStatus {
   ARCHIVED = 'archived',
 }
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Simulation:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "123e4567-e89b-12d3-a456-426614174000"
+ *         title:
+ *           type: string
+ *           maxLength: 255
+ *           example: "Mock Job Interview"
+ *         slug:
+ *           type: string
+ *           maxLength: 255
+ *           example: "mock-job-interview"
+ *         description:
+ *           type: string
+ *           example: "Practice your interview skills with an AI interviewer"
+ *         scenario:
+ *           type: string
+ *           example: "You are interviewing for a senior software engineer position"
+ *         objectives:
+ *           type: string
+ *           example: "Demonstrate technical knowledge and communication skills"
+ *         difficulty:
+ *           type: integer
+ *           enum: [1, 2, 3, 4, 5]
+ *           example: 2
+ *         status:
+ *           type: string
+ *           enum: [draft, published, archived]
+ *           example: "published"
+ *         thumbnailUrl:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 255
+ *           example: "https://example.com/thumbnails/interview.jpg"
+ *         estimatedDurationMinutes:
+ *           type: integer
+ *           minimum: 1
+ *           example: 30
+ *         skillsToLearn:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             type: string
+ *           example: ["Interview skills", "Communication", "Technical presentation"]
+ *         successCriteria:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             communication:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Clear articulation", "Active listening"]
+ *             problemSolving:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Structured thinking", "Solution-oriented approach"]
+ *             emotional:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Confidence", "Composure under pressure"]
+ *         preparationTips:
+ *           type: string
+ *           nullable: true
+ *           example: "Review common interview questions and practice your responses"
+ *         contextualBackground:
+ *           type: string
+ *           nullable: true
+ *           example: "This company values innovation and teamwork"
+ *         evaluationMetrics:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             scoreWeights:
+ *               type: object
+ *               properties:
+ *                 communication:
+ *                   type: number
+ *                   example: 0.3
+ *                 problemSolving:
+ *                   type: number
+ *                   example: 0.3
+ *                 emotional:
+ *                   type: number
+ *                   example: 0.2
+ *                 outcome:
+ *                   type: number
+ *                   example: 0.2
+ *             keyIndicators:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Eye contact", "Clarity", "Confidence"]
+ *         isPremiumOnly:
+ *           type: boolean
+ *           example: false
+ *         completionCount:
+ *           type: integer
+ *           minimum: 0
+ *           example: 150
+ *         averageRating:
+ *           type: number
+ *           format: decimal
+ *           minimum: 0
+ *           maximum: 5
+ *           example: 4.2
+ *         sortOrder:
+ *           type: integer
+ *           minimum: 0
+ *           example: 1
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         category:
+ *           $ref: '#/components/schemas/Category'
+ *         persona:
+ *           $ref: '#/components/schemas/Persona'
+ *         sessions:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/SimulationSession'
+ *         difficultyText:
+ *           type: string
+ *           example: "Intermediate"
+ *         isPublished:
+ *           type: boolean
+ *           example: true
+ *         sessionCount:
+ *           type: integer
+ *           minimum: 0
+ *           example: 25
+ *         completionRate:
+ *           type: number
+ *           minimum: 0
+ *           maximum: 100
+ *           example: 75.5
+ */
+
 @Entity('simulations')
 @Index(['slug'], { unique: true })
 export class Simulation {

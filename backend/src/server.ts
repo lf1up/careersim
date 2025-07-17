@@ -7,10 +7,12 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import swaggerUi from 'swagger-ui-express';
 import 'express-async-errors';
 
 import { connectDatabase } from '@/config/database';
 import { config } from '@/config/env';
+import { swaggerSpec } from '@/config/swagger';
 import { errorHandler } from '@/middleware/error';
 import { requestLogger } from '@/middleware/logger';
 
@@ -26,7 +28,7 @@ import adminRoutes from '@/routes/admin';
 import subscriptionRoutes from '@/routes/subscriptions';
 
 const app: any = express();
-const server = createServer(app);
+const server: any = createServer(app);
 
 // Socket.IO setup for real-time communication
 const io = new SocketIOServer(server, {
@@ -99,6 +101,15 @@ app.get('/health', (req, res) => {
     version: process.env.npm_package_version || '1.0.0',
   });
 });
+
+// API Documentation
+if (config.isDevelopment) {
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'CareerSim API Documentation',
+  }));
+}
 
 // API Routes
 app.use('/api/auth', authRoutes);

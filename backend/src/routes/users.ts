@@ -5,6 +5,29 @@ import { User } from '@/entities/User';
 
 const router: any = Router();
 
+/**
+ * @swagger
+ * /api/users/profile:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Get current user profile
 router.get('/profile', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -16,6 +39,66 @@ router.get('/profile', authenticateToken as any, async (req: AuthenticatedReques
   }
 });
 
+/**
+ * @swagger
+ * /api/users/profile:
+ *   patch:
+ *     summary: Update user profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 maxLength: 255
+ *                 example: "Doe"
+ *               bio:
+ *                 type: string
+ *                 example: "Updated bio"
+ *               jobTitle:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: "Senior Software Engineer"
+ *               company:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: "Tech Corp"
+ *               industry:
+ *                 type: string
+ *                 maxLength: 50
+ *                 example: "Technology"
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Profile updated successfully"
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // Update user profile
 router.patch('/profile', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {

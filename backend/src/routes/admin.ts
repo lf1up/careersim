@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { AppDataSource } from '@/config/database';
-import { User, UserRole } from '@/entities/User';
+import { User } from '@/entities/User';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { Persona } from '@/entities/Persona';
 import { Category } from '@/entities/Category';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
-import { Subscription, SubscriptionStatus } from '@/entities/Subscription';
+import { Subscription } from '@/entities/Subscription';
+import { UserRole, SubscriptionStatus } from '@/types';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '@/middleware/auth';
 
 const router: any = Router();

@@ -18,11 +18,16 @@ RUN pnpm install
 # Copy source code
 COPY . .
 
-# Build the application
-RUN pnpm run build
+# Build the application (only if not in development mode)
+ARG NODE_ENV=production
+RUN if [ "$NODE_ENV" != "development" ]; then \
+      pnpm run build; \
+    else \
+      mkdir -p dist; \
+    fi
 
-# Production stage
-FROM node:22-alpine AS production
+# Production/Development stage
+FROM node:22-alpine AS runtime
 
 # Install pnpm and create app user for security
 RUN corepack enable && \
@@ -36,17 +41,25 @@ WORKDIR /app
 # Copy package files
 COPY package*.json pnpm-lock.yaml* ./
 
-# Install only production dependencies
-RUN pnpm install --prod && pnpm store prune
+# Install dependencies based on NODE_ENV
+ARG NODE_ENV=production
+ENV NODE_ENV=$NODE_ENV
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
+# Install dependencies (dev dependencies if development, production only if production)
+RUN if [ "$NODE_ENV" = "development" ]; then \
+      pnpm install; \
+    else \
+      pnpm install --prod && pnpm store prune; \
+    fi
+
+# Copy source code
+COPY --chown=careersim:nodejs . .
+
+# Copy dist folder from builder stage
+COPY --from=builder --chown=careersim:nodejs /app/dist ./dist
 
 # Create uploads directory and set permissions
 RUN mkdir -p uploads && chown -R careersim:nodejs uploads
-
-# Copy any additional files that might be needed at runtime
-COPY --chown=careersim:nodejs . .
 
 # Switch to non-root user
 USER careersim
@@ -65,5 +78,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     req.on('error', () => process.exit(1)); \
     req.end();" || exit 1
 
-# Start the application
+# Default command (can be overridden in docker-compose)
 CMD ["pnpm", "start"] 

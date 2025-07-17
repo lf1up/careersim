@@ -11,18 +11,83 @@ import {
 } from 'typeorm';
 import { SimulationSession } from './SimulationSession';
 import { Subscription } from './Subscription';
+import { UserRole, SubscriptionTier } from '../types';
 
-export enum UserRole {
-  USER = 'user',
-  ADMIN = 'admin',
-  MODERATOR = 'moderator',
-}
-
-export enum SubscriptionTier {
-  FREEMIUM = 'freemium',
-  PRO = 'pro',
-  PREMIUM = 'premium',
-}
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "123e4567-e89b-12d3-a456-426614174000"
+ *         firstName:
+ *           type: string
+ *           maxLength: 255
+ *           example: "John"
+ *         lastName:
+ *           type: string
+ *           maxLength: 255
+ *           example: "Doe"
+ *         email:
+ *           type: string
+ *           format: email
+ *           maxLength: 255
+ *           example: "john.doe@example.com"
+ *         role:
+ *           type: string
+ *           enum: [USER, ADMIN, MODERATOR]
+ *           example: "USER"
+ *         subscriptionTier:
+ *           type: string
+ *           enum: [FREEMIUM, PRO, ENTERPRISE]
+ *           example: "FREEMIUM"
+ *         isEmailVerified:
+ *           type: boolean
+ *           example: true
+ *         profileImageUrl:
+ *           type: string
+ *           nullable: true
+ *           example: "https://example.com/profile.jpg"
+ *         bio:
+ *           type: string
+ *           nullable: true
+ *           example: "Software engineer with 5 years of experience"
+ *         jobTitle:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 100
+ *           example: "Senior Software Engineer"
+ *         company:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 100
+ *           example: "Tech Corp"
+ *         industry:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 50
+ *           example: "Technology"
+ *         totalSimulationsCompleted:
+ *           type: integer
+ *           minimum: 0
+ *           example: 15
+ *         monthlySimulationsUsed:
+ *           type: integer
+ *           minimum: 0
+ *           example: 3
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-20T14:25:00Z"
+ */
 
 @Entity('users')
 @Index(['email'], { unique: true })

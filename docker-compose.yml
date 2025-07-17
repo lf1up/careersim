@@ -5,6 +5,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        NODE_ENV: development
     ports:
       - "3000:3000"
     environment:
@@ -61,6 +63,13 @@ services:
     networks:
       - careersim-network
     restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Running database seed...' &&
+        pnpm run db:seed &&
+        echo 'Database seeding completed! Starting development server...' &&
+        pnpm run dev
+      "
 
   postgres:
     image: postgres:15-alpine
@@ -91,6 +100,7 @@ services:
       - careersim-network
     restart: unless-stopped
     command: redis-server --appendonly yes
+
 
 volumes:
   postgres_data:

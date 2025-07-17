@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { AppDataSource } from '@/config/database';
-import { User, UserRole, SubscriptionTier } from '@/entities/User';
+import { User } from '@/entities/User';
+import { UserRole, SubscriptionTier } from '@/types';
 import { Category } from '@/entities/Category';
 import { Persona, PersonaCategory } from '@/entities/Persona';
 import { Simulation, SimulationDifficulty, SimulationStatus } from '@/entities/Simulation';

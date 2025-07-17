@@ -3,6 +3,9 @@
   "ext": "ts,json",
   "ignore": ["src/**/*.spec.ts", "src/**/*.test.ts"],
   "exec": "ts-node -r tsconfig-paths/register src/server.ts",
+  "legacyWatch": true,
+  "polling": true,
+  "pollingInterval": 1000,
   "env": {
     "NODE_ENV": "development"
   }

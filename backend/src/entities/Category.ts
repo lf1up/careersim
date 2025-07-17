@@ -9,6 +9,64 @@ import {
 } from 'typeorm';
 import { Simulation } from './Simulation';
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Category:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "123e4567-e89b-12d3-a456-426614174000"
+ *         name:
+ *           type: string
+ *           maxLength: 255
+ *           example: "Business Communication"
+ *         slug:
+ *           type: string
+ *           maxLength: 255
+ *           example: "business-communication"
+ *         description:
+ *           type: string
+ *           nullable: true
+ *           example: "Develop your professional communication skills"
+ *         iconUrl:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 255
+ *           example: "https://example.com/icons/business.png"
+ *         color:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 50
+ *           example: "#3B82F6"
+ *         sortOrder:
+ *           type: integer
+ *           minimum: 0
+ *           example: 1
+ *         isActive:
+ *           type: boolean
+ *           example: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         simulations:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Simulation'
+ *         simulationCount:
+ *           type: integer
+ *           minimum: 0
+ *           example: 5
+ */
+
 @Entity('categories')
 @Index(['slug'], { unique: true })
 export class Category {

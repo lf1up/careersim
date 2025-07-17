@@ -7,21 +7,8 @@ import {
   OneToOne,
   JoinColumn,
 } from 'typeorm';
-import { User, SubscriptionTier } from './User';
-
-export enum SubscriptionStatus {
-  ACTIVE = 'active',
-  PAST_DUE = 'past_due',
-  CANCELED = 'canceled',
-  PAUSED = 'paused',
-  TRIALING = 'trialing',
-}
-
-export enum PaymentProvider {
-  STRIPE = 'stripe',
-  PAYPAL = 'paypal',
-  MANUAL = 'manual',
-}
+import { User } from './User';
+import { SubscriptionTier, SubscriptionStatus, PaymentProvider } from '../types';
 
 @Entity('subscriptions')
 export class Subscription {

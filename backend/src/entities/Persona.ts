@@ -15,6 +15,127 @@ export enum PersonaCategory {
   LEADERSHIP = 'leadership',
 }
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Persona:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           format: uuid
+ *           example: "123e4567-e89b-12d3-a456-426614174000"
+ *         name:
+ *           type: string
+ *           maxLength: 255
+ *           example: "Sarah Johnson"
+ *         slug:
+ *           type: string
+ *           maxLength: 255
+ *           example: "sarah-johnson"
+ *         role:
+ *           type: string
+ *           maxLength: 255
+ *           example: "Senior HR Manager"
+ *         personality:
+ *           type: string
+ *           example: "Professional, direct, and results-oriented"
+ *         primaryGoal:
+ *           type: string
+ *           example: "Find the best candidate for senior positions"
+ *         hiddenMotivation:
+ *           type: string
+ *           example: "Under pressure to fill positions quickly"
+ *         category:
+ *           type: string
+ *           enum: [job_seeking, workplace_communication, leadership]
+ *           example: "job_seeking"
+ *         avatarUrl:
+ *           type: string
+ *           nullable: true
+ *           maxLength: 255
+ *           example: "https://example.com/avatars/sarah.jpg"
+ *         backgroundStory:
+ *           type: string
+ *           nullable: true
+ *           example: "Sarah has been in HR for 10 years and values efficiency"
+ *         conversationStyle:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             tone:
+ *               type: string
+ *               example: "professional"
+ *             formality:
+ *               type: string
+ *               example: "formal"
+ *             pace:
+ *               type: string
+ *               example: "fast"
+ *             emotionalRange:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["focused", "impatient", "analytical"]
+ *             commonPhrases:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Let's get to the point", "Time is valuable"]
+ *         triggerWords:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             type: string
+ *           example: ["inexperienced", "unclear"]
+ *         responsePatterns:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             positive:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Excellent point", "That's exactly what we need"]
+ *             negative:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["I'm not convinced", "That's concerning"]
+ *             neutral:
+ *               type: array
+ *               items:
+ *                 type: string
+ *               example: ["Tell me more", "I see"]
+ *         difficultyLevel:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 5
+ *           example: 3
+ *         isActive:
+ *           type: boolean
+ *           example: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *           example: "2024-01-15T10:30:00Z"
+ *         simulations:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Simulation'
+ *         displayName:
+ *           type: string
+ *           example: "Sarah Johnson - Senior HR Manager"
+ *         difficultyText:
+ *           type: string
+ *           example: "Advanced"
+ */
+
 @Entity('personas')
 @Index(['slug'], { unique: true })
 export class Persona {

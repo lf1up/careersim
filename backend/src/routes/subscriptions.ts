@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { Subscription } from '@/entities/Subscription';
-import { User, SubscriptionTier } from '@/entities/User';
+import { User } from '@/entities/User';
+import { SubscriptionTier } from '@/types';
 
 const router: any = Router();
 
