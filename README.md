@@ -4,7 +4,7 @@
 
 ## ✨ Concept Overview
 
-The platform empowers users to build confidence and competence for career-defining moments. By leveraging a powerful generative AI engine, Scenario.ai provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development. The core value proposition is to offer a private, judgment-free "practice room" for the modern professional.
+The platform empowers users to build confidence and competence for career-defining moments. By leveraging a powerful generative AI engine, CareerSim provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development. The core value proposition is to offer a private, judgment-free "practice room" for the modern professional.
 
 ## 🚀 Core Features
 
