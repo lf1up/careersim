@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { Persona } from '@/entities/Persona';
 
@@ -10,6 +11,8 @@ const router: any = Router();
  *   get:
  *     summary: Get all personas
  *     tags: [Personas]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of personas retrieved successfully
@@ -22,6 +25,8 @@ const router: any = Router();
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/Persona'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
  *       500:
  *         description: Server error
  *         content:
@@ -33,8 +38,8 @@ const router: any = Router();
  *                   type: string
  *                   example: Failed to fetch personas
  */
-// Get all personas (public endpoint)
-router.get('/', async (req: Request, res: Response) => {
+// Get all personas (requires authentication)
+router.get('/', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const personaRepository = AppDataSource.getRepository(Persona);
     const personas = await personaRepository.find({
@@ -53,6 +58,8 @@ router.get('/', async (req: Request, res: Response) => {
  *   get:
  *     summary: Get persona by ID
  *     tags: [Personas]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -70,6 +77,8 @@ router.get('/', async (req: Request, res: Response) => {
  *               properties:
  *                 persona:
  *                   $ref: '#/components/schemas/Persona'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
  *       404:
  *         description: Persona not found
  *         content:
@@ -92,7 +101,7 @@ router.get('/', async (req: Request, res: Response) => {
  *                   example: Failed to fetch persona
  */
 // Get persona by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const personaRepository = AppDataSource.getRepository(Persona);
     const persona = await personaRepository.findOne({

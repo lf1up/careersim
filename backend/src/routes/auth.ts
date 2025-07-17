@@ -312,6 +312,29 @@ router.post('/refresh', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current authenticated user
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Get current user
 router.get('/me', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
@@ -428,6 +451,30 @@ router.post('/verify-email', async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout user (mainly for clearing client-side tokens)
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Logged out successfully"
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Logout (mainly for clearing client-side tokens)
 router.post('/logout', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   // In a more sophisticated setup, you might want to blacklist the token

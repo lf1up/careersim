@@ -9,6 +9,64 @@ const router: any = Router();
 // All analytics routes require authentication
 router.use(authenticateToken as any);
 
+/**
+ * @swagger
+ * /api/analytics/performance:
+ *   get:
+ *     summary: Get user's performance analytics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Performance analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalSessions:
+ *                       type: integer
+ *                       description: Total number of sessions
+ *                     completedSessions:
+ *                       type: integer
+ *                       description: Number of completed sessions
+ *                     completionRate:
+ *                       type: number
+ *                       format: float
+ *                       description: Session completion rate as percentage
+ *                 averageScores:
+ *                   type: object
+ *                   properties:
+ *                     avgOverall:
+ *                       type: number
+ *                       format: float
+ *                       description: Average overall score
+ *                     avgCommunication:
+ *                       type: number
+ *                       format: float
+ *                       description: Average communication score
+ *                     avgProblemSolving:
+ *                       type: number
+ *                       format: float
+ *                       description: Average problem solving score
+ *                     avgEmotional:
+ *                       type: number
+ *                       format: float
+ *                       description: Average emotional intelligence score
+ *                 recentAnalytics:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/PerformanceAnalytics'
+ *                   description: Recent performance analytics (last 10)
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Get user's performance analytics
 router.get('/performance', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -59,6 +117,39 @@ router.get('/performance', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/analytics/session/{sessionId}:
+ *   get:
+ *     summary: Get analytics for a specific session
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Session ID to get analytics for
+ *     responses:
+ *       200:
+ *         description: Session analytics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 analytics:
+ *                   $ref: '#/components/schemas/PerformanceAnalytics'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       404:
+ *         description: Analytics not found for this session
+ *       500:
+ *         description: Server error
+ */
 // Get analytics for a specific session
 router.get('/session/:sessionId', async (req: AuthenticatedRequest, res: Response) => {
   try {

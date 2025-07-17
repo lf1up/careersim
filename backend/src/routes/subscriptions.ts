@@ -10,6 +10,36 @@ const router: any = Router();
 // All subscription routes require authentication
 router.use(authenticateToken as any);
 
+/**
+ * @swagger
+ * /api/subscriptions/current:
+ *   get:
+ *     summary: Get current user's subscription details
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 subscription:
+ *                   $ref: '#/components/schemas/Subscription'
+ *                 tier:
+ *                   type: string
+ *                   enum: [FREEMIUM, PRO, PREMIUM]
+ *                   description: Current subscription tier
+ *                 isActive:
+ *                   type: boolean
+ *                   description: Whether the subscription is active
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Get current user's subscription
 router.get('/current', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -29,6 +59,50 @@ router.get('/current', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/subscriptions/plans:
+ *   get:
+ *     summary: Get available subscription plans
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscription plans retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 plans:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       tier:
+ *                         type: string
+ *                         enum: [FREEMIUM, PRO, PREMIUM]
+ *                       name:
+ *                         type: string
+ *                         example: "Pro"
+ *                       price:
+ *                         type: number
+ *                         example: 29.99
+ *                       features:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                         example: ["50 simulations per month", "Advanced AI feedback"]
+ *                       simulationLimit:
+ *                         type: integer
+ *                         example: 50
+ *                         description: Monthly simulation limit (-1 for unlimited)
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Get subscription plans (public info)
 router.get('/plans', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -77,6 +151,55 @@ router.get('/plans', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/subscriptions/upgrade:
+ *   post:
+ *     summary: Upgrade subscription to a new tier
+ *     tags: [Subscriptions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tier
+ *               - paymentToken
+ *             properties:
+ *               tier:
+ *                 type: string
+ *                 enum: [FREEMIUM, PRO, PREMIUM]
+ *                 description: Target subscription tier
+ *               paymentToken:
+ *                 type: string
+ *                 description: Payment token from payment provider
+ *                 example: "tok_1234567890"
+ *     responses:
+ *       200:
+ *         description: Subscription upgraded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Subscription updated successfully"
+ *                 newTier:
+ *                   type: string
+ *                   example: "PRO"
+ *       400:
+ *         description: Invalid subscription tier or payment error
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // Update subscription (placeholder for payment integration)
 router.post('/upgrade', async (req: AuthenticatedRequest, res: Response) => {
   try {

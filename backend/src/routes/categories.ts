@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { Category } from '@/entities/Category';
 
@@ -10,6 +11,8 @@ const router: any = Router();
  *   get:
  *     summary: Get all categories
  *     tags: [Categories]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: List of categories retrieved successfully
@@ -22,6 +25,8 @@ const router: any = Router();
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/Category'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
  *       500:
  *         description: Server error
  *         content:
@@ -33,8 +38,8 @@ const router: any = Router();
  *                   type: string
  *                   example: Failed to fetch categories
  */
-// Get all categories (public endpoint)
-router.get('/', async (req: Request, res: Response) => {
+// Get all categories (requires authentication)
+router.get('/', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const categoryRepository = AppDataSource.getRepository(Category);
     const categories = await categoryRepository.find({
@@ -53,6 +58,8 @@ router.get('/', async (req: Request, res: Response) => {
  *   get:
  *     summary: Get category by ID with simulations
  *     tags: [Categories]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -70,6 +77,8 @@ router.get('/', async (req: Request, res: Response) => {
  *               properties:
  *                 category:
  *                   $ref: '#/components/schemas/Category'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
  *       404:
  *         description: Category not found
  *         content:
@@ -92,7 +101,7 @@ router.get('/', async (req: Request, res: Response) => {
  *                   example: Failed to fetch category
  */
 // Get category by ID with simulations
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const categoryRepository = AppDataSource.getRepository(Category);
     const category = await categoryRepository.findOne({

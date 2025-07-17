@@ -13,7 +13,6 @@ const router: any = Router();
  *     tags: [Simulations]
  *     security:
  *       - bearerAuth: []
- *       - {}
  *     parameters:
  *       - in: query
  *         name: page
@@ -94,8 +93,8 @@ const router: any = Router();
  *       500:
  *         description: Server error
  */
-// Get all published simulations (public endpoint with optional auth)
-router.get('/', optionalAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+// Get all published simulations (requires authentication)
+router.get('/', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { page = 1, limit = 20, category, difficulty } = req.query;
     
@@ -135,7 +134,7 @@ router.get('/', optionalAuth as any, async (req: AuthenticatedRequest, res: Resp
 });
 
 // Get simulation by ID or slug
-router.get('/:idOrSlug', optionalAuth as any, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:idOrSlug', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { idOrSlug } = req.params;
     const simulationRepository = AppDataSource.getRepository(Simulation);

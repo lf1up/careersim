@@ -9,6 +9,64 @@ const router: any = Router();
 // All session routes require authentication
 router.use(authenticateToken as any);
 
+/**
+ * @swagger
+ * /api/sessions:
+ *   get:
+ *     summary: Get user's simulation sessions
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [ACTIVE, COMPLETED, PAUSED]
+ *         description: Filter sessions by status
+ *     responses:
+ *       200:
+ *         description: Sessions retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessions:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SimulationSession'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     current:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     count:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       500:
+ *         description: Server error
+ */
 // Get user's sessions
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -43,6 +101,50 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/sessions:
+ *   post:
+ *     summary: Start a new simulation session
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - simulationId
+ *             properties:
+ *               simulationId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: ID of the simulation to start
+ *               userGoals:
+ *                 type: string
+ *                 description: User's goals for this session
+ *                 example: "Improve my communication skills and practice handling difficult conversations"
+ *     responses:
+ *       201:
+ *         description: Session created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/SimulationSession'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       404:
+ *         description: Simulation not found
+ *       500:
+ *         description: Server error
+ */
 // Start a new session
 router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -73,6 +175,39 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/sessions/{id}:
+ *   get:
+ *     summary: Get specific session details
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Session ID
+ *     responses:
+ *       200:
+ *         description: Session retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/SimulationSession'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       404:
+ *         description: Session not found
+ *       500:
+ *         description: Server error
+ */
 // Get specific session
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -95,6 +230,39 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/sessions/{id}/complete:
+ *   patch:
+ *     summary: Mark a session as completed
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Session ID
+ *     responses:
+ *       200:
+ *         description: Session completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/SimulationSession'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       404:
+ *         description: Session not found
+ *       500:
+ *         description: Server error
+ */
 // Complete a session
 router.patch('/:id/complete', async (req: AuthenticatedRequest, res: Response) => {
   try {

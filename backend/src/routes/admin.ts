@@ -15,6 +15,71 @@ const router: any = Router();
 router.use(authenticateToken as any);
 router.use(requireAdmin as any);
 
+/**
+ * @swagger
+ * /api/admin/dashboard:
+ *   get:
+ *     summary: Get admin dashboard statistics
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 overview:
+ *                   type: object
+ *                   properties:
+ *                     totalUsers:
+ *                       type: integer
+ *                     activeUsers:
+ *                       type: integer
+ *                     totalSimulations:
+ *                       type: integer
+ *                     publishedSimulations:
+ *                       type: integer
+ *                     totalSessions:
+ *                       type: integer
+ *                     completedSessions:
+ *                       type: integer
+ *                     totalSubscriptions:
+ *                       type: integer
+ *                     activeSubscriptions:
+ *                       type: integer
+ *                 userGrowth:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       date:
+ *                         type: string
+ *                         format: date
+ *                       count:
+ *                         type: integer
+ *                 topSimulations:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       title:
+ *                         type: string
+ *                       id:
+ *                         type: string
+ *                       total_sessions:
+ *                         type: integer
+ *                       completed_sessions:
+ *                         type: integer
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
 // Dashboard stats
 router.get('/dashboard', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -91,6 +156,77 @@ router.get('/dashboard', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/users:
+ *   get:
+ *     summary: Get all users with filtering and pagination
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by name or email
+ *       - in: query
+ *         name: tier
+ *         schema:
+ *           type: string
+ *           enum: [FREEMIUM, PRO, PREMIUM]
+ *         description: Filter by subscription tier
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by user status
+ *     responses:
+ *       200:
+ *         description: Users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     current:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     count:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
 // User management
 router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -135,6 +271,52 @@ router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/users/{id}:
+ *   get:
+ *     summary: Get specific user details
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 recentSessions:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SimulationSession'
+ *                 stats:
+ *                   type: object
+ *                   properties:
+ *                     totalSessions:
+ *                       type: integer
+ *                     completedSessions:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // Get specific user details
 router.get('/users/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -174,6 +356,59 @@ router.get('/users/:id', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/users/{id}:
+ *   patch:
+ *     summary: Update user details
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [USER, ADMIN]
+ *                 description: User role
+ *               subscriptionTier:
+ *                 type: string
+ *                 enum: [FREEMIUM, PRO, PREMIUM]
+ *                 description: Subscription tier
+ *               isActive:
+ *                 type: boolean
+ *                 description: Whether user is active
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
 // Update user
 router.patch('/users/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -203,6 +438,71 @@ router.patch('/users/:id', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/simulations:
+ *   get:
+ *     summary: Get all simulations for admin management
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [DRAFT, PUBLISHED, ARCHIVED]
+ *         description: Filter by simulation status
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter by category ID
+ *     responses:
+ *       200:
+ *         description: Simulations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 simulations:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Simulation'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     current:
+ *                       type: integer
+ *                     total:
+ *                       type: integer
+ *                     count:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
 // Simulation management
 router.get('/simulations', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -241,6 +541,66 @@ router.get('/simulations', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/analytics:
+ *   get:
+ *     summary: Get comprehensive analytics overview
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Analytics data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 userStats:
+ *                   type: object
+ *                   properties:
+ *                     totalUsers:
+ *                       type: integer
+ *                     activeUsers:
+ *                       type: integer
+ *                     avgSimulationsPerUser:
+ *                       type: number
+ *                       format: float
+ *                 sessionStats:
+ *                   type: object
+ *                   properties:
+ *                     totalSessions:
+ *                       type: integer
+ *                     avgDuration:
+ *                       type: number
+ *                       format: float
+ *                     avgScore:
+ *                       type: number
+ *                       format: float
+ *                     completedSessions:
+ *                       type: integer
+ *                 popularSimulations:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       title:
+ *                         type: string
+ *                       id:
+ *                         type: string
+ *                       sessionCount:
+ *                         type: integer
+ *                       avgScore:
+ *                         type: number
+ *                         format: float
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
 // Analytics overview
 router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -294,6 +654,48 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/export/users:
+ *   get:
+ *     summary: Export user data for admin analysis
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User data exported successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   firstName:
+ *                     type: string
+ *                   lastName:
+ *                     type: string
+ *                   email:
+ *                     type: string
+ *                   role:
+ *                     type: string
+ *                   subscriptionTier:
+ *                     type: string
+ *                   isActive:
+ *                     type: boolean
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
 // Export data
 router.get('/export/users', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -319,6 +721,61 @@ router.get('/export/users', async (req: AuthenticatedRequest, res: Response) => 
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/export/sessions:
+ *   get:
+ *     summary: Export session data for admin analysis
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Session data exported successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                   durationSeconds:
+ *                     type: integer
+ *                   overallScore:
+ *                     type: number
+ *                     format: float
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                   user:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       firstName:
+ *                         type: string
+ *                       lastName:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                   simulation:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
 router.get('/export/sessions', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const sessionRepository = AppDataSource.getRepository(SimulationSession);
