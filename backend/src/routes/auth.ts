@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { AppDataSource } from '@/config/database';
 import { User, UserRole, SubscriptionTier } from '@/entities/User';
@@ -6,7 +6,7 @@ import { AuthUtils } from '@/utils/auth';
 import { CustomError } from '@/middleware/error';
 import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 
-const router = Router();
+const router: Router = Router();
 const userRepository = AppDataSource.getRepository(User);
 
 // Validation middleware
@@ -44,7 +44,7 @@ const resetPasswordValidation = [
 ];
 
 // Register new user
-router.post('/register', registerValidation, async (req, res) => {
+router.post('/register', registerValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -95,7 +95,7 @@ router.post('/register', registerValidation, async (req, res) => {
 });
 
 // Login user
-router.post('/login', loginValidation, async (req, res) => {
+router.post('/login', loginValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -147,7 +147,7 @@ router.post('/login', loginValidation, async (req, res) => {
 });
 
 // Refresh token
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
@@ -190,7 +190,7 @@ router.post('/refresh', async (req, res) => {
 });
 
 // Get current user
-router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
+router.get('/me', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
   const { password: _, ...userData } = user;
 
@@ -200,7 +200,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
 });
 
 // Forgot password
-router.post('/forgot-password', forgotPasswordValidation, async (req, res) => {
+router.post('/forgot-password', forgotPasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -236,7 +236,7 @@ router.post('/forgot-password', forgotPasswordValidation, async (req, res) => {
 });
 
 // Reset password
-router.post('/reset-password', resetPasswordValidation, async (req, res) => {
+router.post('/reset-password', resetPasswordValidation, async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -274,7 +274,7 @@ router.post('/reset-password', resetPasswordValidation, async (req, res) => {
 });
 
 // Verify email
-router.post('/verify-email', async (req, res) => {
+router.post('/verify-email', async (req: Request, res: Response) => {
   const { token } = req.body;
 
   if (!token) {
@@ -306,7 +306,7 @@ router.post('/verify-email', async (req, res) => {
 });
 
 // Logout (mainly for clearing client-side tokens)
-router.post('/logout', authenticateToken, async (req: AuthenticatedRequest, res) => {
+router.post('/logout', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   // In a more sophisticated setup, you might want to blacklist the token
   res.json({
     message: 'Logged out successfully',

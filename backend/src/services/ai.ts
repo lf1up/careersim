@@ -156,11 +156,14 @@ Remember: You are NOT an AI assistant. You are ${persona.name}, and you have you
     }
 
     // Return the tone with the highest score, or default based on persona
-    const dominantTone = Object.keys(toneScores).reduce((a, b) => 
-      toneScores[a] > toneScores[b] ? a : b
+    const toneKeys = Object.keys(toneScores);
+    if (toneKeys.length === 0) return 'neutral';
+    
+    const dominantTone = toneKeys.reduce((a, b) => 
+      (toneScores[a] || 0) > (toneScores[b] || 0) ? a : b
     );
 
-    return toneScores[dominantTone] > 0 ? dominantTone : 'neutral';
+    return (toneScores[dominantTone] || 0) > 0 ? dominantTone : 'neutral';
   }
 
   /**

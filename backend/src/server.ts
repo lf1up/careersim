@@ -25,7 +25,7 @@ import analyticsRoutes from '@/routes/analytics';
 import adminRoutes from '@/routes/admin';
 import subscriptionRoutes from '@/routes/subscriptions';
 
-const app = express();
+const app: any = express();
 const server = createServer(app);
 
 // Socket.IO setup for real-time communication
