@@ -11,7 +11,7 @@
     "db:migrate:revert": "typeorm migration:revert -d src/config/database.ts",
     "db:generate": "typeorm migration:generate -d src/config/database.ts",
     "db:seed": "ts-node src/scripts/seed.ts",
-    "db:reset": "npm run db:migrate:revert && npm run db:migrate && npm run db:seed",
+    "db:reset": "pnpm run db:migrate:revert && pnpm run db:migrate && pnpm run db:seed",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "test": "jest",
@@ -26,7 +26,7 @@
     "professional-development"
   ],
   "author": "CareerSim Team",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
     "express": "^4.18.2",
     "typeorm": "^0.3.17",

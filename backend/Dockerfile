@@ -1,39 +1,43 @@
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++
+# Install build dependencies and pnpm
+RUN apk add --no-cache python3 make g++ && \
+    corepack enable && \
+    corepack prepare pnpm@latest --activate
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json pnpm-lock.yaml* ./
 
 # Install all dependencies (including dev dependencies for building)
-RUN npm ci
+RUN pnpm install
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN pnpm run build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
-# Create app user for security
-RUN addgroup -g 1001 -S nodejs && \
+# Install pnpm and create app user for security
+RUN corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    addgroup -g 1001 -S nodejs && \
     adduser -S careersim -u 1001
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json pnpm-lock.yaml* ./
 
 # Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN pnpm install --prod && pnpm store prune
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
@@ -62,4 +66,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     req.end();" || exit 1
 
 # Start the application
-CMD ["npm", "start"] 
+CMD ["pnpm", "start"] 
