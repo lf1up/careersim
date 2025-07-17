@@ -6,6 +6,10 @@
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a powerful generative AI engine, CareerSim provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development. The core value proposition is to offer a private, judgment-free "practice room" for the modern professional.
 
+The platform offers an ideal environment for practicing various negotiation skills.
+
+**In the AI-era, you don't need to know how to code ONLY anymore.**
+
 ## 🚀 Core Features
 
 ### 1. **Simulation Library**
@@ -82,7 +86,7 @@ This app is for any individual looking to invest in their professional developme
 ## 🛠️ Proposed Technology Stack
 
 * **Frontend:** React.js (with TypeScript)
-* **Backend:** Node.js (with Nuxt.js)
+* **Backend:** Node.js (with Express.js)
 * **Database:** PostgreSQL (for structured data), Vector Database (for AI knowledge)
 * **AI/LLM:** Google Gemini API, OpenAI GPT API, or DeepSeek (self-hosted)
 * **Deployment:** Cloud platform like AWS, Google Cloud or DigitalOcean (hot start)
