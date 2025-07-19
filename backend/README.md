@@ -51,8 +51,8 @@ src/
 
 ### Prerequisites
 
-- Node.js 18+ 
-- PostgreSQL 13+
+- Node.js 22+ 
+- PostgreSQL 18+
 - Redis (optional)
 - OpenAI API key
 - Stripe account (for payments)
@@ -69,7 +69,7 @@ Create a `.env` file with the following variables:
 
 ```env
 # Server
-PORT=3000
+PORT=8000
 NODE_ENV=development
 
 # Database
@@ -107,16 +107,16 @@ SMTP_PASS=your_app_password
 createdb careersim_db
 
 # Run migrations and seed data
-npm run db:migrate
-npm run db:seed
+pnpm run db:migrate
+pnpm run db:seed
 ```
 
 4. **Start Development Server**:
 ```bash
-npm run dev
+pnpm run dev
 ```
 
-The server will start on `http://localhost:3000`
+The server will start on `http://localhost:8000`
 
 ## 🎭 Features Implemented
 
@@ -222,24 +222,24 @@ Each persona has:
 
 ```bash
 # Development
-npm run dev              # Start with hot reload
-npm run build           # Build for production
-npm run start           # Start production server
+pnpm run dev              # Start with hot reload
+pnpm run build           # Build for production
+pnpm run start           # Start production server
 
 # Database
-npm run db:migrate      # Run migrations
-npm run db:seed         # Seed with sample data
-npm run db:reset        # Reset and reseed database
+pnpm run db:migrate      # Run migrations
+pnpm run db:seed         # Seed with sample data
+pnpm run db:reset        # Reset and reseed database
 
 # Quality
-npm run lint            # ESLint check
-npm run lint:fix        # Fix ESLint issues
-npm run test            # Run tests
+pnpm run lint            # ESLint check
+pnpm run lint:fix        # Fix ESLint issues
+pnpm run test            # Run tests
 ```
 
 ## 🔐 Default Admin Account
 
-After running `npm run db:seed`:
+After running `pnpm run db:seed`:
 - **Email**: `admin@careersim.com`
 - **Password**: `admin123!@#`
 
