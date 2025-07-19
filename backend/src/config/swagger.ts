@@ -28,14 +28,11 @@ const options: swaggerJSDoc.Options = {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
+          description: 'Enter your JWT token in the format: your-jwt-token-here (without "Bearer " prefix)',
         },
       },
     },
-    security: [
-      {
-        bearerAuth: [],
-      },
-    ],
+    // Removed global security - let individual routes specify their security requirements
   },
   apis: [
     './src/routes/*.ts', // Include all route files
