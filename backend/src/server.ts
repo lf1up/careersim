@@ -62,19 +62,24 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
-  message: {
-    error: 'Too many requests from this IP',
-    code: 'RATE_LIMIT_EXCEEDED',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Rate limiting (disabled in development)
+if (!config.isDevelopment) {
+  const limiter = rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    max: config.rateLimit.maxRequests,
+    message: {
+      error: 'Too many requests from this IP',
+      code: 'RATE_LIMIT_EXCEEDED',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
-app.use('/api/', limiter);
+  app.use('/api/', limiter);
+  console.log('✅ Rate limiting enabled for production');
+} else {
+  console.log('🚫 Rate limiting disabled for development');
+}
 
 // Compression middleware
 app.use(compression());

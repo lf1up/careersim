@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Backend API for CareerSim - AI-Powered Career Skills Simulator",
   "main": "dist/server.js",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "nodemon src/server.ts",
     "build": "tsc && tsc-alias",

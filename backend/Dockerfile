@@ -65,12 +65,12 @@ RUN mkdir -p uploads && chown -R careersim:nodejs uploads
 USER careersim
 
 # Expose port
-EXPOSE 3000
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "const http = require('http'); \
-    const options = { host: 'localhost', port: 3000, path: '/health', timeout: 2000 }; \
+    const options = { host: 'localhost', port: 8000, path: '/health', timeout: 2000 }; \
     const req = http.request(options, (res) => { \
       if (res.statusCode === 200) process.exit(0); \
       else process.exit(1); \

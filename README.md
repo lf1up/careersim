@@ -6,9 +6,7 @@
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a powerful generative AI engine, CareerSim provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development. The core value proposition is to offer a private, judgment-free "practice room" for the modern professional.
 
-The platform offers an ideal environment for practicing various negotiation skills.
-
-**In the AI-era, you don't need to know how to code ONLY anymore.**
+💡 🔎 🧐 📚 **In the AI era, knowing how to code is no longer the only requirement.**
 
 ## 🚀 Core Features
 
