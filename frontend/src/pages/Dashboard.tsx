@@ -7,8 +7,7 @@ import { Button } from '../components/ui/Button.tsx';
 import { 
   Simulation, 
   SimulationSession, 
-  PerformanceAnalytics,
-  PaginatedResponse 
+  PerformanceAnalytics
 } from '../types/index.ts';
 
 export const Dashboard: React.FC = () => {

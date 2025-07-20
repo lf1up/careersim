@@ -4,9 +4,15 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import { SocketProvider } from './contexts/SocketContext.tsx';
 import { Navbar } from './components/layout/Navbar.tsx';
+import { AdminRoute } from './components/auth/AdminRoute.tsx';
+import { AdminLayout } from './components/layout/AdminLayout.tsx';
 import { LoginForm } from './components/auth/LoginForm.tsx';
 import { RegisterForm } from './components/auth/RegisterForm.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
+import { AdminDashboard } from './pages/admin/AdminDashboard.tsx';
+import { AdminUsers } from './pages/admin/AdminUsers.tsx';
+import { AdminSimulations } from './pages/admin/AdminSimulations.tsx';
+import { AdminAnalytics } from './pages/admin/AdminAnalytics.tsx';
 import { LoadingSpinner } from './components/ui/LoadingSpinner.tsx';
 import './index.css';
 
@@ -90,6 +96,58 @@ const AppContent: React.FC = () => {
                 <Dashboard />
               </AppLayout>
             </ProtectedRoute>
+          }
+        />
+
+        {/* Admin routes */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminDashboard />
+              </AdminLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminUsers />
+              </AdminLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/simulations"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminSimulations />
+              </AdminLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminAnalytics />
+              </AdminLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/export"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminAnalytics />
+              </AdminLayout>
+            </AdminRoute>
           }
         />
 

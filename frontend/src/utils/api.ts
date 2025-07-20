@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import {
   User,
@@ -21,7 +21,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api',
+      baseURL: 'http://localhost:8000/api',
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
@@ -76,10 +76,10 @@ class ApiClient {
       toast.error('Session expired. Please log in again.');
     } else if (error.response?.status === 403) {
       toast.error('You do not have permission to perform this action.');
-    } else if (error.response?.status >= 500) {
+    } else if (error.response?.status && error.response.status >= 500) {
       toast.error('Server error. Please try again later.');
-    } else if (error.response?.data?.error) {
-      toast.error(error.response.data.error);
+    } else if (error.response?.data && typeof error.response.data === 'object' && 'error' in error.response.data) {
+      toast.error((error.response.data as any).error);
     } else if (error.message) {
       toast.error(error.message);
     }
@@ -221,6 +221,141 @@ class ApiClient {
       tier,
     });
     return response.data.subscription;
+  }
+
+  // Admin API
+  public async getAdminDashboard(): Promise<{
+    overview: {
+      totalUsers: number;
+      activeUsers: number;
+      totalSimulations: number;
+      publishedSimulations: number;
+      totalSessions: number;
+      completedSessions: number;
+      totalSubscriptions: number;
+      activeSubscriptions: number;
+    };
+    userGrowth: { date: string; count: number }[];
+    topSimulations: { title: string; id: string; total_sessions: number; completed_sessions: number }[];
+  }> {
+    const response = await this.client.get('/admin/dashboard');
+    return response.data;
+  }
+
+  public async getAdminUsers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    tier?: string;
+    status?: string;
+  }): Promise<{
+    users: User[];
+    pagination: {
+      current: number;
+      total: number;
+      count: number;
+      limit: number;
+    };
+  }> {
+    const response = await this.client.get('/admin/users', { params });
+    return response.data;
+  }
+
+  public async getAdminUser(id: string): Promise<{
+    user: User;
+    recentSessions: SimulationSession[];
+    stats: {
+      totalSessions: number;
+      completedSessions: number;
+    };
+  }> {
+    const response = await this.client.get(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  public async updateAdminUser(id: string, data: {
+    role?: string;
+    subscriptionTier?: string;
+    isActive?: boolean;
+  }): Promise<{ user: User }> {
+    const response = await this.client.patch(`/admin/users/${id}`, data);
+    return response.data;
+  }
+
+  public async getAdminSimulations(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    category?: string;
+  }): Promise<{
+    simulations: Simulation[];
+    pagination: {
+      current: number;
+      total: number;
+      count: number;
+      limit: number;
+    };
+  }> {
+    const response = await this.client.get('/admin/simulations', { params });
+    return response.data;
+  }
+
+  public async getAdminAnalytics(): Promise<{
+    userStats: {
+      totalUsers: number;
+      activeUsers: number;
+      avgSimulationsPerUser: number;
+    };
+    sessionStats: {
+      totalSessions: number;
+      avgDuration: number;
+      avgScore: number;
+      completedSessions: number;
+    };
+    popularSimulations: {
+      title: string;
+      id: string;
+      sessionCount: number;
+      avgScore: number;
+    }[];
+  }> {
+    const response = await this.client.get('/admin/analytics');
+    return response.data;
+  }
+
+  public async exportAdminUsers(): Promise<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    subscriptionTier: string;
+    isActive: boolean;
+    createdAt: string;
+  }[]> {
+    const response = await this.client.get('/admin/export/users');
+    return response.data;
+  }
+
+  public async exportAdminSessions(): Promise<{
+    id: string;
+    status: string;
+    durationSeconds: number;
+    overallScore: number;
+    createdAt: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+    simulation: {
+      id: string;
+      title: string;
+    };
+  }[]> {
+    const response = await this.client.get('/admin/export/sessions');
+    return response.data;
   }
 }
 

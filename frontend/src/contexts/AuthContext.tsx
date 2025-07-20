@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { User, LoginCredentials, RegisterData } from '../types/index.ts';
+import { User, LoginCredentials, RegisterData, UserRole } from '../types/index.ts';
 import { apiClient } from '../utils/api.ts';
 import toast from 'react-hot-toast';
 
@@ -16,6 +16,7 @@ interface AuthContextType extends AuthState {
   logout: () => void;
   forgotPassword: (email: string) => Promise<void>;
   clearError: () => void;
+  isAdmin: () => boolean;
 }
 
 const initialState: AuthState = {
@@ -146,6 +147,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
+  const isAdmin = (): boolean => {
+    return state.user?.role === UserRole.ADMIN;
+  };
+
   const value: AuthContextType = {
     ...state,
     login,
@@ -153,6 +158,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     forgotPassword,
     clearError,
+    isAdmin,
   };
 
   return (

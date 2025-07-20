@@ -48,6 +48,7 @@ export interface User {
   role: UserRole;
   subscriptionTier: SubscriptionTier;
   isEmailVerified: boolean;
+  isActive: boolean;
   profilePictureUrl?: string;
   bio?: string;
   location?: string;
@@ -219,4 +220,71 @@ export interface LoadingState {
 
 export interface ErrorState {
   [key: string]: string | null;
+}
+
+// Admin interfaces
+export interface AdminDashboardStats {
+  overview: {
+    totalUsers: number;
+    activeUsers: number;
+    totalSimulations: number;
+    publishedSimulations: number;
+    totalSessions: number;
+    completedSessions: number;
+    totalSubscriptions: number;
+    activeSubscriptions: number;
+  };
+  userGrowth: { date: string; count: number }[];
+  topSimulations: { title: string; id: string; total_sessions: number; completed_sessions: number }[];
+}
+
+export interface AdminUserDetails {
+  user: User;
+  recentSessions: SimulationSession[];
+  stats: {
+    totalSessions: number;
+    completedSessions: number;
+  };
+}
+
+export interface AdminUserUpdate {
+  role?: UserRole;
+  subscriptionTier?: SubscriptionTier;
+  isActive?: boolean;
+}
+
+export interface AdminAnalytics {
+  userStats: {
+    totalUsers: number;
+    activeUsers: number;
+    avgSimulationsPerUser: number;
+  };
+  sessionStats: {
+    totalSessions: number;
+    avgDuration: number;
+    avgScore: number;
+    completedSessions: number;
+  };
+  popularSimulations: {
+    title: string;
+    id: string;
+    sessionCount: number;
+    avgScore: number;
+  }[];
+}
+
+export interface AdminFilters {
+  users: {
+    search?: string;
+    tier?: SubscriptionTier;
+    status?: 'active' | 'inactive';
+    page?: number;
+    limit?: number;
+  };
+  simulations: {
+    status?: SimulationStatus;
+    category?: string;
+    page?: number;
+    limit?: number;
+  };
 } 

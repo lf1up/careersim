@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import { Button } from '../ui/Button.tsx';
-import { LoadingSpinner } from '../ui/LoadingSpinner.tsx';
 
 export const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');

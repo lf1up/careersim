@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext.tsx';
-import { SessionMessage } from '../types/index.ts';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -75,7 +74,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       setSocket(null);
       setIsConnected(false);
     }
-  }, [isAuthenticated, user?.id]); // Only depend on user.id, not the entire user object
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]); // socket intentionally omitted to prevent infinite loop
 
   const joinUserRoom = (userId: string): void => {
     if (socket && isConnected) {

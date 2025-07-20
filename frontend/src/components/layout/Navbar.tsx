@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
-import { Button } from '../ui/Button.tsx';
 
 export const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -52,6 +51,14 @@ export const Navbar: React.FC = () => {
               >
                 Analytics
               </Link>
+              {isAdmin() && (
+                <Link
+                  to="/admin"
+                  className="text-secondary-900 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors border border-primary-200 bg-primary-50"
+                >
+                  Admin Panel
+                </Link>
+              )}
             </div>
           </div>
           
@@ -164,6 +171,15 @@ export const Navbar: React.FC = () => {
             >
               Analytics
             </Link>
+            {isAdmin() && (
+              <Link
+                to="/admin"
+                className="block px-3 py-2 text-base font-medium text-primary-700 hover:text-primary-900 hover:bg-primary-50 border-l-4 border-primary-500 transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Admin Panel
+              </Link>
+            )}
             <div className="border-t border-secondary-200 mt-2 pt-2">
               <Link
                 to="/profile"
