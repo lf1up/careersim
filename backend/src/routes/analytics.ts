@@ -96,9 +96,9 @@ router.get('/performance', async (req: AuthenticatedRequest, res: Response) => {
     const avgScores = await sessionRepository
       .createQueryBuilder('session')
       .select('AVG(session.overallScore)', 'avgOverall')
-      .addSelect('AVG(session.scores->"$.communication")', 'avgCommunication')
-      .addSelect('AVG(session.scores->"$.problemSolving")', 'avgProblemSolving')
-      .addSelect('AVG(session.scores->"$.emotional")', 'avgEmotional')
+      .addSelect('AVG((session.scores->>\'communication\')::numeric)', 'avgCommunication')
+      .addSelect('AVG((session.scores->>\'problemSolving\')::numeric)', 'avgProblemSolving')
+      .addSelect('AVG((session.scores->>\'emotional\')::numeric)', 'avgEmotional')
       .where('session.user.id = :userId', { userId: req.user!.id })
       .andWhere('session.overallScore IS NOT NULL')
       .getRawOne();

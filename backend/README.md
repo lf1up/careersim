@@ -52,7 +52,7 @@ src/
 ### Prerequisites
 
 - Node.js 22+ 
-- PostgreSQL 18+
+- PostgreSQL 17+
 - Redis (optional)
 - OpenAI API key
 - Stripe account (for payments)
