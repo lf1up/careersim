@@ -581,7 +581,7 @@ export const AdminSimulations: React.FC = () => {
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Statuses</option>
             <option value={SimulationStatus.DRAFT}>Draft</option>
@@ -591,7 +591,7 @@ export const AdminSimulations: React.FC = () => {
           <select
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Categories</option>
             {/* Categories would be loaded from API */}

@@ -5,6 +5,7 @@ import { UserRole, SubscriptionTier } from '@/types';
 import { Category } from '@/entities/Category';
 import { Persona, PersonaCategory } from '@/entities/Persona';
 import { Simulation, SimulationDifficulty, SimulationStatus } from '@/entities/Simulation';
+import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { AuthUtils } from '@/utils/auth';
 
 const seedData = async (): Promise<void> => {
@@ -23,6 +24,7 @@ const seedData = async (): Promise<void> => {
     await AppDataSource.query('TRUNCATE TABLE personas CASCADE');
     await AppDataSource.query('TRUNCATE TABLE categories CASCADE');
     await AppDataSource.query('TRUNCATE TABLE subscriptions CASCADE');
+    await AppDataSource.query('TRUNCATE TABLE system_configurations CASCADE');
     await AppDataSource.query('TRUNCATE TABLE users CASCADE');
     console.log('🧹 Cleared existing data');
 
@@ -31,6 +33,7 @@ const seedData = async (): Promise<void> => {
     const categoryRepository = AppDataSource.getRepository(Category);
     const personaRepository = AppDataSource.getRepository(Persona);
     const simulationRepository = AppDataSource.getRepository(Simulation);
+    const configRepository = AppDataSource.getRepository(SystemConfiguration);
 
     // Seed Categories
     const categories = [
@@ -342,14 +345,43 @@ const seedData = async (): Promise<void> => {
 
     console.log('👥 Created test users');
 
-    console.log('✅ Database seeding completed successfully!');
+    // Seed System Configurations
+    console.log('\n⚙️ Seeding system configurations...');
     
-    // Print summary
-    console.log('\n📊 Seeding Summary:');
-    console.log(`Categories: ${createdCategories.length}`);
+    const aiSettingsConfig = configRepository.create({
+      configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS,
+      aiModelSettings: SystemConfiguration.getDefaultAISettings(),
+      description: 'AI model configuration settings',
+      isActive: true,
+    });
+
+    const systemPromptsConfig = configRepository.create({
+      configKey: SystemConfiguration.CONFIG_KEYS.SYSTEM_PROMPTS,
+      systemPrompts: SystemConfiguration.getDefaultSystemPrompts(),
+      description: 'System prompt templates for AI interactions',
+      isActive: true,
+    });
+
+    const rateLimitConfig = configRepository.create({
+      configKey: SystemConfiguration.CONFIG_KEYS.RATE_LIMIT_SETTINGS,
+      rateLimitSettings: SystemConfiguration.getDefaultRateLimitSettings(),
+      description: 'Rate limiting configuration for API endpoints',
+      isActive: true,
+    });
+
+    const configs = await configRepository.save([
+      aiSettingsConfig,
+      systemPromptsConfig,
+      rateLimitConfig,
+    ]);
+
+    console.log('✅ Database seeding completed!');
+    console.log('\n📊 Summary:');
+    console.log(`Categories: ${categories.length}`);
     console.log(`Personas: ${createdPersonas.length}`);
     console.log(`Simulations: ${createdSimulations.length}`);
     console.log(`Users: ${testUsers.length + 1} (including admin)`);
+    console.log(`System Configurations: ${configs.length}`);
     console.log('\n🔐 Admin Login:');
     console.log('Email: admin@careersim.com');
     console.log('Password: admin123!@#');

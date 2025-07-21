@@ -8,6 +8,7 @@ import { SimulationSession } from '@/entities/SimulationSession';
 import { SessionMessage } from '@/entities/SessionMessage';
 import { PerformanceAnalytics } from '@/entities/PerformanceAnalytics';
 import { Subscription } from '@/entities/Subscription';
+import { SystemConfiguration } from '@/entities/SystemConfiguration';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ export const AppDataSource = new DataSource({
     SessionMessage,
     PerformanceAnalytics,
     Subscription,
+    SystemConfiguration,
   ],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],

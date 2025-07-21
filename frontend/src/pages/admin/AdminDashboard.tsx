@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   UsersIcon,
   BeakerIcon,
   PlayIcon,
   CheckCircleIcon,
   CreditCardIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../../utils/api.ts';
 import { AdminDashboardStats } from '../../types/index.ts';
@@ -55,6 +57,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend }) 
 );
 
 export const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -222,22 +225,41 @@ export const AdminDashboard: React.FC = () => {
       {/* Quick Actions */}
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <button 
+            onClick={() => navigate('/admin/users')}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
             <UsersIcon className="h-4 w-4 mr-2" />
             Manage Users
           </button>
-          <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button 
+            onClick={() => navigate('/admin/simulations')}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
             <BeakerIcon className="h-4 w-4 mr-2" />
             View Simulations
           </button>
-          <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button 
+            onClick={() => navigate('/admin/analytics')}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
             <CheckCircleIcon className="h-4 w-4 mr-2" />
             Analytics
           </button>
-          <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+          <button 
+            onClick={() => navigate('/admin/export')}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
             <CreditCardIcon className="h-4 w-4 mr-2" />
             Export Data
+          </button>
+          <button 
+            onClick={() => navigate('/admin/system')}
+            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
+            <CpuChipIcon className="h-4 w-4 mr-2" />
+            System
           </button>
         </div>
       </div>

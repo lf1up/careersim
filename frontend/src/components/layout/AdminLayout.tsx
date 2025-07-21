@@ -10,6 +10,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   HomeIcon,
+  CpuChipIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Personas', href: '/admin/personas', icon: UserGroupIcon },
   { name: 'Analytics', href: '/admin/analytics', icon: ChartPieIcon },
   { name: 'Export Data', href: '/admin/export', icon: ArrowDownTrayIcon },
+  { name: 'System', href: '/admin/system', icon: CpuChipIcon },
 ];
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {

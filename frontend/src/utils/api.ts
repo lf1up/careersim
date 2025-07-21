@@ -12,6 +12,7 @@ import {
   SessionMessage,
   PerformanceAnalytics,
   Subscription,
+  PaginationResponse,
 } from '../types';
 
 class ApiClient {
@@ -400,6 +401,60 @@ class ApiClient {
     };
   }[]> {
     const response = await this.client.get('/admin/export/sessions');
+    return response.data;
+  }
+
+  // System Configuration methods
+  public async getSystemConfig(): Promise<{
+    configurations: any[];
+    aiSettings: {
+      model: string;
+      maxTokens: number;
+      temperature: number;
+      frequencyPenalty: number;
+      presencePenalty: number;
+      topP: number;
+    };
+    systemPrompts: {
+      baseSystemPrompt: string;
+      performanceAnalysisPrompt: string;
+    };
+    rateLimitSettings: {
+      windowMs: number;
+      maxRequests: number;
+      enabled: boolean;
+    };
+  }> {
+    const response = await this.client.get('/admin/system/config');
+    return response.data;
+  }
+
+  public async updateAISettings(settings: {
+    model: string;
+    maxTokens: number;
+    temperature: number;
+    frequencyPenalty: number;
+    presencePenalty: number;
+    topP: number;
+  }): Promise<{ message: string; configuration: any }> {
+    const response = await this.client.put('/admin/system/config/ai', settings);
+    return response.data;
+  }
+
+  public async updateSystemPrompts(prompts: {
+    baseSystemPrompt: string;
+    performanceAnalysisPrompt: string;
+  }): Promise<{ message: string; configuration: any }> {
+    const response = await this.client.put('/admin/system/config/prompts', prompts);
+    return response.data;
+  }
+
+  public async updateRateLimitSettings(settings: {
+    windowMs: number;
+    maxRequests: number;
+    enabled: boolean;
+  }): Promise<{ message: string; configuration: any }> {
+    const response = await this.client.put('/admin/system/config/rate-limit', settings);
     return response.data;
   }
 }

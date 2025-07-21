@@ -145,7 +145,7 @@ export const Sessions: React.FC = () => {
             id="status"
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All Statuses</option>
             <option value={SessionStatus.ACTIVE}>Active</option>

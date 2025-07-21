@@ -238,7 +238,7 @@ export const AdminPersonas: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Personas</h1>
-          <p className="text-secondary-600">Manage AI personas for simulations</p>
+          <p className="mt-1 text-sm text-gray-500">Manage AI personas for simulations</p>
         </div>
         <button 
           onClick={handleCreateNew}
@@ -254,7 +254,7 @@ export const AdminPersonas: React.FC = () => {
           <select
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Categories</option>
             <option value={PersonaCategory.JOB_SEEKING}>Job Seeking</option>
@@ -264,7 +264,7 @@ export const AdminPersonas: React.FC = () => {
           <select
             value={filters.active}
             onChange={(e) => handleFilterChange('active', e.target.value)}
-            className="border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Statuses</option>
             <option value="true">Active</option>

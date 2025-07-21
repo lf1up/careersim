@@ -316,7 +316,7 @@ export const AdminUsers: React.FC = () => {
           <select
             value={filters.tier}
             onChange={(e) => handleFilterChange('tier', e.target.value)}
-            className="border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Tiers</option>
             <option value={SubscriptionTier.FREEMIUM}>Freemium</option>
@@ -326,7 +326,7 @@ export const AdminUsers: React.FC = () => {
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>

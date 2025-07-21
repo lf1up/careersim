@@ -19,6 +19,7 @@ import { AdminSimulations } from './pages/admin/AdminSimulations.tsx';
 import { AdminPersonas } from './pages/admin/AdminPersonas.tsx';
 import { AdminAnalytics } from './pages/admin/AdminAnalytics.tsx';
 import { AdminExport } from './pages/admin/AdminExport.tsx';
+import { AdminSystem } from './pages/admin/AdminSystem.tsx';
 import { LoadingSpinner } from './components/ui/LoadingSpinner.tsx';
 import './index.css';
 
@@ -202,6 +203,16 @@ const AppContent: React.FC = () => {
             <AdminRoute>
               <AdminLayout>
                 <AdminExport />
+              </AdminLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/system"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminSystem />
               </AdminLayout>
             </AdminRoute>
           }

@@ -1,13 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { AppDataSource } from '@/config/database';
+import { config } from '@/config/env';
 import { User } from '@/entities/User';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { Persona } from '@/entities/Persona';
 import { Category } from '@/entities/Category';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Subscription } from '@/entities/Subscription';
+import { SystemConfiguration, AIModelSettings, SystemPrompts, RateLimitSettings } from '@/entities/SystemConfiguration';
 import { UserRole, SubscriptionStatus } from '@/types';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '@/middleware/auth';
+import { AIService } from '@/services/ai';
 
 const router: any = Router();
 
@@ -1779,6 +1782,432 @@ router.delete('/personas/:id', async (req: AuthenticatedRequest, res: Response) 
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete persona' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/system/config:
+ *   get:
+ *     summary: Get all system configurations
+ *     tags: [Admin System]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: System configurations retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 configurations:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SystemConfiguration'
+ *                 aiSettings:
+ *                   type: object
+ *                   description: Current AI model settings
+ *                 systemPrompts:
+ *                   type: object
+ *                   description: Current system prompts
+ *                 rateLimitSettings:
+ *                   type: object
+ *                   description: Current rate limiting settings
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
+// Get system configurations
+router.get('/system/config', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const configRepository = AppDataSource.getRepository(SystemConfiguration);
+    
+    const configurations = await configRepository.find({
+      where: { isActive: true },
+      order: { configKey: 'ASC' },
+    });
+
+    // Get specific configurations by key
+    const aiConfig = configurations.find(c => c.configKey === SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS);
+    const promptsConfig = configurations.find(c => c.configKey === SystemConfiguration.CONFIG_KEYS.SYSTEM_PROMPTS);
+    const rateLimitConfig = configurations.find(c => c.configKey === SystemConfiguration.CONFIG_KEYS.RATE_LIMIT_SETTINGS);
+
+    // Merge with defaults to ensure all fields are present (for backward compatibility)
+    const defaultAISettings = SystemConfiguration.getDefaultAISettings();
+    const aiSettings = aiConfig?.aiModelSettings 
+      ? { ...defaultAISettings, ...aiConfig.aiModelSettings }
+      : defaultAISettings;
+
+    // Get actual effective rate limiting status (disabled in development regardless of setting)
+    const configuredRateLimit = rateLimitConfig?.rateLimitSettings || SystemConfiguration.getDefaultRateLimitSettings();
+    const effectiveRateLimit = {
+      ...configuredRateLimit,
+      enabled: configuredRateLimit.enabled && !config.isDevelopment, // Force disabled in development
+      configuredEnabled: configuredRateLimit.enabled, // Store the original setting
+      isDevelopmentOverride: config.isDevelopment, // Let frontend know if dev mode is overriding
+    };
+
+    res.json({
+      configurations,
+      aiSettings,
+      systemPrompts: promptsConfig?.systemPrompts || SystemConfiguration.getDefaultSystemPrompts(),
+      rateLimitSettings: effectiveRateLimit,
+    });
+  } catch (error) {
+    console.error('Error fetching system configurations:', error);
+    res.status(500).json({ error: 'Failed to fetch system configurations' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/system/config/ai:
+ *   put:
+ *     summary: Update AI model settings
+ *     tags: [Admin System]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - model
+ *               - maxTokens
+ *               - temperature
+ *               - frequencyPenalty
+ *               - presencePenalty
+ *               - topP
+ *             properties:
+ *               model:
+ *                 type: string
+ *                 example: "gpt-4-turbo-preview"
+ *               maxTokens:
+ *                 type: integer
+ *                 minimum: 100
+ *                 maximum: 4000
+ *                 example: 2000
+ *               temperature:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 maximum: 2
+ *                 example: 0.8
+ *               frequencyPenalty:
+ *                 type: number
+ *                 format: float
+ *                 minimum: -2
+ *                 maximum: 2
+ *                 example: 0.3
+ *               presencePenalty:
+ *                 type: number
+ *                 format: float
+ *                 minimum: -2
+ *                 maximum: 2
+ *                 example: 0.3
+ *               topP:
+ *                 type: number
+ *                 format: float
+ *                 minimum: 0
+ *                 maximum: 1
+ *                 example: 1.0
+ *     responses:
+ *       200:
+ *         description: AI settings updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "AI settings updated successfully"
+ *                 configuration:
+ *                   $ref: '#/components/schemas/SystemConfiguration'
+ *       400:
+ *         description: Bad request - validation errors
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
+// Update AI model settings
+router.put('/system/config/ai', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const configRepository = AppDataSource.getRepository(SystemConfiguration);
+    const { model, maxTokens, temperature, frequencyPenalty, presencePenalty, topP } = req.body;
+
+    // Validation
+    if (!model || typeof model !== 'string') {
+      return res.status(400).json({ error: 'Valid model name is required' });
+    }
+    if (!maxTokens || maxTokens < 100 || maxTokens > 4000) {
+      return res.status(400).json({ error: 'Max tokens must be between 100 and 4000' });
+    }
+    if (temperature < 0 || temperature > 2) {
+      return res.status(400).json({ error: 'Temperature must be between 0 and 2' });
+    }
+    if (frequencyPenalty < -2 || frequencyPenalty > 2) {
+      return res.status(400).json({ error: 'Frequency penalty must be between -2 and 2' });
+    }
+    if (presencePenalty < -2 || presencePenalty > 2) {
+      return res.status(400).json({ error: 'Presence penalty must be between -2 and 2' });
+    }
+    if (topP < 0 || topP > 1) {
+      return res.status(400).json({ error: 'Top P must be between 0 and 1' });
+    }
+
+    let config = await configRepository.findOne({
+      where: { configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS },
+    });
+
+    const newSettings: AIModelSettings = {
+      model,
+      maxTokens,
+      temperature,
+      frequencyPenalty,
+      presencePenalty,
+      topP,
+    };
+
+    if (config) {
+      config.aiModelSettings = newSettings;
+      config.updatedAt = new Date();
+    } else {
+      config = configRepository.create({
+        configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS,
+        aiModelSettings: newSettings,
+        description: 'AI model configuration settings',
+        isActive: true,
+      });
+    }
+
+    await configRepository.save(config);
+
+    // Clear AI service cache so new settings take effect immediately
+    AIService.clearGlobalConfigCache();
+
+    res.json({
+      message: 'AI settings updated successfully',
+      configuration: config,
+    });
+  } catch (error) {
+    console.error('Error updating AI settings:', error);
+    res.status(500).json({ error: 'Failed to update AI settings' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/system/config/prompts:
+ *   put:
+ *     summary: Update system prompts
+ *     tags: [Admin System]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - baseSystemPrompt
+ *               - performanceAnalysisPrompt
+ *             properties:
+ *               baseSystemPrompt:
+ *                 type: string
+ *                 description: Core prompt template for persona interactions
+ *                 example: "You are {persona.name}, {persona.role}..."
+ *               performanceAnalysisPrompt:
+ *                 type: string
+ *                 description: Prompt for generating user performance feedback
+ *                 example: "Analyze this user's performance..."
+ *     responses:
+ *       200:
+ *         description: System prompts updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "System prompts updated successfully"
+ *                 configuration:
+ *                   $ref: '#/components/schemas/SystemConfiguration'
+ *       400:
+ *         description: Bad request - validation errors
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
+// Update system prompts
+router.put('/system/config/prompts', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const configRepository = AppDataSource.getRepository(SystemConfiguration);
+    const { baseSystemPrompt, performanceAnalysisPrompt } = req.body;
+
+    // Validation
+    if (!baseSystemPrompt || typeof baseSystemPrompt !== 'string' || baseSystemPrompt.trim().length === 0) {
+      return res.status(400).json({ error: 'Base system prompt is required' });
+    }
+    if (!performanceAnalysisPrompt || typeof performanceAnalysisPrompt !== 'string' || performanceAnalysisPrompt.trim().length === 0) {
+      return res.status(400).json({ error: 'Performance analysis prompt is required' });
+    }
+
+    let config = await configRepository.findOne({
+      where: { configKey: SystemConfiguration.CONFIG_KEYS.SYSTEM_PROMPTS },
+    });
+
+    const newPrompts: SystemPrompts = {
+      baseSystemPrompt: baseSystemPrompt.trim(),
+      performanceAnalysisPrompt: performanceAnalysisPrompt.trim(),
+    };
+
+    if (config) {
+      config.systemPrompts = newPrompts;
+      config.updatedAt = new Date();
+    } else {
+      config = configRepository.create({
+        configKey: SystemConfiguration.CONFIG_KEYS.SYSTEM_PROMPTS,
+        systemPrompts: newPrompts,
+        description: 'System prompt templates for AI interactions',
+        isActive: true,
+      });
+    }
+
+    await configRepository.save(config);
+
+    // Clear AI service cache so new prompts take effect immediately
+    AIService.clearGlobalConfigCache();
+
+    res.json({
+      message: 'System prompts updated successfully',
+      configuration: config,
+    });
+  } catch (error) {
+    console.error('Error updating system prompts:', error);
+    res.status(500).json({ error: 'Failed to update system prompts' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/system/config/rate-limit:
+ *   put:
+ *     summary: Update rate limiting settings
+ *     tags: [Admin System]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - windowMs
+ *               - maxRequests
+ *               - enabled
+ *             properties:
+ *               windowMs:
+ *                 type: integer
+ *                 minimum: 60000
+ *                 maximum: 3600000
+ *                 example: 900000
+ *               maxRequests:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 1000
+ *                 example: 100
+ *               enabled:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Rate limit settings updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Rate limit settings updated successfully"
+ *                 configuration:
+ *                   $ref: '#/components/schemas/SystemConfiguration'
+ *       400:
+ *         description: Bad request - validation errors
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
+// Update rate limiting settings
+router.put('/system/config/rate-limit', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const configRepository = AppDataSource.getRepository(SystemConfiguration);
+    const { windowMs, maxRequests, enabled } = req.body;
+
+    // Validation
+    if (!windowMs || windowMs < 60000 || windowMs > 3600000) {
+      return res.status(400).json({ error: 'Window time must be between 1 minute and 1 hour (in milliseconds)' });
+    }
+    if (!maxRequests || maxRequests < 1 || maxRequests > 1000) {
+      return res.status(400).json({ error: 'Max requests must be between 1 and 1000' });
+    }
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'Enabled must be a boolean value' });
+    }
+
+    let config = await configRepository.findOne({
+      where: { configKey: SystemConfiguration.CONFIG_KEYS.RATE_LIMIT_SETTINGS },
+    });
+
+    const newSettings: RateLimitSettings = {
+      windowMs,
+      maxRequests,
+      enabled,
+    };
+
+    if (config) {
+      config.rateLimitSettings = newSettings;
+      config.updatedAt = new Date();
+    } else {
+      config = configRepository.create({
+        configKey: SystemConfiguration.CONFIG_KEYS.RATE_LIMIT_SETTINGS,
+        rateLimitSettings: newSettings,
+        description: 'Rate limiting configuration for API endpoints',
+        isActive: true,
+      });
+    }
+
+    await configRepository.save(config);
+
+    // Clear AI service cache so new settings take effect immediately  
+    AIService.clearGlobalConfigCache();
+
+    res.json({
+      message: 'Rate limit settings updated successfully',
+      configuration: config,
+    });
+  } catch (error) {
+    console.error('Error updating rate limit settings:', error);
+    res.status(500).json({ error: 'Failed to update rate limit settings' });
   }
 });
 

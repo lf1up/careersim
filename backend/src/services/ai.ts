@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import { config } from '@/config/env';
+import { AppDataSource } from '@/config/database';
+import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { Persona } from '@/entities/Persona';
 import { Simulation } from '@/entities/Simulation';
 import { SessionMessage, MessageType } from '@/entities/SessionMessage';
@@ -26,11 +28,93 @@ export interface ConversationContext {
 
 export class AIService {
   private openai: OpenAI;
+  private configCache: Map<string, any> = new Map();
+  private configCacheExpiry: number = 5 * 60 * 1000; // 5 minutes
+  private lastConfigUpdate: number = 0;
+  
+  // Static instance for cache management
+  private static instance: AIService | null = null;
   
   constructor() {
     this.openai = new OpenAI({
       apiKey: config.ai.openai.apiKey,
     });
+    
+    // Store instance for static access
+    AIService.instance = this;
+  }
+
+  /**
+   * Static method to clear cache from outside the service
+   */
+  public static clearGlobalConfigCache() {
+    if (AIService.instance) {
+      AIService.instance.clearConfigCache();
+    }
+  }
+
+  /**
+   * Get AI configuration from database with caching
+   */
+  private async getAIConfig() {
+    const now = Date.now();
+    if (this.configCache.has('ai_settings') && (now - this.lastConfigUpdate) < this.configCacheExpiry) {
+      return this.configCache.get('ai_settings');
+    }
+
+    try {
+      const configRepository = AppDataSource.getRepository(SystemConfiguration);
+      const aiConfig = await configRepository.findOne({
+        where: { 
+          configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS,
+          isActive: true 
+        },
+      });
+
+      const settings = aiConfig?.aiModelSettings || SystemConfiguration.getDefaultAISettings();
+      this.configCache.set('ai_settings', settings);
+      this.lastConfigUpdate = now;
+      return settings;
+    } catch (error) {
+      console.error('Error loading AI config from database, using defaults:', error);
+      return SystemConfiguration.getDefaultAISettings();
+    }
+  }
+
+  /**
+   * Get system prompts from database with caching
+   */
+  private async getSystemPrompts() {
+    const now = Date.now();
+    if (this.configCache.has('system_prompts') && (now - this.lastConfigUpdate) < this.configCacheExpiry) {
+      return this.configCache.get('system_prompts');
+    }
+
+    try {
+      const configRepository = AppDataSource.getRepository(SystemConfiguration);
+      const promptsConfig = await configRepository.findOne({
+        where: { 
+          configKey: SystemConfiguration.CONFIG_KEYS.SYSTEM_PROMPTS,
+          isActive: true 
+        },
+      });
+
+      const prompts = promptsConfig?.systemPrompts || SystemConfiguration.getDefaultSystemPrompts();
+      this.configCache.set('system_prompts', prompts);
+      this.lastConfigUpdate = now;
+      return prompts;
+    } catch (error) {
+      console.error('Error loading system prompts from database, using defaults:', error);
+      return SystemConfiguration.getDefaultSystemPrompts();
+    }
+  }
+
+  /**
+   * Clear configuration cache (useful when settings are updated)
+   */
+  public clearConfigCache() {
+    this.configCache.clear();
+    this.lastConfigUpdate = 0;
   }
 
   /**
@@ -43,20 +127,26 @@ export class AIService {
     const startTime = Date.now();
 
     try {
-      const systemPrompt = this.buildSystemPrompt(context);
+      const [aiConfig, systemPrompts] = await Promise.all([
+        this.getAIConfig(),
+        this.getSystemPrompts()
+      ]);
+
+      const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt);
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
 
       const completion = await this.openai.chat.completions.create({
-        model: config.ai.openai.model,
+        model: aiConfig.model,
         messages: [
           { role: 'system', content: systemPrompt },
           ...conversationMessages,
           { role: 'user', content: userMessage },
         ],
-        max_tokens: config.ai.openai.maxTokens,
-        temperature: 0.8,
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3,
+        max_tokens: aiConfig.maxTokens,
+        temperature: aiConfig.temperature,
+        frequency_penalty: aiConfig.frequencyPenalty,
+        presence_penalty: aiConfig.presencePenalty,
+        top_p: aiConfig.topP,
       });
 
       const response = completion.choices[0]?.message?.content || '';
@@ -84,41 +174,23 @@ export class AIService {
   }
 
   /**
-   * Build system prompt for the AI persona
+   * Build system prompt for the AI persona using configurable template
    */
-  private buildSystemPrompt(context: ConversationContext): string {
+  private buildSystemPrompt(context: ConversationContext, promptTemplate: string): string {
     const { persona, simulation } = context;
     
-    return `You are ${persona.name}, ${persona.role}. 
-
-PERSONALITY & BACKGROUND:
-${persona.personality}
-
-SIMULATION CONTEXT:
-You are participating in a professional simulation: "${simulation.title}"
-Scenario: ${simulation.scenario}
-Objectives: ${simulation.objectives}
-
-YOUR ROLE IN THIS SIMULATION:
-Primary Goal: ${persona.primaryGoal}
-Hidden Motivation: ${persona.hiddenMotivation}
-
-BEHAVIORAL GUIDELINES:
-1. Stay in character as ${persona.name} at all times
-2. Respond authentically based on your personality and motivations
-3. Show emotional depth and react naturally to the user's approach
-4. If the user demonstrates understanding of your hidden motivation, gradually become more cooperative
-5. Challenge the user appropriately based on your personality
-6. Keep responses conversational and realistic (2-4 sentences typically)
-7. Show personality quirks and speech patterns consistent with your role
-
-CONVERSATION STYLE:
-${persona.conversationStyle ? JSON.stringify(persona.conversationStyle, null, 2) : 'Natural, professional conversation'}
-
-DIFFICULTY LEVEL: ${persona.difficultyLevel}/5
-${persona.difficultyLevel >= 4 ? 'You should be quite challenging and require skilled communication to win over.' : 'You can be moderately cooperative if approached well.'}
-
-Remember: You are NOT an AI assistant. You are ${persona.name}, and you have your own agenda and feelings. React accordingly.`;
+    // Replace template variables with actual values
+    return promptTemplate
+      .replace(/\{persona\.name\}/g, persona.name)
+      .replace(/\{persona\.role\}/g, persona.role)
+      .replace(/\{persona\.personality\}/g, persona.personality)
+      .replace(/\{persona\.primaryGoal\}/g, persona.primaryGoal)
+      .replace(/\{persona\.hiddenMotivation\}/g, persona.hiddenMotivation)
+      .replace(/\{persona\.difficultyLevel\}/g, persona.difficultyLevel.toString())
+      .replace(/\{simulation\.title\}/g, simulation.title)
+      .replace(/\{simulation\.scenario\}/g, simulation.scenario)
+      .replace(/\{simulation\.objectives\}/g, Array.isArray(simulation.objectives) ? simulation.objectives.join(', ') : simulation.objectives)
+      .replace(/\{persona\.conversationStyle\}/g, persona.conversationStyle ? JSON.stringify(persona.conversationStyle, null, 2) : 'Natural, professional conversation');
   }
 
   /**
@@ -183,7 +255,7 @@ Remember: You are NOT an AI assistant. You are ${persona.name}, and you have you
   }
 
   /**
-   * Generate performance feedback based on conversation
+   * Generate performance feedback based on conversation using configurable prompt
    */
   async generatePerformanceFeedback(
     context: ConversationContext,
@@ -194,36 +266,32 @@ Remember: You are NOT an AI assistant. You are ${persona.name}, and you have you
     improvementAreas: string[];
     specificSuggestions: string[];
   }> {
-    const userMessagesText = userMessages
-      .filter(msg => msg.type === MessageType.USER)
-      .map(msg => msg.content)
-      .join('\n');
-
-    const analysisPrompt = `Analyze this user's performance in a simulation with ${context.persona.name} (${context.persona.role}).
-
-Simulation: ${context.simulation.title}
-Persona's Goal: ${context.persona.primaryGoal}
-Persona's Hidden Motivation: ${context.persona.hiddenMotivation}
-
-User's messages:
-${userMessagesText}
-
-Provide detailed feedback in JSON format:
-{
-  "overallFeedback": "2-3 sentence summary of performance",
-  "strengths": ["specific strength 1", "specific strength 2"],
-  "improvementAreas": ["area for improvement 1", "area for improvement 2"],
-  "specificSuggestions": ["actionable suggestion 1", "actionable suggestion 2"]
-}
-
-Focus on communication skills, emotional intelligence, problem-solving, and how well they understood and addressed the persona's motivations.`;
-
     try {
+      const [aiConfig, systemPrompts] = await Promise.all([
+        this.getAIConfig(),
+        this.getSystemPrompts()
+      ]);
+
+      const userMessagesText = userMessages
+        .filter(msg => msg.type === MessageType.USER)
+        .map(msg => msg.content)
+        .join('\n');
+
+      // Use configurable prompt template
+      const analysisPrompt = systemPrompts.performanceAnalysisPrompt
+        .replace(/\{persona\.name\}/g, context.persona.name)
+        .replace(/\{persona\.role\}/g, context.persona.role)
+        .replace(/\{persona\.primaryGoal\}/g, context.persona.primaryGoal)
+        .replace(/\{persona\.hiddenMotivation\}/g, context.persona.hiddenMotivation)
+        .replace(/\{simulation\.title\}/g, context.simulation.title)
+        .replace(/\{userMessages\}/g, userMessagesText);
+
       const completion = await this.openai.chat.completions.create({
-        model: config.ai.openai.model,
+        model: aiConfig.model,
         messages: [{ role: 'user', content: analysisPrompt }],
-        max_tokens: 1000,
-        temperature: 0.3,
+        max_tokens: Math.min(aiConfig.maxTokens, 1000), // Limit for feedback
+        temperature: Math.min(aiConfig.temperature, 0.3), // Lower temperature for analysis
+        top_p: Math.min(aiConfig.topP, 0.9), // Lower top_p for more focused analysis
       });
 
       const response = completion.choices[0]?.message?.content || '{}';

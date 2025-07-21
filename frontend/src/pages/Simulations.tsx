@@ -132,7 +132,7 @@ export const Simulations: React.FC = () => {
             id="category"
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All Categories</option>
             <option value="interview">Interview</option>
@@ -151,7 +151,7 @@ export const Simulations: React.FC = () => {
             id="difficulty"
             value={filters.difficulty}
             onChange={(e) => handleFilterChange('difficulty', e.target.value)}
-            className="block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All Levels</option>
             <option value={SimulationDifficulty.BEGINNER}>Beginner</option>
