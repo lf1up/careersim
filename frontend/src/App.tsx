@@ -9,10 +9,14 @@ import { AdminLayout } from './components/layout/AdminLayout.tsx';
 import { LoginForm } from './components/auth/LoginForm.tsx';
 import { RegisterForm } from './components/auth/RegisterForm.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
+import { Simulations } from './pages/Simulations.tsx';
+import { Sessions } from './pages/Sessions.tsx';
+import { Analytics } from './pages/Analytics.tsx';
 import { AdminDashboard } from './pages/admin/AdminDashboard.tsx';
 import { AdminUsers } from './pages/admin/AdminUsers.tsx';
 import { AdminSimulations } from './pages/admin/AdminSimulations.tsx';
 import { AdminAnalytics } from './pages/admin/AdminAnalytics.tsx';
+import { AdminExport } from './pages/admin/AdminExport.tsx';
 import { LoadingSpinner } from './components/ui/LoadingSpinner.tsx';
 import './index.css';
 
@@ -98,6 +102,36 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/simulations"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Simulations />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sessions"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Sessions />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Analytics />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin routes */}
         <Route
@@ -145,7 +179,7 @@ const AppContent: React.FC = () => {
           element={
             <AdminRoute>
               <AdminLayout>
-                <AdminAnalytics />
+                <AdminExport />
               </AdminLayout>
             </AdminRoute>
           }

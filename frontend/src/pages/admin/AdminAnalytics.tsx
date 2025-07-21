@@ -4,7 +4,6 @@ import {
   ClockIcon,
   TrophyIcon,
   ChartBarIcon,
-  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../../utils/api.ts';
 import { AdminAnalytics as AdminAnalyticsType } from '../../types/index.ts';
@@ -50,7 +49,6 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, value, icon: Icon,
 export const AdminAnalytics: React.FC = () => {
   const [analytics, setAnalytics] = useState<AdminAnalyticsType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState<'users' | 'sessions' | null>(null);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -69,40 +67,7 @@ export const AdminAnalytics: React.FC = () => {
     fetchAnalytics();
   }, []);
 
-  const handleExport = async (type: 'users' | 'sessions') => {
-    try {
-      setExporting(type);
-      
-      let data;
-      let filename;
-      
-      if (type === 'users') {
-        data = await apiClient.exportAdminUsers();
-        filename = `users-export-${new Date().toISOString().split('T')[0]}.json`;
-      } else {
-        data = await apiClient.exportAdminSessions();
-        filename = `sessions-export-${new Date().toISOString().split('T')[0]}.json`;
-      }
 
-      // Create and download file
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      toast.success(`${type} data exported successfully`);
-    } catch (error) {
-      toast.error(`Failed to export ${type} data`);
-      console.error('Export error:', error);
-    } finally {
-      setExporting(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -133,39 +98,11 @@ export const AdminAnalytics: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics & Insights</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Comprehensive analytics about platform usage and performance
-          </p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => handleExport('users')}
-            disabled={exporting === 'users'}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {exporting === 'users' ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-            )}
-            Export Users
-          </button>
-          <button
-            onClick={() => handleExport('sessions')}
-            disabled={exporting === 'sessions'}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {exporting === 'sessions' ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-            )}
-            Export Sessions
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Analytics & Insights</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Comprehensive analytics about platform usage and performance
+        </p>
       </div>
 
       {/* User Statistics */}

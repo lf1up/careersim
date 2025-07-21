@@ -12,7 +12,6 @@ import {
   SessionMessage,
   PerformanceAnalytics,
   Subscription,
-  PaginatedResponse,
 } from '../types';
 
 class ApiClient {
@@ -137,8 +136,8 @@ class ApiClient {
     limit?: number;
     category?: string;
     difficulty?: string;
-  }): Promise<PaginatedResponse<Simulation>> {
-    const response = await this.client.get<PaginatedResponse<Simulation>>('/simulations', { params });
+  }): Promise<{ simulations: Simulation[]; pagination: any }> {
+    const response = await this.client.get<{ simulations: Simulation[]; pagination: any }>('/simulations', { params });
     return response.data;
   }
 
@@ -164,8 +163,8 @@ class ApiClient {
     page?: number;
     limit?: number;
     status?: string;
-  }): Promise<PaginatedResponse<SimulationSession>> {
-    const response = await this.client.get<PaginatedResponse<SimulationSession>>('/sessions', { params });
+  }): Promise<{ sessions: SimulationSession[]; pagination: any }> {
+    const response = await this.client.get<{ sessions: SimulationSession[]; pagination: any }>('/sessions', { params });
     return response.data;
   }
 

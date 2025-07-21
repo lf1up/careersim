@@ -30,7 +30,7 @@ export const Dashboard: React.FC = () => {
             page: 1, 
             limit: 6 
           });
-          setSimulations(simulationsResponse?.data || []);
+          setSimulations(simulationsResponse?.simulations || []);
         } catch (error) {
           console.error('Failed to fetch simulations:', error);
           setSimulations([]);
@@ -42,7 +42,7 @@ export const Dashboard: React.FC = () => {
             page: 1, 
             limit: 5 
           });
-          setRecentSessions(sessionsResponse?.data || []);
+          setRecentSessions(sessionsResponse?.sessions || []);
         } catch (error) {
           console.error('Failed to fetch sessions:', error);
           setRecentSessions([]);
@@ -161,7 +161,7 @@ export const Dashboard: React.FC = () => {
                     </p>
                     <div className="flex justify-between items-center mt-3">
                       <span className="text-xs text-secondary-500">
-                        {simulation.estimatedDuration} min
+                        {simulation.estimatedDurationMinutes} min
                       </span>
                       <Link to={`/simulations/${simulation.id}`}>
                         <Button size="sm">Start</Button>

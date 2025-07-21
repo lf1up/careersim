@@ -607,50 +607,74 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
     const sessionRepository = AppDataSource.getRepository(SimulationSession);
     const userRepository = AppDataSource.getRepository(User);
 
-    // User engagement metrics
-    const userStats = await userRepository
-      .createQueryBuilder('user')
-      .select([
-        'COUNT(*) as totalUsers',
-        'SUM(CASE WHEN user.isActive = 1 THEN 1 ELSE 0 END) as activeUsers',
-        'AVG(user.monthlySimulationsUsed) as avgSimulationsPerUser',
-      ])
-      .getRawOne();
+    console.log('Starting analytics fetch...');
 
-    // Session performance metrics
-    const sessionStats = await sessionRepository
-      .createQueryBuilder('session')
-      .select([
-        'COUNT(*) as totalSessions',
-        'AVG(session.durationSeconds) as avgDuration',
-        'AVG(session.overallScore) as avgScore',
-        'SUM(CASE WHEN session.status = :completed THEN 1 ELSE 0 END) as completedSessions',
-      ])
-      .setParameter('completed', SessionStatus.COMPLETED)
-      .getRawOne();
+    // Simple user count first
+    const totalUsers = await userRepository.count();
+    const activeUsers = await userRepository.count({ where: { isActive: true } });
+    
+    console.log('User counts:', { totalUsers, activeUsers });
 
-    // Popular simulations
-    const popularSimulations = await sessionRepository
-      .createQueryBuilder('session')
-      .leftJoin('session.simulation', 'simulation')
-      .select([
-        'simulation.title',
-        'simulation.id',
-        'COUNT(session.id) as sessionCount',
-        'AVG(session.overallScore) as avgScore',
-      ])
-      .groupBy('simulation.id')
-      .orderBy('sessionCount', 'DESC')
-      .limit(10)
-      .getRawMany();
+    // Simple session count
+    const totalSessions = await sessionRepository.count();
+    const completedSessions = await sessionRepository.count({ 
+      where: { status: SessionStatus.COMPLETED } 
+    });
+
+    console.log('Session counts:', { totalSessions, completedSessions });
+
+    // Calculate averages safely
+    let avgSimulationsPerUser = 0;
+    let avgDuration = 0;
+    let avgScore = 0;
+
+    if (totalUsers > 0) {
+      const users = await userRepository.find({ 
+        select: ['monthlySimulationsUsed'] 
+      });
+      avgSimulationsPerUser = users.reduce((sum, user) => sum + user.monthlySimulationsUsed, 0) / totalUsers;
+    }
+
+    if (totalSessions > 0) {
+      const sessions = await sessionRepository.find({ 
+        select: ['durationSeconds', 'overallScore'] 
+      });
+      avgDuration = sessions.reduce((sum, session) => sum + session.durationSeconds, 0) / totalSessions;
+      
+      const sessionsWithScore = sessions.filter(s => s.overallScore !== null && s.overallScore !== undefined);
+      if (sessionsWithScore.length > 0) {
+        avgScore = sessionsWithScore.reduce((sum, session) => sum + (session.overallScore || 0), 0) / sessionsWithScore.length;
+      }
+    }
+
+    console.log('Calculated averages:', { avgSimulationsPerUser, avgDuration, avgScore });
+
+    // Get popular simulations - simplified
+    const popularSimulations: any[] = [];
 
     res.json({
-      userStats,
-      sessionStats,
+      userStats: {
+        totalUsers,
+        activeUsers,
+        avgSimulationsPerUser: Number(avgSimulationsPerUser.toFixed(1)),
+      },
+      sessionStats: {
+        totalSessions,
+        avgDuration: Number(avgDuration.toFixed(0)),
+        avgScore: Number(avgScore.toFixed(1)),
+        completedSessions,
+      },
       popularSimulations,
     });
+
+    console.log('Analytics response sent successfully');
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch analytics' });
+    console.error('Analytics error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch analytics',
+      details: error.message 
+    });
   }
 });
 

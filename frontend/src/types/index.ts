@@ -121,7 +121,7 @@ export interface Simulation {
   objectives: string[];
   scenario: string;
   difficulty: SimulationDifficulty;
-  estimatedDuration: number;
+  estimatedDurationMinutes: number;
   status: SimulationStatus;
   thumbnailUrl?: string;
   tags: string[];
