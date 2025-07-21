@@ -449,14 +449,7 @@ class ApiClient {
     return response.data;
   }
 
-  public async updateRateLimitSettings(settings: {
-    windowMs: number;
-    maxRequests: number;
-    enabled: boolean;
-  }): Promise<{ message: string; configuration: any }> {
-    const response = await this.client.put('/admin/system/config/rate-limit', settings);
-    return response.data;
-  }
+
 }
 
 export const apiClient = new ApiClient(); 

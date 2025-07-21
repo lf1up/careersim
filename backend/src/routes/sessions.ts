@@ -78,7 +78,27 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       .where('session.user.id = :userId', { userId: req.user!.id });
 
     if (status) {
-      queryBuilder.andWhere('session.status = :status', { status });
+      // Map frontend status values to backend enum values
+      let mappedStatus: string;
+      switch (status) {
+        case 'active':
+          // Map 'active' to both 'started' and 'in_progress' statuses
+          queryBuilder.andWhere('session.status IN (:...statuses)', { 
+            statuses: [SessionStatus.STARTED, SessionStatus.IN_PROGRESS] 
+          });
+          break;
+        case 'completed':
+          mappedStatus = SessionStatus.COMPLETED;
+          queryBuilder.andWhere('session.status = :status', { status: mappedStatus });
+          break;
+        case 'paused':
+          mappedStatus = SessionStatus.PAUSED;
+          queryBuilder.andWhere('session.status = :status', { status: mappedStatus });
+          break;
+        default:
+          // If it's already a valid backend enum value, use it directly
+          queryBuilder.andWhere('session.status = :status', { status });
+      }
     }
 
     const [sessions, total] = await queryBuilder

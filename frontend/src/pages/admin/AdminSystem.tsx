@@ -536,7 +536,7 @@ export const AdminSystem: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="bg-gray-50 p-4 rounded-lg relative">
                   <pre className={`text-sm text-gray-800 whitespace-pre-wrap font-mono overflow-x-auto ${!expandedPrompts.base ? 'max-h-32 overflow-hidden' : ''}`}>
                     {config.systemPrompts.baseSystemPrompt}
                   </pre>

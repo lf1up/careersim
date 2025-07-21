@@ -521,7 +521,13 @@ router.get('/simulations', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     if (category) {
-      queryBuilder.andWhere('category.id = :category', { category });
+      // Support both ID (UUID) and slug for category filtering
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(category as string);
+      if (isUUID) {
+        queryBuilder.andWhere('category.id = :category', { category });
+      } else {
+        queryBuilder.andWhere('category.slug = :categorySlug', { categorySlug: category });
+      }
     }
 
     const [simulations, total] = await queryBuilder
@@ -2103,112 +2109,6 @@ router.put('/system/config/prompts', requireAdmin as any, async (req: Authentica
   }
 });
 
-/**
- * @swagger
- * /api/admin/system/config/rate-limit:
- *   put:
- *     summary: Update rate limiting settings
- *     tags: [Admin System]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - windowMs
- *               - maxRequests
- *               - enabled
- *             properties:
- *               windowMs:
- *                 type: integer
- *                 minimum: 60000
- *                 maximum: 3600000
- *                 example: 900000
- *               maxRequests:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 1000
- *                 example: 100
- *               enabled:
- *                 type: boolean
- *                 example: true
- *     responses:
- *       200:
- *         description: Rate limit settings updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Rate limit settings updated successfully"
- *                 configuration:
- *                   $ref: '#/components/schemas/SystemConfiguration'
- *       400:
- *         description: Bad request - validation errors
- *       401:
- *         description: Unauthorized - invalid or missing token
- *       403:
- *         description: Forbidden - admin access required
- *       500:
- *         description: Server error
- */
-// Update rate limiting settings
-router.put('/system/config/rate-limit', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const configRepository = AppDataSource.getRepository(SystemConfiguration);
-    const { windowMs, maxRequests, enabled } = req.body;
 
-    // Validation
-    if (!windowMs || windowMs < 60000 || windowMs > 3600000) {
-      return res.status(400).json({ error: 'Window time must be between 1 minute and 1 hour (in milliseconds)' });
-    }
-    if (!maxRequests || maxRequests < 1 || maxRequests > 1000) {
-      return res.status(400).json({ error: 'Max requests must be between 1 and 1000' });
-    }
-    if (typeof enabled !== 'boolean') {
-      return res.status(400).json({ error: 'Enabled must be a boolean value' });
-    }
-
-    let config = await configRepository.findOne({
-      where: { configKey: SystemConfiguration.CONFIG_KEYS.RATE_LIMIT_SETTINGS },
-    });
-
-    const newSettings: RateLimitSettings = {
-      windowMs,
-      maxRequests,
-      enabled,
-    };
-
-    if (config) {
-      config.rateLimitSettings = newSettings;
-      config.updatedAt = new Date();
-    } else {
-      config = configRepository.create({
-        configKey: SystemConfiguration.CONFIG_KEYS.RATE_LIMIT_SETTINGS,
-        rateLimitSettings: newSettings,
-        description: 'Rate limiting configuration for API endpoints',
-        isActive: true,
-      });
-    }
-
-    await configRepository.save(config);
-
-    // Clear AI service cache so new settings take effect immediately  
-    AIService.clearGlobalConfigCache();
-
-    res.json({
-      message: 'Rate limit settings updated successfully',
-      configuration: config,
-    });
-  } catch (error) {
-    console.error('Error updating rate limit settings:', error);
-    res.status(500).json({ error: 'Failed to update rate limit settings' });
-  }
-});
 
 export default router; 

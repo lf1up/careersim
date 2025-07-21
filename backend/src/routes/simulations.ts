@@ -105,7 +105,13 @@ router.get('/', authenticateToken as any, async (req: AuthenticatedRequest, res:
       .where('simulation.status = :status', { status: SimulationStatus.PUBLISHED });
 
     if (category) {
-      queryBuilder.andWhere('category.id = :category', { category });
+      // Support both ID (UUID) and slug for category filtering
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(category as string);
+      if (isUUID) {
+        queryBuilder.andWhere('category.id = :category', { category });
+      } else {
+        queryBuilder.andWhere('category.slug = :categorySlug', { categorySlug: category });
+      }
     }
 
     if (difficulty) {

@@ -65,41 +65,66 @@ npm install
 ```
 
 2. **Environment Setup**:
-Create a `.env` file with the following variables:
+Create a `.env` file in the backend directory with the following variables:
 
 ```env
 # Server
-PORT=8000
 NODE_ENV=development
+PORT=8000
 
 # Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=careersim_user
-DB_PASSWORD=your_password
-DB_DATABASE=careersim_db
+DB_USERNAME=careersim
+DB_PASSWORD=careersim_password
+DB_DATABASE=careersim
+DB_SYNCHRONIZE=true
+DB_LOGGING=false
 
-# JWT
-JWT_SECRET=your_very_long_and_secure_jwt_secret_key_here
-JWT_REFRESH_SECRET=your_very_long_refresh_secret_key_here
+# JWT - Generate your own secure keys in production
+JWT_SECRET=your-super-secret-jwt-key-change-in-production-32chars
+JWT_EXPIRES_IN=7d
+JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-in-production-32chars
+JWT_REFRESH_EXPIRES_IN=30d
 
 # Session
-SESSION_SECRET=your_session_secret_here
+SESSION_SECRET=your-super-secret-session-key-change-in-production-32chars
 
-# OpenAI
-OPENAI_API_KEY=your_openai_api_key_here
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
 
-# Stripe
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
-
-# Email (for notifications)
-SMTP_HOST=smtp.gmail.com
+# Email (configure with your SMTP provider)
+SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
+SMTP_SECURE=false
+SMTP_USER=your-email@example.com
+SMTP_PASS=your-email-password
+
+# AI Services (add your OpenAI API key)
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4-turbo-preview
+OPENAI_MAX_TOKENS=2000
+
+# Stripe (add your Stripe keys)
+STRIPE_SECRET_KEY=your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
+STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
+
+# File Upload
+MAX_FILE_SIZE=10485760
+UPLOAD_PATH=./uploads
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# CORS
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
+
+> **Note**: All these environment variables are validated by the backend on startup. Make sure to update the placeholder values with your actual API keys and credentials.
 
 3. **Database Setup**:
 ```bash
@@ -117,6 +142,32 @@ pnpm run dev
 ```
 
 The server will start on `http://localhost:8000`
+
+## 🐳 Docker Development
+
+For Docker-based development using docker-compose:
+
+1. **Create the `.env` file** in the backend directory (as shown above)
+
+2. **Start the full stack** from the project root:
+```bash
+docker-compose up --build
+```
+
+The docker-compose setup will:
+- Read environment variables from `backend/.env`
+- Override Docker-specific settings automatically (`DB_HOST=postgres`, `REDIS_HOST=redis`)
+- Start PostgreSQL, Redis, backend, and frontend services
+- Handle database seeding automatically
+- Enable hot reload for development
+
+3. **Services will be available at**:
+- Backend API: `http://localhost:8000`
+- Frontend: `http://localhost:3000`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+
+> **Note**: The .env file uses `localhost` for `DB_HOST` and `REDIS_HOST` for local development, but Docker Compose automatically overrides these to use the Docker service names (`postgres` and `redis`).
 
 ## 🎭 Features Implemented
 
