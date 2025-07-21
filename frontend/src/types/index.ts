@@ -49,12 +49,17 @@ export interface User {
   subscriptionTier: SubscriptionTier;
   isEmailVerified: boolean;
   isActive: boolean;
-  profilePictureUrl?: string;
+  profileImageUrl?: string;
   bio?: string;
+  jobTitle?: string;
+  company?: string;
+  industry?: string;
   location?: string;
   websiteUrl?: string;
   linkedinUrl?: string;
   githubUrl?: string;
+  totalSimulationsCompleted?: number;
+  monthlySimulationsUsed?: number;
   lastLoginAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -96,21 +101,43 @@ export interface Category {
   updatedAt: string;
 }
 
+export enum PersonaCategory {
+  JOB_SEEKING = 'job_seeking',
+  WORKPLACE_COMMUNICATION = 'workplace_communication',
+  LEADERSHIP = 'leadership',
+}
+
 export interface Persona {
   id: string;
   name: string;
-  title: string;
-  company: string;
-  description: string;
-  avatarUrl?: string;
+  slug: string;
+  role: string;
   personality: string;
-  communicationStyle: string;
-  decisionMakingStyle: string;
-  stressLevel: number;
-  experience: number;
-  industry: string;
+  primaryGoal: string;
+  hiddenMotivation: string;
+  category: PersonaCategory;
+  avatarUrl?: string;
+  backgroundStory?: string;
+  conversationStyle?: {
+    tone: string;
+    formality: string;
+    pace: string;
+    emotionalRange: string[];
+    commonPhrases: string[];
+  };
+  triggerWords?: string[];
+  responsePatterns?: {
+    positive: string[];
+    negative: string[];
+    neutral: string[];
+  };
+  difficultyLevel: number;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  simulations?: Simulation[];
+  displayName: string;
+  difficultyText: string;
 }
 
 export interface Simulation {
@@ -287,4 +314,11 @@ export interface AdminFilters {
     page?: number;
     limit?: number;
   };
+}
+
+export interface PaginationResponse {
+  current: number;
+  total: number;
+  count: number;
+  limit: number;
 } 

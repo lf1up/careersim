@@ -103,7 +103,7 @@ router.get('/profile', authenticateToken as any, async (req: AuthenticatedReques
 router.patch('/profile', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userRepository = AppDataSource.getRepository(User);
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, bio, jobTitle, company, industry, profileImageUrl } = req.body;
     
     const user = await userRepository.findOne({ where: { id: req.user!.id } });
     
@@ -111,13 +111,22 @@ router.patch('/profile', authenticateToken as any, async (req: AuthenticatedRequ
       return res.status(404).json({ error: 'User not found' });
     }
 
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
+    // Update profile fields if provided
+    if (firstName !== undefined) user.firstName = firstName;
+    if (lastName !== undefined) user.lastName = lastName;
+    if (bio !== undefined) user.bio = bio;
+    if (jobTitle !== undefined) user.jobTitle = jobTitle;
+    if (company !== undefined) user.company = company;
+    if (industry !== undefined) user.industry = industry;
+    if (profileImageUrl !== undefined) user.profileImageUrl = profileImageUrl;
 
     await userRepository.save(user);
     
     const { password: _, ...userProfile } = user;
-    res.json({ user: userProfile });
+    res.json({ 
+      message: 'Profile updated successfully',
+      user: userProfile 
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update user profile' });
   }

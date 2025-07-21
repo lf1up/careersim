@@ -158,6 +158,52 @@ class ApiClient {
     return response.data.personas;
   }
 
+  // Admin Personas API
+  public async getAdminPersonas(params?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    search?: string;
+    active?: boolean;
+  }): Promise<{ personas: Persona[]; pagination: PaginationResponse }> {
+    const response = await this.client.get<{ personas: Persona[]; pagination: PaginationResponse }>('/admin/personas', { params });
+    return response.data;
+  }
+
+  public async getAdminPersona(id: string): Promise<{ persona: Persona; stats: { totalSimulations: number; totalSessions: number; avgScore: number } }> {
+    const response = await this.client.get<{ persona: Persona; stats: { totalSimulations: number; totalSessions: number; avgScore: number } }>(`/admin/personas/${id}`);
+    return response.data;
+  }
+
+  public async createPersona(data: Partial<Persona>): Promise<Persona> {
+    const response = await this.client.post<{ persona: Persona }>('/admin/personas', data);
+    return response.data.persona;
+  }
+
+  public async updatePersona(id: string, data: Partial<Persona>): Promise<Persona> {
+    const response = await this.client.patch<{ persona: Persona }>(`/admin/personas/${id}`, data);
+    return response.data.persona;
+  }
+
+  public async deletePersona(id: string): Promise<void> {
+    await this.client.delete(`/admin/personas/${id}`);
+  }
+
+  // Admin Simulations API
+  public async getAdminSimulation(id: string): Promise<{ simulation: Simulation; stats: { totalSessions: number; completedSessions: number; avgScore: number } }> {
+    const response = await this.client.get<{ simulation: Simulation; stats: { totalSessions: number; completedSessions: number; avgScore: number } }>(`/admin/simulations/${id}`);
+    return response.data;
+  }
+
+  public async updateSimulation(id: string, data: Partial<Simulation>): Promise<Simulation> {
+    const response = await this.client.patch<{ simulation: Simulation }>(`/admin/simulations/${id}`, data);
+    return response.data.simulation;
+  }
+
+  public async deleteSimulation(id: string): Promise<void> {
+    await this.client.delete(`/admin/simulations/${id}`);
+  }
+
   // Sessions API
   public async getSessions(params?: {
     page?: number;

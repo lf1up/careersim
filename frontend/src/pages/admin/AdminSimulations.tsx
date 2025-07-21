@@ -8,6 +8,7 @@ import {
 import { apiClient } from '../../utils/api.ts';
 import { Simulation, SimulationStatus, SimulationDifficulty } from '../../types/index.ts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
+import { Button } from '../../components/ui/Button.tsx';
 import toast from 'react-hot-toast';
 
 const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
@@ -46,9 +47,11 @@ const getDifficultyColor = (difficulty: SimulationDifficulty): string => {
 
 interface SimulationsTableProps {
   simulations: Simulation[];
+  onEdit: (simulation: Simulation) => void;
+  onDelete: (simulation: Simulation) => void;
 }
 
-const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations }) => {
+const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit, onDelete }) => {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full bg-white divide-y divide-gray-200">
@@ -125,7 +128,7 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations }) => {
                     ? 'bg-yellow-100 text-yellow-800'
                     : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {simulation.status}
+                  {simulation.status.charAt(0).toUpperCase() + simulation.status.slice(1).toLowerCase()}
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -148,11 +151,17 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations }) => {
                 {new Date(simulation.createdAt).toLocaleDateString()}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button className="text-primary-600 hover:text-primary-900 mr-4">
-                  View
-                </button>
-                <button className="text-gray-600 hover:text-gray-900">
+                <button
+                  onClick={() => onEdit(simulation)}
+                  className="text-primary-600 hover:text-primary-900 mr-3"
+                >
                   Edit
+                </button>
+                <button
+                  onClick={() => onDelete(simulation)}
+                  className="text-red-600 hover:text-red-900"
+                >
+                  Delete
                 </button>
               </td>
             </tr>
@@ -163,9 +172,222 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations }) => {
   );
 };
 
+interface EditSimulationModalProps {
+  simulation: Simulation;
+  onClose: () => void;
+  onSave: (simulation: Simulation) => void;
+}
+
+const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    title: simulation.title,
+    description: simulation.description,
+    scenario: simulation.scenario,
+    difficulty: simulation.difficulty,
+    status: simulation.status,
+    estimatedDurationMinutes: simulation.estimatedDurationMinutes,
+    isPublic: simulation.isPublic,
+    objectives: Array.isArray(simulation.objectives) ? simulation.objectives.join('\n') : '',
+    tags: Array.isArray(simulation.tags) ? simulation.tags.join(', ') : '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const updateData = {
+        title: formData.title,
+        description: formData.description,
+        scenario: formData.scenario,
+        difficulty: formData.difficulty,
+        status: formData.status,
+        estimatedDurationMinutes: formData.estimatedDurationMinutes,
+        isPublic: formData.isPublic,
+        objectives: formData.objectives ? formData.objectives.split('\n').filter(obj => obj.trim() !== '') : [],
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+      };
+
+      const updatedSimulation = await apiClient.updateSimulation(simulation.id, updateData);
+      toast.success('Simulation updated successfully');
+      onSave(updatedSimulation);
+    } catch (error: any) {
+      console.error('Failed to update simulation:', error);
+      const message = error.response?.data?.error || 'Failed to update simulation';
+      toast.error(message);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-secondary-900">
+              Edit Simulation
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-secondary-400 hover:text-secondary-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Duration (minutes) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={formData.estimatedDurationMinutes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, estimatedDurationMinutes: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Difficulty *
+                </label>
+                <select
+                  required
+                  value={formData.difficulty}
+                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: Number(e.target.value) as SimulationDifficulty }))}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={SimulationDifficulty.BEGINNER}>1 - Beginner</option>
+                  <option value={SimulationDifficulty.INTERMEDIATE}>2 - Intermediate</option>
+                  <option value={SimulationDifficulty.ADVANCED}>3 - Advanced</option>
+                  <option value={SimulationDifficulty.EXPERT}>4 - Expert</option>
+                  <option value={SimulationDifficulty.MASTER}>5 - Master</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Status *
+                </label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as SimulationStatus }))}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value={SimulationStatus.DRAFT}>Draft</option>
+                  <option value={SimulationStatus.PUBLISHED}>Published</option>
+                  <option value={SimulationStatus.ARCHIVED}>Archived</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Tags (comma separated)
+                </label>
+                <input
+                  type="text"
+                  value={formData.tags}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="tag1, tag2, tag3"
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+
+            {/* Text Areas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Scenario *
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={formData.scenario}
+                  onChange={(e) => setFormData(prev => ({ ...prev, scenario: e.target.value }))}
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Objectives (one per line)
+                </label>
+                <textarea
+                  rows={4}
+                  value={formData.objectives}
+                  onChange={(e) => setFormData(prev => ({ ...prev, objectives: e.target.value }))}
+                  placeholder="Enter each objective on a new line"
+                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="isPublic"
+                checked={formData.isPublic}
+                onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
+              />
+              <label htmlFor="isPublic" className="ml-2 block text-sm text-secondary-900">
+                Public Simulation
+              </label>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end space-x-3 pt-6 border-t border-secondary-200">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onClose}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">
+                Update Simulation
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const AdminSimulations: React.FC = () => {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingSimulation, setEditingSimulation] = useState<Simulation | null>(null);
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -214,6 +436,49 @@ export const AdminSimulations: React.FC = () => {
   const handlePageChange = (page: number) => {
     setFilters(prev => ({ ...prev, page }));
   };
+
+  // Handle edit simulation
+  const handleEdit = (simulation: Simulation) => {
+    setEditingSimulation(simulation);
+    setShowModal(true);
+  };
+
+  // Handle save simulation
+  const handleSave = (updatedSimulation: Simulation) => {
+    setSimulations(prev => prev.map(sim => 
+      sim.id === updatedSimulation.id ? updatedSimulation : sim
+    ));
+    setShowModal(false);
+    setEditingSimulation(null);
+  };
+
+  // Handle close modal
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingSimulation(null);
+  };
+
+  // Handle delete simulation
+  const handleDelete = async (simulation: Simulation) => {
+    if (!window.confirm(`Are you sure you want to delete "${simulation.title}"?`)) {
+      return;
+    }
+
+    try {
+      await apiClient.deleteSimulation(simulation.id);
+      toast.success('Simulation deleted successfully');
+      // Refresh the simulations list
+      const response = await apiClient.getAdminSimulations(filters);
+      setSimulations(response.simulations);
+      setPagination(response.pagination);
+    } catch (error: any) {
+      console.error('Failed to delete simulation:', error);
+      const message = error.response?.data?.error || 'Failed to delete simulation';
+      toast.error(message);
+    }
+  };
+
+
 
   return (
     <div className="p-6 space-y-6">
@@ -345,7 +610,11 @@ export const AdminSimulations: React.FC = () => {
             <LoadingSpinner size="lg" />
           </div>
         ) : simulations.length > 0 ? (
-          <SimulationsTable simulations={simulations} />
+          <SimulationsTable 
+            simulations={simulations} 
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
         ) : (
           <div className="text-center py-12">
             <BeakerIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -388,6 +657,15 @@ export const AdminSimulations: React.FC = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Edit Modal */}
+      {showModal && editingSimulation && (
+        <EditSimulationModal
+          simulation={editingSimulation}
+          onClose={handleCloseModal}
+          onSave={handleSave}
+        />
       )}
     </div>
   );

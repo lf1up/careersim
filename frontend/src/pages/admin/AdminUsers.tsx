@@ -132,7 +132,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ? 'bg-purple-100 text-purple-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {user.role}
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()}
                     </span>
                   )}
                 </td>
@@ -158,7 +158,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {user.subscriptionTier}
+                      {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1).toLowerCase()}
                     </span>
                   )}
                 </td>

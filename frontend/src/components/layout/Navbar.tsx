@@ -74,7 +74,7 @@ export const Navbar: React.FC = () => {
                 >
                   <img
                     className="h-8 w-8 rounded-full object-cover"
-                    src={user?.profilePictureUrl || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3b82f6&color=fff`}
+                    src={user?.profileImageUrl || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3b82f6&color=fff`}
                     alt={`${user?.firstName} ${user?.lastName}`}
                   />
                 </button>

@@ -4,6 +4,7 @@ import {
   ChartBarIcon,
   UsersIcon,
   BeakerIcon,
+  UserGroupIcon,
   ChartPieIcon,
   ArrowDownTrayIcon,
   Bars3Icon,
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin', icon: ChartBarIcon },
   { name: 'Users', href: '/admin/users', icon: UsersIcon },
   { name: 'Simulations', href: '/admin/simulations', icon: BeakerIcon },
+  { name: 'Personas', href: '/admin/personas', icon: UserGroupIcon },
   { name: 'Analytics', href: '/admin/analytics', icon: ChartPieIcon },
   { name: 'Export Data', href: '/admin/export', icon: ArrowDownTrayIcon },
 ];

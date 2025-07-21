@@ -12,9 +12,11 @@ import { Dashboard } from './pages/Dashboard.tsx';
 import { Simulations } from './pages/Simulations.tsx';
 import { Sessions } from './pages/Sessions.tsx';
 import { Analytics } from './pages/Analytics.tsx';
+import { Profile } from './pages/Profile.tsx';
 import { AdminDashboard } from './pages/admin/AdminDashboard.tsx';
 import { AdminUsers } from './pages/admin/AdminUsers.tsx';
 import { AdminSimulations } from './pages/admin/AdminSimulations.tsx';
+import { AdminPersonas } from './pages/admin/AdminPersonas.tsx';
 import { AdminAnalytics } from './pages/admin/AdminAnalytics.tsx';
 import { AdminExport } from './pages/admin/AdminExport.tsx';
 import { LoadingSpinner } from './components/ui/LoadingSpinner.tsx';
@@ -132,6 +134,16 @@ const AppContent: React.FC = () => {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Profile />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 
         {/* Admin routes */}
         <Route
@@ -160,6 +172,16 @@ const AppContent: React.FC = () => {
             <AdminRoute>
               <AdminLayout>
                 <AdminSimulations />
+              </AdminLayout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/personas"
+          element={
+            <AdminRoute>
+              <AdminLayout>
+                <AdminPersonas />
               </AdminLayout>
             </AdminRoute>
           }
