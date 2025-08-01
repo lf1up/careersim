@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToMany,
   Index,
 } from 'typeorm';
 import { Simulation } from './Simulation';
@@ -204,7 +205,7 @@ export class Persona {
   updatedAt!: Date;
 
   // Relationships
-  @OneToMany(() => Simulation, (simulation) => simulation.persona)
+  @ManyToMany(() => Simulation, (simulation) => simulation.personas)
   simulations!: Simulation[];
 
   // Methods

@@ -514,7 +514,7 @@ router.get('/simulations', async (req: AuthenticatedRequest, res: Response) => {
     const queryBuilder = AppDataSource.getRepository(Simulation)
       .createQueryBuilder('simulation')
       .leftJoinAndSelect('simulation.category', 'category')
-      .leftJoinAndSelect('simulation.persona', 'persona');
+      .leftJoinAndSelect('simulation.personas', 'personas');
 
     if (status) {
       queryBuilder.where('simulation.status = :status', { status });
@@ -1332,17 +1332,21 @@ router.get('/personas/:id', async (req: AuthenticatedRequest, res: Response) => 
     }
 
     // Get persona statistics
-    const totalSessions = await sessionRepository.count({
-      where: { simulation: { persona: { id: persona.id } } },
-    });
+    const totalSessions = await sessionRepository
+      .createQueryBuilder('session')
+      .leftJoin('session.simulation', 'simulation')
+      .leftJoin('simulation.personas', 'persona')
+      .where('persona.id = :personaId', { personaId: persona.id })
+      .getCount();
 
-    const completedSessions = await sessionRepository.find({
-      where: { 
-        simulation: { persona: { id: persona.id } },
-        status: SessionStatus.COMPLETED 
-      },
-      select: ['overallScore'],
-    });
+    const completedSessions = await sessionRepository
+      .createQueryBuilder('session')
+      .leftJoin('session.simulation', 'simulation')
+      .leftJoin('simulation.personas', 'persona')
+      .where('persona.id = :personaId', { personaId: persona.id })
+      .andWhere('session.status = :status', { status: SessionStatus.COMPLETED })
+      .select(['session.overallScore'])
+      .getMany();
 
     const avgScore = completedSessions.length > 0 
       ? completedSessions.reduce((sum, session) => sum + (session.overallScore || 0), 0) / completedSessions.length
@@ -1769,9 +1773,11 @@ router.delete('/personas/:id', async (req: AuthenticatedRequest, res: Response) 
     }
 
     // Check if persona has associated simulations
-    const simulationsCount = await simulationRepository.count({
-      where: { persona: { id: persona.id } },
-    });
+    const simulationsCount = await simulationRepository
+      .createQueryBuilder('simulation')
+      .leftJoin('simulation.personas', 'persona')
+      .where('persona.id = :personaId', { personaId: persona.id })
+      .getCount();
 
     if (simulationsCount > 0) {
       return res.status(400).json({

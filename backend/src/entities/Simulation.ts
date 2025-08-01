@@ -6,6 +6,8 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
+  JoinTable,
   JoinColumn,
   Index,
 } from 'typeorm';
@@ -197,8 +199,8 @@ export class Simulation {
   @Column({ type: 'text' })
   scenario!: string;
 
-  @Column({ type: 'text' })
-  objectives!: string;
+  @Column({ type: 'json', default: '[]' })
+  objectives!: string[];
 
   @Column({
     type: 'enum',
@@ -259,6 +261,16 @@ export class Simulation {
   @Column({ type: 'int', default: 0 })
   sortOrder!: number;
 
+  // Additional fields expected by frontend
+  @Column({ type: 'json', default: '[]' })
+  tags!: string[];
+
+  @Column({ type: 'boolean', default: true })
+  isPublic!: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  viewCount!: number;
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -270,9 +282,19 @@ export class Simulation {
   @JoinColumn()
   category!: Category;
 
-  @ManyToOne(() => Persona, (persona) => persona.simulations)
-  @JoinColumn()
-  persona!: Persona;
+  @ManyToMany(() => Persona, (persona) => persona.simulations)
+  @JoinTable({
+    name: 'simulation_personas',
+    joinColumn: {
+      name: 'simulationId',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'personaId',
+      referencedColumnName: 'id',
+    },
+  })
+  personas!: Persona[];
 
   @OneToMany(() => SimulationSession, (session) => session.simulation)
   sessions!: SimulationSession[];

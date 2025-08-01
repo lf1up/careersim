@@ -227,10 +227,21 @@ class ApiClient {
     return response.data.session;
   }
 
-  public async sendMessage(sessionId: string, content: string): Promise<SessionMessage> {
+  public async sendMessage(sessionId: string, content: string, simulationId?: string): Promise<SessionMessage> {
+    // If simulationId is not provided, we need to get it from the session
+    let simId = simulationId;
+    if (!simId) {
+      // Get session details to find simulation ID
+      const session = await this.getSession(sessionId);
+      simId = session.simulation.id;
+    }
+    
     const response = await this.client.post<{ message: SessionMessage }>(
-      `/sessions/${sessionId}/messages`,
-      { content }
+      `/simulations/${simId}/sessions/${sessionId}/messages`,
+      { 
+        content,
+        type: 'user'  // User messages are always type 'user'
+      }
     );
     return response.data.message;
   }
@@ -241,6 +252,17 @@ class ApiClient {
       { status }
     );
     return response.data.session;
+  }
+
+  public async getSessionMessages(simulationId: string, sessionId: string, params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<{ messages: SessionMessage[]; pagination: any }> {
+    const response = await this.client.get<{ messages: SessionMessage[]; pagination: any }>(
+      `/simulations/${simulationId}/sessions/${sessionId}/messages`,
+      { params }
+    );
+    return response.data;
   }
 
   // Analytics API

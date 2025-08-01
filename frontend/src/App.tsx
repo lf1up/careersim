@@ -10,7 +10,9 @@ import { LoginForm } from './components/auth/LoginForm.tsx';
 import { RegisterForm } from './components/auth/RegisterForm.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
 import { Simulations } from './pages/Simulations.tsx';
+import { SimulationDetail } from './pages/SimulationDetail.tsx';
 import { Sessions } from './pages/Sessions.tsx';
+import { SessionDetail } from './pages/SessionDetail.tsx';
 import { Analytics } from './pages/Analytics.tsx';
 import { Profile } from './pages/Profile.tsx';
 import { AdminDashboard } from './pages/admin/AdminDashboard.tsx';
@@ -116,11 +118,41 @@ const AppContent: React.FC = () => {
           }
         />
         <Route
+          path="/simulations/:id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <SimulationDetail />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/simulations/:id/session/:sessionId"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <SimulationDetail />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/sessions"
           element={
             <ProtectedRoute>
               <AppLayout>
                 <Sessions />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sessions/:id"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <SessionDetail />
               </AppLayout>
             </ProtectedRoute>
           }

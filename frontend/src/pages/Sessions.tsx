@@ -4,40 +4,16 @@ import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { SimulationSession, SessionStatus } from '../types/index.ts';
-import { 
-  ClockIcon,
-  CheckCircleIcon,
+import { getSessionStatusIcon, getSessionStatusColor, getSessionStatusLabel } from '../utils/sessionStatus.tsx';
+import {
   PlayIcon,
-  PauseIcon,
   EyeIcon,
-  CalendarIcon
+  CalendarIcon,
+  CheckCircleIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
-const getStatusColor = (status: SessionStatus): string => {
-  switch (status) {
-    case SessionStatus.COMPLETED:
-      return 'bg-green-100 text-green-800';
-    case SessionStatus.ACTIVE:
-      return 'bg-blue-100 text-blue-800';
-    case SessionStatus.PAUSED:
-      return 'bg-yellow-100 text-yellow-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getStatusIcon = (status: SessionStatus) => {
-  switch (status) {
-    case SessionStatus.COMPLETED:
-      return <CheckCircleIcon className="h-4 w-4" />;
-    case SessionStatus.ACTIVE:
-      return <PlayIcon className="h-4 w-4" />;
-    case SessionStatus.PAUSED:
-      return <PauseIcon className="h-4 w-4" />;
-    default:
-      return <ClockIcon className="h-4 w-4" />;
-  }
-};
+// Status utility functions are now imported from shared utils
 
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -148,7 +124,7 @@ export const Sessions: React.FC = () => {
             className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All Statuses</option>
-            <option value={SessionStatus.ACTIVE}>Active</option>
+            <option value={SessionStatus.ACTIVE}>In Progress</option>
             <option value={SessionStatus.PAUSED}>Paused</option>
             <option value={SessionStatus.COMPLETED}>Completed</option>
           </select>
@@ -170,9 +146,9 @@ export const Sessions: React.FC = () => {
                       <h3 className="text-lg font-semibold text-secondary-900">
                         {session.simulation?.title || 'Unknown Simulation'}
                       </h3>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-                        {getStatusIcon(session.status)}
-                        <span className="ml-1 capitalize">{session.status}</span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSessionStatusColor(session.status)}`}>
+                        {getSessionStatusIcon(session.status)}
+                        <span className="ml-1">{getSessionStatusLabel(session.status)}</span>
                       </span>
                     </div>
                     
@@ -223,7 +199,10 @@ export const Sessions: React.FC = () => {
                       </Button>
                     </Link>
                     
-                    {session.status === SessionStatus.ACTIVE || session.status === SessionStatus.PAUSED ? (
+                    {(session.status === SessionStatus.ACTIVE || 
+                      session.status === SessionStatus.PAUSED ||
+                      (session.status as string) === 'started' ||
+                      (session.status as string) === 'in_progress') ? (
                       <Link to={`/simulations/${session.simulation?.id}/session/${session.id}`}>
                         <Button size="sm" className="inline-flex items-center">
                           <PlayIcon className="h-4 w-4 mr-1" />

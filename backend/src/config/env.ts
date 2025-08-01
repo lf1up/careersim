@@ -38,8 +38,10 @@ const envSchema = Joi.object({
   SMTP_PASS: Joi.string().required(),
   
   // AI Services
+  OPENAI_BASE_URL: Joi.string().default('https://api.openai.com/v1'),
   OPENAI_API_KEY: Joi.string().required(),
   OPENAI_MODEL: Joi.string().default('gpt-4-turbo-preview'),
+  OPENAI_PROVIDER: Joi.string().default('openai'),
   OPENAI_MAX_TOKENS: Joi.number().default(2000),
   
   // Stripe
@@ -109,8 +111,10 @@ export const config = {
   
   ai: {
     openai: {
+      baseUrl: envVars.OPENAI_BASE_URL,
       apiKey: envVars.OPENAI_API_KEY,
       model: envVars.OPENAI_MODEL,
+      provider: envVars.OPENAI_PROVIDER,
       maxTokens: envVars.OPENAI_MAX_TOKENS,
     },
   },

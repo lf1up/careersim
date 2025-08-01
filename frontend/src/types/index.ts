@@ -166,6 +166,7 @@ export interface Simulation {
 export interface SessionMessage {
   id: string;
   content: string;
+  type: 'user' | 'ai' | 'system';
   isFromUser: boolean;
   timestamp: string;
   metadata?: Record<string, any>;
@@ -180,6 +181,8 @@ export interface SimulationSession {
   totalDuration: number;
   currentStep: number;
   totalSteps: number;
+  messageCount: number;
+  userGoals?: string;
   metadata: Record<string, any>;
   simulation: Simulation;
   messages: SessionMessage[];

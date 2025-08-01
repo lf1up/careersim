@@ -37,6 +37,7 @@ export class AIService {
   
   constructor() {
     this.openai = new OpenAI({
+      baseURL: config.ai.openai.baseUrl,
       apiKey: config.ai.openai.apiKey,
     });
     

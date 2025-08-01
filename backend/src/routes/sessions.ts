@@ -3,6 +3,7 @@ import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Simulation } from '@/entities/Simulation';
+import { MessageType } from '@/entities/SessionMessage';
 
 const router: any = Router();
 
@@ -244,9 +245,118 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    res.json({ session });
+    // Transform messages to include isFromUser field for frontend compatibility
+    const transformedSession = {
+      ...session,
+      messages: session.messages ? session.messages.map(message => ({
+        ...message,
+        isFromUser: message.type === MessageType.USER
+      })) : []
+    };
+
+    res.json({ session: transformedSession });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch session' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/sessions/{id}/status:
+ *   patch:
+ *     summary: Update a session's status
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Session ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [started, in_progress, completed, abandoned, paused]
+ *                 description: New status for the session
+ *     responses:
+ *       200:
+ *         description: Session status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/SimulationSession'
+ *       400:
+ *         description: Invalid status provided
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       404:
+ *         description: Session not found
+ *       500:
+ *         description: Server error
+ */
+// Update session status
+router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { status } = req.body;
+    
+    // Validate status
+    if (!status || !Object.values(SessionStatus).includes(status)) {
+      return res.status(400).json({ 
+        error: 'Invalid status provided',
+        validStatuses: Object.values(SessionStatus)
+      });
+    }
+
+    const sessionRepository = AppDataSource.getRepository(SimulationSession);
+    const session = await sessionRepository.findOne({
+      where: { 
+        id: req.params.id,
+        user: { id: req.user!.id }
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Handle different status transitions
+    switch (status) {
+      case SessionStatus.COMPLETED:
+        session.markAsCompleted();
+        break;
+      case SessionStatus.PAUSED:
+        session.markAsPaused();
+        break;
+      case SessionStatus.IN_PROGRESS:
+        session.markAsInProgress();
+        break;
+      case SessionStatus.ABANDONED:
+        session.markAsAbandoned();
+        break;
+      default:
+        session.status = status;
+        session.updatedAt = new Date();
+    }
+
+    await sessionRepository.save(session);
+
+    res.json({ session });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update session status' });
   }
 });
 

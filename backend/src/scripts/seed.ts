@@ -17,16 +17,21 @@ const seedData = async (): Promise<void> => {
     console.log('✅ Database connected');
 
     // Clear existing data (optional - remove in production)
-    await AppDataSource.query('TRUNCATE TABLE session_messages CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE performance_analytics CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE simulation_sessions CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE simulations CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE personas CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE categories CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE subscriptions CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE system_configurations CASCADE');
-    await AppDataSource.query('TRUNCATE TABLE users CASCADE');
-    console.log('🧹 Cleared existing data');
+    try {
+      await AppDataSource.query('TRUNCATE TABLE session_messages CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE performance_analytics CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE simulation_sessions CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE simulation_personas CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE simulations CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE personas CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE categories CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE subscriptions CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE system_configurations CASCADE');
+      await AppDataSource.query('TRUNCATE TABLE users CASCADE');
+      console.log('🧹 Cleared existing data');
+    } catch (error) {
+      console.log('⚠️ Some tables may not exist yet, continuing...', error.message);
+    }
 
     // Create repositories
     const userRepository = AppDataSource.getRepository(User);
@@ -182,13 +187,16 @@ const seedData = async (): Promise<void> => {
         slug: 'behavioral-interview-brenda',
         description: 'Navigate a structured behavioral interview with a risk-averse HR manager',
         scenario: 'You\'re interviewing for a mid-level position at a well-established corporation. The HR manager, Brenda Vance, is conducting a formal behavioral interview. She seems professional but distant, and you sense she\'s being very careful about her hiring decisions.',
-        objectives: 'Demonstrate your qualifications while building rapport and addressing any concerns about your fit for the company culture.',
+        objectives: ['Demonstrate your qualifications while building rapport', 'Address any concerns about your fit for the company culture', 'Show self-awareness and professionalism'],
         difficulty: SimulationDifficulty.INTERMEDIATE,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 25,
         skillsToLearn: ['Interview techniques', 'Building rapport', 'Risk mitigation', 'Professional communication'],
+        tags: ['interview', 'behavioral', 'hr', 'corporate'],
+        isPublic: true,
+        viewCount: 0,
         category: createdCategories[0], // Job Seeking
-        persona: createdPersonas[0], // Brenda Vance
+        personas: [createdPersonas[0]], // Brenda Vance
         successCriteria: {
           communication: ['Clear and structured responses', 'Professional tone', 'Active listening'],
           problemSolving: ['STAR method usage', 'Relevant examples', 'Addressing concerns'],
@@ -200,13 +208,16 @@ const seedData = async (): Promise<void> => {
         slug: 'tech-cultural-interview-alex',
         description: 'Impress a passionate tech lead while showing genuine enthusiasm for the role',
         scenario: 'You\'re interviewing with Alex Chen, the engineering lead at a fast-growing startup. The conversation is more casual than formal, and Alex seems genuinely excited about the technology and team culture.',
-        objectives: 'Show your technical competence and cultural fit while demonstrating resilience and a positive attitude.',
+        objectives: ['Show your technical competence and cultural fit', 'Demonstrate resilience and a positive attitude', 'Express genuine enthusiasm for the role and technology'],
         difficulty: SimulationDifficulty.BEGINNER,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 20,
         skillsToLearn: ['Cultural fit assessment', 'Enthusiasm communication', 'Technical discussion', 'Team collaboration'],
+        tags: ['interview', 'technical', 'startup', 'culture'],
+        isPublic: true,
+        viewCount: 0,
         category: createdCategories[0], // Job Seeking
-        persona: createdPersonas[1], // Alex Chen
+        personas: [createdPersonas[1]], // Alex Chen
         successCriteria: {
           communication: ['Genuine enthusiasm', 'Technical clarity', 'Collaborative language'],
           problemSolving: ['Creative thinking', 'Problem-solving approach', 'Learning mindset'],
@@ -218,13 +229,16 @@ const seedData = async (): Promise<void> => {
         slug: 'pitching-idea-david',
         description: 'Convince a skeptical veteran analyst to support your new initiative',
         scenario: 'You need to get buy-in from David Miller, a senior analyst who has been with the company for 15 years. He\'s known for being resistant to change and will likely challenge your proposal with tough questions.',
-        objectives: 'Present your idea convincingly while respecting David\'s experience and addressing his concerns with data and logic.',
+        objectives: ['Present your idea convincingly with data and logic', 'Respect David\'s experience and expertise', 'Address his concerns and objections thoroughly'],
         difficulty: SimulationDifficulty.ADVANCED,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 30,
         skillsToLearn: ['Persuasion', 'Stakeholder management', 'Data-driven arguments', 'Respect for experience'],
+        tags: ['persuasion', 'stakeholder', 'data', 'resistance'],
+        isPublic: true,
+        viewCount: 0,
         category: createdCategories[1], // Workplace Communication
-        persona: createdPersonas[2], // David Miller
+        personas: [createdPersonas[2]], // David Miller
         successCriteria: {
           communication: ['Data-backed arguments', 'Respectful tone', 'Acknowledging expertise'],
           problemSolving: ['Addressing objections', 'Risk mitigation', 'Practical solutions'],
@@ -236,13 +250,16 @@ const seedData = async (): Promise<void> => {
         slug: 'saying-no-sarah',
         description: 'Practice setting boundaries with an overwhelmed colleague trying to delegate work to you',
         scenario: 'Sarah Jenkins, a project manager from another team, approaches you asking for help with a task she\'s behind on. She\'s clearly stressed and frames it as a small favor, but you\'re already at capacity.',
-        objectives: 'Decline the request firmly but kindly, while maintaining a good working relationship and showing empathy for her situation.',
+        objectives: ['Decline the request firmly but kindly', 'Maintain a good working relationship', 'Show empathy for her stressful situation'],
         difficulty: SimulationDifficulty.BEGINNER,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 15,
         skillsToLearn: ['Boundary setting', 'Empathetic communication', 'Saying no professionally', 'Relationship management'],
+        tags: ['boundaries', 'communication', 'assertiveness', 'empathy'],
+        isPublic: true,
+        viewCount: 0,
         category: createdCategories[1], // Workplace Communication
-        persona: createdPersonas[3], // Sarah Jenkins
+        personas: [createdPersonas[3]], // Sarah Jenkins
         successCriteria: {
           communication: ['Clear boundaries', 'Empathetic tone', 'Alternative solutions'],
           problemSolving: ['Win-win thinking', 'Resource management', 'Priority setting'],
@@ -254,13 +271,16 @@ const seedData = async (): Promise<void> => {
         slug: 'reengaging-michael',
         description: 'Conduct a challenging feedback conversation with a high-performer who has become disengaged',
         scenario: 'Michael Reyes, once your star developer, has become increasingly disengaged. His work quality remains high, but his participation in meetings and team activities has dropped significantly. You need to address this in a one-on-one meeting.',
-        objectives: 'Uncover the root cause of Michael\'s disengagement and work together to find a path forward that re-ignites his motivation.',
+        objectives: ['Uncover the root cause of Michael\'s disengagement', 'Work together to find a path forward', 'Re-ignite his motivation and engagement'],
         difficulty: SimulationDifficulty.EXPERT,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 35,
         skillsToLearn: ['Performance management', 'Active listening', 'Employee engagement', 'Career development'],
+        tags: ['leadership', 'engagement', 'performance', 'motivation'],
+        isPublic: true,
+        viewCount: 0,
         category: createdCategories[2], // Leadership
-        persona: createdPersonas[4], // Michael Reyes
+        personas: [createdPersonas[4]], // Michael Reyes
         successCriteria: {
           communication: ['Probing questions', 'Non-judgmental tone', 'Career-focused discussion'],
           problemSolving: ['Root cause analysis', 'Growth opportunities', 'Challenge identification'],
@@ -272,13 +292,16 @@ const seedData = async (): Promise<void> => {
         slug: 'delegating-task-chloe',
         description: 'Successfully delegate a complex task to an eager but anxious junior team member',
         scenario: 'You need to delegate an important client presentation to Chloe Davis, a junior marketing coordinator. She\'s enthusiastic and hardworking but tends to struggle with confidence and may not ask questions when she should.',
-        objectives: 'Delegate the task clearly while ensuring Chloe understands expectations, timelines, and feels comfortable asking for help.',
+        objectives: ['Delegate the task clearly with proper expectations', 'Ensure Chloe understands timelines and deliverables', 'Make her feel comfortable asking for help when needed'],
         difficulty: SimulationDifficulty.INTERMEDIATE,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 20,
         skillsToLearn: ['Delegation skills', 'Clear communication', 'Confidence building', 'Check-in processes'],
+        tags: ['delegation', 'leadership', 'confidence', 'junior'],
+        isPublic: true,
+        viewCount: 0,
         category: createdCategories[2], // Leadership
-        persona: createdPersonas[5], // Chloe Davis
+        personas: [createdPersonas[5]], // Chloe Davis
         successCriteria: {
           communication: ['Clear instructions', 'Encouraging tone', 'Open-ended questions'],
           problemSolving: ['Detailed planning', 'Resource provision', 'Safety net creation'],
@@ -287,7 +310,22 @@ const seedData = async (): Promise<void> => {
       },
     ];
 
-    const createdSimulations = await simulationRepository.save(simulations);
+    // Save simulations with many-to-many relationships
+    const createdSimulations = [];
+    for (const simulationData of simulations) {
+      // Extract personas for separate handling
+      const { personas, ...simulationFields } = simulationData;
+      
+      // Create simulation without personas first
+      const simulation = simulationRepository.create(simulationFields);
+      const savedSimulation = await simulationRepository.save(simulation);
+      
+      // Set the personas relationship
+      savedSimulation.personas = personas;
+      await simulationRepository.save(savedSimulation);
+      
+      createdSimulations.push(savedSimulation);
+    }
     console.log('🎭 Created simulations:', createdSimulations.length);
 
     // Seed Admin User

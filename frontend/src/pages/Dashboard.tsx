@@ -9,6 +9,9 @@ import {
   SimulationSession, 
   PerformanceAnalytics
 } from '../types/index.ts';
+import { getSessionStatusIcon, getSessionStatusColor, getSessionStatusLabel } from '../utils/sessionStatus.tsx';
+
+// Status utility functions are now imported from shared utils
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -202,14 +205,9 @@ export const Dashboard: React.FC = () => {
                       {session.simulation?.title || 'Unknown Simulation'}
                     </h3>
                     <div className="flex justify-between items-center mt-2">
-                      <span className={`inline-flex px-2 py-1 text-xs rounded-full ${
-                        session.status === 'completed' 
-                          ? 'bg-green-100 text-green-800'
-                          : session.status === 'active'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {session.status}
+                      <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${getSessionStatusColor(session.status)}`}>
+                        {getSessionStatusIcon(session.status, 'h-3 w-3')}
+                        <span className="ml-1">{getSessionStatusLabel(session.status)}</span>
                       </span>
                       <Link to={`/sessions/${session.id}`}>
                         <Button variant="ghost" size="sm">

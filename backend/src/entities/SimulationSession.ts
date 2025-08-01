@@ -276,6 +276,29 @@ export class SimulationSession {
     }
   }
 
+  markAsInProgress(): void {
+    this.status = SessionStatus.IN_PROGRESS;
+    if (!this.startedAt) {
+      this.startedAt = new Date();
+    }
+  }
+
+  markAsPaused(): void {
+    this.status = SessionStatus.PAUSED;
+    // Update duration if we have a start time
+    if (this.startedAt) {
+      this.durationSeconds = Math.floor((new Date().getTime() - this.startedAt.getTime()) / 1000);
+    }
+  }
+
+  markAsAbandoned(): void {
+    this.status = SessionStatus.ABANDONED;
+    this.completedAt = new Date();
+    if (this.startedAt) {
+      this.durationSeconds = Math.floor((this.completedAt.getTime() - this.startedAt.getTime()) / 1000);
+    }
+  }
+
   addMessage(): void {
     this.messageCount += 1;
   }
