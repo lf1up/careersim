@@ -21,7 +21,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: 'http://localhost:8000/api',
+      baseURL: (process.env.REACT_APP_API_URL as string) || 'http://localhost:8000/api',
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
