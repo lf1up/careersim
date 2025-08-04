@@ -134,7 +134,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 lg:pl-0">
+      <div className="flex-1 lg:pl-0 min-w-0">
         {/* Mobile header */}
         <div className="lg:hidden bg-white shadow-sm border-b border-gray-200">
           <div className="flex items-center justify-between h-16 px-4">
@@ -153,7 +153,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
 
         {/* Page content */}
-        <main className="flex-1">
+        <main className="flex-1 min-w-0">
           {children}
         </main>
       </div>

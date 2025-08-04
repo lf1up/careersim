@@ -76,6 +76,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const queryBuilder = AppDataSource.getRepository(SimulationSession)
       .createQueryBuilder('session')
       .leftJoinAndSelect('session.simulation', 'simulation')
+      .leftJoinAndSelect('simulation.personas', 'personas')
       .where('session.user.id = :userId', { userId: req.user!.id });
 
     if (status) {
@@ -238,7 +239,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
         id: req.params.id,
         user: { id: req.user!.id }
       },
-      relations: ['simulation', 'messages', 'analytics'],
+      relations: ['simulation', 'simulation.personas', 'messages', 'analytics'],
     });
 
     if (!session) {

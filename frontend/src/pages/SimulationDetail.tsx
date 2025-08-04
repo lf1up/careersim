@@ -4,6 +4,7 @@ import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { useSocket } from '../contexts/SocketContext.tsx';
+import { useAuth } from '../contexts/AuthContext.tsx';
 import { 
   Simulation, 
   SimulationSession, 
@@ -59,6 +60,7 @@ export const SimulationDetail: React.FC = () => {
   const { id, sessionId } = useParams<{ id: string; sessionId?: string }>();
   const navigate = useNavigate();
   const { socket } = useSocket();
+  const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [simulation, setSimulation] = useState<Simulation | null>(null);
@@ -190,7 +192,7 @@ export const SimulationDetail: React.FC = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session || !messageInput.trim() || isSendingMessage) return;
+    if (!session || !simulation || !messageInput.trim() || isSendingMessage) return;
 
     const content = messageInput.trim();
     setMessageInput('');
@@ -203,6 +205,7 @@ export const SimulationDetail: React.FC = () => {
       const userMessage: SessionMessage = {
         id: tempId,
         content,
+        type: 'user',
         isFromUser: true,
         timestamp: new Date().toISOString(),
       };
@@ -303,7 +306,7 @@ export const SimulationDetail: React.FC = () => {
   // If no active session, show simulation details with start button
   if (!session) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back button */}
         <div className="mb-6">
           <Button
@@ -444,102 +447,126 @@ export const SimulationDetail: React.FC = () => {
 
   // Active session - show chat interface
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Session header */}
-      <div className="bg-white rounded-lg shadow-sm border border-secondary-200 mb-4 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-secondary-900">{simulation.title}</h1>
-            <p className="text-sm text-secondary-600">Session in progress</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleEndSession}
-            >
-              End Session
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Chat interface */}
-      <div className="bg-white rounded-lg shadow-sm border border-secondary-200 h-[600px] flex flex-col">
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {session.messages && session.messages.length > 0 ? (
-            session.messages.map((message, index) => (
-              <div
-                key={message.id || index}
-                className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                    message.isFromUser
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-secondary-100 text-secondary-900'
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {!message.isFromUser && (
-                      <ComputerDesktopIcon className="h-4 w-4 mt-1 flex-shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.isFromUser ? 'text-primary-200' : 'text-secondary-500'
-                      }`}>
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                    {message.isFromUser && (
-                      <UserIcon className="h-4 w-4 mt-1 flex-shrink-0" />
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-secondary-500 py-8">
-              <p>Start the conversation! Send your first message below.</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex flex-col min-h-0" style={{ height: 'calc(100vh - 8rem)' }}>
+        {/* Session header */}
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 mb-4 p-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-secondary-900">{simulation.title}</h1>
+              <p className="text-sm text-secondary-600">Session in progress</p>
             </div>
-          )}
-          <div ref={messagesEndRef} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleEndSession}
+              >
+                End Session
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* Message input */}
-        <div className="border-t border-secondary-200 p-4">
-          <form onSubmit={handleSendMessage} className="flex gap-2">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              disabled={isSendingMessage}
-            />
-            <Button
-              type="submit"
-              disabled={!messageInput.trim() || isSendingMessage}
-              className="px-4 py-2"
-            >
-              {isSendingMessage ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <PaperAirplaneIcon className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
+        {/* Chat interface */}
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 flex-1 flex flex-col min-h-0">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {session.messages && session.messages.length > 0 ? (
+              session.messages.map((message, index) => {
+                const persona = simulation.personas && simulation.personas.length > 0 ? simulation.personas[0] : null;
+                const userName = user ? `${user.firstName} ${user.lastName}` : 'User';
+                
+                return (
+                  <div
+                    key={message.id || index}
+                    className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                        message.isFromUser
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-secondary-100 text-secondary-900'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!message.isFromUser && (
+                          <ComputerDesktopIcon className="h-4 w-4 mt-1 flex-shrink-0" />
+                        )}
+                        <div className="flex-1">
+                          {/* Name header */}
+                          <div className={`text-xs font-medium mb-1 ${
+                            message.isFromUser ? 'text-primary-100' : 'text-secondary-600'
+                          }`}>
+                            {message.isFromUser ? (
+                              userName
+                            ) : (
+                              <span>
+                                {persona?.name || 'AI Assistant'}
+                                {persona?.role && (
+                                  <span className="ml-1 font-normal">
+                                    • {persona.role}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <p className={`text-xs mt-1 ${
+                            message.isFromUser ? 'text-primary-200' : 'text-secondary-500'
+                          }`}>
+                            {new Date(message.timestamp).toLocaleTimeString()}
+                          </p>
+                        </div>
+                        {message.isFromUser && (
+                          <UserIcon className="h-4 w-4 mt-1 flex-shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center text-secondary-500 py-8">
+                <p>Start the conversation! Send your first message below.</p>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Message input */}
+          <div className="border-t border-secondary-200 p-4">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                disabled={isSendingMessage}
+              />
+              <Button
+                type="submit"
+                disabled={!messageInput.trim() || isSendingMessage}
+                className="px-4 py-2"
+              >
+                {isSendingMessage ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <PaperAirplaneIcon className="h-4 w-4" />
+                )}
+              </Button>
+            </form>
+          </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex-shrink-0">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
       </div>
-
-      {/* Error message */}
-      {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">{error}</p>
-        </div>
-      )}
     </div>
   );
 };

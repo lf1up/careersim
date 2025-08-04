@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext.tsx';
 import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
@@ -40,10 +41,29 @@ const formatDate = (dateString: string): string => {
   });
 };
 
-const MessageBubble: React.FC<{ message: SessionMessage; isUser: boolean }> = ({ message, isUser }) => {
+interface MessageBubbleProps {
+  message: SessionMessage;
+  isUser: boolean;
+  userName?: string;
+  userTitle?: string;
+  personaName?: string;
+  personaRole?: string;
+}
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+  message, 
+  isUser, 
+  userName, 
+  userTitle, 
+  personaName, 
+  personaRole 
+}) => {
+  const displayName = isUser ? userName : personaName;
+  const displayTitle = isUser ? userTitle : personaRole;
+
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`flex max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-2`}>
+      <div className={`flex max-w-[70%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
         <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
           isUser ? 'bg-primary-100' : 'bg-secondary-100'
         }`}>
@@ -53,17 +73,23 @@ const MessageBubble: React.FC<{ message: SessionMessage; isUser: boolean }> = ({
             <ComputerDesktopIcon className="h-4 w-4 text-secondary-600" />
           )}
         </div>
-        <div className={`px-4 py-2 rounded-lg ${
-          isUser 
-            ? 'bg-primary-600 text-white' 
-            : 'bg-secondary-100 text-secondary-900'
-        }`}>
-          <p className="text-sm">{message.content}</p>
-          {message.metadata && Object.keys(message.metadata).length > 0 && (
-            <div className="mt-1 text-xs opacity-75">
-              {JSON.stringify(message.metadata)}
-            </div>
-          )}
+        <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+          <div className={`text-xs text-secondary-600 mb-1 ${isUser ? 'text-right' : 'text-left'}`}>
+            <div className="font-medium">{displayName}</div>
+            {displayTitle && <div className="text-secondary-500">{displayTitle}</div>}
+          </div>
+          <div className={`px-4 py-2 rounded-lg ${
+            isUser 
+              ? 'bg-primary-600 text-white' 
+              : 'bg-secondary-100 text-secondary-900'
+          }`}>
+            <p className="text-sm">{message.content}</p>
+            {message.metadata && Object.keys(message.metadata).length > 0 && (
+              <div className="mt-1 text-xs opacity-75">
+                {JSON.stringify(message.metadata)}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -73,6 +99,7 @@ const MessageBubble: React.FC<{ message: SessionMessage; isUser: boolean }> = ({
 export const SessionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [session, setSession] = useState<SimulationSession | null>(null);
   const [messages, setMessages] = useState<SessionMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,6 +115,8 @@ export const SessionDetail: React.FC = () => {
         setError(null);
         
         const sessionData = await apiClient.getSession(id);
+        console.log('Session data loaded:', sessionData);
+        console.log('Simulation personas:', sessionData?.simulation?.personas);
         setSession(sessionData);
 
         // If session has messages, fetch them
@@ -153,50 +182,54 @@ export const SessionDetail: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleBackToSessions}
-          className="mb-4"
-        >
-          <ArrowLeftIcon className="h-4 w-4 mr-1" />
-          Back to Sessions
-        </Button>
-        
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-secondary-900 mb-2">
-              {session.simulation?.title || 'Session Details'}
-            </h1>
-            <p className="text-secondary-600 mb-4">
-              {session.simulation?.description}
-            </p>
-          </div>
+      <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 8rem)' }}>
+        {/* Back button */}
+        <div className="mb-6">
+          <Button
+            variant="secondary"
+            onClick={handleBackToSessions}
+            className="inline-flex items-center"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            Back to Sessions
+          </Button>
+        </div>
+
+        {/* Header */}
+        <div className="mb-6 flex-shrink-0">
           
-          <div className="flex items-center gap-4">
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getSessionStatusColor(session.status)}`}>
-              {getSessionStatusIcon(session.status, 'h-5 w-5')}
-              <span className="ml-2">{getSessionStatusLabel(session.status)}</span>
-            </span>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-secondary-900 mb-2">
+                {session.simulation?.title || 'Session Details'}
+              </h1>
+              <p className="text-secondary-600 mb-4">
+                {session.simulation?.description}
+              </p>
+            </div>
             
-            {(session.status === SessionStatus.ACTIVE || 
-              session.status === SessionStatus.PAUSED ||
-              (session.status as string) === 'started' ||
-              (session.status as string) === 'in_progress') && (
-              <Button onClick={handleContinueSession}>
-                <PlayIcon className="h-4 w-4 mr-1" />
-                Continue Session
-              </Button>
-            )}
+            <div className="flex items-center gap-4">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getSessionStatusColor(session.status)}`}>
+                {getSessionStatusIcon(session.status, 'h-5 w-5')}
+                <span className="ml-2">{getSessionStatusLabel(session.status)}</span>
+              </span>
+              
+              {(session.status === SessionStatus.ACTIVE || 
+                session.status === SessionStatus.PAUSED ||
+                (session.status as string) === 'started' ||
+                (session.status as string) === 'in_progress') && (
+                <Button onClick={handleContinueSession}>
+                  <PlayIcon className="h-4 w-4 mr-1" />
+                  Continue Session
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
         {/* Session Overview */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col min-h-0 overflow-y-auto">
           <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6">
             <h2 className="text-lg font-semibold text-secondary-900 mb-4">Session Overview</h2>
             
@@ -294,8 +327,8 @@ export const SessionDetail: React.FC = () => {
         </div>
 
         {/* Messages */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-sm border border-secondary-200">
+        <div className="lg:col-span-2 flex flex-col min-h-0">
+          <div className="bg-white rounded-lg shadow-sm border border-secondary-200 flex flex-col flex-1 min-h-0">
             <div className="p-6 border-b border-secondary-200">
               <h2 className="text-lg font-semibold text-secondary-900">Session Messages</h2>
               <p className="text-sm text-secondary-600 mt-1">
@@ -303,20 +336,30 @@ export const SessionDetail: React.FC = () => {
               </p>
             </div>
             
-            <div className="p-6">
+            <div className="p-6 flex-1 flex flex-col min-h-0">
               {isLoadingMessages ? (
                 <div className="flex justify-center py-8">
                   <LoadingSpinner size="md" />
                 </div>
               ) : messages.length > 0 ? (
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {messages.map((message) => (
-                    <MessageBubble
-                      key={message.id}
-                      message={message}
-                      isUser={message.type === 'user'}
-                    />
-                  ))}
+                <div className="space-y-4 flex-1 overflow-y-auto">
+                  {messages.map((message) => {
+                    const isUser = message.type === 'user';
+                    // Get persona information from the simulation
+                    const persona = session?.simulation?.personas?.[0];
+                    
+                    return (
+                      <MessageBubble
+                        key={message.id}
+                        message={message}
+                        isUser={isUser}
+                        userName={user ? `${user.firstName} ${user.lastName}` : 'You'}
+                        userTitle={user?.jobTitle}
+                        personaName={persona?.name || 'Assistant'}
+                        personaRole={persona?.role || 'AI Assistant'}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">
@@ -329,6 +372,7 @@ export const SessionDetail: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

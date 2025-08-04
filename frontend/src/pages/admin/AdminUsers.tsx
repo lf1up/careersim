@@ -121,7 +121,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ...editingUser,
                         role: e.target.value as UserRole
                       })}
-                      className="text-sm border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value={UserRole.USER}>User</option>
                       <option value={UserRole.ADMIN}>Admin</option>
@@ -144,7 +144,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ...editingUser,
                         subscriptionTier: e.target.value as SubscriptionTier
                       })}
-                      className="text-sm border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value={SubscriptionTier.FREEMIUM}>Freemium</option>
                       <option value={SubscriptionTier.PRO}>Pro</option>
@@ -170,7 +170,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ...editingUser,
                         isActive: e.target.value === 'active'
                       })}
-                      className="text-sm border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>

@@ -205,6 +205,27 @@ class ApiClient {
     await this.client.delete(`/admin/simulations/${id}`);
   }
 
+  // Simulation-Persona relationship management
+  public async getSimulationPersonas(simulationId: string): Promise<Persona[]> {
+    const response = await this.client.get<{ personas: Persona[] }>(`/admin/simulations/${simulationId}/personas`);
+    return response.data.personas;
+  }
+
+  public async updateSimulationPersonas(simulationId: string, personaIds: string[]): Promise<{ message: string; personas: Persona[] }> {
+    const response = await this.client.put<{ message: string; personas: Persona[] }>(`/admin/simulations/${simulationId}/personas`, { personaIds });
+    return response.data;
+  }
+
+  public async addPersonaToSimulation(simulationId: string, personaId: string): Promise<{ message: string; personas: Persona[] }> {
+    const response = await this.client.post<{ message: string; personas: Persona[] }>(`/admin/simulations/${simulationId}/personas/${personaId}`);
+    return response.data;
+  }
+
+  public async removePersonaFromSimulation(simulationId: string, personaId: string): Promise<{ message: string; personas: Persona[] }> {
+    const response = await this.client.delete<{ message: string; personas: Persona[] }>(`/admin/simulations/${simulationId}/personas/${personaId}`);
+    return response.data;
+  }
+
   // Sessions API
   public async getSessions(params?: {
     page?: number;

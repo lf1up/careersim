@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { In } from 'typeorm';
 import { AppDataSource } from '@/config/database';
 import { config } from '@/config/env';
 import { User } from '@/entities/User';
@@ -1794,6 +1795,365 @@ router.delete('/personas/:id', async (req: AuthenticatedRequest, res: Response) 
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete persona' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/simulations/{id}/personas:
+ *   get:
+ *     summary: Get personas attached to a simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *     responses:
+ *       200:
+ *         description: Personas retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 personas:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Persona'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       404:
+ *         description: Simulation not found
+ *       500:
+ *         description: Server error
+ */
+// Get personas for a simulation
+router.get('/simulations/:id/personas', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationRepository = AppDataSource.getRepository(Simulation);
+
+    const simulation = await simulationRepository.findOne({
+      where: { id: req.params.id },
+      relations: ['personas'],
+    });
+
+    if (!simulation) {
+      return res.status(404).json({
+        error: 'Simulation not found',
+        code: 'SIMULATION_NOT_FOUND',
+      });
+    }
+
+    res.json({ personas: simulation.personas });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch simulation personas' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/simulations/{id}/personas:
+ *   put:
+ *     summary: Update personas attached to a simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - personaIds
+ *             properties:
+ *               personaIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array of persona IDs to attach to the simulation
+ *                 example: ["123e4567-e89b-12d3-a456-426614174000", "456e7890-e89b-12d3-a456-426614174001"]
+ *     responses:
+ *       200:
+ *         description: Simulation personas updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Simulation personas updated successfully"
+ *                 personas:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Persona'
+ *       400:
+ *         description: Bad request - validation errors
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       404:
+ *         description: Simulation not found
+ *       500:
+ *         description: Server error
+ */
+// Update personas for a simulation
+router.put('/simulations/:id/personas', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationRepository = AppDataSource.getRepository(Simulation);
+    const personaRepository = AppDataSource.getRepository(Persona);
+    const { personaIds } = req.body;
+
+    if (!Array.isArray(personaIds)) {
+      return res.status(400).json({
+        error: 'personaIds must be an array',
+        code: 'INVALID_PERSONA_IDS',
+      });
+    }
+
+    const simulation = await simulationRepository.findOne({
+      where: { id: req.params.id },
+      relations: ['personas'],
+    });
+
+    if (!simulation) {
+      return res.status(404).json({
+        error: 'Simulation not found',
+        code: 'SIMULATION_NOT_FOUND',
+      });
+    }
+
+    // Get the personas to attach
+    let personas: Persona[] = [];
+    if (personaIds.length > 0) {
+      personas = await personaRepository.find({
+        where: {
+          id: In(personaIds),
+        },
+      });
+
+      // Check if all requested personas exist
+      if (personas.length !== personaIds.length) {
+        const foundIds = personas.map(p => p.id);
+        const missingIds = personaIds.filter(id => !foundIds.includes(id));
+        return res.status(400).json({
+          error: 'Some personas were not found',
+          code: 'PERSONAS_NOT_FOUND',
+          missingIds,
+        });
+      }
+    }
+
+    // Update the simulation's personas
+    simulation.personas = personas;
+    await simulationRepository.save(simulation);
+
+    res.json({
+      message: 'Simulation personas updated successfully',
+      personas: simulation.personas,
+    });
+  } catch (error) {
+    console.error('Error updating simulation personas:', error);
+    res.status(500).json({ error: 'Failed to update simulation personas' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/simulations/{id}/personas/{personaId}:
+ *   post:
+ *     summary: Add a persona to a simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *       - in: path
+ *         name: personaId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Persona ID
+ *     responses:
+ *       200:
+ *         description: Persona added to simulation successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Persona added to simulation successfully"
+ *                 personas:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Persona'
+ *       400:
+ *         description: Bad request - persona already attached
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       404:
+ *         description: Simulation or persona not found
+ *       500:
+ *         description: Server error
+ */
+// Add persona to simulation
+router.post('/simulations/:id/personas/:personaId', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationRepository = AppDataSource.getRepository(Simulation);
+    const personaRepository = AppDataSource.getRepository(Persona);
+
+    const [simulation, persona] = await Promise.all([
+      simulationRepository.findOne({
+        where: { id: req.params.id },
+        relations: ['personas'],
+      }),
+      personaRepository.findOne({
+        where: { id: req.params.personaId },
+      }),
+    ]);
+
+    if (!simulation) {
+      return res.status(404).json({
+        error: 'Simulation not found',
+        code: 'SIMULATION_NOT_FOUND',
+      });
+    }
+
+    if (!persona) {
+      return res.status(404).json({
+        error: 'Persona not found',
+        code: 'PERSONA_NOT_FOUND',
+      });
+    }
+
+    // Check if persona is already attached
+    const isAlreadyAttached = simulation.personas.some(p => p.id === persona.id);
+    if (isAlreadyAttached) {
+      return res.status(400).json({
+        error: 'Persona is already attached to this simulation',
+        code: 'PERSONA_ALREADY_ATTACHED',
+      });
+    }
+
+    // Add persona to simulation
+    simulation.personas.push(persona);
+    await simulationRepository.save(simulation);
+
+    res.json({
+      message: 'Persona added to simulation successfully',
+      personas: simulation.personas,
+    });
+  } catch (error) {
+    console.error('Error adding persona to simulation:', error);
+    res.status(500).json({ error: 'Failed to add persona to simulation' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/simulations/{id}/personas/{personaId}:
+ *   delete:
+ *     summary: Remove a persona from a simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *       - in: path
+ *         name: personaId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Persona ID
+ *     responses:
+ *       200:
+ *         description: Persona removed from simulation successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Persona removed from simulation successfully"
+ *                 personas:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Persona'
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       404:
+ *         description: Simulation or persona not found
+ *       500:
+ *         description: Server error
+ */
+// Remove persona from simulation
+router.delete('/simulations/:id/personas/:personaId', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationRepository = AppDataSource.getRepository(Simulation);
+
+    const simulation = await simulationRepository.findOne({
+      where: { id: req.params.id },
+      relations: ['personas'],
+    });
+
+    if (!simulation) {
+      return res.status(404).json({
+        error: 'Simulation not found',
+        code: 'SIMULATION_NOT_FOUND',
+      });
+    }
+
+    // Remove persona from simulation
+    simulation.personas = simulation.personas.filter(p => p.id !== req.params.personaId);
+    await simulationRepository.save(simulation);
+
+    res.json({
+      message: 'Persona removed from simulation successfully',
+      personas: simulation.personas,
+    });
+  } catch (error) {
+    console.error('Error removing persona from simulation:', error);
+    res.status(500).json({ error: 'Failed to remove persona from simulation' });
   }
 });
 

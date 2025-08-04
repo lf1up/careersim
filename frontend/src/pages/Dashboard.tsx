@@ -7,11 +7,51 @@ import { Button } from '../components/ui/Button.tsx';
 import { 
   Simulation, 
   SimulationSession, 
-  PerformanceAnalytics
+  PerformanceAnalytics,
+  SimulationDifficulty,
+  SessionStatus
 } from '../types/index.ts';
 import { getSessionStatusIcon, getSessionStatusColor, getSessionStatusLabel } from '../utils/sessionStatus.tsx';
+import { 
+  ClockIcon,
+  TagIcon,
+  PlayIcon
+} from '@heroicons/react/24/outline';
 
-// Status utility functions are now imported from shared utils
+// Difficulty utility functions
+const getDifficultyColor = (difficulty: SimulationDifficulty): string => {
+  switch (difficulty) {
+    case SimulationDifficulty.BEGINNER:
+      return 'bg-green-100 text-green-800';
+    case SimulationDifficulty.INTERMEDIATE:
+      return 'bg-yellow-100 text-yellow-800';
+    case SimulationDifficulty.ADVANCED:
+      return 'bg-orange-100 text-orange-800';
+    case SimulationDifficulty.EXPERT:
+      return 'bg-red-100 text-red-800';
+    case SimulationDifficulty.MASTER:
+      return 'bg-purple-100 text-purple-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
+  switch (difficulty) {
+    case SimulationDifficulty.BEGINNER:
+      return 'Beginner';
+    case SimulationDifficulty.INTERMEDIATE:
+      return 'Intermediate';
+    case SimulationDifficulty.ADVANCED:
+      return 'Advanced';
+    case SimulationDifficulty.EXPERT:
+      return 'Expert';
+    case SimulationDifficulty.MASTER:
+      return 'Master';
+    default:
+      return 'Unknown';
+  }
+};
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -156,18 +196,36 @@ export const Dashboard: React.FC = () => {
                     key={simulation.id}
                     className="border border-secondary-200 rounded-lg p-4 hover:border-primary-300 transition-colors"
                   >
-                    <h3 className="font-medium text-secondary-900">
+                    <h3 className="font-medium text-secondary-900 mb-2">
                       {simulation.title}
                     </h3>
-                    <p className="text-sm text-secondary-600 mt-1">
+                    <p className="text-sm text-secondary-600 mb-3">
                       {simulation.description}
                     </p>
-                    <div className="flex justify-between items-center mt-3">
-                      <span className="text-xs text-secondary-500">
-                        {simulation.estimatedDurationMinutes} min
+
+                    <div className="flex items-center gap-2 mb-3">
+                      {simulation.category && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                          <TagIcon className="h-3 w-3 mr-1" />
+                          {simulation.category.name}
+                        </span>
+                      )}
+                      
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(simulation.difficulty)}`}>
+                        {getDifficultyLabel(simulation.difficulty)}
                       </span>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center text-sm text-secondary-500">
+                        <ClockIcon className="h-4 w-4 mr-1" />
+                        {simulation.estimatedDurationMinutes} min
+                      </div>
                       <Link to={`/simulations/${simulation.id}`}>
-                        <Button size="sm">Start</Button>
+                        <Button size="sm" className="inline-flex items-center">
+                          <PlayIcon className="h-4 w-4 mr-1" />
+                          Start
+                        </Button>
                       </Link>
                     </div>
                   </div>
@@ -199,7 +257,7 @@ export const Dashboard: React.FC = () => {
                 {recentSessions.map((session) => (
                   <div
                     key={session.id}
-                    className="border border-secondary-200 rounded-lg p-4"
+                    className="border border-secondary-200 rounded-lg p-4 hover:border-primary-300 transition-colors"
                   >
                     <h3 className="font-medium text-secondary-900">
                       {session.simulation?.title || 'Unknown Simulation'}
@@ -209,11 +267,24 @@ export const Dashboard: React.FC = () => {
                         {getSessionStatusIcon(session.status, 'h-3 w-3')}
                         <span className="ml-1">{getSessionStatusLabel(session.status)}</span>
                       </span>
-                      <Link to={`/sessions/${session.id}`}>
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {(session.status === SessionStatus.ACTIVE || 
+                          session.status === SessionStatus.PAUSED ||
+                          (session.status as string) === 'started' ||
+                          (session.status as string) === 'in_progress') && (
+                          <Link to={`/simulations/${session.simulation?.id}/session/${session.id}`}>
+                            <Button size="sm" className="inline-flex items-center">
+                              <PlayIcon className="h-4 w-4 mr-1" />
+                              Continue
+                            </Button>
+                          </Link>
+                        )}
+                        <Link to={`/sessions/${session.id}`}>
+                          <Button variant="ghost" size="sm">
+                            View
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 ))}
