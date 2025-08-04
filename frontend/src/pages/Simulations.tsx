@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
-import { Simulation, SimulationDifficulty } from '../types/index.ts';
+import { Simulation, SimulationDifficulty, Category } from '../types/index.ts';
 import { 
   ClockIcon,
   BeakerIcon,
@@ -47,6 +47,7 @@ const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
 
 export const Simulations: React.FC = () => {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState({
@@ -55,6 +56,19 @@ export const Simulations: React.FC = () => {
     page: 1,
     limit: 12
   });
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoriesData = await apiClient.getCategories();
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const fetchSimulations = async () => {
@@ -135,11 +149,11 @@ export const Simulations: React.FC = () => {
             className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">All Categories</option>
-            <option value="interview">Interview</option>
-            <option value="negotiation">Negotiation</option>
-            <option value="presentation">Presentation</option>
-            <option value="networking">Networking</option>
-            <option value="leadership">Leadership</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
           </select>
         </div>
 

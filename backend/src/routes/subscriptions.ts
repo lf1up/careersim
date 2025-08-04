@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { Subscription } from '@/entities/Subscription';

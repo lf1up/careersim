@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext.tsx';
 import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
-import { SimulationSession, SessionMessage, SessionStatus } from '../types/index.ts';
+import { SimulationSession, SessionMessage, SessionStatus, SimulationDifficulty } from '../types/index.ts';
 import { getSessionStatusIcon, getSessionStatusColor, getSessionStatusLabel } from '../utils/sessionStatus.tsx';
 import {
   ArrowLeftIcon,
@@ -14,10 +14,45 @@ import {
   UserIcon,
   ComputerDesktopIcon,
   CheckCircleIcon,
-  PlayIcon
+  PlayIcon,
+  TagIcon
 } from '@heroicons/react/24/outline';
 
 // Status utility functions are now imported from shared utils
+
+const getDifficultyColor = (difficulty: SimulationDifficulty): string => {
+  switch (difficulty) {
+    case SimulationDifficulty.BEGINNER:
+      return 'bg-green-100 text-green-800';
+    case SimulationDifficulty.INTERMEDIATE:
+      return 'bg-yellow-100 text-yellow-800';
+    case SimulationDifficulty.ADVANCED:
+      return 'bg-orange-100 text-orange-800';
+    case SimulationDifficulty.EXPERT:
+      return 'bg-red-100 text-red-800';
+    case SimulationDifficulty.MASTER:
+      return 'bg-purple-100 text-purple-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
+  switch (difficulty) {
+    case SimulationDifficulty.BEGINNER:
+      return 'Beginner';
+    case SimulationDifficulty.INTERMEDIATE:
+      return 'Intermediate';
+    case SimulationDifficulty.ADVANCED:
+      return 'Advanced';
+    case SimulationDifficulty.EXPERT:
+      return 'Expert';
+    case SimulationDifficulty.MASTER:
+      return 'Master';
+    default:
+      return 'Unknown';
+  }
+};
 
 const formatDuration = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -298,15 +333,27 @@ export const SessionDetail: React.FC = () => {
             <div className="bg-white rounded-lg shadow-sm border border-secondary-200 p-6 mt-6">
               <h3 className="text-lg font-semibold text-secondary-900 mb-4">Simulation Info</h3>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <div className="text-sm font-medium text-secondary-900">Category</div>
-                  <div className="text-sm text-secondary-600">{session.simulation.category?.name || 'General'}</div>
+                  <div className="text-sm font-medium text-secondary-900 mb-2">Category</div>
+                  {session.simulation.category ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                      <TagIcon className="h-3 w-3 mr-1" />
+                      {session.simulation.category.name}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      <TagIcon className="h-3 w-3 mr-1" />
+                      General
+                    </span>
+                  )}
                 </div>
                 
                 <div>
-                  <div className="text-sm font-medium text-secondary-900">Difficulty</div>
-                  <div className="text-sm text-secondary-600">{session.simulation.difficulty}</div>
+                  <div className="text-sm font-medium text-secondary-900 mb-2">Difficulty</div>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(session.simulation.difficulty)}`}>
+                    {getDifficultyLabel(session.simulation.difficulty)}
+                  </span>
                 </div>
                 
                 <div>

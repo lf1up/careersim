@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
@@ -76,6 +76,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const queryBuilder = AppDataSource.getRepository(SimulationSession)
       .createQueryBuilder('session')
       .leftJoinAndSelect('session.simulation', 'simulation')
+      .leftJoinAndSelect('simulation.category', 'category')
       .leftJoinAndSelect('simulation.personas', 'personas')
       .where('session.user.id = :userId', { userId: req.user!.id });
 
@@ -239,7 +240,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
         id: req.params.id,
         user: { id: req.user!.id }
       },
-      relations: ['simulation', 'simulation.personas', 'messages', 'analytics'],
+      relations: ['simulation', 'simulation.category', 'simulation.personas', 'messages', 'analytics'],
     });
 
     if (!session) {

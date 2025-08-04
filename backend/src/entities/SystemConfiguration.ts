@@ -45,8 +45,8 @@ export interface RateLimitSettings {
  *           type: object
  *           properties:
  *             model:
- *               type: string
- *               example: "gpt-4-turbo-preview"
+*               type: string
+*               example: "moonshotai/kimi-k2:free"
  *             maxTokens:
  *               type: integer
  *               example: 2000
@@ -135,9 +135,12 @@ export class SystemConfiguration {
 
   // Default configurations
   static getDefaultAISettings(): AIModelSettings {
+    // Import config here to avoid circular dependencies
+    const { config } = require('@/config/env');
+    
     return {
-      model: 'gpt-4-turbo-preview',
-      maxTokens: 2000,
+      model: config.ai.openai.model,
+      maxTokens: config.ai.openai.maxTokens,
       temperature: 0.8,
       frequencyPenalty: 0.3,
       presencePenalty: 0.3,

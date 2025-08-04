@@ -1,7 +1,9 @@
 import dotenv from 'dotenv';
 import Joi from 'joi';
+import path from 'path';
 
-dotenv.config();
+// Load .env file from the backend directory
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
 const envSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),

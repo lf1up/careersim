@@ -1,15 +1,14 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Response } from 'express';
 import { In } from 'typeorm';
 import { AppDataSource } from '@/config/database';
 import { config } from '@/config/env';
 import { User } from '@/entities/User';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { Persona } from '@/entities/Persona';
-import { Category } from '@/entities/Category';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Subscription } from '@/entities/Subscription';
 import { SystemConfiguration, AIModelSettings, SystemPrompts, RateLimitSettings } from '@/entities/SystemConfiguration';
-import { UserRole, SubscriptionStatus } from '@/types';
+import { SubscriptionStatus } from '@/types';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '@/middleware/auth';
 import { AIService } from '@/services/ai';
 

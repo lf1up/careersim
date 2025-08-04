@@ -4,7 +4,6 @@ import { AppDataSource } from '@/config/database';
 import { User } from '@/entities/User';
 import { UserRole, SubscriptionTier } from '@/types';
 import { AuthUtils } from '@/utils/auth';
-import { CustomError } from '@/middleware/error';
 import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 
 const router: Router = Router();

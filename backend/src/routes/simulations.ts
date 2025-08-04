@@ -1,5 +1,5 @@
-import { Router, Request, Response } from 'express';
-import { authenticateToken, AuthenticatedRequest, optionalAuth } from '@/middleware/auth';
+import { Router, Response } from 'express';
+import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
@@ -731,6 +731,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         });
 
         console.log(`✅ AI response generated for session ${sessionId}`);
+        console.log(`🤖 Model used: ${aiResponse.metadata.model} (default configured: ${(await import('@/config/env')).config.ai.openai.model})`)
       } catch (aiError) {
         console.error('Error generating AI response:', aiError);
         // Don't fail the entire request if AI response fails
