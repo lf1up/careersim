@@ -224,26 +224,93 @@ All personas from `PERSONAS.md` are implemented:
 
 ## 🔧 API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - User registration
+### Authentication (`/api/auth`)
+- `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - User login
-- `POST /api/auth/refresh` - Refresh tokens
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/forgot-password` - Password reset
-- `POST /api/auth/reset-password` - Reset password
+- `POST /api/auth/refresh` - Refresh access tokens
+- `GET /api/auth/me` - Get current authenticated user
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password with token
+- `POST /api/auth/verify-email` - Verify email address
+- `POST /api/auth/logout` - Logout user (clear tokens)
 
-### Admin Panel
-- `GET /api/admin/dashboard` - Dashboard stats
-- `GET /api/admin/users` - User management
-- `GET /api/admin/simulations` - Simulation management
-- `GET /api/admin/analytics` - Analytics overview
-- `GET /api/admin/export/*` - Data export
+### Admin Panel (`/api/admin`)
+**Dashboard & Analytics:**
+- `GET /api/admin/dashboard` - Get admin dashboard statistics
+- `GET /api/admin/analytics` - Get comprehensive analytics overview
 
-### Core Features
-- `GET /api/simulations` - List simulations
-- `POST /api/sessions` - Start simulation
-- `POST /api/sessions/:id/messages` - Send message
-- `GET /api/analytics/:sessionId` - Performance analytics
+**User Management:**
+- `GET /api/admin/users` - Get all users with filtering and pagination
+- `GET /api/admin/users/{id}` - Get specific user details
+- `PATCH /api/admin/users/{id}` - Update user details (role, tier, status)
+
+**Simulation Management:**
+- `GET /api/admin/simulations` - Get all simulations for admin management
+- `GET /api/admin/simulations/{id}` - Get specific simulation details
+- `PATCH /api/admin/simulations/{id}` - Update simulation details
+- `DELETE /api/admin/simulations/{id}` - Delete a simulation
+
+**Persona Management:**
+- `GET /api/admin/personas` - Get all personas for admin management
+- `GET /api/admin/personas/{id}` - Get specific persona details
+- `POST /api/admin/personas` - Create a new persona
+- `PATCH /api/admin/personas/{id}` - Update persona details
+- `DELETE /api/admin/personas/{id}` - Delete a persona
+
+**Simulation-Persona Associations:**
+- `GET /api/admin/simulations/{id}/personas` - Get personas attached to a simulation
+- `PUT /api/admin/simulations/{id}/personas` - Update personas attached to a simulation
+- `POST /api/admin/simulations/{id}/personas/{personaId}` - Add a persona to a simulation
+- `DELETE /api/admin/simulations/{id}/personas/{personaId}` - Remove a persona from a simulation
+
+**System Configuration:**
+- `GET /api/admin/system/config` - Get all system configurations
+- `PUT /api/admin/system/config/ai` - Update AI model settings
+- `PUT /api/admin/system/config/prompts` - Update system prompts
+
+**Data Export:**
+- `GET /api/admin/export/users` - Export user data for analysis
+- `GET /api/admin/export/sessions` - Export session data for analysis
+
+### Simulations (`/api/simulations`)
+- `GET /api/simulations` - Get all published simulations with pagination and filtering
+- `GET /api/simulations/{idOrSlug}` - Get simulation by ID or slug
+- `GET /api/simulations/{id}/sessions` - Get sessions for a specific simulation
+- `POST /api/simulations/{id}/start-session` - Start a new session for a simulation
+- `GET /api/simulations/{id}/stats` - Get user's statistics for a specific simulation
+
+**Session Messages:**
+- `GET /api/simulations/{id}/sessions/{sessionId}/messages` - Get messages for a session
+- `POST /api/simulations/{id}/sessions/{sessionId}/messages` - Add a new message to a session
+- `PATCH /api/simulations/{id}/sessions/{sessionId}/messages/{messageId}/highlight` - Highlight/unhighlight a message
+
+### Sessions (`/api/sessions`)
+- `GET /api/sessions` - Get user's simulation sessions with filtering and pagination
+- `POST /api/sessions` - Start a new simulation session
+- `GET /api/sessions/{id}` - Get specific session details with messages
+- `PATCH /api/sessions/{id}/status` - Update a session's status
+- `PATCH /api/sessions/{id}/complete` - Mark a session as completed
+
+### Analytics (`/api/analytics`)
+- `GET /api/analytics/performance` - Get user's performance analytics overview
+- `GET /api/analytics/session/{sessionId}` - Get analytics for a specific session
+
+### Subscriptions (`/api/subscriptions`)
+- `GET /api/subscriptions/current` - Get current user's subscription details
+- `GET /api/subscriptions/plans` - Get available subscription plans
+- `POST /api/subscriptions/upgrade` - Upgrade subscription to a new tier
+
+### Categories (`/api/categories`)
+- `GET /api/categories` - Get all simulation categories
+- `GET /api/categories/{id}` - Get category by ID with associated simulations
+
+### Personas (`/api/personas`)
+- `GET /api/personas` - Get all active personas
+- `GET /api/personas/{id}` - Get persona by ID with associated simulations
+
+### User Profile (`/api/users`)
+- `GET /api/users/profile` - Get current user profile
+- `PATCH /api/users/profile` - Update user profile information
 
 ## 🎯 Key Features
 
