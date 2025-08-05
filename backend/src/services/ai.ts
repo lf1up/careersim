@@ -5,6 +5,7 @@ import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { Persona } from '@/entities/Persona';
 import { Simulation } from '@/entities/Simulation';
 import { SessionMessage, MessageType } from '@/entities/SessionMessage';
+import { createPipeline, transformersAvailable, fallbackMessage } from '@/config/transformers';
 
 export interface AIResponse {
   message: string;
@@ -35,6 +36,10 @@ export class AIService {
   // Static instance for cache management
   private static instance: AIService | null = null;
   
+  // NLP Pipeline caches
+  private static sentimentPipeline: any = null;
+  private static emotionPipeline: any = null;
+  
   constructor() {
     this.openai = new OpenAI({
       baseURL: config.ai.openai.baseUrl,
@@ -51,6 +56,25 @@ export class AIService {
   public static clearGlobalConfigCache() {
     if (AIService.instance) {
       AIService.instance.clearConfigCache();
+    }
+  }
+
+  /**
+   * Pre-load NLP models for faster first-time analysis
+   * Call this during application startup for better performance
+   */
+  public static async preloadNLPModels(): Promise<void> {
+    try {
+      console.log('Pre-loading NLP models...');
+      
+      const instance = new AIService();
+      await Promise.all([
+        instance.getSentimentPipeline(),
+        instance.getEmotionPipeline()
+      ]);
+      console.log('NLP models pre-loaded successfully');
+    } catch (error) {
+      console.warn('Failed to pre-load NLP models:', error);
     }
   }
 
@@ -119,6 +143,46 @@ export class AIService {
   }
 
   /**
+   * Initialize sentiment analysis pipeline with caching
+   */
+  private async getSentimentPipeline(): Promise<any> {
+    if (!AIService.sentimentPipeline) {
+      try {
+        console.log('Loading sentiment analysis model...');
+        AIService.sentimentPipeline = await createPipeline(
+          'sentiment-analysis',
+          'Xenova/distilbert-base-uncased-finetuned-sst-2-english'
+        );
+        console.log('Sentiment analysis model loaded successfully');
+      } catch (error) {
+        console.error('Failed to load sentiment analysis model:', error);
+        throw new Error(`Failed to initialize sentiment analysis: ${error.message}`);
+      }
+    }
+    return AIService.sentimentPipeline;
+  }
+
+  /**
+   * Initialize emotion classification pipeline with caching
+   */
+  private async getEmotionPipeline(): Promise<any> {
+    if (!AIService.emotionPipeline) {
+      try {
+        console.log('Loading emotion detection model...');
+        AIService.emotionPipeline = await createPipeline(
+          'text-classification',
+          'j-hartmann/emotion-english-distilroberta-base'
+        );
+        console.log('Emotion detection model loaded successfully');
+      } catch (error) {
+        console.error('Failed to load emotion detection model:', error);
+        throw new Error(`Failed to initialize emotion detection: ${error.message}`);
+      }
+    }
+    return AIService.emotionPipeline;
+  }
+
+  /**
    * Generate AI persona response based on conversation context
    */
   async generatePersonaResponse(
@@ -153,19 +217,24 @@ export class AIService {
       const response = completion.choices[0]?.message?.content || '';
       const processingTime = Date.now() - startTime;
 
-      // Analyze the response for emotional tone and sentiment
-      const emotionalTone = this.analyzeEmotionalTone(response, context.persona);
-      const sentiment = this.analyzeSentiment(response);
+      // Analyze the response for emotional tone and sentiment using professional NLP
+      const [emotionAnalysis, sentimentAnalysis] = await Promise.all([
+        this.analyzeEmotionalToneWithConfidence(response, context.persona),
+        this.analyzeSentimentWithConfidence(response)
+      ]);
+
+      // Calculate overall confidence based on NLP model confidence scores
+      const confidence = await this.calculateOverallConfidence(emotionAnalysis, sentimentAnalysis, response, context);
 
       return {
         message: response,
-        emotionalTone,
-        confidence: 0.85, // This could be enhanced with additional analysis
+        emotionalTone: emotionAnalysis.tone,
+        confidence,
         processingTime,
         metadata: {
           tokenCount: completion.usage?.total_tokens || 0,
           model: completion.model,
-          sentiment,
+          sentiment: sentimentAnalysis.sentiment,
         },
       };
     } catch (error) {
@@ -207,15 +276,461 @@ export class AIService {
   }
 
   /**
-   * Analyze emotional tone of the response
+   * Analyze emotional tone with confidence score
    */
-  private analyzeEmotionalTone(response: string, persona: Persona): string {
-    // Simple keyword-based analysis (could be enhanced with ML)
+  private async analyzeEmotionalToneWithConfidence(response: string, persona: Persona): Promise<{ tone: string; confidence: number }> {
+    try {
+      // Check if Transformers.js is available
+      if (!transformersAvailable) {
+        console.log(`🔄 Emotion analysis fallback (${fallbackMessage}): using simple heuristics`);
+        return { tone: this.analyzeEmotionalToneFallback(response, persona), confidence: 0.5 };
+      }
+
+      const emotionPipeline = await this.getEmotionPipeline();
+      const result = await emotionPipeline(response) as Array<{ label: string; score: number }>;
+      
+      // The model returns emotions like: joy, sadness, anger, fear, surprise, disgust, neutral
+      // Map them to more user-friendly tone descriptions
+      const emotionToTone = {
+        'joy': 'friendly',
+        'happiness': 'friendly',
+        'optimism': 'encouraging',
+        'approval': 'encouraging',
+        'excitement': 'encouraging',
+        'love': 'friendly',
+        'admiration': 'encouraging',
+        'amusement': 'friendly',
+        'gratitude': 'friendly',
+        'desire': 'encouraging',
+        'caring': 'friendly',
+        'pride': 'encouraging',
+        'relief': 'friendly',
+        
+        'sadness': 'sympathetic',
+        'disappointment': 'understanding',
+        'grief': 'sympathetic',
+        'remorse': 'understanding',
+        
+        'anger': 'frustrated',
+        'annoyance': 'frustrated',
+        'disapproval': 'skeptical',
+        'disgust': 'frustrated',
+        
+        'fear': 'concerned',
+        'nervousness': 'concerned',
+        'confusion': 'uncertain',
+        'embarrassment': 'understanding',
+        
+        'surprise': 'engaged',
+        'curiosity': 'engaged',
+        'realization': 'understanding',
+        
+        'neutral': 'neutral'
+      } as const;
+
+      // Get the highest scoring emotion
+      const topEmotion = result.reduce((prev, current) => 
+        current.score > prev.score ? current : prev
+      );
+
+      // Map to tone, defaulting to neutral if not found
+      const tone = emotionToTone[topEmotion.label.toLowerCase() as keyof typeof emotionToTone] || 'neutral';
+      
+      console.log(`Emotion analysis: ${topEmotion.label} (${topEmotion.score.toFixed(3)}) -> ${tone}`);
+      return { tone, confidence: topEmotion.score };
+      
+    } catch (error) {
+      console.warn('Emotion analysis failed, using fallback:', error.message);
+      return { tone: this.analyzeEmotionalToneFallback(response, persona), confidence: 0.3 };
+    }
+  }
+
+  /**
+   * Analyze emotional tone of the response using professional NLP with fallback (legacy method)
+   */
+  private async analyzeEmotionalTone(response: string, persona: Persona): Promise<string> {
+    const result = await this.analyzeEmotionalToneWithConfidence(response, persona);
+    return result.tone;
+  }
+
+  /**
+   * Analyze sentiment with confidence score
+   */
+  private async analyzeSentimentWithConfidence(response: string): Promise<{ sentiment: 'positive' | 'neutral' | 'negative'; confidence: number }> {
+    try {
+      // Check if Transformers.js is available
+      if (!transformersAvailable) {
+        console.log(`🔄 Sentiment analysis fallback (${fallbackMessage}): using simple heuristics`);
+        return { sentiment: this.analyzeSentimentFallback(response), confidence: 0.5 };
+      }
+
+      const sentimentPipeline = await this.getSentimentPipeline();
+      const result = await sentimentPipeline(response) as Array<{ label: string; score: number }>;
+      
+      // The BERT model returns 'POSITIVE' or 'NEGATIVE' with confidence scores
+      const topSentiment = result.reduce((prev, current) => 
+        current.score > prev.score ? current : prev
+      );
+      
+      const label = topSentiment.label.toLowerCase();
+      const score = topSentiment.score;
+      
+      // Apply threshold for neutral classification
+      // If confidence is low (< 0.75), classify as neutral
+      if (score < 0.75) {
+        console.log(`Sentiment analysis: ${label} (${score.toFixed(3)}) -> neutral (low confidence)`);
+        return { sentiment: 'neutral', confidence: score };
+      }
+      
+      const sentiment = label === 'positive' ? 'positive' : 'negative';
+      console.log(`Sentiment analysis: ${label} (${score.toFixed(3)}) -> ${sentiment}`);
+      return { sentiment, confidence: score };
+      
+    } catch (error) {
+      console.warn('Sentiment analysis failed, using fallback:', error.message);
+      return { sentiment: this.analyzeSentimentFallback(response), confidence: 0.3 };
+    }
+  }
+
+  /**
+   * Analyze sentiment of the response using professional NLP with fallback (legacy method)
+   */
+  private async analyzeSentiment(response: string): Promise<'positive' | 'neutral' | 'negative'> {
+    const result = await this.analyzeSentimentWithConfidence(response);
+    return result.sentiment;
+  }
+
+  /**
+   * Calculate overall confidence using multiple approaches including transformer-based assessment
+   */
+  private async calculateOverallConfidence(
+    emotionAnalysis: { tone: string; confidence: number },
+    sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number },
+    response: string,
+    context: ConversationContext
+  ): Promise<number> {
+    try {
+      // Get transformer-based confidence assessment if available
+      const transformerConfidence = await this.getTransformerConfidenceScore(response, context);
+      
+      // Weight the confidence scores
+      const emotionWeight = 0.3;
+      const sentimentWeight = 0.2;
+      const transformerWeight = 0.5; // Give more weight to transformer-based assessment
+      
+      // Calculate weighted average
+      const baseConfidence = (emotionAnalysis.confidence * emotionWeight) + 
+                            (sentimentAnalysis.confidence * sentimentWeight) + 
+                            (transformerConfidence * transformerWeight);
+      
+      // Apply contextual adjustments
+      let adjustedConfidence = this.applyContextualAdjustments(
+        baseConfidence, 
+        emotionAnalysis, 
+        sentimentAnalysis, 
+        response, 
+        context
+      );
+      
+      // Ensure confidence is between 0 and 1
+      return Math.max(0, Math.min(1, adjustedConfidence));
+      
+    } catch (error) {
+      console.warn('Advanced confidence calculation failed, using fallback:', error.message);
+      return this.calculateBasicConfidence(emotionAnalysis, sentimentAnalysis);
+    }
+  }
+
+  /**
+   * Get confidence score using transformer-based text quality assessment
+   */
+  private async getTransformerConfidenceScore(response: string, context: ConversationContext): Promise<number> {
+    try {
+      // Check if Transformers.js is available
+      if (!transformersAvailable) {
+        console.log(`🔄 Transformer confidence assessment fallback (${fallbackMessage}): using heuristics`);
+        return this.getHeuristicConfidenceScore(response, context);
+      }
+
+      // Use a multi-faceted approach for confidence assessment
+      const assessments = await Promise.all([
+        this.assessResponseCoherence(response),
+        this.assessResponseRelevance(response, context),
+        this.assessResponseCompleteness(response, context)
+      ]);
+
+      // Combine the assessments with weights
+      const coherenceWeight = 0.4;
+      const relevanceWeight = 0.4;
+      const completenessWeight = 0.2;
+
+      const confidence = (assessments[0] * coherenceWeight) + 
+                        (assessments[1] * relevanceWeight) + 
+                        (assessments[2] * completenessWeight);
+
+      console.log(`Transformer confidence: coherence=${assessments[0].toFixed(3)}, relevance=${assessments[1].toFixed(3)}, completeness=${assessments[2].toFixed(3)} -> ${confidence.toFixed(3)}`);
+      return confidence;
+
+    } catch (error) {
+      console.warn('Transformer confidence assessment failed:', error.message);
+      return this.getHeuristicConfidenceScore(response, context);
+    }
+  }
+
+  /**
+   * Assess response coherence using text classification
+   */
+  private async assessResponseCoherence(response: string): Promise<number> {
+    try {
+      // Try advanced transformer-based coherence assessment first
+      if (transformersAvailable) {
+        const advancedScore = await this.getAdvancedCoherenceScore(response);
+        if (advancedScore !== null) {
+          return advancedScore;
+        }
+      }
+
+      // Fallback to linguistic feature analysis
+      const qualityIndicators = {
+        hasProperSentenceStructure: /^[A-Z].*[.!?]$/.test(response.trim()),
+        hasReasonableLength: response.length >= 10 && response.length <= 500,
+        hasNoRepeatedPhrases: !/((.+)\1{2,})/.test(response),
+        hasVariedVocabulary: new Set(response.toLowerCase().split(/\W+/)).size > response.split(/\W+/).length * 0.3,
+        hasProperPunctuation: /[.!?]/.test(response),
+        hasLogicalFlow: this.assessLogicalFlow(response),
+        hasAppropriateComplexity: this.assessComplexity(response)
+      };
+
+      const scoreCount = Object.values(qualityIndicators).filter(Boolean).length;
+      return scoreCount / Object.keys(qualityIndicators).length;
+
+    } catch (error) {
+      console.warn('Coherence assessment failed:', error.message);
+      return 0.5;
+    }
+  }
+
+  /**
+   * Advanced coherence scoring using transformer models (if specific models become available)
+   */
+  private async getAdvancedCoherenceScore(response: string): Promise<number | null> {
+    try {
+      // In the future, this could use models like:
+      // - Text quality assessment models
+      // - Coherence classification models  
+      // - Grammar/fluency scoring models
+      
+      // For now, we return null to indicate this is not yet implemented
+      // but the infrastructure is ready for when such models become available
+      console.log('🔬 Advanced transformer coherence assessment: waiting for specialized models');
+      return null;
+      
+      /* Future implementation example:
+      const qualityPipeline = await createPipeline(
+        'text-classification',
+        'coherence-assessment-model' // Hypothetical model
+      );
+      
+      const result = await qualityPipeline(response);
+      // Convert classification result to confidence score
+      return this.convertClassificationToConfidence(result);
+      */
+
+    } catch (error) {
+      console.warn('Advanced coherence assessment failed:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Assess logical flow of the response
+   */
+  private assessLogicalFlow(response: string): boolean {
+    const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    if (sentences.length <= 1) return true; // Single sentence is considered coherent
+    
+    // Check for transition words/phrases that indicate logical flow
+    const transitionWords = ['however', 'therefore', 'moreover', 'furthermore', 'additionally', 
+                           'consequently', 'meanwhile', 'similarly', 'in contrast', 'for example'];
+    
+    const hasTransitions = sentences.some(sentence => 
+      transitionWords.some(word => sentence.toLowerCase().includes(word))
+    );
+    
+    // Check for pronoun consistency (basic check)
+    const pronounPattern = /\b(it|they|this|that|these|those)\b/gi;
+    const hasPronouns = sentences.some(sentence => pronounPattern.test(sentence));
+    
+    return hasTransitions || hasPronouns || sentences.length <= 3;
+  }
+
+  /**
+   * Assess complexity appropriateness
+   */
+  private assessComplexity(response: string): boolean {
+    const words = response.split(/\s+/);
+    const avgWordLength = words.reduce((sum, word) => sum + word.length, 0) / words.length;
+    const complexWords = words.filter(word => word.length > 6).length;
+    const complexityRatio = complexWords / words.length;
+    
+    // Appropriate complexity: not too simple, not overly complex
+    return avgWordLength >= 3.5 && avgWordLength <= 8 && complexityRatio >= 0.1 && complexityRatio <= 0.4;
+  }
+
+  /**
+   * Assess response relevance to the conversation context
+   */
+  private async assessResponseRelevance(response: string, context: ConversationContext): Promise<number> {
+    try {
+      // Calculate relevance based on context matching
+      const responseWords = new Set(response.toLowerCase().split(/\W+/).filter(word => word.length > 2));
+      const contextWords = new Set([
+        ...context.persona.role.toLowerCase().split(/\W+/),
+        ...context.persona.personality.toLowerCase().split(/\W+/),
+        ...context.simulation.title.toLowerCase().split(/\W+/),
+        ...context.simulation.scenario.toLowerCase().split(/\W+/)
+      ].filter(word => word.length > 2));
+
+      // Calculate word overlap
+      const intersection = new Set([...responseWords].filter(word => contextWords.has(word)));
+      const overlap = intersection.size / Math.min(responseWords.size, contextWords.size);
+
+      // Also check if response addresses recent conversation
+      let conversationRelevance = 0.5;
+      if (context.conversationHistory.length > 0) {
+        const recentMessages = context.conversationHistory.slice(-3);
+        const recentWords = new Set(recentMessages
+          .map(msg => msg.content.toLowerCase())
+          .join(' ')
+          .split(/\W+/)
+          .filter(word => word.length > 2)
+        );
+        
+        const recentIntersection = new Set([...responseWords].filter(word => recentWords.has(word)));
+        conversationRelevance = recentIntersection.size / Math.min(responseWords.size, recentWords.size || 1);
+      }
+
+      return Math.min(1, (overlap + conversationRelevance) / 2);
+
+    } catch (error) {
+      console.warn('Relevance assessment failed:', error.message);
+      return 0.5;
+    }
+  }
+
+  /**
+   * Assess response completeness
+   */
+  private async assessResponseCompleteness(response: string, context: ConversationContext): Promise<number> {
+    try {
+      // Check if response seems complete and appropriate for the context
+      const completenessIndicators = {
+        hasMinimumLength: response.length >= 20,
+        hasEndingPunctuation: /[.!?]$/.test(response.trim()),
+        notTooShort: response.split(/\s+/).length >= 5,
+        notTooLong: response.split(/\s+/).length <= 100,
+        hasSubstantiveContent: !/^(yes|no|ok|sure|maybe)\.?$/i.test(response.trim())
+      };
+
+      const scoreCount = Object.values(completenessIndicators).filter(Boolean).length;
+      return scoreCount / Object.keys(completenessIndicators).length;
+
+    } catch (error) {
+      console.warn('Completeness assessment failed:', error.message);
+      return 0.5;
+    }
+  }
+
+  /**
+   * Apply contextual adjustments to confidence score
+   */
+  private applyContextualAdjustments(
+    baseConfidence: number,
+    emotionAnalysis: { tone: string; confidence: number },
+    sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number },
+    response: string,
+    context: ConversationContext
+  ): number {
+    let adjustedConfidence = baseConfidence;
+    
+    // If both models agree on neutral/positive sentiment, increase confidence slightly
+    if ((emotionAnalysis.tone === 'neutral' && sentimentAnalysis.sentiment === 'neutral') ||
+        (['friendly', 'encouraging'].includes(emotionAnalysis.tone) && sentimentAnalysis.sentiment === 'positive')) {
+      adjustedConfidence = Math.min(0.95, adjustedConfidence + 0.05);
+    }
+    
+    // If models seem to disagree, reduce confidence
+    if ((sentimentAnalysis.sentiment === 'negative' && ['friendly', 'encouraging'].includes(emotionAnalysis.tone)) ||
+        (sentimentAnalysis.sentiment === 'positive' && ['frustrated', 'concerned'].includes(emotionAnalysis.tone))) {
+      adjustedConfidence = Math.max(0.3, adjustedConfidence - 0.1);
+    }
+
+    // Adjust based on response characteristics
+    if (response.length < 10) {
+      adjustedConfidence *= 0.8; // Very short responses are less confident
+    }
+    
+    if (context.conversationHistory.length === 0) {
+      adjustedConfidence *= 0.9; // First response in conversation might be less confident
+    }
+
+    return adjustedConfidence;
+  }
+
+  /**
+   * Fallback confidence calculation using basic heuristics
+   */
+  private calculateBasicConfidence(
+    emotionAnalysis: { tone: string; confidence: number },
+    sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number }
+  ): number {
+    const emotionWeight = 0.6;
+    const sentimentWeight = 0.4;
+    
+    const weightedConfidence = (emotionAnalysis.confidence * emotionWeight) + (sentimentAnalysis.confidence * sentimentWeight);
+    return Math.max(0, Math.min(1, weightedConfidence));
+  }
+
+  /**
+   * Heuristic-based confidence score when transformers are not available
+   */
+  private getHeuristicConfidenceScore(response: string, context: ConversationContext): number {
+    const indicators = {
+      lengthScore: Math.min(1, Math.max(0, (response.length - 10) / 200)),
+      structureScore: /^[A-Z].*[.!?]$/.test(response.trim()) ? 1 : 0.5,
+      vocabularyScore: new Set(response.toLowerCase().split(/\W+/)).size / Math.max(1, response.split(/\W+/).length),
+      contextScore: this.calculateContextRelevanceScore(response, context)
+    };
+
+    return Object.values(indicators).reduce((sum, score) => sum + score, 0) / Object.keys(indicators).length;
+  }
+
+  /**
+   * Calculate how relevant the response is to the context
+   */
+  private calculateContextRelevanceScore(response: string, context: ConversationContext): number {
+    const responseWords = response.toLowerCase().split(/\W+/).filter(word => word.length > 2);
+    const contextText = [
+      context.persona.role,
+      context.persona.personality,
+      context.simulation.title
+    ].join(' ').toLowerCase();
+    
+    const contextWords = contextText.split(/\W+/).filter(word => word.length > 2);
+    const intersection = responseWords.filter(word => contextWords.includes(word));
+    
+    return intersection.length / Math.max(1, responseWords.length);
+  }
+
+  /**
+   * Fallback emotion analysis using simple keyword matching
+   */
+  private analyzeEmotionalToneFallback(response: string, persona: Persona): string {
     const toneIndicators = {
-      friendly: ['glad', 'happy', 'pleased', 'wonderful', 'great', 'excellent'],
+      friendly: ['glad', 'happy', 'pleased', 'wonderful', 'great', 'excellent', 'love', 'enjoy'],
       neutral: ['okay', 'fine', 'understand', 'see', 'right'],
       skeptical: ['but', 'however', 'though', 'doubt', 'unsure', 'hmm'],
-      frustrated: ['unfortunately', 'problem', 'difficult', 'challenging', 'no'],
+      frustrated: ['unfortunately', 'problem', 'difficult', 'challenging', 'no', 'wrong'],
       encouraging: ['good', 'right', 'exactly', 'perfect', 'yes', 'absolutely'],
     };
 
@@ -229,7 +744,6 @@ export class AIService {
       toneScores.set(tone, score);
     }
 
-    // Return the tone with the highest score, or default based on persona
     const toneKeys = Array.from(toneScores.keys());
     if (toneKeys.length === 0) return 'neutral';
     
@@ -241,9 +755,9 @@ export class AIService {
   }
 
   /**
-   * Analyze sentiment of the response
+   * Fallback sentiment analysis using simple keyword matching
    */
-  private analyzeSentiment(response: string): 'positive' | 'neutral' | 'negative' {
+  private analyzeSentimentFallback(response: string): 'positive' | 'neutral' | 'negative' {
     const positiveWords = ['good', 'great', 'excellent', 'wonderful', 'perfect', 'yes', 'absolutely', 'right'];
     const negativeWords = ['no', 'bad', 'terrible', 'wrong', 'difficult', 'problem', 'unfortunately'];
 

@@ -58,8 +58,8 @@ COPY --chown=careersim:nodejs . .
 # Copy dist folder from builder stage
 COPY --from=builder --chown=careersim:nodejs /app/dist ./dist
 
-# Create uploads directory and set permissions
-RUN mkdir -p uploads && chown -R careersim:nodejs uploads
+# Create uploads and models directories and set permissions
+RUN mkdir -p uploads models && chown -R careersim:nodejs uploads models
 
 # Switch to non-root user
 USER careersim

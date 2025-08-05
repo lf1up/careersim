@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+// Configure Transformers.js WASM backend BEFORE any other imports
+import '@/config/transformers';
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
