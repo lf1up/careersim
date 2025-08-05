@@ -220,23 +220,24 @@ export class AIService {
     };
 
     const lowercaseResponse = response.toLowerCase();
-    const toneScores: Record<string, number> = {};
+    const toneScores = new Map<string, number>();
 
     for (const [tone, indicators] of Object.entries(toneIndicators)) {
-      toneScores[tone] = indicators.filter(indicator => 
+      const score = indicators.filter(indicator => 
         lowercaseResponse.includes(indicator)
       ).length;
+      toneScores.set(tone, score);
     }
 
     // Return the tone with the highest score, or default based on persona
-    const toneKeys = Object.keys(toneScores);
+    const toneKeys = Array.from(toneScores.keys());
     if (toneKeys.length === 0) return 'neutral';
     
     const dominantTone = toneKeys.reduce((a, b) => 
-      (toneScores[a] || 0) > (toneScores[b] || 0) ? a : b
+      (toneScores.get(a) || 0) > (toneScores.get(b) || 0) ? a : b
     );
 
-    return (toneScores[dominantTone] || 0) > 0 ? dominantTone : 'neutral';
+    return (toneScores.get(dominantTone) || 0) > 0 ? dominantTone : 'neutral';
   }
 
   /**

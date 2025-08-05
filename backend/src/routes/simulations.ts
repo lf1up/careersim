@@ -5,7 +5,7 @@ import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType, MessageInputMethod } from '@/entities/SessionMessage';
 
-const router: any = Router();
+const router: Router = Router();
 
 /**
  * @swagger
@@ -600,7 +600,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         simulation: { id: simulationId },
         user: { id: req.user!.id }
       },
-      relations: ['simulation', 'simulation.personas', 'messages']
+      relations: ['simulation', 'simulation.personas']
     });
 
     if (!session) {
@@ -619,7 +619,6 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
     // Create new user message
     const message = new SessionMessage();
-    message.sessionId = sessionId;
     message.session = session; // Properly establish the relationship
     message.sequenceNumber = sequenceNumber;
     message.type = type as MessageType;
@@ -630,8 +629,8 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
     await messageRepository.save(message);
 
-    // Add message to session's collection and update message count
-    session.messages.push(message);
+    // Update message count without manually managing the messages collection
+    // TypeORM will handle the relationship synchronization automatically
     session.addMessage();
     await sessionRepository.save(session);
 
@@ -639,7 +638,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
     // Exclude the session property to avoid circular reference
     const transformedMessage = {
       id: message.id,
-      sessionId: message.sessionId,
+      sessionId: session.id,
       sequenceNumber: message.sequenceNumber,
       type: message.type,
       content: message.content,
@@ -681,7 +680,6 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
         // Create AI response message
         const aiMessage = new SessionMessage();
-        aiMessage.sessionId = sessionId;
         aiMessage.session = session; // Properly establish the relationship
         aiMessage.sequenceNumber = sequenceNumber + 1;
         aiMessage.type = MessageType.AI;
@@ -698,8 +696,8 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
         await messageRepository.save(aiMessage);
 
-        // Add AI message to session's collection and update message count again
-        session.messages.push(aiMessage);
+        // Update message count without manually managing the messages collection
+        // TypeORM will handle the relationship synchronization automatically
         session.addMessage();
         await sessionRepository.save(session);
 
@@ -707,7 +705,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         // Exclude the session property to avoid circular reference
         const transformedAiMessage = {
           id: aiMessage.id,
-          sessionId: aiMessage.sessionId,
+          sessionId: session.id,
           sequenceNumber: aiMessage.sequenceNumber,
           type: aiMessage.type,
           content: aiMessage.content,

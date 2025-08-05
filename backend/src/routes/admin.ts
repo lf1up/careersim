@@ -12,7 +12,7 @@ import { SubscriptionStatus } from '@/types';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '@/middleware/auth';
 import { AIService } from '@/services/ai';
 
-const router: any = Router();
+const router: Router = Router();
 
 // Apply authentication and admin role requirement to all routes
 router.use(authenticateToken as any);

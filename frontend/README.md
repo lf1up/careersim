@@ -30,17 +30,16 @@ The frontend will run on `http://localhost:3000` by default.
 
 Copy `.env.example` to `.env` and configure the following variables:
 
-- `PORT=3000` - Frontend port (default React port)
-- `REACT_APP_FRONTEND_URL=http://localhost:3000` - Frontend URL
-- `REACT_APP_API_URL=http://localhost:8000/api` - Backend API URL
-- `REACT_APP_SOCKET_URL=http://localhost:8000` - Socket.IO server URL
+- `VITE_PORT=3000` - Frontend port (default React port)
+- `VITE_API_URL=http://localhost:8000/api` - Backend API URL
+- `VITE_SOCKET_URL=http://localhost:8000` - Socket.IO server URL
 
 ## Available Scripts
 
 - `pnpm dev` - Start development server
 - `pnpm start` - Start development server (alias for dev)
 - `pnpm build` - Build for production
-- `pnpm test` - Run tests
+- `pnpm lint` - Check for linting errors
 
 ## Tech Stack
 

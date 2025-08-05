@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import express from 'express';
+import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import swaggerUi from 'swagger-ui-express';
-import 'express-async-errors';
+
 
 import { connectDatabase } from '@/config/database';
 import { config } from '@/config/env';
@@ -27,8 +27,8 @@ import analyticsRoutes from '@/routes/analytics';
 import adminRoutes from '@/routes/admin';
 import subscriptionRoutes from '@/routes/subscriptions';
 
-const app: any = express();
-const server: any = createServer(app);
+const app: Express = express();
+const server = createServer(app);
 
 // Socket.IO setup for real-time communication
 const io = new SocketIOServer(server, {
@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
 });
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use('/*any', (req, res) => {
   res.status(404).json({
     error: 'Route not found',
     code: 'ROUTE_NOT_FOUND',

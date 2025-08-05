@@ -33,7 +33,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       // Initialize socket connection
-      const socketUrl = (process.env.REACT_APP_SOCKET_URL as string) || 'http://localhost:8000';
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
       const newSocket = io(socketUrl, {
         auth: {
           token: localStorage.getItem('authToken'),

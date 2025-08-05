@@ -2,43 +2,47 @@
   "name": "careersim-frontend",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.13.1",
   "dependencies": {
-    "@types/node": "^16.18.68",
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1",
-    "react-scripts": "5.0.1",
-    "typescript": "^4.9.5",
     "axios": "^1.6.2",
     "socket.io-client": "^4.7.4",
     "@heroicons/react": "^2.0.18",
-    "tailwindcss": "^3.3.6",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
     "react-hot-toast": "^2.4.1",
     "react-hook-form": "^7.48.2",
     "@hookform/resolvers": "^3.3.2",
     "yup": "^1.4.0",
     "clsx": "^2.0.0",
-    "date-fns": "^2.30.0",
-    "eslint-config-react-app": "^7.0.1"
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "eslint-plugin-security": "^3.0.1",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.4"
   },
   "scripts": {
-    "start": "BROWSER=none react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "dev": "BROWSER=none react-scripts start"
+    "dev": "vite --host",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 5",
+    "preview": "vite preview",
+    "security": "eslint src/**/*.{ts,tsx} --no-eslintrc --config .eslintrc.security.cjs"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
+
   "browserslist": {
     "production": [
       ">0.2%",

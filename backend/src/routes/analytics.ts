@@ -4,7 +4,7 @@ import { AppDataSource } from '@/config/database';
 import { SimulationSession } from '@/entities/SimulationSession';
 import { PerformanceAnalytics } from '@/entities/PerformanceAnalytics';
 
-const router: any = Router();
+const router: Router = Router();
 
 // All analytics routes require authentication
 router.use(authenticateToken as any);

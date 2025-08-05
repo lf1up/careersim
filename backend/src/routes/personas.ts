@@ -3,7 +3,7 @@ import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
 import { Persona } from '@/entities/Persona';
 
-const router: any = Router();
+const router: Router = Router();
 
 /**
  * @swagger

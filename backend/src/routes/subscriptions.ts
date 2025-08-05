@@ -5,7 +5,7 @@ import { Subscription } from '@/entities/Subscription';
 import { User } from '@/entities/User';
 import { SubscriptionTier } from '@/types';
 
-const router: any = Router();
+const router: Router = Router();
 
 // All subscription routes require authentication
 router.use(authenticateToken as any);

@@ -5,7 +5,7 @@ import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Simulation } from '@/entities/Simulation';
 import { MessageType } from '@/entities/SessionMessage';
 
-const router: any = Router();
+const router: Router = Router();
 
 // All session routes require authentication
 router.use(authenticateToken as any);

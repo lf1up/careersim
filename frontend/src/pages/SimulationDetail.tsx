@@ -121,7 +121,7 @@ export const SimulationDetail: React.FC = () => {
         if (sessionData.messageCount > 0) {
           try {
             const messagesData = await apiClient.getSessionMessages(id, sessionId, { page: 1, limit: 100 });
-            setSession(prevSession => ({
+            setSession(_prevSession => ({
               ...sessionWithMessages,
               messages: messagesData.messages || []
             }));
