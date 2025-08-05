@@ -12,7 +12,7 @@ export class CustomError extends Error implements AppError {
   public code: string;
   public isOperational: boolean;
 
-  constructor(message: string, statusCode: number = 500, code: string = 'INTERNAL_ERROR') {
+  constructor(message: string, statusCode = 500, code = 'INTERNAL_ERROR') {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
@@ -26,7 +26,7 @@ export const errorHandler = (
   error: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction,
 ): void => {
   let { statusCode = 500, message, code = 'INTERNAL_ERROR' } = error;
 
@@ -95,7 +95,7 @@ export const notFound = (req: Request, res: Response, next: NextFunction): void 
   const error = new CustomError(
     `Route ${req.originalUrl} not found`,
     404,
-    'ROUTE_NOT_FOUND'
+    'ROUTE_NOT_FOUND',
   );
   next(error);
 }; 

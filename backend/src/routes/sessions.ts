@@ -84,23 +84,23 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       // Map frontend status values to backend enum values
       let mappedStatus: string;
       switch (status) {
-        case 'active':
-          // Map 'active' to both 'started' and 'in_progress' statuses
-          queryBuilder.andWhere('session.status IN (:...statuses)', { 
-            statuses: [SessionStatus.STARTED, SessionStatus.IN_PROGRESS] 
-          });
-          break;
-        case 'completed':
-          mappedStatus = SessionStatus.COMPLETED;
-          queryBuilder.andWhere('session.status = :status', { status: mappedStatus });
-          break;
-        case 'paused':
-          mappedStatus = SessionStatus.PAUSED;
-          queryBuilder.andWhere('session.status = :status', { status: mappedStatus });
-          break;
-        default:
-          // If it's already a valid backend enum value, use it directly
-          queryBuilder.andWhere('session.status = :status', { status });
+      case 'active':
+        // Map 'active' to both 'started' and 'in_progress' statuses
+        queryBuilder.andWhere('session.status IN (:...statuses)', { 
+          statuses: [SessionStatus.STARTED, SessionStatus.IN_PROGRESS], 
+        });
+        break;
+      case 'completed':
+        mappedStatus = SessionStatus.COMPLETED;
+        queryBuilder.andWhere('session.status = :status', { status: mappedStatus });
+        break;
+      case 'paused':
+        mappedStatus = SessionStatus.PAUSED;
+        queryBuilder.andWhere('session.status = :status', { status: mappedStatus });
+        break;
+      default:
+        // If it's already a valid backend enum value, use it directly
+        queryBuilder.andWhere('session.status = :status', { status });
       }
     }
 
@@ -238,7 +238,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const session = await sessionRepository.findOne({
       where: { 
         id: req.params.id,
-        user: { id: req.user!.id }
+        user: { id: req.user!.id },
       },
       relations: ['simulation', 'simulation.category', 'simulation.personas', 'messages', 'analytics'],
     });
@@ -252,8 +252,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       ...session,
       messages: session.messages ? session.messages.map(message => ({
         ...message,
-        isFromUser: message.type === MessageType.USER
-      })) : []
+        isFromUser: message.type === MessageType.USER,
+      })) : [],
     };
 
     res.json({ session: transformedSession });
@@ -319,7 +319,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => 
     if (!status || !Object.values(SessionStatus).includes(status)) {
       return res.status(400).json({ 
         error: 'Invalid status provided',
-        validStatuses: Object.values(SessionStatus)
+        validStatuses: Object.values(SessionStatus),
       });
     }
 
@@ -327,7 +327,7 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => 
     const session = await sessionRepository.findOne({
       where: { 
         id: req.params.id,
-        user: { id: req.user!.id }
+        user: { id: req.user!.id },
       },
     });
 
@@ -337,21 +337,21 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => 
 
     // Handle different status transitions
     switch (status) {
-      case SessionStatus.COMPLETED:
-        session.markAsCompleted();
-        break;
-      case SessionStatus.PAUSED:
-        session.markAsPaused();
-        break;
-      case SessionStatus.IN_PROGRESS:
-        session.markAsInProgress();
-        break;
-      case SessionStatus.ABANDONED:
-        session.markAsAbandoned();
-        break;
-      default:
-        session.status = status;
-        session.updatedAt = new Date();
+    case SessionStatus.COMPLETED:
+      session.markAsCompleted();
+      break;
+    case SessionStatus.PAUSED:
+      session.markAsPaused();
+      break;
+    case SessionStatus.IN_PROGRESS:
+      session.markAsInProgress();
+      break;
+    case SessionStatus.ABANDONED:
+      session.markAsAbandoned();
+      break;
+    default:
+      session.status = status;
+      session.updatedAt = new Date();
     }
 
     await sessionRepository.save(session);
@@ -402,7 +402,7 @@ router.patch('/:id/complete', async (req: AuthenticatedRequest, res: Response) =
     const session = await sessionRepository.findOne({
       where: { 
         id: req.params.id,
-        user: { id: req.user!.id }
+        user: { id: req.user!.id },
       },
     });
 

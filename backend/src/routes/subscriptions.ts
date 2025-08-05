@@ -203,7 +203,8 @@ router.get('/plans', async (req: AuthenticatedRequest, res: Response) => {
 // Update subscription (placeholder for payment integration)
 router.post('/upgrade', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { tier, paymentToken } = req.body;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { tier, paymentToken: _ } = req.body;
     
     if (!Object.values(SubscriptionTier).includes(tier)) {
       return res.status(400).json({ error: 'Invalid subscription tier' });
@@ -223,7 +224,7 @@ router.post('/upgrade', async (req: AuthenticatedRequest, res: Response) => {
 
     res.json({ 
       message: 'Subscription updated successfully',
-      newTier: tier 
+      newTier: tier, 
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update subscription' });

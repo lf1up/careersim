@@ -304,16 +304,16 @@ import { SimulationSession } from './SimulationSession';
 @Entity('performance_analytics')
 export class PerformanceAnalytics {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'uuid' })
-  sessionId!: string;
+    sessionId!: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2 })
-  overallScore!: number;
+    overallScore!: number;
 
   @Column({ type: 'json' })
-  detailedScores!: {
+    detailedScores!: {
     communication: {
       score: number;
       breakdown: {
@@ -352,7 +352,7 @@ export class PerformanceAnalytics {
   };
 
   @Column({ type: 'json' })
-  sentimentAnalysis!: {
+    sentimentAnalysis!: {
     overallSentiment: 'positive' | 'neutral' | 'negative';
     sentimentProgression: Array<{
       messageNumber: number;
@@ -364,7 +364,7 @@ export class PerformanceAnalytics {
   };
 
   @Column({ type: 'json' })
-  communicationMetrics!: {
+    communicationMetrics!: {
     totalWords: number;
     averageWordsPerMessage: number;
     fillerWordsCount: number;
@@ -376,7 +376,7 @@ export class PerformanceAnalytics {
   };
 
   @Column({ type: 'json' })
-  keyInsights!: {
+    keyInsights!: {
     strengths: string[];
     improvementAreas: string[];
     criticalMoments: Array<{
@@ -389,7 +389,7 @@ export class PerformanceAnalytics {
   };
 
   @Column({ type: 'json' })
-  comparisonData!: {
+    comparisonData!: {
     personalBest: boolean;
     improvementFromLastSession: number;
     categoryAverageComparison: number;
@@ -397,10 +397,10 @@ export class PerformanceAnalytics {
   };
 
   @Column({ type: 'text' })
-  aiGeneratedFeedback!: string;
+    aiGeneratedFeedback!: string;
 
   @Column({ type: 'json' })
-  actionableRecommendations!: {
+    actionableRecommendations!: {
     immediate: string[];
     shortTerm: string[];
     longTerm: string[];
@@ -413,7 +413,7 @@ export class PerformanceAnalytics {
   };
 
   @Column({ type: 'json', nullable: true })
-  transcriptHighlights?: Array<{
+    transcriptHighlights?: Array<{
     messageId: string;
     messageNumber: number;
     text: string;
@@ -422,12 +422,12 @@ export class PerformanceAnalytics {
   }>;
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   // Relationships
   @OneToOne(() => SimulationSession, (session) => session.analytics)
   @JoinColumn({ name: 'sessionId' })
-  session!: SimulationSession;
+    session!: SimulationSession;
 
   // Methods
   get hasExcellentPerformance(): boolean {
@@ -448,7 +448,7 @@ export class PerformanceAnalytics {
     };
 
     return Object.keys(skillScores).reduce((a, b) => 
-      skillScores[a as keyof typeof skillScores] > skillScores[b as keyof typeof skillScores] ? a : b
+      skillScores[a as keyof typeof skillScores] > skillScores[b as keyof typeof skillScores] ? a : b,
     );
   }
 
@@ -462,7 +462,7 @@ export class PerformanceAnalytics {
     };
 
     return Object.keys(skillScores).reduce((a, b) => 
-      skillScores[a as keyof typeof skillScores] < skillScores[b as keyof typeof skillScores] ? a : b
+      skillScores[a as keyof typeof skillScores] < skillScores[b as keyof typeof skillScores] ? a : b,
     );
   }
 

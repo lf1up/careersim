@@ -31,7 +31,7 @@ export class AIService {
   private openai: OpenAI;
   private configCache: Map<string, any> = new Map();
   private configCacheExpiry: number = 5 * 60 * 1000; // 5 minutes
-  private lastConfigUpdate: number = 0;
+  private lastConfigUpdate = 0;
   
   // Static instance for cache management
   private static instance: AIService | null = null;
@@ -70,7 +70,7 @@ export class AIService {
       const instance = new AIService();
       await Promise.all([
         instance.getSentimentPipeline(),
-        instance.getEmotionPipeline()
+        instance.getEmotionPipeline(),
       ]);
       console.log('NLP models pre-loaded successfully');
     } catch (error) {
@@ -92,7 +92,7 @@ export class AIService {
       const aiConfig = await configRepository.findOne({
         where: { 
           configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS,
-          isActive: true 
+          isActive: true, 
         },
       });
 
@@ -120,7 +120,7 @@ export class AIService {
       const promptsConfig = await configRepository.findOne({
         where: { 
           configKey: SystemConfiguration.CONFIG_KEYS.SYSTEM_PROMPTS,
-          isActive: true 
+          isActive: true, 
         },
       });
 
@@ -151,7 +151,7 @@ export class AIService {
         console.log('Loading sentiment analysis model...');
         AIService.sentimentPipeline = await createPipeline(
           'sentiment-analysis',
-          'Xenova/distilbert-base-uncased-finetuned-sst-2-english'
+          'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
         );
         console.log('Sentiment analysis model loaded successfully');
       } catch (error) {
@@ -171,7 +171,7 @@ export class AIService {
         console.log('Loading emotion detection model...');
         AIService.emotionPipeline = await createPipeline(
           'text-classification',
-          'j-hartmann/emotion-english-distilroberta-base'
+          'j-hartmann/emotion-english-distilroberta-base',
         );
         console.log('Emotion detection model loaded successfully');
       } catch (error) {
@@ -187,14 +187,14 @@ export class AIService {
    */
   async generatePersonaResponse(
     context: ConversationContext,
-    userMessage: string
+    userMessage: string,
   ): Promise<AIResponse> {
     const startTime = Date.now();
 
     try {
       const [aiConfig, systemPrompts] = await Promise.all([
         this.getAIConfig(),
-        this.getSystemPrompts()
+        this.getSystemPrompts(),
       ]);
 
       const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt);
@@ -220,7 +220,7 @@ export class AIService {
       // Analyze the response for emotional tone and sentiment using professional NLP
       const [emotionAnalysis, sentimentAnalysis] = await Promise.all([
         this.analyzeEmotionalToneWithConfidence(response, context.persona),
-        this.analyzeSentimentWithConfidence(response)
+        this.analyzeSentimentWithConfidence(response),
       ]);
 
       // Calculate overall confidence based on NLP model confidence scores
@@ -325,12 +325,12 @@ export class AIService {
         'curiosity': 'engaged',
         'realization': 'understanding',
         
-        'neutral': 'neutral'
+        'neutral': 'neutral',
       } as const;
 
       // Get the highest scoring emotion
       const topEmotion = result.reduce((prev, current) => 
-        current.score > prev.score ? current : prev
+        current.score > prev.score ? current : prev,
       );
 
       // Map to tone, defaulting to neutral if not found
@@ -369,7 +369,7 @@ export class AIService {
       
       // The BERT model returns 'POSITIVE' or 'NEGATIVE' with confidence scores
       const topSentiment = result.reduce((prev, current) => 
-        current.score > prev.score ? current : prev
+        current.score > prev.score ? current : prev,
       );
       
       const label = topSentiment.label.toLowerCase();
@@ -407,7 +407,7 @@ export class AIService {
     emotionAnalysis: { tone: string; confidence: number },
     sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number },
     response: string,
-    context: ConversationContext
+    context: ConversationContext,
   ): Promise<number> {
     try {
       // Get transformer-based confidence assessment if available
@@ -424,12 +424,12 @@ export class AIService {
                             (transformerConfidence * transformerWeight);
       
       // Apply contextual adjustments
-      let adjustedConfidence = this.applyContextualAdjustments(
+      const adjustedConfidence = this.applyContextualAdjustments(
         baseConfidence, 
         emotionAnalysis, 
         sentimentAnalysis, 
         response, 
-        context
+        context,
       );
       
       // Ensure confidence is between 0 and 1
@@ -456,7 +456,7 @@ export class AIService {
       const assessments = await Promise.all([
         this.assessResponseCoherence(response),
         this.assessResponseRelevance(response, context),
-        this.assessResponseCompleteness(response, context)
+        this.assessResponseCompleteness(response, context),
       ]);
 
       // Combine the assessments with weights
@@ -498,7 +498,7 @@ export class AIService {
         hasVariedVocabulary: new Set(response.toLowerCase().split(/\W+/)).size > response.split(/\W+/).length * 0.3,
         hasProperPunctuation: /[.!?]/.test(response),
         hasLogicalFlow: this.assessLogicalFlow(response),
-        hasAppropriateComplexity: this.assessComplexity(response)
+        hasAppropriateComplexity: this.assessComplexity(response),
       };
 
       const scoreCount = Object.values(qualityIndicators).filter(Boolean).length;
@@ -513,7 +513,7 @@ export class AIService {
   /**
    * Advanced coherence scoring using transformer models (if specific models become available)
    */
-  private async getAdvancedCoherenceScore(response: string): Promise<number | null> {
+  private async getAdvancedCoherenceScore(_response: string): Promise<number | null> {
     try {
       // In the future, this could use models like:
       // - Text quality assessment models
@@ -551,10 +551,10 @@ export class AIService {
     
     // Check for transition words/phrases that indicate logical flow
     const transitionWords = ['however', 'therefore', 'moreover', 'furthermore', 'additionally', 
-                           'consequently', 'meanwhile', 'similarly', 'in contrast', 'for example'];
+      'consequently', 'meanwhile', 'similarly', 'in contrast', 'for example'];
     
     const hasTransitions = sentences.some(sentence => 
-      transitionWords.some(word => sentence.toLowerCase().includes(word))
+      transitionWords.some(word => sentence.toLowerCase().includes(word)),
     );
     
     // Check for pronoun consistency (basic check)
@@ -588,7 +588,7 @@ export class AIService {
         ...context.persona.role.toLowerCase().split(/\W+/),
         ...context.persona.personality.toLowerCase().split(/\W+/),
         ...context.simulation.title.toLowerCase().split(/\W+/),
-        ...context.simulation.scenario.toLowerCase().split(/\W+/)
+        ...context.simulation.scenario.toLowerCase().split(/\W+/),
       ].filter(word => word.length > 2));
 
       // Calculate word overlap
@@ -603,7 +603,7 @@ export class AIService {
           .map(msg => msg.content.toLowerCase())
           .join(' ')
           .split(/\W+/)
-          .filter(word => word.length > 2)
+          .filter(word => word.length > 2),
         );
         
         const recentIntersection = new Set([...responseWords].filter(word => recentWords.has(word)));
@@ -621,7 +621,7 @@ export class AIService {
   /**
    * Assess response completeness
    */
-  private async assessResponseCompleteness(response: string, context: ConversationContext): Promise<number> {
+  private async assessResponseCompleteness(response: string, _context: ConversationContext): Promise<number> {
     try {
       // Check if response seems complete and appropriate for the context
       const completenessIndicators = {
@@ -629,7 +629,7 @@ export class AIService {
         hasEndingPunctuation: /[.!?]$/.test(response.trim()),
         notTooShort: response.split(/\s+/).length >= 5,
         notTooLong: response.split(/\s+/).length <= 100,
-        hasSubstantiveContent: !/^(yes|no|ok|sure|maybe)\.?$/i.test(response.trim())
+        hasSubstantiveContent: !/^(yes|no|ok|sure|maybe)\.?$/i.test(response.trim()),
       };
 
       const scoreCount = Object.values(completenessIndicators).filter(Boolean).length;
@@ -649,7 +649,7 @@ export class AIService {
     emotionAnalysis: { tone: string; confidence: number },
     sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number },
     response: string,
-    context: ConversationContext
+    context: ConversationContext,
   ): number {
     let adjustedConfidence = baseConfidence;
     
@@ -682,7 +682,7 @@ export class AIService {
    */
   private calculateBasicConfidence(
     emotionAnalysis: { tone: string; confidence: number },
-    sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number }
+    sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number },
   ): number {
     const emotionWeight = 0.6;
     const sentimentWeight = 0.4;
@@ -699,7 +699,7 @@ export class AIService {
       lengthScore: Math.min(1, Math.max(0, (response.length - 10) / 200)),
       structureScore: /^[A-Z].*[.!?]$/.test(response.trim()) ? 1 : 0.5,
       vocabularyScore: new Set(response.toLowerCase().split(/\W+/)).size / Math.max(1, response.split(/\W+/).length),
-      contextScore: this.calculateContextRelevanceScore(response, context)
+      contextScore: this.calculateContextRelevanceScore(response, context),
     };
 
     return Object.values(indicators).reduce((sum, score) => sum + score, 0) / Object.keys(indicators).length;
@@ -713,7 +713,7 @@ export class AIService {
     const contextText = [
       context.persona.role,
       context.persona.personality,
-      context.simulation.title
+      context.simulation.title,
     ].join(' ').toLowerCase();
     
     const contextWords = contextText.split(/\W+/).filter(word => word.length > 2);
@@ -725,7 +725,7 @@ export class AIService {
   /**
    * Fallback emotion analysis using simple keyword matching
    */
-  private analyzeEmotionalToneFallback(response: string, persona: Persona): string {
+  private analyzeEmotionalToneFallback(response: string, _persona: Persona): string {
     const toneIndicators = {
       friendly: ['glad', 'happy', 'pleased', 'wonderful', 'great', 'excellent', 'love', 'enjoy'],
       neutral: ['okay', 'fine', 'understand', 'see', 'right'],
@@ -739,7 +739,7 @@ export class AIService {
 
     for (const [tone, indicators] of Object.entries(toneIndicators)) {
       const score = indicators.filter(indicator => 
-        lowercaseResponse.includes(indicator)
+        lowercaseResponse.includes(indicator),
       ).length;
       toneScores.set(tone, score);
     }
@@ -748,7 +748,7 @@ export class AIService {
     if (toneKeys.length === 0) return 'neutral';
     
     const dominantTone = toneKeys.reduce((a, b) => 
-      (toneScores.get(a) || 0) > (toneScores.get(b) || 0) ? a : b
+      (toneScores.get(a) || 0) > (toneScores.get(b) || 0) ? a : b,
     );
 
     return (toneScores.get(dominantTone) || 0) > 0 ? dominantTone : 'neutral';
@@ -775,7 +775,7 @@ export class AIService {
    */
   async generatePerformanceFeedback(
     context: ConversationContext,
-    userMessages: SessionMessage[]
+    userMessages: SessionMessage[],
   ): Promise<{
     overallFeedback: string;
     strengths: string[];
@@ -785,7 +785,7 @@ export class AIService {
     try {
       const [aiConfig, systemPrompts] = await Promise.all([
         this.getAIConfig(),
-        this.getSystemPrompts()
+        this.getSystemPrompts(),
       ]);
 
       const userMessagesText = userMessages
@@ -856,13 +856,13 @@ export class AIService {
       questionCount,
       statementCount,
       fillerWords: fillerWords.filter(filler => 
-        allText.toLowerCase().includes(filler)
+        allText.toLowerCase().includes(filler),
       ),
       collaborativeLanguage: collaborativeWords.filter(word => 
-        allText.toLowerCase().includes(word)
+        allText.toLowerCase().includes(word),
       ).length,
       directiveLanguage: directiveWords.filter(word => 
-        allText.toLowerCase().includes(word)
+        allText.toLowerCase().includes(word),
       ).length,
     };
   }

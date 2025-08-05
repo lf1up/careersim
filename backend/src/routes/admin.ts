@@ -7,7 +7,7 @@ import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { Persona } from '@/entities/Persona';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Subscription } from '@/entities/Subscription';
-import { SystemConfiguration, AIModelSettings, SystemPrompts, RateLimitSettings } from '@/entities/SystemConfiguration';
+import { SystemConfiguration, AIModelSettings, SystemPrompts } from '@/entities/SystemConfiguration';
 import { SubscriptionStatus } from '@/types';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '@/middleware/auth';
 import { AIService } from '@/services/ai';
@@ -242,7 +242,7 @@ router.get('/users', async (req: AuthenticatedRequest, res: Response) => {
     if (search) {
       queryBuilder.where(
         '(user.firstName LIKE :search OR user.lastName LIKE :search OR user.email LIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
@@ -621,7 +621,7 @@ router.get('/simulations/:id', async (req: AuthenticatedRequest, res: Response) 
     const completedSessions = await sessionRepository.find({
       where: { 
         simulation: { id: simulation.id },
-        status: SessionStatus.COMPLETED 
+        status: SessionStatus.COMPLETED, 
       },
       select: ['overallScore'],
     });
@@ -940,7 +940,7 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
     // Simple session count
     const totalSessions = await sessionRepository.count();
     const completedSessions = await sessionRepository.count({ 
-      where: { status: SessionStatus.COMPLETED } 
+      where: { status: SessionStatus.COMPLETED }, 
     });
 
     console.log('Session counts:', { totalSessions, completedSessions });
@@ -952,14 +952,14 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
 
     if (totalUsers > 0) {
       const users = await userRepository.find({ 
-        select: ['monthlySimulationsUsed'] 
+        select: ['monthlySimulationsUsed'], 
       });
       avgSimulationsPerUser = users.reduce((sum, user) => sum + user.monthlySimulationsUsed, 0) / totalUsers;
     }
 
     if (totalSessions > 0) {
       const sessions = await sessionRepository.find({ 
-        select: ['durationSeconds', 'overallScore'] 
+        select: ['durationSeconds', 'overallScore'], 
       });
       avgDuration = sessions.reduce((sum, session) => sum + session.durationSeconds, 0) / totalSessions;
       
@@ -995,7 +995,7 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
     console.error('Error stack:', error.stack);
     res.status(500).json({ 
       error: 'Failed to fetch analytics',
-      details: error.message 
+      details: error.message, 
     });
   }
 });
@@ -1239,7 +1239,7 @@ router.get('/personas', async (req: AuthenticatedRequest, res: Response) => {
       const searchCondition = category ? 'AND' : 'WHERE';
       queryBuilder[searchCondition.toLowerCase()](
         '(persona.name LIKE :search OR persona.role LIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 

@@ -230,7 +230,7 @@ router.get('/:id/sessions', authenticateToken as any, async (req: AuthenticatedR
     // First verify the simulation exists
     const simulationRepository = AppDataSource.getRepository(Simulation);
     const simulation = await simulationRepository.findOne({
-      where: { id, status: SimulationStatus.PUBLISHED }
+      where: { id, status: SimulationStatus.PUBLISHED },
     });
 
     if (!simulation) {
@@ -311,7 +311,7 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
     // Verify simulation exists and is published
     const simulation = await simulationRepository.findOne({
       where: { id, status: SimulationStatus.PUBLISHED },
-      relations: ['category', 'personas']
+      relations: ['category', 'personas'],
     });
 
     if (!simulation) {
@@ -330,7 +330,7 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
     // Return the session with simulation details
     const sessionWithDetails = await sessionRepository.findOne({
       where: { id: session.id },
-      relations: ['simulation', 'simulation.category', 'simulation.personas']
+      relations: ['simulation', 'simulation.category', 'simulation.personas'],
     });
 
     res.status(201).json({ session: sessionWithDetails });
@@ -372,7 +372,7 @@ router.get('/:id/stats', authenticateToken as any, async (req: AuthenticatedRequ
     // Verify simulation exists
     const simulationRepository = AppDataSource.getRepository(Simulation);
     const simulation = await simulationRepository.findOne({
-      where: { id, status: SimulationStatus.PUBLISHED }
+      where: { id, status: SimulationStatus.PUBLISHED },
     });
 
     if (!simulation) {
@@ -384,9 +384,9 @@ router.get('/:id/stats', authenticateToken as any, async (req: AuthenticatedRequ
     const sessions = await sessionRepository.find({
       where: {
         simulation: { id },
-        user: { id: req.user!.id }
+        user: { id: req.user!.id },
       },
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
 
     const totalSessions = sessions.length;
@@ -476,8 +476,8 @@ router.get('/:id/sessions/:sessionId/messages', authenticateToken as any, async 
       where: {
         id: sessionId,
         simulation: { id },
-        user: { id: req.user!.id }
-      }
+        user: { id: req.user!.id },
+      },
     });
 
     if (!session) {
@@ -497,7 +497,7 @@ router.get('/:id/sessions/:sessionId/messages', authenticateToken as any, async 
     // Transform messages to include isFromUser field for frontend compatibility
     const transformedMessages = messages.map(message => ({
       ...message,
-      isFromUser: message.type === MessageType.USER
+      isFromUser: message.type === MessageType.USER,
     }));
 
     res.json({
@@ -598,9 +598,9 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
       where: {
         id: sessionId,
         simulation: { id: simulationId },
-        user: { id: req.user!.id }
+        user: { id: req.user!.id },
       },
-      relations: ['simulation', 'simulation.personas']
+      relations: ['simulation', 'simulation.personas'],
     });
 
     if (!session) {
@@ -649,7 +649,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
       highlightReason: message.highlightReason,
       analysisData: message.analysisData,
       createdAt: message.createdAt,
-      isFromUser: message.type === MessageType.USER
+      isFromUser: message.type === MessageType.USER,
     };
 
     // If this is a user message, generate AI response
@@ -672,7 +672,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           persona: activePersona,
           simulation: session.simulation,
           conversationHistory: allMessages.slice(0, -1), // All messages except the new one
-          sessionDuration: Date.now() - session.createdAt.getTime()
+          sessionDuration: Date.now() - session.createdAt.getTime(),
         };
 
         // Generate AI response
@@ -690,7 +690,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           processingTime: aiResponse.processingTime,
           emotionalTone: aiResponse.emotionalTone,
           sentiment: aiResponse.metadata.sentiment,
-          responseToMessageId: message.id
+          responseToMessageId: message.id,
         };
         aiMessage.timestamp = new Date();
 
@@ -716,7 +716,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           highlightReason: aiMessage.highlightReason,
           analysisData: aiMessage.analysisData,
           createdAt: aiMessage.createdAt,
-          isFromUser: false
+          isFromUser: false,
         };
 
         // Only emit AI message via Socket.IO
@@ -729,7 +729,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         });
 
         console.log(`✅ AI response generated for session ${sessionId}`);
-        console.log(`🤖 Model used: ${aiResponse.metadata.model} (default configured: ${(await import('@/config/env')).config.ai.openai.model})`)
+        console.log(`🤖 Model used: ${aiResponse.metadata.model} (default configured: ${(await import('@/config/env')).config.ai.openai.model})`);
       } catch (aiError) {
         console.error('Error generating AI response:', aiError);
         // Don't fail the entire request if AI response fails
@@ -823,8 +823,8 @@ router.patch('/:id/sessions/:sessionId/messages/:messageId/highlight', authentic
       where: {
         id: sessionId,
         simulation: { id },
-        user: { id: req.user!.id }
-      }
+        user: { id: req.user!.id },
+      },
     });
 
     if (!session) {
@@ -834,7 +834,7 @@ router.patch('/:id/sessions/:sessionId/messages/:messageId/highlight', authentic
     // Find and update the message
     const messageRepository = AppDataSource.getRepository(SessionMessage);
     const message = await messageRepository.findOne({
-      where: { id: messageId, sessionId }
+      where: { id: messageId, sessionId },
     });
 
     if (!message) {

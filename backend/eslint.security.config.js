@@ -1,6 +1,7 @@
 const tseslint = require('@typescript-eslint/eslint-plugin');
 const tsparser = require('@typescript-eslint/parser');
 const security = require('eslint-plugin-security');
+const securityNode = require('eslint-plugin-security-node');
 
 module.exports = [
   {
@@ -19,7 +20,8 @@ module.exports = [
     },
     plugins: {
       '@typescript-eslint': tseslint,
-      'security': security
+      'security': security,
+      'security-node': securityNode
     },
     rules: {
       // Security-focused rules
@@ -36,6 +38,14 @@ module.exports = [
       'security/detect-possible-timing-attacks': 'warn',
       'security/detect-pseudoRandomBytes': 'error',
       'security/detect-bidi-characters': 'error',
+      
+      // Security-node specific rules
+      'security-node/detect-crlf': 'error',
+      'security-node/detect-absence-of-name-option-in-expreess-session': 'error',
+      'security-node/detect-buffer-unsafe-allocation': 'error',
+      'security-node/detect-runinthiscontext': 'error',
+      'security-node/detect-security-md5': 'error',
+      'security-node/detect-security-sha1': 'error',
     }
   },
   {

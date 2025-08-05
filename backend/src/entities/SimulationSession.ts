@@ -166,32 +166,32 @@ export enum SessionStatus {
 @Entity('simulation_sessions')
 export class SimulationSession {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({
     type: 'enum',
     enum: SessionStatus,
     default: SessionStatus.STARTED,
   })
-  status!: SessionStatus;
+    status!: SessionStatus;
 
   @Column({ type: 'timestamp', nullable: true })
-  startedAt?: Date;
+    startedAt?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  completedAt?: Date;
+    completedAt?: Date;
 
   @Column({ type: 'int', default: 0 })
-  durationSeconds!: number;
+    durationSeconds!: number;
 
   @Column({ type: 'int', default: 0 })
-  messageCount!: number;
+    messageCount!: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  overallScore?: number;
+    overallScore?: number;
 
   @Column({ type: 'json', nullable: true })
-  scores?: {
+    scores?: {
     communication: number;
     problemSolving: number;
     emotional: number;
@@ -199,10 +199,10 @@ export class SimulationSession {
   };
 
   @Column({ type: 'text', nullable: true })
-  userGoals?: string;
+    userGoals?: string;
 
   @Column({ type: 'json', nullable: true })
-  sessionMetadata?: {
+    sessionMetadata?: {
     userAgent: string;
     deviceType: string;
     inputMethod: string; // 'text' | 'voice' | 'mixed'
@@ -211,38 +211,38 @@ export class SimulationSession {
   };
 
   @Column({ type: 'text', nullable: true })
-  userFeedback?: string;
+    userFeedback?: string;
 
   @Column({ type: 'int', nullable: true })
-  userRating?: number; // 1-5 stars
+    userRating?: number; // 1-5 stars
 
   @Column({ type: 'json', nullable: true })
-  completionData?: {
+    completionData?: {
     objectivesAchieved: string[];
     keyMoments: string[];
     improvementAreas: string[];
   };
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Relationships
   @ManyToOne(() => User, (user) => user.simulationSessions)
   @JoinColumn()
-  user!: User;
+    user!: User;
 
   @ManyToOne(() => Simulation, (simulation) => simulation.sessions)
   @JoinColumn()
-  simulation!: Simulation;
+    simulation!: Simulation;
 
   @OneToMany(() => SessionMessage, (message) => message.session)
-  messages!: SessionMessage[];
+    messages!: SessionMessage[];
 
   @OneToOne(() => PerformanceAnalytics, (analytics) => analytics.session)
-  analytics?: PerformanceAnalytics;
+    analytics?: PerformanceAnalytics;
 
   // Virtual properties and methods
   get isCompleted(): boolean {

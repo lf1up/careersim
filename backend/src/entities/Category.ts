@@ -71,38 +71,38 @@ import { Simulation } from './Simulation';
 @Index(['slug'], { unique: true })
 export class Category {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  name!: string;
+    name!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  slug!: string;
+    slug!: string;
 
   @Column({ type: 'text', nullable: true })
-  description?: string;
+    description?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  iconUrl?: string;
+    iconUrl?: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  color?: string;
+    color?: string;
 
   @Column({ type: 'int', default: 0 })
-  sortOrder!: number;
+    sortOrder!: number;
 
   @Column({ type: 'boolean', default: true })
-  isActive!: boolean;
+    isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Relationships
   @OneToMany(() => Simulation, (simulation) => simulation.category)
-  simulations!: Simulation[];
+    simulations!: Simulation[];
 
   // Virtual properties
   get simulationCount(): number {

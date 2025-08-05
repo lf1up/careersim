@@ -143,32 +143,32 @@ export enum MessageInputMethod {
 @Index(['sessionId', 'sequenceNumber'])
 export class SessionMessage {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'uuid' })
-  sessionId!: string;
+    sessionId!: string;
 
   @Column({ type: 'int' })
-  sequenceNumber!: number;
+    sequenceNumber!: number;
 
   @Column({
     type: 'enum',
     enum: MessageType,
   })
-  type!: MessageType;
+    type!: MessageType;
 
   @Column({ type: 'text' })
-  content!: string;
+    content!: string;
 
   @Column({
     type: 'enum',
     enum: MessageInputMethod,
     nullable: true,
   })
-  inputMethod?: MessageInputMethod;
+    inputMethod?: MessageInputMethod;
 
   @Column({ type: 'json', nullable: true })
-  metadata?: {
+    metadata?: {
     confidence?: number; // For voice-to-text confidence
     processingTime?: number; // AI response generation time
     emotionalTone?: string;
@@ -178,16 +178,16 @@ export class SessionMessage {
   };
 
   @Column({ type: 'timestamp', nullable: true })
-  timestamp!: Date;
+    timestamp!: Date;
 
   @Column({ type: 'boolean', default: false })
-  isHighlighted!: boolean;
+    isHighlighted!: boolean;
 
   @Column({ type: 'text', nullable: true })
-  highlightReason?: string;
+    highlightReason?: string;
 
   @Column({ type: 'json', nullable: true })
-  analysisData?: {
+    analysisData?: {
     wordCount: number;
     sentenceCount: number;
     averageWordsPerSentence: number;
@@ -199,12 +199,12 @@ export class SessionMessage {
   };
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   // Relationships
   @ManyToOne(() => SimulationSession, (session) => session.messages)
   @JoinColumn({ name: 'sessionId' })
-  session!: SimulationSession;
+    session!: SimulationSession;
 
   // Methods
   get isFromUser(): boolean {

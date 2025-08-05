@@ -100,31 +100,31 @@ export interface RateLimitSettings {
 @Entity('system_configurations')
 export class SystemConfiguration {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  configKey!: string;
+    configKey!: string;
 
   @Column({ type: 'json', nullable: true })
-  aiModelSettings?: AIModelSettings;
+    aiModelSettings?: AIModelSettings;
 
   @Column({ type: 'json', nullable: true })
-  systemPrompts?: SystemPrompts;
+    systemPrompts?: SystemPrompts;
 
   @Column({ type: 'json', nullable: true })
-  rateLimitSettings?: RateLimitSettings;
+    rateLimitSettings?: RateLimitSettings;
 
   @Column({ type: 'text', nullable: true })
-  description?: string;
+    description?: string;
 
   @Column({ type: 'boolean', default: true })
-  isActive!: boolean;
+    isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Helper methods for common configuration keys
   static readonly CONFIG_KEYS = {

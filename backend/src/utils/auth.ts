@@ -163,7 +163,7 @@ export class AuthUtils {
   /**
    * Generate random password for testing or temporary access
    */
-  static generateRandomPassword(length: number = 12): string {
+  static generateRandomPassword(length = 12): string {
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let password = '';
     

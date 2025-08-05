@@ -21,7 +21,7 @@ export interface JWTPayload {
 export const authenticateToken = async (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
@@ -30,7 +30,7 @@ export const authenticateToken = async (
     if (!token) {
       res.status(401).json({ 
         error: 'Access token required',
-        code: 'TOKEN_MISSING'
+        code: 'TOKEN_MISSING',
       });
       return;
     }
@@ -46,7 +46,7 @@ export const authenticateToken = async (
     if (!user) {
       res.status(401).json({ 
         error: 'User not found or inactive',
-        code: 'USER_NOT_FOUND'
+        code: 'USER_NOT_FOUND',
       });
       return;
     }
@@ -58,7 +58,7 @@ export const authenticateToken = async (
     if (error instanceof jwt.JsonWebTokenError) {
       res.status(401).json({ 
         error: 'Invalid token',
-        code: 'TOKEN_INVALID'
+        code: 'TOKEN_INVALID',
       });
       return;
     }
@@ -66,14 +66,14 @@ export const authenticateToken = async (
     if (error instanceof jwt.TokenExpiredError) {
       res.status(401).json({ 
         error: 'Token expired',
-        code: 'TOKEN_EXPIRED'
+        code: 'TOKEN_EXPIRED',
       });
       return;
     }
 
     res.status(500).json({ 
       error: 'Authentication error',
-      code: 'AUTH_ERROR'
+      code: 'AUTH_ERROR',
     });
   }
 };
@@ -81,7 +81,7 @@ export const authenticateToken = async (
 export const optionalAuth = async (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
@@ -117,7 +117,7 @@ export const requireRole = (roles: UserRole | UserRole[]) => {
     if (!req.user) {
       res.status(401).json({ 
         error: 'Authentication required',
-        code: 'AUTH_REQUIRED'
+        code: 'AUTH_REQUIRED',
       });
       return;
     }
@@ -127,7 +127,7 @@ export const requireRole = (roles: UserRole | UserRole[]) => {
     if (!allowedRoles.includes(req.user.role)) {
       res.status(403).json({ 
         error: 'Insufficient permissions',
-        code: 'INSUFFICIENT_PERMISSIONS'
+        code: 'INSUFFICIENT_PERMISSIONS',
       });
       return;
     }
@@ -143,7 +143,7 @@ export const requireSubscription = (requiredTiers?: string[]) => {
     if (!req.user) {
       res.status(401).json({ 
         error: 'Authentication required',
-        code: 'AUTH_REQUIRED'
+        code: 'AUTH_REQUIRED',
       });
       return;
     }
@@ -155,7 +155,7 @@ export const requireSubscription = (requiredTiers?: string[]) => {
         data: {
           currentTier: req.user.subscriptionTier,
           requiredTiers,
-        }
+        },
       });
       return;
     }
@@ -167,12 +167,12 @@ export const requireSubscription = (requiredTiers?: string[]) => {
 export const checkSimulationAccess = (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void => {
   if (!req.user) {
     res.status(401).json({ 
       error: 'Authentication required',
-      code: 'AUTH_REQUIRED'
+      code: 'AUTH_REQUIRED',
     });
     return;
   }
@@ -184,7 +184,7 @@ export const checkSimulationAccess = (
       data: {
         monthlyUsed: req.user.monthlySimulationsUsed,
         tier: req.user.subscriptionTier,
-      }
+      },
     });
     return;
   }

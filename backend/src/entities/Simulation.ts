@@ -185,61 +185,61 @@ export enum SimulationStatus {
 @Index(['slug'], { unique: true })
 export class Simulation {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  title!: string;
+    title!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  slug!: string;
+    slug!: string;
 
   @Column({ type: 'text' })
-  description!: string;
+    description!: string;
 
   @Column({ type: 'text' })
-  scenario!: string;
+    scenario!: string;
 
   @Column({ type: 'json', default: '[]' })
-  objectives!: string[];
+    objectives!: string[];
 
   @Column({
     type: 'enum',
     enum: SimulationDifficulty,
     default: SimulationDifficulty.BEGINNER,
   })
-  difficulty!: SimulationDifficulty;
+    difficulty!: SimulationDifficulty;
 
   @Column({
     type: 'enum',
     enum: SimulationStatus,
     default: SimulationStatus.DRAFT,
   })
-  status!: SimulationStatus;
+    status!: SimulationStatus;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  thumbnailUrl?: string;
+    thumbnailUrl?: string;
 
   @Column({ type: 'int', default: 30 })
-  estimatedDurationMinutes!: number;
+    estimatedDurationMinutes!: number;
 
   @Column({ type: 'json', nullable: true })
-  skillsToLearn?: string[];
+    skillsToLearn?: string[];
 
   @Column({ type: 'json', nullable: true })
-  successCriteria?: {
+    successCriteria?: {
     communication: string[];
     problemSolving: string[];
     emotional: string[];
   };
 
   @Column({ type: 'text', nullable: true })
-  preparationTips?: string;
+    preparationTips?: string;
 
   @Column({ type: 'text', nullable: true })
-  contextualBackground?: string;
+    contextualBackground?: string;
 
   @Column({ type: 'json', nullable: true })
-  evaluationMetrics?: {
+    evaluationMetrics?: {
     scoreWeights: {
       communication: number;
       problemSolving: number;
@@ -250,37 +250,37 @@ export class Simulation {
   };
 
   @Column({ type: 'boolean', default: false })
-  isPremiumOnly!: boolean;
+    isPremiumOnly!: boolean;
 
   @Column({ type: 'int', default: 0 })
-  completionCount!: number;
+    completionCount!: number;
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
-  averageRating!: number;
+    averageRating!: number;
 
   @Column({ type: 'int', default: 0 })
-  sortOrder!: number;
+    sortOrder!: number;
 
   // Additional fields expected by frontend
   @Column({ type: 'json', default: '[]' })
-  tags!: string[];
+    tags!: string[];
 
   @Column({ type: 'boolean', default: true })
-  isPublic!: boolean;
+    isPublic!: boolean;
 
   @Column({ type: 'int', default: 0 })
-  viewCount!: number;
+    viewCount!: number;
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Relationships
   @ManyToOne(() => Category, (category) => category.simulations)
   @JoinColumn()
-  category!: Category;
+    category!: Category;
 
   @ManyToMany(() => Persona, (persona) => persona.simulations)
   @JoinTable({
@@ -294,10 +294,10 @@ export class Simulation {
       referencedColumnName: 'id',
     },
   })
-  personas!: Persona[];
+    personas!: Persona[];
 
   @OneToMany(() => SimulationSession, (session) => session.simulation)
-  sessions!: SimulationSession[];
+    sessions!: SimulationSession[];
 
   // Virtual properties
   get difficultyText(): string {

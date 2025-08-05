@@ -32,6 +32,7 @@ const router: Router = Router();
 router.get('/profile', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userProfile } = user;
     res.json({ user: userProfile });
   } catch (error) {
@@ -122,10 +123,11 @@ router.patch('/profile', authenticateToken as any, async (req: AuthenticatedRequ
 
     await userRepository.save(user);
     
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userProfile } = user;
     res.json({ 
       message: 'Profile updated successfully',
-      user: userProfile 
+      user: userProfile, 
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update user profile' });

@@ -79,8 +79,8 @@ router.get('/performance', async (req: AuthenticatedRequest, res: Response) => {
       sessionRepository.count({ 
         where: { 
           user: { id: req.user!.id },
-          status: 'completed' as any
-        }
+          status: 'completed' as any,
+        },
       }),
     ]);
 
@@ -158,8 +158,8 @@ router.get('/session/:sessionId', async (req: AuthenticatedRequest, res: Respons
       where: { 
         session: { 
           id: req.params.sessionId,
-          user: { id: req.user!.id }
-        }
+          user: { id: req.user!.id },
+        },
       },
       relations: ['session', 'session.simulation'],
     });

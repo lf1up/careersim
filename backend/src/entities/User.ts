@@ -93,89 +93,89 @@ import { UserRole, SubscriptionTier } from '../types';
 @Index(['email'], { unique: true })
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  firstName!: string;
+    firstName!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  lastName!: string;
+    lastName!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  email!: string;
+    email!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  password!: string;
+    password!: string;
 
   @Column({
     type: 'enum',
     enum: UserRole,
     default: UserRole.USER,
   })
-  role!: UserRole;
+    role!: UserRole;
 
   @Column({
     type: 'enum',
     enum: SubscriptionTier,
     default: SubscriptionTier.FREEMIUM,
   })
-  subscriptionTier!: SubscriptionTier;
+    subscriptionTier!: SubscriptionTier;
 
   @Column({ type: 'boolean', default: false })
-  isEmailVerified!: boolean;
+    isEmailVerified!: boolean;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  emailVerificationToken?: string;
+    emailVerificationToken?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  passwordResetToken?: string;
+    passwordResetToken?: string;
 
   @Column({ type: 'timestamp', nullable: true })
-  passwordResetExpires?: Date;
+    passwordResetExpires?: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  profileImageUrl?: string;
+    profileImageUrl?: string;
 
   @Column({ type: 'text', nullable: true })
-  bio?: string;
+    bio?: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  jobTitle?: string;
+    jobTitle?: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  company?: string;
+    company?: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  industry?: string;
+    industry?: string;
 
   @Column({ type: 'int', default: 0 })
-  totalSimulationsCompleted!: number;
+    totalSimulationsCompleted!: number;
 
   @Column({ type: 'int', default: 0 })
-  monthlySimulationsUsed!: number;
+    monthlySimulationsUsed!: number;
 
   @Column({ type: 'timestamp', nullable: true })
-  lastSimulationDate?: Date;
+    lastSimulationDate?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  lastLoginAt?: Date;
+    lastLoginAt?: Date;
 
   @Column({ type: 'boolean', default: true })
-  isActive!: boolean;
+    isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Relationships
   @OneToMany(() => SimulationSession, (session) => session.user)
-  simulationSessions!: SimulationSession[];
+    simulationSessions!: SimulationSession[];
 
   @OneToOne(() => Subscription, (subscription) => subscription.user)
   @JoinColumn()
-  subscription?: Subscription;
+    subscription?: Subscription;
 
   // Methods
   get fullName(): string {

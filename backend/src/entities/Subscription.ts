@@ -13,69 +13,69 @@ import { SubscriptionTier, SubscriptionStatus, PaymentProvider } from '../types'
 @Entity('subscriptions')
 export class Subscription {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'uuid' })
-  userId!: string;
+    userId!: string;
 
   @Column({
     type: 'enum',
     enum: SubscriptionTier,
   })
-  tier!: SubscriptionTier;
+    tier!: SubscriptionTier;
 
   @Column({
     type: 'enum',
     enum: SubscriptionStatus,
     default: SubscriptionStatus.ACTIVE,
   })
-  status!: SubscriptionStatus;
+    status!: SubscriptionStatus;
 
   @Column({
     type: 'enum',
     enum: PaymentProvider,
     default: PaymentProvider.STRIPE,
   })
-  paymentProvider!: PaymentProvider;
+    paymentProvider!: PaymentProvider;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  externalSubscriptionId?: string; // Stripe subscription ID, PayPal subscription ID, etc.
+    externalSubscriptionId?: string; // Stripe subscription ID, PayPal subscription ID, etc.
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  externalCustomerId?: string; // Stripe customer ID, PayPal customer ID, etc.
+    externalCustomerId?: string; // Stripe customer ID, PayPal customer ID, etc.
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  monthlyPrice!: number;
+    monthlyPrice!: number;
 
   @Column({ type: 'varchar', length: 3, default: 'USD' })
-  currency!: string;
+    currency!: string;
 
   @Column({ type: 'timestamp', nullable: true })
-  currentPeriodStart?: Date;
+    currentPeriodStart?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  currentPeriodEnd?: Date;
+    currentPeriodEnd?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  trialStart?: Date;
+    trialStart?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  trialEnd?: Date;
+    trialEnd?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  canceledAt?: Date;
+    canceledAt?: Date;
 
   @Column({ type: 'timestamp', nullable: true })
-  pausedAt?: Date;
+    pausedAt?: Date;
 
   @Column({ type: 'boolean', default: true })
-  autoRenew!: boolean;
+    autoRenew!: boolean;
 
   @Column({ type: 'int', default: 0 })
-  billingCycleCount!: number;
+    billingCycleCount!: number;
 
   @Column({ type: 'json', nullable: true })
-  metadata?: {
+    metadata?: {
     cancelationReason?: string;
     promoCode?: string;
     referralSource?: string;
@@ -84,15 +84,15 @@ export class Subscription {
   };
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Relationships
   @OneToOne(() => User, (user) => user.subscription)
   @JoinColumn({ name: 'userId' })
-  user!: User;
+    user!: User;
 
   // Methods
   get isActive(): boolean {
@@ -155,7 +155,7 @@ export class Subscription {
     this.monthlyPrice = newPrice;
     this.metadata = { 
       ...this.metadata, 
-      upgradeDate: new Date().toISOString() 
+      upgradeDate: new Date().toISOString(), 
     };
   }
 
@@ -164,7 +164,7 @@ export class Subscription {
     this.monthlyPrice = newPrice;
     this.metadata = { 
       ...this.metadata, 
-      downgradeDate: new Date().toISOString() 
+      downgradeDate: new Date().toISOString(), 
     };
   }
 } 

@@ -140,40 +140,40 @@ export enum PersonaCategory {
 @Index(['slug'], { unique: true })
 export class Persona {
   @PrimaryGeneratedColumn('uuid')
-  id!: string;
+    id!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  name!: string;
+    name!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  slug!: string;
+    slug!: string;
 
   @Column({ type: 'varchar', length: 255 })
-  role!: string;
+    role!: string;
 
   @Column({ type: 'text' })
-  personality!: string;
+    personality!: string;
 
   @Column({ type: 'text' })
-  primaryGoal!: string;
+    primaryGoal!: string;
 
   @Column({ type: 'text' })
-  hiddenMotivation!: string;
+    hiddenMotivation!: string;
 
   @Column({
     type: 'enum',
     enum: PersonaCategory,
   })
-  category!: PersonaCategory;
+    category!: PersonaCategory;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  avatarUrl?: string;
+    avatarUrl?: string;
 
   @Column({ type: 'text', nullable: true })
-  backgroundStory?: string;
+    backgroundStory?: string;
 
   @Column({ type: 'json', nullable: true })
-  conversationStyle?: {
+    conversationStyle?: {
     tone: string;
     formality: string;
     pace: string;
@@ -182,30 +182,30 @@ export class Persona {
   };
 
   @Column({ type: 'json', nullable: true })
-  triggerWords?: string[];
+    triggerWords?: string[];
 
   @Column({ type: 'json', nullable: true })
-  responsePatterns?: {
+    responsePatterns?: {
     positive: string[];
     negative: string[];
     neutral: string[];
   };
 
   @Column({ type: 'int', default: 1 })
-  difficultyLevel!: number; // 1-5 scale
+    difficultyLevel!: number; // 1-5 scale
 
   @Column({ type: 'boolean', default: true })
-  isActive!: boolean;
+    isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt!: Date;
+    createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt!: Date;
+    updatedAt!: Date;
 
   // Relationships
   @ManyToMany(() => Simulation, (simulation) => simulation.personas)
-  simulations!: Simulation[];
+    simulations!: Simulation[];
 
   // Methods
   get displayName(): string {
