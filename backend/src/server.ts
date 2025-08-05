@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-// Configure Transformers.js WASM backend BEFORE any other imports
-import '@/config/transformers';
+// Configure TensorFlow.js backend BEFORE any other imports
+import '@/config/tensorflow';
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -17,6 +17,7 @@ import { config } from '@/config/env';
 import { swaggerSpec } from '@/config/swagger';
 import { errorHandler } from '@/middleware/error';
 import { requestLogger } from '@/middleware/logger';
+import { AIService } from '@/services/ai';
 
 // Import routes
 import authRoutes from '@/routes/auth';
@@ -186,6 +187,10 @@ const startServer = async (): Promise<void> => {
   try {
     // Connect to database
     await connectDatabase();
+
+    // Initialize AI models
+    console.log('🤖 Initializing AI models...');
+    await AIService.preloadNLPModels();
 
     // Start server
     server.listen(config.port, () => {

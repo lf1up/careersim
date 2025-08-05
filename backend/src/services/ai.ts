@@ -5,7 +5,7 @@ import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { Persona } from '@/entities/Persona';
 import { Simulation } from '@/entities/Simulation';
 import { SessionMessage, MessageType } from '@/entities/SessionMessage';
-import { createPipeline, transformersAvailable, fallbackMessage } from '@/config/transformers';
+import { analyzeSentiment, analyzeEmotion, preloadModels, isTensorFlowAvailable, getTensorFlowInfo } from '@/config/tensorflow';
 
 export interface AIResponse {
   message: string;
@@ -36,10 +36,6 @@ export class AIService {
   // Static instance for cache management
   private static instance: AIService | null = null;
   
-  // NLP Pipeline caches
-  private static sentimentPipeline: any = null;
-  private static emotionPipeline: any = null;
-  
   constructor() {
     this.openai = new OpenAI({
       baseURL: config.ai.openai.baseUrl,
@@ -65,16 +61,19 @@ export class AIService {
    */
   public static async preloadNLPModels(): Promise<void> {
     try {
-      console.log('Pre-loading NLP models...');
+      console.log('🤖 Initializing TensorFlow.js models...');
       
-      const instance = new AIService();
-      await Promise.all([
-        instance.getSentimentPipeline(),
-        instance.getEmotionPipeline(),
-      ]);
-      console.log('NLP models pre-loaded successfully');
+      await preloadModels();
+      
+      if (isTensorFlowAvailable()) {
+        const info = getTensorFlowInfo();
+        console.log(`✅ TensorFlow.js models ready - Version: ${info.version}, Backend: ${info.backend}`);
+      } else {
+        console.log('⚠️ TensorFlow.js not available, using enhanced fallback analysis');
+      }
+      
     } catch (error) {
-      console.warn('Failed to pre-load NLP models:', error);
+      console.warn('Failed to pre-load TensorFlow.js models:', error);
     }
   }
 
@@ -142,45 +141,7 @@ export class AIService {
     this.lastConfigUpdate = 0;
   }
 
-  /**
-   * Initialize sentiment analysis pipeline with caching
-   */
-  private async getSentimentPipeline(): Promise<any> {
-    if (!AIService.sentimentPipeline) {
-      try {
-        console.log('Loading sentiment analysis model...');
-        AIService.sentimentPipeline = await createPipeline(
-          'sentiment-analysis',
-          'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
-        );
-        console.log('Sentiment analysis model loaded successfully');
-      } catch (error) {
-        console.error('Failed to load sentiment analysis model:', error);
-        throw new Error(`Failed to initialize sentiment analysis: ${error.message}`);
-      }
-    }
-    return AIService.sentimentPipeline;
-  }
 
-  /**
-   * Initialize emotion classification pipeline with caching
-   */
-  private async getEmotionPipeline(): Promise<any> {
-    if (!AIService.emotionPipeline) {
-      try {
-        console.log('Loading emotion detection model...');
-        AIService.emotionPipeline = await createPipeline(
-          'text-classification',
-          'j-hartmann/emotion-english-distilroberta-base',
-        );
-        console.log('Emotion detection model loaded successfully');
-      } catch (error) {
-        console.error('Failed to load emotion detection model:', error);
-        throw new Error(`Failed to initialize emotion detection: ${error.message}`);
-      }
-    }
-    return AIService.emotionPipeline;
-  }
 
   /**
    * Generate AI persona response based on conversation context
@@ -276,71 +237,28 @@ export class AIService {
   }
 
   /**
-   * Analyze emotional tone with confidence score
+   * Analyze emotional tone with confidence score using TensorFlow.js
    */
   private async analyzeEmotionalToneWithConfidence(response: string, persona: Persona): Promise<{ tone: string; confidence: number }> {
     try {
-      // Check if Transformers.js is available
-      if (!transformersAvailable) {
-        console.log(`🔄 Emotion analysis fallback (${fallbackMessage}): using simple heuristics`);
-        return { tone: this.analyzeEmotionalToneFallback(response, persona), confidence: 0.5 };
-      }
-
-      const emotionPipeline = await this.getEmotionPipeline();
-      const result = await emotionPipeline(response) as Array<{ label: string; score: number }>;
+      const emotionResult = await analyzeEmotion(response);
       
-      // The model returns emotions like: joy, sadness, anger, fear, surprise, disgust, neutral
-      // Map them to more user-friendly tone descriptions
+      // Map TensorFlow.js emotion results to our expected tone format
       const emotionToTone = {
-        'joy': 'friendly',
-        'happiness': 'friendly',
-        'optimism': 'encouraging',
-        'approval': 'encouraging',
-        'excitement': 'encouraging',
-        'love': 'friendly',
-        'admiration': 'encouraging',
-        'amusement': 'friendly',
-        'gratitude': 'friendly',
-        'desire': 'encouraging',
-        'caring': 'friendly',
-        'pride': 'encouraging',
-        'relief': 'friendly',
-        
-        'sadness': 'sympathetic',
-        'disappointment': 'understanding',
-        'grief': 'sympathetic',
-        'remorse': 'understanding',
-        
-        'anger': 'frustrated',
-        'annoyance': 'frustrated',
-        'disapproval': 'skeptical',
-        'disgust': 'frustrated',
-        
-        'fear': 'concerned',
-        'nervousness': 'concerned',
-        'confusion': 'uncertain',
-        'embarrassment': 'understanding',
-        
-        'surprise': 'engaged',
-        'curiosity': 'engaged',
-        'realization': 'understanding',
-        
+        'friendly': 'friendly',
+        'encouraging': 'encouraging', 
         'neutral': 'neutral',
+        'concerned': 'concerned',
+        'frustrated': 'frustrated',
       } as const;
-
-      // Get the highest scoring emotion
-      const topEmotion = result.reduce((prev, current) => 
-        current.score > prev.score ? current : prev,
-      );
-
-      // Map to tone, defaulting to neutral if not found
-      const tone = emotionToTone[topEmotion.label.toLowerCase() as keyof typeof emotionToTone] || 'neutral';
       
-      console.log(`Emotion analysis: ${topEmotion.label} (${topEmotion.score.toFixed(3)}) -> ${tone}`);
-      return { tone, confidence: topEmotion.score };
+      const tone = emotionToTone[emotionResult.emotion as keyof typeof emotionToTone] || 'neutral';
       
-    } catch (error) {
-      console.warn('Emotion analysis failed, using fallback:', error.message);
+      console.log(`TensorFlow.js emotion analysis: ${emotionResult.emotion} (${emotionResult.confidence.toFixed(3)}) -> ${tone}`);
+      return { tone, confidence: emotionResult.confidence };
+      
+    } catch (error: any) {
+      console.warn('TensorFlow.js emotion analysis failed, using fallback:', error.message);
       return { tone: this.analyzeEmotionalToneFallback(response, persona), confidence: 0.3 };
     }
   }
@@ -354,40 +272,17 @@ export class AIService {
   }
 
   /**
-   * Analyze sentiment with confidence score
+   * Analyze sentiment with confidence score using TensorFlow.js
    */
   private async analyzeSentimentWithConfidence(response: string): Promise<{ sentiment: 'positive' | 'neutral' | 'negative'; confidence: number }> {
     try {
-      // Check if Transformers.js is available
-      if (!transformersAvailable) {
-        console.log(`🔄 Sentiment analysis fallback (${fallbackMessage}): using simple heuristics`);
-        return { sentiment: this.analyzeSentimentFallback(response), confidence: 0.5 };
-      }
-
-      const sentimentPipeline = await this.getSentimentPipeline();
-      const result = await sentimentPipeline(response) as Array<{ label: string; score: number }>;
+      const sentimentResult = await analyzeSentiment(response);
       
-      // The BERT model returns 'POSITIVE' or 'NEGATIVE' with confidence scores
-      const topSentiment = result.reduce((prev, current) => 
-        current.score > prev.score ? current : prev,
-      );
+      console.log(`TensorFlow.js sentiment analysis: ${sentimentResult.sentiment} (${sentimentResult.confidence.toFixed(3)})`);
+      return sentimentResult;
       
-      const label = topSentiment.label.toLowerCase();
-      const score = topSentiment.score;
-      
-      // Apply threshold for neutral classification
-      // If confidence is low (< 0.75), classify as neutral
-      if (score < 0.75) {
-        console.log(`Sentiment analysis: ${label} (${score.toFixed(3)}) -> neutral (low confidence)`);
-        return { sentiment: 'neutral', confidence: score };
-      }
-      
-      const sentiment = label === 'positive' ? 'positive' : 'negative';
-      console.log(`Sentiment analysis: ${label} (${score.toFixed(3)}) -> ${sentiment}`);
-      return { sentiment, confidence: score };
-      
-    } catch (error) {
-      console.warn('Sentiment analysis failed, using fallback:', error.message);
+    } catch (error: any) {
+      console.warn('TensorFlow.js sentiment analysis failed, using fallback:', error.message);
       return { sentiment: this.analyzeSentimentFallback(response), confidence: 0.3 };
     }
   }
@@ -442,13 +337,13 @@ export class AIService {
   }
 
   /**
-   * Get confidence score using transformer-based text quality assessment
+   * Get confidence score using TensorFlow.js-based text quality assessment
    */
   private async getTransformerConfidenceScore(response: string, context: ConversationContext): Promise<number> {
     try {
-      // Check if Transformers.js is available
-      if (!transformersAvailable) {
-        console.log(`🔄 Transformer confidence assessment fallback (${fallbackMessage}): using heuristics`);
+      // Check if TensorFlow.js is available
+      if (!isTensorFlowAvailable()) {
+        console.log('🔄 TensorFlow.js confidence assessment fallback: using heuristics');
         return this.getHeuristicConfidenceScore(response, context);
       }
 
@@ -468,11 +363,11 @@ export class AIService {
                         (assessments[1] * relevanceWeight) + 
                         (assessments[2] * completenessWeight);
 
-      console.log(`Transformer confidence: coherence=${assessments[0].toFixed(3)}, relevance=${assessments[1].toFixed(3)}, completeness=${assessments[2].toFixed(3)} -> ${confidence.toFixed(3)}`);
+      console.log(`TensorFlow.js confidence: coherence=${assessments[0].toFixed(3)}, relevance=${assessments[1].toFixed(3)}, completeness=${assessments[2].toFixed(3)} -> ${confidence.toFixed(3)}`);
       return confidence;
 
     } catch (error) {
-      console.warn('Transformer confidence assessment failed:', error.message);
+      console.warn('TensorFlow.js confidence assessment failed:', error.message);
       return this.getHeuristicConfidenceScore(response, context);
     }
   }
@@ -482,8 +377,8 @@ export class AIService {
    */
   private async assessResponseCoherence(response: string): Promise<number> {
     try {
-      // Try advanced transformer-based coherence assessment first
-      if (transformersAvailable) {
+      // Try advanced TensorFlow.js-based coherence assessment first
+      if (isTensorFlowAvailable()) {
         const advancedScore = await this.getAdvancedCoherenceScore(response);
         if (advancedScore !== null) {
           return advancedScore;
