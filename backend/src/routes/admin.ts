@@ -935,7 +935,7 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
     const totalUsers = await userRepository.count();
     const activeUsers = await userRepository.count({ where: { isActive: true } });
     
-    console.log('User counts:', { totalUsers, activeUsers });
+    console.log('User counts:', JSON.stringify({ totalUsers: Number(totalUsers), activeUsers: Number(activeUsers) }));
 
     // Simple session count
     const totalSessions = await sessionRepository.count();
@@ -943,7 +943,7 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
       where: { status: SessionStatus.COMPLETED }, 
     });
 
-    console.log('Session counts:', { totalSessions, completedSessions });
+    console.log('Session counts:', JSON.stringify({ totalSessions: Number(totalSessions), completedSessions: Number(completedSessions) }));
 
     // Calculate averages safely
     let avgSimulationsPerUser = 0;
@@ -969,7 +969,7 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
-    console.log('Calculated averages:', { avgSimulationsPerUser, avgDuration, avgScore });
+    console.log('Calculated averages:', JSON.stringify({ avgSimulationsPerUser: Number(avgSimulationsPerUser), avgDuration: Number(avgDuration), avgScore: Number(avgScore) }));
 
     // Get popular simulations - simplified
     const popularSimulations: any[] = [];

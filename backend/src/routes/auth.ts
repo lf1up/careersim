@@ -153,7 +153,7 @@ router.post('/register', registerValidation, async (req: Request, res: Response)
   const tokens = AuthUtils.generateTokenPair(user);
 
   // Remove sensitive data from response
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { password: _, emailVerificationToken: __, ...userData } = user;
 
   res.status(201).json({
@@ -260,7 +260,7 @@ router.post('/login', loginValidation, async (req: Request, res: Response) => {
   const tokens = AuthUtils.generateTokenPair(user);
 
   // Remove sensitive data from response
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { password: _, ...userData } = user;
 
   res.json({
@@ -339,7 +339,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
 // Get current user
 router.get('/me', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { password: _, ...userData } = user;
 
   res.json({

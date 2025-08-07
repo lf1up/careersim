@@ -40,6 +40,7 @@ Copy `.env.example` to `.env` and configure the following variables:
 - `pnpm start` - Start development server (alias for dev)
 - `pnpm build` - Build for production
 - `pnpm lint` - Check for linting errors
+- `pnpm security` - Check for security issues
 
 ## Tech Stack
 

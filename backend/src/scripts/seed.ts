@@ -30,7 +30,7 @@ const seedData = async (): Promise<void> => {
       await AppDataSource.query('TRUNCATE TABLE users CASCADE');
       console.log('🧹 Cleared existing data');
     } catch (error) {
-      console.log('⚠️ Some tables may not exist yet, continuing...', error.message);
+      console.log('⚠️ Some tables may not exist yet, continuing...', String(error.message));
     }
 
     // Create repositories
@@ -66,7 +66,7 @@ const seedData = async (): Promise<void> => {
     ];
 
     const createdCategories = await categoryRepository.save(categories);
-    console.log('📁 Created categories:', createdCategories.length);
+    console.log('📁 Created categories:', String(createdCategories.length));
 
     // Seed Personas based on PERSONAS.md
     const personas = [
@@ -178,7 +178,7 @@ const seedData = async (): Promise<void> => {
     ];
 
     const createdPersonas = await personaRepository.save(personas);
-    console.log('👥 Created personas:', createdPersonas.length);
+    console.log('👥 Created personas:', String(createdPersonas.length));
 
     // Seed Simulations
     const simulations = [
@@ -326,7 +326,7 @@ const seedData = async (): Promise<void> => {
       
       createdSimulations.push(savedSimulation);
     }
-    console.log('🎭 Created simulations:', createdSimulations.length);
+    console.log('🎭 Created simulations:', String(createdSimulations.length));
 
     // Seed Admin User
     const adminPassword = await AuthUtils.hashPassword('admin123!@#');
@@ -415,11 +415,11 @@ const seedData = async (): Promise<void> => {
 
     console.log('✅ Database seeding completed!');
     console.log('\n📊 Summary:');
-    console.log(`Categories: ${categories.length}`);
-    console.log(`Personas: ${createdPersonas.length}`);
-    console.log(`Simulations: ${createdSimulations.length}`);
-    console.log(`Users: ${testUsers.length + 1} (including admin)`);
-    console.log(`System Configurations: ${configs.length}`);
+    console.log(`Categories: ${String(categories.length)}`);
+    console.log(`Personas: ${String(createdPersonas.length)}`);
+    console.log(`Simulations: ${String(createdSimulations.length)}`);
+    console.log(`Users: ${String(testUsers.length + 1)} (including admin)`);
+    console.log(`System Configurations: ${String(configs.length)}`);
     console.log('\n🔐 Admin Login:');
     console.log('Email: admin@careersim.com');
     console.log('Password: admin123!@#');

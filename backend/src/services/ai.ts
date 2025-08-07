@@ -68,8 +68,8 @@ export class AIService {
       if (isAvailable) {
         const healthInfo = await transformersService.getHealthInfo();
         if (healthInfo) {
-          console.log(`✅ Transformers microservice ready - Models: ${healthInfo.models_loaded.join(', ')}`);
-          console.log(`📊 Service status: ${healthInfo.message}`);
+          console.log(`✅ Transformers microservice ready - Models: ${String(healthInfo.models_loaded.join(', '))}`);
+          console.log(`📊 Service status: ${String(healthInfo.message)}`);
         } else {
           console.log('✅ Transformers microservice is available');
         }
@@ -246,7 +246,7 @@ export class AIService {
     try {
       const emotionResult = await transformersService.analyzeEmotion(response);
       
-      console.log(`Transformers emotion analysis: ${emotionResult.emotion} (${emotionResult.confidence.toFixed(3)})`);
+      console.log(`Transformers emotion analysis: ${String(emotionResult.emotion)} (${Number(emotionResult.confidence).toFixed(3)})`);
       return { tone: emotionResult.emotion, confidence: emotionResult.confidence };
       
     } catch (error: any) {
@@ -266,7 +266,7 @@ export class AIService {
     try {
       const sentimentResult = await transformersService.analyzeSentiment(response);
       
-      console.log(`Transformers sentiment analysis: ${sentimentResult.sentiment} (${sentimentResult.confidence.toFixed(3)})`);
+      console.log(`Transformers sentiment analysis: ${String(sentimentResult.sentiment)} (${Number(sentimentResult.confidence).toFixed(3)})`);
       return sentimentResult;
       
     } catch (error: any) {
@@ -354,7 +354,7 @@ export class AIService {
                         (assessments[3] * completenessWeight) + 
                         (assessments[4] * personaAlignmentWeight);
 
-      console.log(`Transformers confidence: quality=${assessments[0].toFixed(3)}, coherence=${assessments[1].toFixed(3)}, relevance=${assessments[2].toFixed(3)}, completeness=${assessments[3].toFixed(3)}, persona=${assessments[4].toFixed(3)} -> ${confidence.toFixed(3)}`);
+      console.log(`Transformers confidence: quality=${Number(assessments[0]).toFixed(3)}, coherence=${Number(assessments[1]).toFixed(3)}, relevance=${Number(assessments[2]).toFixed(3)}, completeness=${Number(assessments[3]).toFixed(3)}, persona=${Number(assessments[4]).toFixed(3)} -> ${Number(confidence).toFixed(3)}`);
       return confidence;
 
     } catch (error) {
@@ -679,7 +679,7 @@ export class AIService {
       
       const score = scoreMap[result.label];
       if (score !== undefined) {
-        console.log(`👤 Persona alignment: ${result.label} (${result.confidence.toFixed(3)}) -> ${score}`);
+        console.log(`👤 Persona alignment: ${String(result.label)} (${Number(result.confidence).toFixed(3)}) -> ${Number(score)}`);
         return score * result.confidence; // Weight by confidence
       }
       

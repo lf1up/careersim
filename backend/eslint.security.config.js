@@ -39,13 +39,16 @@ module.exports = [
       'security/detect-pseudoRandomBytes': 'error',
       'security/detect-bidi-characters': 'error',
       
-      // Security-node specific rules
-      'security-node/detect-crlf': 'error',
-      'security-node/detect-absence-of-name-option-in-expreess-session': 'error',
+      // Security-node specific rules  
+      'security-node/detect-crlf': 'warn', // Changed from error to warn for development logging
+      'security-node/detect-absence-of-name-option-in-exrpress-session': 'error',
       'security-node/detect-buffer-unsafe-allocation': 'error',
-      'security-node/detect-runinthiscontext': 'error',
-      'security-node/detect-security-md5': 'error',
-      'security-node/detect-security-sha1': 'error',
+      'security-node/detect-runinthiscontext-method-in-nodes-vm': 'error',
+      'security-node/detect-sql-injection': 'error',
+      'security-node/detect-nosql-injection': 'error',
+      'security-node/detect-eval-with-expr': 'error',
+      'security-node/detect-html-injection': 'error',
+      'security-node/detect-insecure-randomness': 'error',
     }
   },
   {

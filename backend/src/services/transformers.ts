@@ -149,7 +149,7 @@ export class TransformersService {
         break;
       }
 
-      console.log(`🤖 Sentiment analysis: ${sentiment} (${prediction.confidence.toFixed(3)})`);
+      console.log(`🤖 Sentiment analysis: ${String(sentiment)} (${Number(prediction.confidence).toFixed(3)})`);
       
       return {
         sentiment,
@@ -196,7 +196,7 @@ export class TransformersService {
       
       const emotion = emotionMapping[prediction.label.toLowerCase()] || 'neutral';
 
-      console.log(`🤖 Emotion analysis: ${prediction.label} -> ${emotion} (${prediction.confidence.toFixed(3)})`);
+      console.log(`🤖 Emotion analysis: ${String(prediction.label)} -> ${String(emotion)} (${Number(prediction.confidence).toFixed(3)})`);
       
       return {
         emotion,
@@ -231,7 +231,7 @@ export class TransformersService {
       const isToxic = result.label.toLowerCase() === 'toxic';
       const toxicityScore = isToxic ? result.confidence : (1 - result.confidence);
       
-      console.log(`🛡️ Toxicity analysis: ${result.label} (${result.confidence.toFixed(3)})`);
+      console.log(`🛡️ Toxicity analysis: ${String(result.label)} (${Number(result.confidence).toFixed(3)})`);
       
       return {
         isToxic,
@@ -266,7 +266,7 @@ export class TransformersService {
 
       const result = await response.json() as DetailedClassificationResult;
       
-      console.log(`🎯 Zero-shot classification: ${result.top_prediction.label} (${result.top_prediction.confidence.toFixed(3)}) from [${candidateLabels.join(', ')}]`);
+      console.log(`🎯 Zero-shot classification: ${String(result.top_prediction.label)} (${Number(result.top_prediction.confidence).toFixed(3)}) from [${String(candidateLabels.join(', '))}]`);
       
       return {
         label: result.top_prediction.label,
@@ -317,7 +317,7 @@ export class TransformersService {
       confidence = 0.5;
     }
     
-    console.log(`📊 Sentiment analysis (fallback): ${sentiment} (${confidence.toFixed(3)})`);
+    console.log(`📊 Sentiment analysis (fallback): ${String(sentiment)} (${Number(confidence).toFixed(3)})`);
     return { sentiment, confidence };
   }
 
@@ -350,23 +350,29 @@ export class TransformersService {
     const words = text.toLowerCase().split(/\W+/);
     const emotionScores: Record<string, number> = {};
     
-    // Calculate scores for each emotion
-    Object.entries(emotionPatterns).forEach(([emotion, keywords]) => {
-      const matches = words.filter(word => keywords.includes(word)).length;
-      emotionScores[emotion] = matches;
-    });
+    // Calculate scores for each emotion using safe access
+    const validEmotions = ['friendly', 'encouraging', 'neutral', 'apologetic', 'nervous'];
+    for (const emotion of validEmotions) {
+      if (emotionPatterns[emotion as keyof typeof emotionPatterns]) {
+        const keywords = emotionPatterns[emotion as keyof typeof emotionPatterns];
+        const matches = words.filter(word => keywords.includes(word)).length;
+        Object.assign(emotionScores, { [emotion]: matches });
+      }
+    }
     
-    // Find the dominant emotion
-    const dominantEmotion = Object.keys(emotionScores).reduce((a, b) => 
-      emotionScores[a] > emotionScores[b] ? a : b,
+    // Find the dominant emotion using safe access
+    const emotionEntries = Object.entries(emotionScores);
+    const dominantEntry = emotionEntries.reduce((a, b) => 
+      a[1] > b[1] ? a : b,
+      ['neutral', 0]
     );
-    
-    const maxScore = emotionScores[dominantEmotion];
+    const dominantEmotion = dominantEntry[0];
+    const maxScore = dominantEntry[1];
     const confidence = maxScore > 0 ? Math.min(0.8, 0.4 + maxScore * 0.2) : 0.3;
     
     const finalEmotion = maxScore > 0 ? dominantEmotion : 'neutral';
     
-    console.log(`💭 Emotion analysis (fallback): ${finalEmotion} (${confidence.toFixed(3)})`);
+    console.log(`💭 Emotion analysis (fallback): ${String(finalEmotion)} (${Number(confidence).toFixed(3)})`);
     return { emotion: finalEmotion, confidence };
   }
 
@@ -403,7 +409,7 @@ export class TransformersService {
     const toxicityScore = Math.min(1.0, totalToxicityScore);
     const isToxic = toxicityScore > 0.7; // 70% threshold
     
-    console.log(`🛡️ Toxicity analysis (fallback): ${isToxic ? 'TOXIC' : 'CLEAN'} (${toxicityScore.toFixed(3)})`);
+    console.log(`🛡️ Toxicity analysis (fallback): ${isToxic ? 'TOXIC' : 'CLEAN'} (${Number(toxicityScore).toFixed(3)})`);
     return { 
       isToxic, 
       toxicityScore, 

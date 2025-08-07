@@ -203,7 +203,7 @@ router.get('/plans', async (req: AuthenticatedRequest, res: Response) => {
 // Update subscription (placeholder for payment integration)
 router.post('/upgrade', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { tier, paymentToken: _ } = req.body;
     
     if (!Object.values(SubscriptionTier).includes(tier)) {

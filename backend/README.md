@@ -354,7 +354,7 @@ Each persona has:
 
 ```bash
 # Development
-pnpm run dev              # Start with hot reload
+pnpm run dev             # Start with hot reload
 pnpm run build           # Build for production
 pnpm run start           # Start production server
 
@@ -366,7 +366,8 @@ pnpm run db:reset        # Reset and reseed database
 # Quality
 pnpm run lint            # ESLint check
 pnpm run lint:fix        # Fix ESLint issues
-pnpm run test            # Run tests
+pnpm run security        # Security check
+pnpm run security:fix    # Fix security issues
 ```
 
 ## 🔐 Default Admin Account

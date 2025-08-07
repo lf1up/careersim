@@ -728,8 +728,8 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           timestamp: new Date(),
         });
 
-        console.log(`✅ AI response generated for session ${sessionId}`);
-        console.log(`🤖 Model used: ${aiResponse.metadata.model} (default configured: ${(await import('@/config/env')).config.ai.openai.model})`);
+        console.log(`✅ AI response generated for session ${String(sessionId)}`);
+        console.log(`🤖 Model used: ${String(aiResponse.metadata.model)} (default configured: ${String((await import('@/config/env')).config.ai.openai.model)})`);
       } catch (aiError) {
         console.error('Error generating AI response:', aiError);
         // Don't fail the entire request if AI response fails

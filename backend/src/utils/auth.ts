@@ -168,7 +168,9 @@ export class AuthUtils {
     let password = '';
     
     for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length));
+      const randomBytes = crypto.randomBytes(1);
+      const randomIndex = randomBytes[0] % charset.length;
+      password += charset.charAt(randomIndex);
     }
     
     return password;

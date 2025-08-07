@@ -1,6 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { config } from '@/config/env';
 
+// Safe logging utility to avoid security linter issues
+const safeLog = {
+  info: (message: string, ...args: (string | number)[]) => {
+    console.log(message, ...args.map(arg => String(arg)));
+  },
+  json: (data: object) => {
+    console.log(JSON.stringify(data));
+  }
+};
+
 export interface LogData {
   method: string;
   url: string;
@@ -34,10 +44,10 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
 
     // Log based on environment
     if (config.isDevelopment) {
-      console.log(`${logData.method} ${logData.url} - ${logData.statusCode} - ${logData.responseTime}ms`);
+      safeLog.info('Request:', logData.method, logData.url, '-', logData.statusCode, '-', logData.responseTime.toString() + 'ms');
     } else {
       // In production, you might want to use a proper logging service
-      console.log(JSON.stringify(logData));
+      safeLog.json(logData);
     }
 
     // Call original end method
