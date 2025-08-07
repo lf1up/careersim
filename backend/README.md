@@ -56,6 +56,7 @@ src/
 - Redis (optional)
 - OpenAI API key
 - Stripe account (for payments)
+- Transformers microservice (for advanced NLP)
 
 ### Installation
 
@@ -65,7 +66,12 @@ npm install
 ```
 
 2. **Environment Setup**:
-Create a `.env` file in the backend directory with the following variables:
+Copy the example environment file and configure it with your settings:
+```bash
+cp .env.example .env
+```
+
+The `.env` file should contain the following variables:
 
 ```env
 # Server
@@ -124,6 +130,10 @@ RATE_LIMIT_MAX_REQUESTS=100
 
 # CORS
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# Transformers Microservice (local NLP models)
+TRANSFORMERS_API_URL=http://localhost:8001
+TRANSFORMERS_API_KEY=your-super-secure-auth-token-min-32-chars-long-change-this-in-production
 ```
 
 > **Note**: All these environment variables are validated by the backend on startup. Make sure to update the placeholder values with your actual API keys and credentials.
@@ -205,9 +215,10 @@ All personas from `PERSONAS.md` are implemented:
 ### 🤖 AI Integration
 - OpenAI GPT integration for realistic persona conversations
 - Dynamic system prompts based on persona characteristics
-- Sentiment analysis and emotional tone detection
+- Advanced sentiment analysis and emotional tone detection via transformers microservice
 - Performance feedback generation
 - Communication pattern analysis
+- Local transformer models for enhanced NLP processing
 
 ### 📊 Admin Panel
 - Dashboard with key metrics and analytics
@@ -322,7 +333,8 @@ Each persona has:
 - Difficulty-based behavior patterns
 
 ### 2. **Performance Analytics**
-- Real-time sentiment analysis
+- Real-time sentiment analysis using transformer models
+- Emotion detection and toxicity screening
 - Communication pattern tracking
 - AI-generated feedback
 - Progress tracking over time
@@ -375,23 +387,34 @@ The system includes 8 main entities:
 7. **PerformanceAnalytics** - AI-generated feedback
 8. **Subscriptions** - Payment and tier management
 
-## 🚀 Deployment
+## 🤖 Transformers Microservice Integration
 
-The backend is production-ready with:
-- Environment-based configuration
-- Error handling and logging
-- Security middleware (Helmet, CORS, Rate limiting)
-- Graceful shutdown handling
-- Health check endpoint (`/health`)
+The backend integrates with a local transformers microservice for advanced NLP processing:
 
-## 🎓 Next Steps
+### Features
+- **Sentiment Analysis**: Twitter RoBERTa-based sentiment detection (Positive/Neutral/Negative)
+- **Emotion Classification**: Multi-class emotion detection (joy, anger, sadness, fear, surprise, disgust, neutral)
+- **Toxicity Detection**: Automatic content moderation and toxicity screening
+- **Zero-shot Classification**: Custom label classification for specialized use cases
 
-To extend this backend:
-1. Add remaining simulation routes
-2. Implement email service for notifications
-3. Add more sophisticated AI analytics
-4. Integrate with frontend application
-5. Set up monitoring and alerting
-6. Configure CI/CD pipeline
+### Configuration
+The microservice requires two environment variables:
+- `TRANSFORMERS_API_URL`: URL of the transformers microservice (default: http://localhost:8080)
+- `TRANSFORMERS_API_KEY`: Authentication token for the microservice
 
-The backend provides a solid foundation for the CareerSim platform with all core features implemented and ready for integration with a frontend application. 
+### Fallback Behavior
+If the transformers microservice is unavailable, the backend automatically falls back to:
+- Keyword-based sentiment analysis
+- Rule-based emotion detection
+- Simple toxicity screening
+
+This ensures the application remains functional even when advanced NLP features are temporarily unavailable.
+
+### Starting the Transformers Service
+To start the transformers microservice:
+```bash
+# From the project root
+docker compose up transformers --build
+```
+
+The service will be available at `http://localhost:8001` with API documentation at `http://localhost:8001/docs`.

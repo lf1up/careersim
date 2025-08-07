@@ -144,3 +144,12 @@ build/
 
 # Mac OS X
 .DS_Store
+
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Cache
+models_cache/

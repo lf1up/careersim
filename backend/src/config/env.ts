@@ -46,6 +46,10 @@ const envSchema = Joi.object({
   OPENAI_PROVIDER: Joi.string().default('openai'),
   OPENAI_MAX_TOKENS: Joi.number().default(2000),
   
+  // Transformers Microservice
+  TRANSFORMERS_API_URL: Joi.string().default('http://localhost:8001'),
+  TRANSFORMERS_API_KEY: Joi.string().required(),
+  
   // Stripe
   STRIPE_SECRET_KEY: Joi.string().required(),
   STRIPE_WEBHOOK_SECRET: Joi.string().required(),
@@ -118,6 +122,10 @@ export const config = {
       model: envVars.OPENAI_MODEL,
       provider: envVars.OPENAI_PROVIDER,
       maxTokens: envVars.OPENAI_MAX_TOKENS,
+    },
+    transformers: {
+      apiUrl: envVars.TRANSFORMERS_API_URL,
+      apiKey: envVars.TRANSFORMERS_API_KEY,
     },
   },
   

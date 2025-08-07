@@ -51,8 +51,8 @@ else
 fi
 
 echo "🌟 Starting the service..."
-echo "📖 API Documentation will be available at: http://localhost:8000/docs"
-echo "🏥 Health check available at: http://localhost:8000/health"
+echo "📖 API Documentation will be available at: http://localhost:8001/docs"
+echo "🏥 Health check available at: http://localhost:8001/health"
 echo ""
 echo "⚠️  First startup may take several minutes to download models!"
 echo "💡 Use Ctrl+C to stop the service"

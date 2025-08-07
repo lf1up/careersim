@@ -15,11 +15,14 @@ services:
       # Override Docker-specific settings that differ from local development
       DB_HOST: postgres
       REDIS_HOST: redis
+      TRANSFORMERS_API_URL: http://transformers:8001
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+      transformers:
+        condition: service_healthy
     volumes:
       - backend_uploads:/app/uploads
     networks:
@@ -83,11 +86,38 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
+  transformers:
+    build:
+      context: ./transformers
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./transformers/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount source code for live reloading
+      - ./transformers:/app
+      # Persistent volume for model cache
+      - models_cache:/app/models_cache
+    networks:
+      - careersim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; r = requests.get('http://localhost:8001/', timeout=5); exit(0 if r.status_code == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload", "--log-level", "info"]
+
 
 volumes:
   postgres_data:
   redis_data:
   backend_uploads:
+  models_cache:
 
 networks:
   careersim-network:

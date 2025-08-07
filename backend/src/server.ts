@@ -1,6 +1,4 @@
 import 'reflect-metadata';
-// Configure TensorFlow.js backend BEFORE any other imports
-import '@/config/tensorflow';
 import express, { Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

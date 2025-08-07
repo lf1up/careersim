@@ -5,7 +5,7 @@ import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { Persona } from '@/entities/Persona';
 import { Simulation } from '@/entities/Simulation';
 import { SessionMessage, MessageType } from '@/entities/SessionMessage';
-import { analyzeSentiment, analyzeEmotion, preloadModels, isTensorFlowAvailable, getTensorFlowInfo } from '@/config/tensorflow';
+import { transformersService } from '@/services/transformers';
 
 export interface AIResponse {
   message: string;
@@ -61,19 +61,24 @@ export class AIService {
    */
   public static async preloadNLPModels(): Promise<void> {
     try {
-      console.log('🤖 Initializing TensorFlow.js models...');
+      console.log('🤖 Initializing Transformers microservice connection...');
       
-      await preloadModels();
+      const isAvailable = await transformersService.isAvailable();
       
-      if (isTensorFlowAvailable()) {
-        const info = getTensorFlowInfo();
-        console.log(`✅ TensorFlow.js models ready - Version: ${info.version}, Backend: ${info.backend}`);
+      if (isAvailable) {
+        const healthInfo = await transformersService.getHealthInfo();
+        if (healthInfo) {
+          console.log(`✅ Transformers microservice ready - Models: ${healthInfo.models_loaded.join(', ')}`);
+          console.log(`📊 Service status: ${healthInfo.message}`);
+        } else {
+          console.log('✅ Transformers microservice is available');
+        }
       } else {
-        console.log('⚠️ TensorFlow.js not available, using enhanced fallback analysis');
+        console.log('⚠️ Transformers microservice not available, using fallback analysis');
       }
       
     } catch (error) {
-      console.warn('Failed to pre-load TensorFlow.js models:', error);
+      console.warn('Failed to initialize transformers microservice:', error);
     }
   }
 
@@ -140,8 +145,6 @@ export class AIService {
     this.configCache.clear();
     this.lastConfigUpdate = 0;
   }
-
-
 
   /**
    * Generate AI persona response based on conversation context
@@ -237,63 +240,44 @@ export class AIService {
   }
 
   /**
-   * Analyze emotional tone with confidence score using TensorFlow.js
+   * Analyze emotional tone with confidence score using transformers microservice
    */
-  private async analyzeEmotionalToneWithConfidence(response: string, persona: Persona): Promise<{ tone: string; confidence: number }> {
+  private async analyzeEmotionalToneWithConfidence(response: string, _persona: Persona): Promise<{ tone: string; confidence: number }> {
     try {
-      const emotionResult = await analyzeEmotion(response);
+      const emotionResult = await transformersService.analyzeEmotion(response);
       
-      // Map TensorFlow.js emotion results to our expected tone format
-      const emotionToTone = {
-        'friendly': 'friendly',
-        'encouraging': 'encouraging', 
-        'neutral': 'neutral',
-        'concerned': 'concerned',
-        'frustrated': 'frustrated',
-      } as const;
-      
-      const tone = emotionToTone[emotionResult.emotion as keyof typeof emotionToTone] || 'neutral';
-      
-      console.log(`TensorFlow.js emotion analysis: ${emotionResult.emotion} (${emotionResult.confidence.toFixed(3)}) -> ${tone}`);
-      return { tone, confidence: emotionResult.confidence };
+      console.log(`Transformers emotion analysis: ${emotionResult.emotion} (${emotionResult.confidence.toFixed(3)})`);
+      return { tone: emotionResult.emotion, confidence: emotionResult.confidence };
       
     } catch (error: any) {
-      console.warn('TensorFlow.js emotion analysis failed, using fallback:', error.message);
-      return { tone: this.analyzeEmotionalToneFallback(response, persona), confidence: 0.3 };
+      console.warn('Transformers emotion analysis failed, using fallback:', error.message);
+      // Use transformers service fallback method
+      const fallbackResult = transformersService.analyzeEmotionFallback(response);
+      return { tone: fallbackResult.emotion, confidence: fallbackResult.confidence };
     }
   }
 
-  /**
-   * Analyze emotional tone of the response using professional NLP with fallback (legacy method)
-   */
-  private async analyzeEmotionalTone(response: string, persona: Persona): Promise<string> {
-    const result = await this.analyzeEmotionalToneWithConfidence(response, persona);
-    return result.tone;
-  }
+
 
   /**
-   * Analyze sentiment with confidence score using TensorFlow.js
+   * Analyze sentiment with confidence score using transformers microservice
    */
   private async analyzeSentimentWithConfidence(response: string): Promise<{ sentiment: 'positive' | 'neutral' | 'negative'; confidence: number }> {
     try {
-      const sentimentResult = await analyzeSentiment(response);
+      const sentimentResult = await transformersService.analyzeSentiment(response);
       
-      console.log(`TensorFlow.js sentiment analysis: ${sentimentResult.sentiment} (${sentimentResult.confidence.toFixed(3)})`);
+      console.log(`Transformers sentiment analysis: ${sentimentResult.sentiment} (${sentimentResult.confidence.toFixed(3)})`);
       return sentimentResult;
       
     } catch (error: any) {
-      console.warn('TensorFlow.js sentiment analysis failed, using fallback:', error.message);
-      return { sentiment: this.analyzeSentimentFallback(response), confidence: 0.3 };
+      console.warn('Transformers sentiment analysis failed, using fallback:', error.message);
+      // Use transformers service fallback method
+      const fallbackResult = transformersService.analyzeSentimentFallback(response);
+      return fallbackResult;
     }
   }
 
-  /**
-   * Analyze sentiment of the response using professional NLP with fallback (legacy method)
-   */
-  private async analyzeSentiment(response: string): Promise<'positive' | 'neutral' | 'negative'> {
-    const result = await this.analyzeSentimentWithConfidence(response);
-    return result.sentiment;
-  }
+
 
   /**
    * Calculate overall confidence using multiple approaches including transformer-based assessment
@@ -337,37 +321,44 @@ export class AIService {
   }
 
   /**
-   * Get confidence score using TensorFlow.js-based text quality assessment
+   * Get confidence score using transformers-based text quality assessment
    */
   private async getTransformerConfidenceScore(response: string, context: ConversationContext): Promise<number> {
     try {
-      // Check if TensorFlow.js is available
-      if (!isTensorFlowAvailable()) {
-        console.log('🔄 TensorFlow.js confidence assessment fallback: using heuristics');
+      // Check if transformers microservice is available
+      const isAvailable = await transformersService.isAvailable();
+      if (!isAvailable) {
+        console.log('🔄 Transformers confidence assessment fallback: using heuristics');
         return this.getHeuristicConfidenceScore(response, context);
       }
 
-      // Use a multi-faceted approach for confidence assessment
+      // Use a multi-faceted approach combining transformer-based and traditional assessments
       const assessments = await Promise.all([
+        this.assessOverallQuality(response, context),
         this.assessResponseCoherence(response),
         this.assessResponseRelevance(response, context),
         this.assessResponseCompleteness(response, context),
+        this.assessPersonaAlignment(response, context.persona),
       ]);
 
-      // Combine the assessments with weights
-      const coherenceWeight = 0.4;
-      const relevanceWeight = 0.4;
-      const completenessWeight = 0.2;
+      // Combine the assessments with weights (balanced across all dimensions)
+      const overallQualityWeight = 0.3;
+      const coherenceWeight = 0.2;
+      const relevanceWeight = 0.2;
+      const completenessWeight = 0.1;
+      const personaAlignmentWeight = 0.2;
 
-      const confidence = (assessments[0] * coherenceWeight) + 
-                        (assessments[1] * relevanceWeight) + 
-                        (assessments[2] * completenessWeight);
+      const confidence = (assessments[0] * overallQualityWeight) + 
+                        (assessments[1] * coherenceWeight) + 
+                        (assessments[2] * relevanceWeight) + 
+                        (assessments[3] * completenessWeight) + 
+                        (assessments[4] * personaAlignmentWeight);
 
-      console.log(`TensorFlow.js confidence: coherence=${assessments[0].toFixed(3)}, relevance=${assessments[1].toFixed(3)}, completeness=${assessments[2].toFixed(3)} -> ${confidence.toFixed(3)}`);
+      console.log(`Transformers confidence: quality=${assessments[0].toFixed(3)}, coherence=${assessments[1].toFixed(3)}, relevance=${assessments[2].toFixed(3)}, completeness=${assessments[3].toFixed(3)}, persona=${assessments[4].toFixed(3)} -> ${confidence.toFixed(3)}`);
       return confidence;
 
     } catch (error) {
-      console.warn('TensorFlow.js confidence assessment failed:', error.message);
+      console.warn('Transformers confidence assessment failed:', error.message);
       return this.getHeuristicConfidenceScore(response, context);
     }
   }
@@ -377,27 +368,24 @@ export class AIService {
    */
   private async assessResponseCoherence(response: string): Promise<number> {
     try {
-      // Try advanced TensorFlow.js-based coherence assessment first
-      if (isTensorFlowAvailable()) {
-        const advancedScore = await this.getAdvancedCoherenceScore(response);
-        if (advancedScore !== null) {
-          return advancedScore;
-        }
-      }
+      // Use enhanced analysis combining rule-based and transformer-based assessment
+      const [logicalFlowScore, complexityScore] = await Promise.all([
+        this.assessLogicalFlow(response),
+        this.assessComplexity(response),
+      ]);
 
-      // Fallback to linguistic feature analysis
-      const qualityIndicators = {
-        hasProperSentenceStructure: /^[A-Z].*[.!?]$/.test(response.trim()),
-        hasReasonableLength: response.length >= 10 && response.length <= 500,
-        hasNoRepeatedPhrases: !/((.+)\1{2,})/.test(response),
-        hasVariedVocabulary: new Set(response.toLowerCase().split(/\W+/)).size > response.split(/\W+/).length * 0.3,
-        hasProperPunctuation: /[.!?]/.test(response),
-        hasLogicalFlow: this.assessLogicalFlow(response),
-        hasAppropriateComplexity: this.assessComplexity(response),
+      const basicQualityIndicators = {
+        hasProperSentenceStructure: /^[A-Z].*[.!?]$/.test(response.trim()) ? 1 : 0,
+        hasReasonableLength: (response.length >= 10 && response.length <= 500) ? 1 : 0,
+        hasNoRepeatedPhrases: !/((.+)\1{2,})/.test(response) ? 1 : 0,
+        hasVariedVocabulary: (new Set(response.toLowerCase().split(/\W+/)).size > response.split(/\W+/).length * 0.3) ? 1 : 0,
+        hasProperPunctuation: /[.!?]/.test(response) ? 1 : 0,
+        logicalFlowScore,
+        complexityScore,
       };
 
-      const scoreCount = Object.values(qualityIndicators).filter(Boolean).length;
-      return scoreCount / Object.keys(qualityIndicators).length;
+      const scores = Object.values(basicQualityIndicators);
+      return scores.reduce((sum, score) => sum + score, 0) / scores.length;
 
     } catch (error) {
       console.warn('Coherence assessment failed:', error.message);
@@ -406,43 +394,38 @@ export class AIService {
   }
 
   /**
-   * Advanced coherence scoring using transformer models (if specific models become available)
+   * Assess logical flow of the response using zero-shot classification
    */
-  private async getAdvancedCoherenceScore(_response: string): Promise<number | null> {
+  private async assessLogicalFlow(response: string): Promise<number> {
     try {
-      // In the future, this could use models like:
-      // - Text quality assessment models
-      // - Coherence classification models  
-      // - Grammar/fluency scoring models
+      // Use zero-shot classification to assess logical flow
+      const result = await transformersService.classifySequence(response, [
+        'logically coherent',
+        'somewhat coherent', 
+        'logically inconsistent',
+      ]);
       
-      // For now, we return null to indicate this is not yet implemented
-      // but the infrastructure is ready for when such models become available
-      console.log('🔬 Advanced transformer coherence assessment: waiting for specialized models');
-      return null;
+      // Convert classification result to numeric score
+      const scoreMap: Record<string, number> = {
+        'logically coherent': 1.0,
+        'somewhat coherent': 0.6,
+        'logically inconsistent': 0.2,
+      };
       
-      /* Future implementation example:
-      const qualityPipeline = await createPipeline(
-        'text-classification',
-        'coherence-assessment-model' // Hypothetical model
-      );
+      return scoreMap[result.label] || 0.5;
       
-      const result = await qualityPipeline(response);
-      // Convert classification result to confidence score
-      return this.convertClassificationToConfidence(result);
-      */
-
     } catch (error) {
-      console.warn('Advanced coherence assessment failed:', error.message);
-      return null;
+      console.warn('Zero-shot logical flow assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      return this.assessLogicalFlowFallback(response);
     }
   }
 
   /**
-   * Assess logical flow of the response
+   * Fallback logical flow assessment using rule-based approach
    */
-  private assessLogicalFlow(response: string): boolean {
+  private assessLogicalFlowFallback(response: string): number {
     const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    if (sentences.length <= 1) return true; // Single sentence is considered coherent
+    if (sentences.length <= 1) return 1.0; // Single sentence is considered coherent
     
     // Check for transition words/phrases that indicate logical flow
     const transitionWords = ['however', 'therefore', 'moreover', 'furthermore', 'additionally', 
@@ -456,20 +439,103 @@ export class AIService {
     const pronounPattern = /\b(it|they|this|that|these|those)\b/gi;
     const hasPronouns = sentences.some(sentence => pronounPattern.test(sentence));
     
-    return hasTransitions || hasPronouns || sentences.length <= 3;
+    return hasTransitions || hasPronouns || sentences.length <= 3 ? 0.8 : 0.4;
   }
 
   /**
-   * Assess complexity appropriateness
+   * Assess complexity appropriateness using zero-shot classification
    */
-  private assessComplexity(response: string): boolean {
+  private async assessComplexity(response: string): Promise<number> {
+    try {
+      // Use zero-shot classification to assess complexity appropriateness
+      const result = await transformersService.classifySequence(response, [
+        'appropriately complex',
+        'too simple',
+        'overly complex',
+        'well-balanced complexity',
+      ]);
+      
+      // Convert classification result to numeric score
+      const scoreMap: Record<string, number> = {
+        'appropriately complex': 1.0,
+        'well-balanced complexity': 1.0,
+        'too simple': 0.4,
+        'overly complex': 0.3,
+      };
+      
+      return scoreMap[result.label] || 0.6;
+      
+    } catch (error) {
+      console.warn('Zero-shot complexity assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      return this.assessComplexityFallback(response);
+    }
+  }
+
+  /**
+   * Fallback complexity assessment using rule-based approach
+   */
+  private assessComplexityFallback(response: string): number {
     const words = response.split(/\s+/);
     const avgWordLength = words.reduce((sum, word) => sum + word.length, 0) / words.length;
     const complexWords = words.filter(word => word.length > 6).length;
     const complexityRatio = complexWords / words.length;
     
     // Appropriate complexity: not too simple, not overly complex
-    return avgWordLength >= 3.5 && avgWordLength <= 8 && complexityRatio >= 0.1 && complexityRatio <= 0.4;
+    const isAppropriate = avgWordLength >= 3.5 && avgWordLength <= 8 && complexityRatio >= 0.1 && complexityRatio <= 0.4;
+    return isAppropriate ? 1.0 : 0.5;
+  }
+
+  /**
+   * Assess overall response quality using zero-shot classification
+   */
+  private async assessOverallQuality(response: string, _context: ConversationContext): Promise<number> {
+    try {
+      // Use zero-shot classification to assess overall response quality
+      const result = await transformersService.classifySequence(response, [
+        'high quality response',
+        'good quality response',
+        'average quality response',
+        'poor quality response',
+        'excellent professional response',
+      ]);
+      
+      // Convert classification result to numeric score
+      const scoreMap: Record<string, number> = {
+        'excellent professional response': 1.0,
+        'high quality response': 0.9,
+        'good quality response': 0.7,
+        'average quality response': 0.5,
+        'poor quality response': 0.2,
+      };
+      
+      const qualityScore = scoreMap[result.label] || 0.5;
+      
+      // Also assess appropriateness for the specific context (persona/simulation)
+      const contextResult = await transformersService.classifySequence(response, [
+        'appropriate for professional conversation',
+        'appropriate for business context', 
+        'too casual for context',
+        'too formal for context',
+        'perfectly matches expected tone',
+      ]);
+      
+      const contextMap: Record<string, number> = {
+        'perfectly matches expected tone': 1.0,
+        'appropriate for professional conversation': 0.9,
+        'appropriate for business context': 0.8,
+        'too casual for context': 0.4,
+        'too formal for context': 0.5,
+      };
+      
+      const contextScore = contextMap[contextResult.label] || 0.6;
+      
+      // Combine quality and context scores
+      return (qualityScore * 0.7) + (contextScore * 0.3);
+      
+    } catch (error) {
+      console.warn('Zero-shot quality assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      return 0.6; // Default moderate score
+    }
   }
 
   /**
@@ -587,6 +653,46 @@ export class AIService {
   }
 
   /**
+   * Assess persona appropriateness using zero-shot classification
+   */
+  private async assessPersonaAlignment(response: string, persona: Persona): Promise<number> {
+    try {
+      // Create dynamic labels based on persona characteristics
+      const personaLabels = [
+        `matches ${persona.role} speaking style`,
+        `appropriate for ${persona.personality} personality`,
+        'too formal for this persona',
+        'too casual for this persona',
+        'perfectly embodies this character',
+      ];
+
+      const result = await transformersService.classifySequence(response, personaLabels);
+      
+      // Convert classification result to numeric score
+      const scoreMap: Record<string, number> = {
+        [`matches ${persona.role} speaking style`]: 0.8,
+        [`appropriate for ${persona.personality} personality`]: 0.8,
+        ['perfectly embodies this character']: 1.0,
+        ['too formal for this persona']: 0.3,
+        ['too casual for this persona']: 0.3,
+      };
+      
+      const score = scoreMap[result.label];
+      if (score !== undefined) {
+        console.log(`👤 Persona alignment: ${result.label} (${result.confidence.toFixed(3)}) -> ${score}`);
+        return score * result.confidence; // Weight by confidence
+      }
+      
+      // If no exact match, use confidence as the score
+      return result.confidence;
+      
+    } catch (error) {
+      console.warn('Zero-shot persona alignment assessment failed:', error instanceof Error ? error.message : 'Unknown error');
+      return 0.6; // Default moderate alignment score
+    }
+  }
+
+  /**
    * Heuristic-based confidence score when transformers are not available
    */
   private getHeuristicConfidenceScore(response: string, context: ConversationContext): number {
@@ -615,150 +721,5 @@ export class AIService {
     const intersection = responseWords.filter(word => contextWords.includes(word));
     
     return intersection.length / Math.max(1, responseWords.length);
-  }
-
-  /**
-   * Fallback emotion analysis using simple keyword matching
-   */
-  private analyzeEmotionalToneFallback(response: string, _persona: Persona): string {
-    const toneIndicators = {
-      friendly: ['glad', 'happy', 'pleased', 'wonderful', 'great', 'excellent', 'love', 'enjoy'],
-      neutral: ['okay', 'fine', 'understand', 'see', 'right'],
-      skeptical: ['but', 'however', 'though', 'doubt', 'unsure', 'hmm'],
-      frustrated: ['unfortunately', 'problem', 'difficult', 'challenging', 'no', 'wrong'],
-      encouraging: ['good', 'right', 'exactly', 'perfect', 'yes', 'absolutely'],
-    };
-
-    const lowercaseResponse = response.toLowerCase();
-    const toneScores = new Map<string, number>();
-
-    for (const [tone, indicators] of Object.entries(toneIndicators)) {
-      const score = indicators.filter(indicator => 
-        lowercaseResponse.includes(indicator),
-      ).length;
-      toneScores.set(tone, score);
-    }
-
-    const toneKeys = Array.from(toneScores.keys());
-    if (toneKeys.length === 0) return 'neutral';
-    
-    const dominantTone = toneKeys.reduce((a, b) => 
-      (toneScores.get(a) || 0) > (toneScores.get(b) || 0) ? a : b,
-    );
-
-    return (toneScores.get(dominantTone) || 0) > 0 ? dominantTone : 'neutral';
-  }
-
-  /**
-   * Fallback sentiment analysis using simple keyword matching
-   */
-  private analyzeSentimentFallback(response: string): 'positive' | 'neutral' | 'negative' {
-    const positiveWords = ['good', 'great', 'excellent', 'wonderful', 'perfect', 'yes', 'absolutely', 'right'];
-    const negativeWords = ['no', 'bad', 'terrible', 'wrong', 'difficult', 'problem', 'unfortunately'];
-
-    const lowercaseResponse = response.toLowerCase();
-    const positiveCount = positiveWords.filter(word => lowercaseResponse.includes(word)).length;
-    const negativeCount = negativeWords.filter(word => lowercaseResponse.includes(word)).length;
-
-    if (positiveCount > negativeCount) return 'positive';
-    if (negativeCount > positiveCount) return 'negative';
-    return 'neutral';
-  }
-
-  /**
-   * Generate performance feedback based on conversation using configurable prompt
-   */
-  async generatePerformanceFeedback(
-    context: ConversationContext,
-    userMessages: SessionMessage[],
-  ): Promise<{
-    overallFeedback: string;
-    strengths: string[];
-    improvementAreas: string[];
-    specificSuggestions: string[];
-  }> {
-    try {
-      const [aiConfig, systemPrompts] = await Promise.all([
-        this.getAIConfig(),
-        this.getSystemPrompts(),
-      ]);
-
-      const userMessagesText = userMessages
-        .filter(msg => msg.type === MessageType.USER)
-        .map(msg => msg.content)
-        .join('\n');
-
-      // Use configurable prompt template
-      const analysisPrompt = systemPrompts.performanceAnalysisPrompt
-        .replace(/\{persona\.name\}/g, context.persona.name)
-        .replace(/\{persona\.role\}/g, context.persona.role)
-        .replace(/\{persona\.primaryGoal\}/g, context.persona.primaryGoal)
-        .replace(/\{persona\.hiddenMotivation\}/g, context.persona.hiddenMotivation)
-        .replace(/\{simulation\.title\}/g, context.simulation.title)
-        .replace(/\{userMessages\}/g, userMessagesText);
-
-      const completion = await this.openai.chat.completions.create({
-        model: aiConfig.model,
-        messages: [{ role: 'user', content: analysisPrompt }],
-        max_tokens: Math.min(aiConfig.maxTokens, 1000), // Limit for feedback
-        temperature: Math.min(aiConfig.temperature, 0.3), // Lower temperature for analysis
-        top_p: Math.min(aiConfig.topP, 0.9), // Lower top_p for more focused analysis
-      });
-
-      const response = completion.choices[0]?.message?.content || '{}';
-      return JSON.parse(response);
-    } catch (error) {
-      console.error('Error generating performance feedback:', error);
-      return {
-        overallFeedback: 'Unable to generate detailed feedback at this time.',
-        strengths: ['Participated in the simulation'],
-        improvementAreas: ['Continue practicing communication skills'],
-        specificSuggestions: ['Try more simulations to improve'],
-      };
-    }
-  }
-
-  /**
-   * Analyze communication patterns
-   */
-  analyzeCommunicationPatterns(userMessages: SessionMessage[]): {
-    totalWords: number;
-    averageWordsPerMessage: number;
-    questionCount: number;
-    statementCount: number;
-    fillerWords: string[];
-    collaborativeLanguage: number;
-    directiveLanguage: number;
-  } {
-    const userTexts = userMessages
-      .filter(msg => msg.type === MessageType.USER)
-      .map(msg => msg.content);
-
-    const allText = userTexts.join(' ');
-    const words = allText.trim().split(/\s+/);
-    const totalWords = words.length;
-
-    const fillerWords = ['um', 'uh', 'like', 'you know', 'sort of', 'kind of'];
-    const collaborativeWords = ['we', 'together', 'collaborate', 'partnership', 'team'];
-    const directiveWords = ['must', 'should', 'need to', 'have to', 'require'];
-
-    const questionCount = userTexts.filter(text => text.includes('?')).length;
-    const statementCount = userTexts.length - questionCount;
-
-    return {
-      totalWords,
-      averageWordsPerMessage: userTexts.length > 0 ? totalWords / userTexts.length : 0,
-      questionCount,
-      statementCount,
-      fillerWords: fillerWords.filter(filler => 
-        allText.toLowerCase().includes(filler),
-      ),
-      collaborativeLanguage: collaborativeWords.filter(word => 
-        allText.toLowerCase().includes(word),
-      ).length,
-      directiveLanguage: directiveWords.filter(word => 
-        allText.toLowerCase().includes(word),
-      ).length,
-    };
   }
 } 

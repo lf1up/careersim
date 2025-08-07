@@ -31,7 +31,6 @@
   "author": "CareerSim Team",
   "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
-    "@tensorflow/tfjs": "^4.21.0",
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
     "connect-redis": "^9.0.0",
