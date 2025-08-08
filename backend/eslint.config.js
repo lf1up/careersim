@@ -1,5 +1,6 @@
 const tseslint = require('@typescript-eslint/eslint-plugin');
 const tsparser = require('@typescript-eslint/parser');
+const globals = require('globals');
 
 module.exports = [
   {
@@ -9,12 +10,12 @@ module.exports = [
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-        project: true,
+        project: ['./tsconfig.eslint.json'],
         tsconfigRootDir: __dirname,
       },
       globals: {
-        node: true,
-        es2020: true,
+        ...globals.node,
+        ...globals.es2020,
       }
     },
     plugins: {
@@ -22,7 +23,7 @@ module.exports = [
     },
     rules: {
       // TypeScript-specific rules (without type checking)
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -43,6 +44,29 @@ module.exports = [
       'semi': ['error', 'always'],
       'indent': ['error', 2],
       'comma-dangle': ['error', 'always-multiline'],
+    }
+  },
+  {
+    files: ['src/**/*.spec.ts', 'src/**/tests/**/*.ts'],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+        project: ['./tsconfig.eslint.json'],
+        tsconfigRootDir: __dirname,
+      },
+      globals: {
+        ...globals.node,
+        ...globals.es2020,
+        ...globals.jest,
+      }
+    },
+    plugins: {
+      '@typescript-eslint': tseslint
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
     }
   },
   {

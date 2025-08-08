@@ -8,7 +8,7 @@ const safeLog = {
   },
   json: (data: object) => {
     console.log(JSON.stringify(data));
-  }
+  },
 };
 
 export interface LogData {
@@ -44,7 +44,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
 
     // Log based on environment
     if (config.isDevelopment) {
-      safeLog.info('Request:', logData.method, logData.url, '-', logData.statusCode, '-', logData.responseTime.toString() + 'ms');
+      safeLog.info('Request:', logData.method, logData.url, '-', logData.statusCode, '-', `${logData.responseTime.toString()  }ms`);
     } else {
       // In production, you might want to use a proper logging service
       safeLog.json(logData);

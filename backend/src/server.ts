@@ -238,7 +238,9 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Start the server
-startServer();
+// Start the server unless running under Jest tests
+if (!process.env.JEST_WORKER_ID) {
+  startServer();
+}
 
-export { app, io }; 
+export { app, io, server, startServer };

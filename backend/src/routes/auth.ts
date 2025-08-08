@@ -153,8 +153,7 @@ router.post('/register', registerValidation, async (req: Request, res: Response)
   const tokens = AuthUtils.generateTokenPair(user);
 
   // Remove sensitive data from response
-   
-  const { password: _, emailVerificationToken: __, ...userData } = user;
+  const { password: _password, emailVerificationToken: _emailVerificationToken, ...userData } = user;
 
   res.status(201).json({
     message: 'User registered successfully',
@@ -260,8 +259,7 @@ router.post('/login', loginValidation, async (req: Request, res: Response) => {
   const tokens = AuthUtils.generateTokenPair(user);
 
   // Remove sensitive data from response
-   
-  const { password: _, ...userData } = user;
+  const { password: _password2, ...userData } = user;
 
   res.json({
     message: 'Login successful',
@@ -339,8 +337,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
 // Get current user
 router.get('/me', authenticateToken as any, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
-   
-  const { password: _, ...userData } = user;
+  const { password: _password3, ...userData } = user;
 
   res.json({
     user: userData,

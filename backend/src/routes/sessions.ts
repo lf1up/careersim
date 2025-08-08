@@ -190,6 +190,20 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     session.userGoals = userGoals;
     session.markAsStarted();
 
+    // Initialize goal progress from simulation goals
+    if (simulation.conversationGoals && simulation.conversationGoals.length > 0) {
+      session.goalProgress = simulation.conversationGoals
+        .sort((a, b) => a.stepNumber - b.stepNumber)
+        .map((g) => ({
+          stepNumber: g.stepNumber,
+          isOptional: !!g.isOptional,
+          title: g.title,
+          status: 'not_started',
+          confidence: 0,
+          evidence: [],
+        }));
+    }
+
     await sessionRepository.save(session);
 
     res.status(201).json({ session });
@@ -256,7 +270,16 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       })) : [],
     };
 
-    res.json({ session: transformedSession });
+    // Include derived totals for UI compatibility if needed
+    const withDerived = {
+      ...transformedSession,
+      totalSteps: transformedSession.simulation?.conversationGoals?.length || 0,
+      currentStep: Array.isArray(transformedSession.goalProgress)
+        ? transformedSession.goalProgress.filter((g: any) => g.status === 'achieved').length
+        : 0,
+    } as any;
+
+    res.json({ session: withDerived });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch session' });
   }

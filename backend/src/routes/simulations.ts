@@ -4,6 +4,7 @@ import { AppDataSource } from '@/config/database';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType, MessageInputMethod } from '@/entities/SessionMessage';
+import { evaluationsService } from '@/services/evaluations';
 
 const router: Router = Router();
 
@@ -324,6 +325,19 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
     session.simulation = simulation;
     session.userGoals = userGoals;
     session.markAsStarted();
+    // Initialize goal progress from simulation goals
+    if (simulation.conversationGoals && simulation.conversationGoals.length > 0) {
+      session.goalProgress = simulation.conversationGoals
+        .sort((a, b) => a.stepNumber - b.stepNumber)
+        .map((g) => ({
+          stepNumber: g.stepNumber,
+          isOptional: !!g.isOptional,
+          title: g.title,
+          status: 'not_started',
+          confidence: 0,
+          evidence: [],
+        }));
+    }
 
     await sessionRepository.save(session);
 
@@ -696,9 +710,21 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
         await messageRepository.save(aiMessage);
 
-        // Update message count without manually managing the messages collection
-        // TypeORM will handle the relationship synchronization automatically
+        // Update message count
         session.addMessage();
+
+        // Evaluate goals based on last user and AI messages
+        try {
+          const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
+          session.goalProgress = evalResult.updatedProgress as any;
+          if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
+            session.markAsCompleted();
+          }
+          console.log('💡 Goal evaluation result:', evalResult);
+        } catch (e) {
+          console.warn('⚠️ Goal evaluation failed:', e);
+        }
+
         await sessionRepository.save(session);
 
         // Transform AI message for frontend

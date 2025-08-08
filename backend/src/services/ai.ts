@@ -250,7 +250,7 @@ export class AIService {
       return { tone: emotionResult.emotion, confidence: emotionResult.confidence };
       
     } catch (error: any) {
-      console.warn('Transformers emotion analysis failed, using fallback:', error.message);
+      console.warn('🔄 Transformers emotion analysis failed, using fallback:', error.message);
       // Use transformers service fallback method
       const fallbackResult = transformersService.analyzeEmotionFallback(response);
       return { tone: fallbackResult.emotion, confidence: fallbackResult.confidence };
@@ -270,7 +270,7 @@ export class AIService {
       return sentimentResult;
       
     } catch (error: any) {
-      console.warn('Transformers sentiment analysis failed, using fallback:', error.message);
+      console.warn('🔄 Transformers sentiment analysis failed, using fallback:', error.message);
       // Use transformers service fallback method
       const fallbackResult = transformersService.analyzeSentimentFallback(response);
       return fallbackResult;
@@ -315,7 +315,7 @@ export class AIService {
       return Math.max(0, Math.min(1, adjustedConfidence));
       
     } catch (error) {
-      console.warn('Advanced confidence calculation failed, using fallback:', error.message);
+      console.warn('🔄 Advanced confidence calculation failed, using fallback:', error.message);
       return this.calculateBasicConfidence(emotionAnalysis, sentimentAnalysis);
     }
   }
@@ -358,7 +358,7 @@ export class AIService {
       return confidence;
 
     } catch (error) {
-      console.warn('Transformers confidence assessment failed:', error.message);
+      console.warn('🔄 Transformers confidence assessment failed, using fallback:', error.message);
       return this.getHeuristicConfidenceScore(response, context);
     }
   }
@@ -388,7 +388,7 @@ export class AIService {
       return scores.reduce((sum, score) => sum + score, 0) / scores.length;
 
     } catch (error) {
-      console.warn('Coherence assessment failed:', error.message);
+      console.warn('🔄 Coherence assessment failed, using fallback:', error.message);
       return 0.5;
     }
   }
@@ -415,7 +415,7 @@ export class AIService {
       return scoreMap[result.label] || 0.5;
       
     } catch (error) {
-      console.warn('Zero-shot logical flow assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      console.warn('🔄 Zero-shot logical flow assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
       return this.assessLogicalFlowFallback(response);
     }
   }
@@ -466,7 +466,7 @@ export class AIService {
       return scoreMap[result.label] || 0.6;
       
     } catch (error) {
-      console.warn('Zero-shot complexity assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      console.warn('🔄 Zero-shot complexity assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
       return this.assessComplexityFallback(response);
     }
   }
@@ -533,7 +533,7 @@ export class AIService {
       return (qualityScore * 0.7) + (contextScore * 0.3);
       
     } catch (error) {
-      console.warn('Zero-shot quality assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      console.warn('🔄 Zero-shot quality assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
       return 0.6; // Default moderate score
     }
   }
@@ -574,7 +574,7 @@ export class AIService {
       return Math.min(1, (overlap + conversationRelevance) / 2);
 
     } catch (error) {
-      console.warn('Relevance assessment failed:', error.message);
+      console.warn('🔄 Relevance assessment failed, using fallback:', error.message);
       return 0.5;
     }
   }
@@ -597,7 +597,7 @@ export class AIService {
       return scoreCount / Object.keys(completenessIndicators).length;
 
     } catch (error) {
-      console.warn('Completeness assessment failed:', error.message);
+      console.warn('🔄 Completeness assessment failed, using fallback:', error.message);
       return 0.5;
     }
   }
@@ -687,7 +687,7 @@ export class AIService {
       return result.confidence;
       
     } catch (error) {
-      console.warn('Zero-shot persona alignment assessment failed:', error instanceof Error ? error.message : 'Unknown error');
+      console.warn('🔄 Zero-shot persona alignment assessment failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
       return 0.6; // Default moderate alignment score
     }
   }

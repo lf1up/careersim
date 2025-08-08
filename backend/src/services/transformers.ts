@@ -362,10 +362,9 @@ export class TransformersService {
     
     // Find the dominant emotion using safe access
     const emotionEntries = Object.entries(emotionScores);
-    const dominantEntry = emotionEntries.reduce((a, b) => 
-      a[1] > b[1] ? a : b,
-      ['neutral', 0]
-    );
+    const dominantEntry = emotionEntries.reduce((a, b) => (
+      a[1] > b[1] ? a : b
+    ), ['neutral', 0]);
     const dominantEmotion = dominantEntry[0];
     const maxScore = dominantEntry[1];
     const confidence = maxScore > 0 ? Math.min(0.8, 0.4 + maxScore * 0.2) : 0.3;

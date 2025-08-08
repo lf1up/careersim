@@ -18,8 +18,7 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "security": "eslint src/**/*.ts --config eslint.security.config.js",
     "security:fix": "eslint src/**/*.ts --config eslint.security.config.js --fix",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test": "jest -c jest.config.ts"
   },
   "keywords": [
     "career",

@@ -10,11 +10,11 @@ module.exports = {
   },
   plugins: [
     '@typescript-eslint',
-    'security'
+    'security',
+    'react-hooks'
   ],
-  extends: [
-    'plugin:security/recommended'
-  ],
+  // Avoid extending plugin:security/recommended due to ESLint 8 config schema incompatibility
+  // All desired security rules are specified explicitly below
   env: {
     browser: true,
     es2020: true,

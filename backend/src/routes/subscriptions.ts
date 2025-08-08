@@ -203,8 +203,7 @@ router.get('/plans', async (req: AuthenticatedRequest, res: Response) => {
 // Update subscription (placeholder for payment integration)
 router.post('/upgrade', async (req: AuthenticatedRequest, res: Response) => {
   try {
-     
-    const { tier, paymentToken: _ } = req.body;
+    const { tier } = req.body;
     
     if (!Object.values(SubscriptionTier).includes(tier)) {
       return res.status(400).json({ error: 'Invalid subscription tier' });

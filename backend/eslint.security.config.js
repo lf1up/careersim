@@ -6,6 +6,11 @@ const securityNode = require('eslint-plugin-security-node');
 module.exports = [
   {
     files: ['src/**/*.ts'],
+    ignores: [
+      'src/**/*.spec.ts',
+      'src/**/*.test.ts',
+      'src/tests/**'
+    ],
     languageOptions: {
       parser: tsparser,
       parserOptions: {

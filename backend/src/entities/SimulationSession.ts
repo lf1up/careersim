@@ -223,6 +223,24 @@ export class SimulationSession {
     improvementAreas: string[];
   };
 
+  // Per-step goal tracking for this session
+  @Column({ type: 'json', nullable: true })
+    goalProgress?: Array<{
+    stepNumber: number;
+    isOptional?: boolean;
+    title: string;
+    status: 'not_started' | 'in_progress' | 'achieved';
+    confidence: number; // 0..1 aggregate confidence of achievement
+    startedAt?: string;
+    achievedAt?: string;
+    evidence?: Array<{
+      messageId: string;
+      role: 'user' | 'ai';
+      label: string; // matched behavior/indicator
+      score: number; // 0..1
+    }>;
+  }>;
+
   @CreateDateColumn()
     createdAt!: Date;
 
@@ -261,6 +279,17 @@ export class SimulationSession {
     const minutes = Math.floor(this.durationSeconds / 60);
     const seconds = this.durationSeconds % 60;
     return `${minutes}m ${seconds}s`;
+  }
+
+  // Convenience helpers for UI derivation
+  get totalSteps(): number {
+    return this.simulation?.conversationGoals?.length || 0;
+  }
+
+  get currentStep(): number {
+    if (!this.goalProgress || this.goalProgress.length === 0) return 0;
+    const achieved = this.goalProgress.filter((g) => g.status === 'achieved').length;
+    return Math.min(achieved, this.totalSteps);
   }
 
   markAsStarted(): void {

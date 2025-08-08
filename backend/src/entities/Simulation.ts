@@ -15,6 +15,16 @@ import { Category } from './Category';
 import { Persona } from './Persona';
 import { SimulationSession } from './SimulationSession';
 
+// Conversation goal types used to drive step tracking during a session
+export interface ConversationGoal {
+  stepNumber: number;
+  isOptional?: boolean;
+  title: string;
+  description: string;
+  keyBehaviors?: string[];
+  successIndicators?: string[];
+}
+
 export enum SimulationDifficulty {
   BEGINNER = 1,
   INTERMEDIATE = 2,
@@ -57,6 +67,34 @@ export enum SimulationStatus {
  *         objectives:
  *           type: string
  *           example: "Demonstrate technical knowledge and communication skills"
+ *         conversationGoals:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             type: object
+ *             properties:
+ *               stepNumber:
+ *                 type: integer
+ *                 example: 1
+ *               isOptional:
+ *                 type: boolean
+ *                 example: false
+ *               title:
+ *                 type: string
+ *                 example: "Opening and Rapport Building"
+ *               description:
+ *                 type: string
+ *                 example: "Start the interview with a professional greeting and attempt to build initial rapport"
+ *               keyBehaviors:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Professional greeting", "Express appreciation for the opportunity"]
+ *               successIndicators:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Interviewer appears more relaxed", "Professional tone is established"]
  *         difficulty:
  *           type: integer
  *           enum: [1, 2, 3, 4, 5]
@@ -202,6 +240,10 @@ export class Simulation {
   @Column({ type: 'json', default: '[]' })
     objectives!: string[];
 
+  // Conversation goals/steps for tracking progress during a session
+  @Column({ type: 'json', nullable: true })
+    conversationGoals?: ConversationGoal[];
+
   @Column({
     type: 'enum',
     enum: SimulationDifficulty,
@@ -303,6 +345,11 @@ export class Simulation {
   get difficultyText(): string {
     const levels = ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert', 'Master'];
     return levels[this.difficulty] || 'Unknown';
+  }
+
+  get requiredGoalsCount(): number {
+    const goals = this.conversationGoals || [];
+    return goals.filter((g) => !g.isOptional).length;
   }
 
   get isPublished(): boolean {
