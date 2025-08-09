@@ -28,8 +28,19 @@ export class EvaluationsService {
       return { updatedProgress: progress, allRequiredAchieved: true };
     }
 
-    const candidateStep = await this.detectCandidateStep(lastUserMessage.content, goals);
-    const activeStep = this.selectActiveStep(candidateStep, goals, progress);
+    // Optimization: determine if a required step is pending first (no external calls)
+    const unachievedRequired = goals
+      .filter((g) => !g.isOptional)
+      .sort((a, b) => a.stepNumber - b.stepNumber)
+      .find((g) => !(progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved'));
+
+    let activeStep = unachievedRequired || null;
+
+    // Only call external classifier to detect an optional candidate when no required step is pending
+    if (!activeStep) {
+      const candidateStep = await this.detectCandidateStep(lastUserMessage.content, goals);
+      activeStep = this.selectActiveStep(candidateStep, goals, progress);
+    }
     if (!activeStep) {
       return { updatedProgress: progress, allRequiredAchieved: this.requiredAchieved(progress, goals) };
     }
@@ -41,42 +52,54 @@ export class EvaluationsService {
       target.startedAt = new Date().toISOString();
     }
 
-    // Behavior evidence on user message
-    const behaviorScore = await this.scoreAgainstLabels(lastUserMessage.content, activeStep.keyBehaviors || []);
-    if (!Number.isNaN(behaviorScore)) {
-      target.confidence = Math.max(target.confidence || 0, behaviorScore);
-      if (!target.evidence) target.evidence = [];
-      target.evidence.push({
-        messageId: lastUserMessage.id,
-        role: 'user',
-        label: 'behavior',
-        score: behaviorScore,
-      });
-    }
+    // Run external calls in parallel where possible
+    const behaviorPromise = this.scoreAgainstLabels(
+      lastUserMessage.content,
+      activeStep.keyBehaviors || [],
+    );
 
     // Success indicators using AI reply + emotion/sentiment
     let successScore = 0;
+    let behaviorScore = NaN as number;
     if (lastAiMessage) {
-      const indicatorScore = await this.scoreAgainstLabels(lastAiMessage.content, activeStep.successIndicators || []);
-      
-      // Use stored metadata instead of re-analyzing
-      let emotion: { emotion: string; confidence: number };
-      let sentiment: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number };
-      
-      if (lastAiMessage.metadata?.emotionAnalysis && lastAiMessage.metadata?.sentimentAnalysis) {
-        // Use cached analysis from AI response generation
-        emotion = lastAiMessage.metadata.emotionAnalysis;
-        sentiment = lastAiMessage.metadata.sentimentAnalysis;
-      } else {
-        // Fallback: Only analyze if not already stored (for backwards compatibility)
-        console.warn('🔄 No cached emotion/sentiment analysis found in message metadata, falling back to re-analysis');
-        emotion = await transformersService.analyzeEmotion(lastAiMessage.content);
-        sentiment = await transformersService.analyzeSentiment(lastAiMessage.content);
-      }
+      const indicatorPromise = this.scoreAgainstLabels(
+        lastAiMessage.content,
+        activeStep.successIndicators || [],
+      );
 
-      // Simple heuristic boost when emotion/sentiment imply progress
+      // Use cached metadata if available; otherwise, analyze both in parallel
+      const hasCachedEmotion = !!lastAiMessage.metadata?.emotionAnalysis;
+      const hasCachedSentiment = !!lastAiMessage.metadata?.sentimentAnalysis;
+
+      const emotionPromise = hasCachedEmotion
+        ? Promise.resolve(lastAiMessage.metadata!.emotionAnalysis)
+        : transformersService.analyzeEmotion(lastAiMessage.content);
+      const sentimentPromise = hasCachedSentiment
+        ? Promise.resolve(lastAiMessage.metadata!.sentimentAnalysis)
+        : transformersService.analyzeSentiment(lastAiMessage.content);
+
+      const [bScore, indicatorScore, emotion, sentiment] = await Promise.all([
+        behaviorPromise,
+        indicatorPromise,
+        emotionPromise,
+        sentimentPromise,
+      ]);
+
+      behaviorScore = bScore;
+
       const toneBoost = (['friendly', 'encouraging', 'neutral'].includes(emotion.emotion) && sentiment.sentiment !== 'negative') ? 0.1 : 0;
       successScore = Math.max(0, Math.min(1, (Number.isNaN(indicatorScore) ? 0 : indicatorScore) + toneBoost));
+
+      if (!Number.isNaN(behaviorScore)) {
+        target.confidence = Math.max(target.confidence || 0, behaviorScore);
+        if (!target.evidence) target.evidence = [];
+        target.evidence.push({
+          messageId: lastUserMessage.id,
+          role: 'user',
+          label: 'behavior',
+          score: behaviorScore,
+        });
+      }
 
       if (!target.evidence) target.evidence = [];
       target.evidence.push({
@@ -85,6 +108,19 @@ export class EvaluationsService {
         label: 'success',
         score: successScore,
       });
+    } else {
+      // No AI message; only await behavior
+      behaviorScore = await behaviorPromise;
+      if (!Number.isNaN(behaviorScore)) {
+        target.confidence = Math.max(target.confidence || 0, behaviorScore);
+        if (!target.evidence) target.evidence = [];
+        target.evidence.push({
+          messageId: lastUserMessage.id,
+          role: 'user',
+          label: 'behavior',
+          score: behaviorScore,
+        });
+      }
     }
 
     const behaviorOk = (target.confidence || 0) >= EvaluationsService.BEHAVIOR_THRESHOLD || (behaviorScore || 0) >= EvaluationsService.BEHAVIOR_THRESHOLD;

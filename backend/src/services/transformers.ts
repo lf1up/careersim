@@ -81,12 +81,12 @@ export class TransformersService {
       const isHealthy = health.status === 'healthy' || health.status === 'partial';
       
       if (!isHealthy) {
-        console.warn(`Transformers service not healthy: ${health.message}`);
+        console.warn(`⚠️ Transformers service not healthy: ${health.message}`);
       }
       
       return isHealthy;
     } catch (error) {
-      console.warn('Transformers service is not available:', error instanceof Error ? error.message : 'Unknown error');
+      console.warn('🚨 Transformers service is not available:', error instanceof Error ? error.message : 'Unknown error');
       return false;
     }
   }
@@ -108,7 +108,7 @@ export class TransformersService {
 
       return await response.json() as TransformersHealthStatus;
     } catch (error) {
-      console.error('Failed to get transformers service health:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('⚠️ Failed to get transformers service health:', error instanceof Error ? error.message : 'Unknown error');
       return null;
     }
   }
@@ -149,7 +149,7 @@ export class TransformersService {
         break;
       }
 
-      console.log(`🤖 Sentiment analysis: ${String(sentiment)} (${Number(prediction.confidence).toFixed(3)})`);
+      console.log(`📊 Sentiment analysis: ${String(sentiment)} (${Number(prediction.confidence).toFixed(3)})`);
       
       return {
         sentiment,
@@ -196,7 +196,7 @@ export class TransformersService {
       
       const emotion = emotionMapping[prediction.label.toLowerCase()] || 'neutral';
 
-      console.log(`🤖 Emotion analysis: ${String(prediction.label)} -> ${String(emotion)} (${Number(prediction.confidence).toFixed(3)})`);
+      console.log(`💭 Emotion analysis: ${String(prediction.label)} -> ${String(emotion)} (${Number(prediction.confidence).toFixed(3)})`);
       
       return {
         emotion,

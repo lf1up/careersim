@@ -23,6 +23,11 @@ export interface LogData {
 }
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
+  // In development, morgan already logs requests; avoid duplicate logs
+  if (config.isDevelopment) {
+    return next();
+  }
+
   const startTime = Date.now();
 
   // Capture original res.end
@@ -42,13 +47,8 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
       timestamp: new Date().toISOString(),
     };
 
-    // Log based on environment
-    if (config.isDevelopment) {
-      safeLog.info('Request:', logData.method, logData.url, '-', logData.statusCode, '-', `${logData.responseTime.toString()  }ms`);
-    } else {
-      // In production, you might want to use a proper logging service
-      safeLog.json(logData);
-    }
+    // In production, you might want to use a proper logging service
+    safeLog.json(logData);
 
     // Call original end method
     return originalEnd.call(this, chunk, encoding);

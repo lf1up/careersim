@@ -95,7 +95,7 @@ export class AIService {
       }
       
     } catch (error) {
-      console.warn('Failed to initialize transformers microservice:', error);
+      console.warn('🚨 Failed to initialize transformers microservice:', error);
     }
   }
 
@@ -150,7 +150,7 @@ export class AIService {
       this.lastConfigUpdate = now;
       return prompts;
     } catch (error) {
-      console.error('Error loading system prompts from database, using defaults:', error);
+      console.error('🚨 Error loading system prompts from database, using defaults:', error);
       return SystemConfiguration.getDefaultSystemPrompts();
     }
   }
@@ -198,17 +198,37 @@ export class AIService {
       const response = completion.choices[0]?.message?.content || '';
       const processingTime = Date.now() - startTime;
 
-      // Analyze the response for emotional tone and sentiment using professional NLP
-      const [emotionAnalysis, sentimentAnalysis] = await Promise.all([
+      // Run external analyses in parallel and reuse their results
+      const [emotionAnalysis, sentimentAnalysis, assessmentBundle] = await Promise.all([
         this.analyzeEmotionalToneWithConfidence(response, context.persona),
         this.analyzeSentimentWithConfidence(response),
+        (async () => {
+          try {
+            const [overall, coherence, relevance, completeness, personaAlignment] = await Promise.all([
+              this.assessOverallQuality(response, context).catch(() => 0),
+              this.assessResponseCoherence(response).catch(() => 0),
+              this.assessResponseRelevance(response, context).catch(() => 0),
+              this.assessResponseCompleteness(response, context).catch(() => 0),
+              this.assessPersonaAlignment(response, context.persona).catch(() => 0),
+            ]);
+            return { overall, coherence, relevance, completeness, personaAlignment } as const;
+          } catch {
+            return undefined;
+          }
+        })(),
       ]);
 
-      // Calculate overall confidence based on NLP model confidence scores
-      const confidence = await this.calculateOverallConfidence(emotionAnalysis, sentimentAnalysis, response, context);
+      // Calculate overall confidence using precomputed assessment scores when available
+      const confidence = await this.calculateOverallConfidence(
+        emotionAnalysis,
+        sentimentAnalysis,
+        response,
+        context,
+        assessmentBundle,
+      );
       
-      // Store quality assessment scores for analytics
-      const qualityScores = await this.getQualityAssessmentScores(response, context);
+      // Store quality assessment scores for analytics (reuse precomputed if available)
+      const qualityScores = await this.getQualityAssessmentScores(response, context, assessmentBundle);
 
       return {
         message: response,
@@ -232,7 +252,7 @@ export class AIService {
         },
       };
     } catch (error) {
-      console.error('Error generating AI response:', error);
+      console.error('🚨 Error generating AI response:', error);
       throw new Error('Failed to generate AI response');
     }
   }
@@ -317,10 +337,15 @@ export class AIService {
     sentimentAnalysis: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number },
     response: string,
     context: ConversationContext,
+    precomputedAssessments?: { overall: number; coherence: number; relevance: number; completeness: number; personaAlignment: number },
   ): Promise<number> {
     try {
       // Get transformer-based confidence assessment if available
-      const transformerConfidence = await this.getTransformerConfidenceScore(response, context);
+      const transformerConfidence = await this.getTransformerConfidenceScore(
+        response,
+        context,
+        precomputedAssessments,
+      );
       
       // Weight the confidence scores
       const emotionWeight = 0.3;
@@ -353,8 +378,32 @@ export class AIService {
   /**
    * Get confidence score using transformers-based text quality assessment
    */
-  private async getTransformerConfidenceScore(response: string, context: ConversationContext): Promise<number> {
+  private async getTransformerConfidenceScore(
+    response: string,
+    context: ConversationContext,
+    precomputedAssessments?: { overall: number; coherence: number; relevance: number; completeness: number; personaAlignment: number },
+  ): Promise<number> {
     try {
+      // If assessments were precomputed, reuse them to avoid duplicate work
+      if (precomputedAssessments) {
+        const { overall, coherence, relevance, completeness, personaAlignment } = precomputedAssessments;
+
+        const overallQualityWeight = 0.3;
+        const coherenceWeight = 0.2;
+        const relevanceWeight = 0.2;
+        const completenessWeight = 0.1;
+        const personaAlignmentWeight = 0.2;
+
+        const confidence = (overall * overallQualityWeight) +
+                          (coherence * coherenceWeight) +
+                          (relevance * relevanceWeight) +
+                          (completeness * completenessWeight) +
+                          (personaAlignment * personaAlignmentWeight);
+
+        console.log(`Transformers confidence (reused): quality=${Number(overall).toFixed(3)}, coherence=${Number(coherence).toFixed(3)}, relevance=${Number(relevance).toFixed(3)}, completeness=${Number(completeness).toFixed(3)}, persona=${Number(personaAlignment).toFixed(3)} -> ${Number(confidence).toFixed(3)}`);
+        return confidence;
+      }
+
       // Check if transformers microservice is available
       const isAvailable = await transformersService.isAvailable();
       if (!isAvailable) {
@@ -388,7 +437,7 @@ export class AIService {
       return confidence;
 
     } catch (error) {
-      console.warn('🔄 Transformers confidence assessment failed, using fallback:', error.message);
+      console.warn('🔄 Transformers confidence assessment failed, using fallback:', (error as any).message);
       return this.getHeuristicConfidenceScore(response, context);
     }
   }
@@ -757,10 +806,27 @@ export class AIService {
    * Get comprehensive quality assessment scores for analytics
    * This method runs assessments in parallel and caches results
    */
-  private async getQualityAssessmentScores(response: string, context: ConversationContext): Promise<AIResponse['metadata']['qualityScores']> {
+  private async getQualityAssessmentScores(
+    response: string,
+    context: ConversationContext,
+    precomputedAssessments?: { overall: number; coherence: number; relevance: number; completeness: number; personaAlignment: number },
+  ): Promise<AIResponse['metadata']['qualityScores']> {
     try {
       // Check if transformers service is available
       const isAvailable = await transformersService.isAvailable();
+      
+      // If provided, reuse precomputed assessment results only when service is available
+      if (precomputedAssessments) {
+        if (!isAvailable) return undefined;
+        return {
+          overall: precomputedAssessments.overall,
+          coherence: precomputedAssessments.coherence,
+          relevance: precomputedAssessments.relevance,
+          completeness: precomputedAssessments.completeness,
+          personaAlignment: precomputedAssessments.personaAlignment,
+        };
+      }
+
       if (!isAvailable) {
         return undefined; // Skip if service not available
       }
