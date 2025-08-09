@@ -175,6 +175,23 @@ export class SessionMessage {
     sentiment?: 'positive' | 'neutral' | 'negative';
     keyPhrases?: string[];
     responseToMessageId?: string;
+    // Extended analysis data for reuse (e.g., in evaluations)
+    emotionAnalysis?: {
+      emotion: string;
+      confidence: number;
+    };
+    sentimentAnalysis?: {
+      sentiment: 'positive' | 'neutral' | 'negative';
+      confidence: number;
+    };
+    // Quality assessment scores for analytics and reporting
+    qualityScores?: {
+      overall?: number;
+      coherence?: number;
+      relevance?: number;
+      completeness?: number;
+      personaAlignment?: number;
+    };
   };
 
   @Column({ type: 'timestamp', nullable: true })

@@ -78,6 +78,8 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       .leftJoinAndSelect('session.simulation', 'simulation')
       .leftJoinAndSelect('simulation.category', 'category')
       .leftJoinAndSelect('simulation.personas', 'personas')
+      .addSelect('session.goalProgress')  // Explicitly select JSON columns
+      .addSelect('simulation.conversationGoals')
       .where('session.user.id = :userId', { userId: req.user!.id });
 
     if (status) {
@@ -110,8 +112,31 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       .take(Number(limit))
       .getManyAndCount();
 
+    // Transform sessions to include currentStep and totalSteps for frontend
+    const transformedSessions = sessions.map(session => {
+      const goals = session.simulation?.conversationGoals;
+      const totalSteps = goals?.length || 0;
+      const currentStep = Array.isArray(session.goalProgress)
+        ? session.goalProgress.filter((g: any) => g.status === 'achieved').length
+        : 0;
+
+      // Calculate dynamic duration for active sessions
+      let totalDuration = session.durationSeconds || 0;
+      if ((session.status === SessionStatus.IN_PROGRESS || session.status === SessionStatus.STARTED) && session.startedAt) {
+        totalDuration = Math.floor((new Date().getTime() - session.startedAt.getTime()) / 1000);
+      }
+
+      return {
+        ...session,
+        totalSteps,
+        currentStep,
+        // Also add totalDuration for frontend compatibility
+        totalDuration,
+      };
+    });
+
     res.json({
-      sessions,
+      sessions: transformedSessions,
       pagination: {
         current: Number(page),
         total: Math.ceil(total / Number(limit)),
@@ -206,7 +231,22 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 
     await sessionRepository.save(session);
 
-    res.status(201).json({ session });
+    // Add currentStep and totalSteps for frontend
+    let totalDuration = session.durationSeconds || 0;
+    if ((session.status === SessionStatus.IN_PROGRESS || session.status === SessionStatus.STARTED) && session.startedAt) {
+      totalDuration = Math.floor((new Date().getTime() - session.startedAt.getTime()) / 1000);
+    }
+
+    const transformedSession = {
+      ...session,
+      totalSteps: simulation?.conversationGoals?.length || 0,
+      currentStep: Array.isArray(session.goalProgress)
+        ? session.goalProgress.filter((g: any) => g.status === 'achieved').length
+        : 0,
+      totalDuration,
+    };
+
+    res.status(201).json({ session: transformedSession });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create session' });
   }
@@ -277,6 +317,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       currentStep: Array.isArray(transformedSession.goalProgress)
         ? transformedSession.goalProgress.filter((g: any) => g.status === 'achieved').length
         : 0,
+      totalDuration: transformedSession.durationSeconds || 0,
     } as any;
 
     res.json({ session: withDerived });
@@ -379,7 +420,28 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => 
 
     await sessionRepository.save(session);
 
-    res.json({ session });
+    // Reload session with relations to get simulation goals
+    const updatedSession = await sessionRepository.findOne({
+      where: { id: session.id },
+      relations: ['simulation'],
+    });
+
+    // Add currentStep and totalSteps for frontend
+    let totalDuration = updatedSession?.durationSeconds || 0;
+    if ((updatedSession?.status === SessionStatus.IN_PROGRESS || updatedSession?.status === SessionStatus.STARTED) && updatedSession?.startedAt) {
+      totalDuration = Math.floor((new Date().getTime() - updatedSession.startedAt.getTime()) / 1000);
+    }
+
+    const transformedSession = {
+      ...updatedSession,
+      totalSteps: updatedSession?.simulation?.conversationGoals?.length || 0,
+      currentStep: Array.isArray(updatedSession?.goalProgress)
+        ? updatedSession.goalProgress.filter((g: any) => g.status === 'achieved').length
+        : 0,
+      totalDuration,
+    };
+
+    res.json({ session: transformedSession });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update session status' });
   }
@@ -436,7 +498,23 @@ router.patch('/:id/complete', async (req: AuthenticatedRequest, res: Response) =
     session.markAsCompleted();
     await sessionRepository.save(session);
 
-    res.json({ session });
+    // Reload session with relations to get simulation goals
+    const updatedSession = await sessionRepository.findOne({
+      where: { id: session.id },
+      relations: ['simulation'],
+    });
+
+    // Add currentStep and totalSteps for frontend
+    const transformedSession = {
+      ...updatedSession,
+      totalSteps: updatedSession?.simulation?.conversationGoals?.length || 0,
+      currentStep: Array.isArray(updatedSession?.goalProgress)
+        ? updatedSession.goalProgress.filter((g: any) => g.status === 'achieved').length
+        : 0,
+      totalDuration: updatedSession?.durationSeconds || 0,
+    };
+
+    res.json({ session: transformedSession });
   } catch (error) {
     res.status(500).json({ error: 'Failed to complete session' });
   }

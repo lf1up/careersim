@@ -24,6 +24,8 @@ services:
       transformers:
         condition: service_healthy
     volumes:
+      - ./backend:/app
+      - /app/node_modules
       - backend_uploads:/app/uploads
     networks:
       - careersim-network

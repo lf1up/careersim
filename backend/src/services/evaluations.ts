@@ -8,6 +8,7 @@ export interface GoalEvaluationResult {
   allRequiredAchieved: boolean;
 }
 
+// TODO: OPTIMIZE THIS SERVICE TO AVOID DRAMATIC SLOWDOWN DUE TO EXTERNAL NLP SERVICE CALLS
 export class EvaluationsService {
   // Thresholds can later be moved to config
   private static readonly STEP_DETECTION_THRESHOLD = 0.5;
@@ -57,8 +58,21 @@ export class EvaluationsService {
     let successScore = 0;
     if (lastAiMessage) {
       const indicatorScore = await this.scoreAgainstLabels(lastAiMessage.content, activeStep.successIndicators || []);
-      const emotion = await transformersService.analyzeEmotion(lastAiMessage.content);
-      const sentiment = await transformersService.analyzeSentiment(lastAiMessage.content);
+      
+      // Use stored metadata instead of re-analyzing
+      let emotion: { emotion: string; confidence: number };
+      let sentiment: { sentiment: 'positive' | 'neutral' | 'negative'; confidence: number };
+      
+      if (lastAiMessage.metadata?.emotionAnalysis && lastAiMessage.metadata?.sentimentAnalysis) {
+        // Use cached analysis from AI response generation
+        emotion = lastAiMessage.metadata.emotionAnalysis;
+        sentiment = lastAiMessage.metadata.sentimentAnalysis;
+      } else {
+        // Fallback: Only analyze if not already stored (for backwards compatibility)
+        console.warn('🔄 No cached emotion/sentiment analysis found in message metadata, falling back to re-analysis');
+        emotion = await transformersService.analyzeEmotion(lastAiMessage.content);
+        sentiment = await transformersService.analyzeSentiment(lastAiMessage.content);
+      }
 
       // Simple heuristic boost when emotion/sentiment imply progress
       const toneBoost = (['friendly', 'encouraging', 'neutral'].includes(emotion.emotion) && sentiment.sentiment !== 'negative') ? 0.1 : 0;

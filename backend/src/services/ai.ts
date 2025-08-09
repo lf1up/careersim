@@ -16,6 +16,23 @@ export interface AIResponse {
     tokenCount: number;
     model: string;
     sentiment: 'positive' | 'neutral' | 'negative';
+    // Extended metadata for reuse in evaluations
+    emotionAnalysis?: {
+      emotion: string;
+      confidence: number;
+    };
+    sentimentAnalysis?: {
+      sentiment: 'positive' | 'neutral' | 'negative';
+      confidence: number;
+    };
+    // Additional analysis scores for comprehensive tracking
+    qualityScores?: {
+      overall?: number;
+      coherence?: number;
+      relevance?: number;
+      completeness?: number;
+      personaAlignment?: number;
+    };
   };
 }
 
@@ -189,6 +206,9 @@ export class AIService {
 
       // Calculate overall confidence based on NLP model confidence scores
       const confidence = await this.calculateOverallConfidence(emotionAnalysis, sentimentAnalysis, response, context);
+      
+      // Store quality assessment scores for analytics
+      const qualityScores = await this.getQualityAssessmentScores(response, context);
 
       return {
         message: response,
@@ -199,6 +219,16 @@ export class AIService {
           tokenCount: completion.usage?.total_tokens || 0,
           model: completion.model,
           sentiment: sentimentAnalysis.sentiment,
+          // Include full analysis results for reuse
+          emotionAnalysis: {
+            emotion: emotionAnalysis.tone,
+            confidence: emotionAnalysis.confidence,
+          },
+          sentimentAnalysis: {
+            sentiment: sentimentAnalysis.sentiment,
+            confidence: sentimentAnalysis.confidence,
+          },
+          qualityScores,
         },
       };
     } catch (error) {
@@ -721,5 +751,39 @@ export class AIService {
     const intersection = responseWords.filter(word => contextWords.includes(word));
     
     return intersection.length / Math.max(1, responseWords.length);
+  }
+
+  /**
+   * Get comprehensive quality assessment scores for analytics
+   * This method runs assessments in parallel and caches results
+   */
+  private async getQualityAssessmentScores(response: string, context: ConversationContext): Promise<AIResponse['metadata']['qualityScores']> {
+    try {
+      // Check if transformers service is available
+      const isAvailable = await transformersService.isAvailable();
+      if (!isAvailable) {
+        return undefined; // Skip if service not available
+      }
+
+      // Run all assessments in parallel for efficiency
+      const [overall, coherence, relevance, completeness, personaAlignment] = await Promise.all([
+        this.assessOverallQuality(response, context).catch(() => 0),
+        this.assessResponseCoherence(response).catch(() => 0),
+        this.assessResponseRelevance(response, context).catch(() => 0),
+        this.assessResponseCompleteness(response, context).catch(() => 0),
+        this.assessPersonaAlignment(response, context.persona).catch(() => 0),
+      ]);
+
+      return {
+        overall,
+        coherence,
+        relevance,
+        completeness,
+        personaAlignment,
+      };
+    } catch (error) {
+      console.warn('Failed to get quality assessment scores:', error);
+      return undefined;
+    }
   }
 } 

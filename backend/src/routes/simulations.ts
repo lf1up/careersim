@@ -243,6 +243,8 @@ router.get('/:id/sessions', authenticateToken as any, async (req: AuthenticatedR
     const [sessions, total] = await sessionRepository
       .createQueryBuilder('session')
       .leftJoinAndSelect('session.simulation', 'simulation')
+      .addSelect('session.goalProgress')  // Explicitly select JSON columns
+      .addSelect('simulation.conversationGoals')
       .where('session.simulation.id = :simulationId', { simulationId: id })
       .andWhere('session.user.id = :userId', { userId: req.user!.id })
       .orderBy('session.createdAt', 'DESC')
@@ -250,8 +252,26 @@ router.get('/:id/sessions', authenticateToken as any, async (req: AuthenticatedR
       .take(Number(limit))
       .getManyAndCount();
 
+    // Transform sessions to include currentStep and totalSteps for frontend
+    const transformedSessions = sessions.map(session => {
+      // Calculate dynamic duration for active sessions
+      let totalDuration = session.durationSeconds || 0;
+      if ((session.status === SessionStatus.IN_PROGRESS || session.status === SessionStatus.STARTED) && session.startedAt) {
+        totalDuration = Math.floor((new Date().getTime() - session.startedAt.getTime()) / 1000);
+      }
+
+      return {
+        ...session,
+        totalSteps: session.simulation?.conversationGoals?.length || 0,
+        currentStep: Array.isArray(session.goalProgress)
+          ? session.goalProgress.filter((g: any) => g.status === 'achieved').length
+          : 0,
+        totalDuration,
+      };
+    });
+
     res.json({
-      sessions,
+      sessions: transformedSessions,
       pagination: {
         current: Number(page),
         total: Math.ceil(total / Number(limit)),
@@ -347,7 +367,22 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
       relations: ['simulation', 'simulation.category', 'simulation.personas'],
     });
 
-    res.status(201).json({ session: sessionWithDetails });
+    // Add currentStep and totalSteps for frontend
+    let totalDuration = sessionWithDetails?.durationSeconds || 0;
+    if ((sessionWithDetails?.status === SessionStatus.IN_PROGRESS || sessionWithDetails?.status === SessionStatus.STARTED) && sessionWithDetails?.startedAt) {
+      totalDuration = Math.floor((new Date().getTime() - sessionWithDetails.startedAt.getTime()) / 1000);
+    }
+
+    const transformedSession = {
+      ...sessionWithDetails,
+      totalSteps: sessionWithDetails?.simulation?.conversationGoals?.length || 0,
+      currentStep: Array.isArray(sessionWithDetails?.goalProgress)
+        ? sessionWithDetails.goalProgress.filter((g: any) => g.status === 'achieved').length
+        : 0,
+      totalDuration,
+    };
+
+    res.status(201).json({ session: transformedSession });
   } catch (error) {
     console.error('Error starting simulation session:', error);
     res.status(500).json({ error: 'Failed to start simulation session' });
@@ -705,6 +740,11 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           emotionalTone: aiResponse.emotionalTone,
           sentiment: aiResponse.metadata.sentiment,
           responseToMessageId: message.id,
+          // Include extended analysis data for reuse in evaluations
+          emotionAnalysis: aiResponse.metadata.emotionAnalysis,
+          sentimentAnalysis: aiResponse.metadata.sentimentAnalysis,
+          // Include quality scores for analytics and reporting
+          qualityScores: aiResponse.metadata.qualityScores,
         };
         aiMessage.timestamp = new Date();
 

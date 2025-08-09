@@ -15,14 +15,22 @@ import {
 
 // Status utility functions are now imported from shared utils
 
-const formatDuration = (seconds: number): string => {
+const formatDuration = (seconds: number | undefined | null): string => {
+  if (seconds == null || Number.isNaN(seconds) || seconds < 0) {
+    return '0s';
+  }
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  
+  const secs = Math.floor(seconds % 60);
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   }
-  return `${minutes}m`;
+  if (minutes > 0) {
+    return `${minutes}m ${secs}s`;
+  }
+  return `${secs}s`;
 };
 
 const formatDate = (dateString: string): string => {
@@ -169,7 +177,7 @@ export const Sessions: React.FC = () => {
                       
                       <div className="flex items-center text-sm text-secondary-500">
                         <CheckCircleIcon className="h-4 w-4 mr-2" />
-                        Progress: {session.currentStep}/{session.totalSteps} steps
+                        Progress: {session.currentStep || 0}/{session.totalSteps || 0} steps
                       </div>
                       
                       {session.completedAt && (
@@ -185,7 +193,7 @@ export const Sessions: React.FC = () => {
                       <div 
                         className="bg-primary-600 h-2 rounded-full transition-all duration-300" 
                         style={{ 
-                          width: `${session.totalSteps > 0 ? (session.currentStep / session.totalSteps) * 100 : 0}%` 
+                          width: `${(session.totalSteps || 0) > 0 ? ((session.currentStep || 0) / (session.totalSteps || 1)) * 100 : 0}%` 
                         }}
                       />
                     </div>

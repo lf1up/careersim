@@ -150,8 +150,6 @@ export const SessionDetail: React.FC = () => {
         setError(null);
         
         const sessionData = await apiClient.getSession(id);
-        console.log('Session data loaded:', sessionData);
-        console.log('Simulation personas:', sessionData?.simulation?.personas);
         setSession(sessionData);
 
         // If session has messages, fetch them
