@@ -1,6 +1,5 @@
 /// <reference types="jest" />
 /* eslint-env jest */
-/* global describe, it, jest, beforeAll, afterAll, expect */
 // Local declarations to satisfy type checking in environments where Jest globals aren't auto-inferred by the linter
 declare const describe: any;
 declare const it: any;
@@ -65,7 +64,7 @@ function buildUserUtterance(
   if (title.includes('closing') || title.includes('wrap')) {
     const behaviorLine = behaviors.length > 0
       ? `Before we wrap up, I'd like to ${joinBehaviors(behaviors.map((b) => b.toLowerCase()))}.`
-      : "Before we wrap up, I'd like to summarize my qualifications, express continued interest, and ask about next steps.";
+      : 'Before we wrap up, I\'d like to summarize my qualifications, express continued interest, and ask about next steps.';
     return `${behaviorLine} Thanks again for your time today.`;
   }
 

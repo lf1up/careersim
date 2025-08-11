@@ -11,9 +11,9 @@ export interface GoalEvaluationResult {
 // TODO: OPTIMIZE THIS SERVICE TO AVOID DRAMATIC SLOWDOWN DUE TO EXTERNAL NLP SERVICE CALLS
 export class EvaluationsService {
   // Thresholds can later be moved to config
-  private static readonly STEP_DETECTION_THRESHOLD = 0.5;
+  private static readonly STEP_DETECTION_THRESHOLD = 0.6;
   private static readonly BEHAVIOR_THRESHOLD = 0.6;
-  private static readonly SUCCESS_THRESHOLD = 0.5;
+  private static readonly SUCCESS_THRESHOLD = 0.6;
 
   // In test mode we relax thresholds to improve determinism against non-deterministic external models
   private isTestMode(): boolean {
@@ -21,15 +21,15 @@ export class EvaluationsService {
   }
 
   private getStepDetectionThreshold(): number {
-    return this.isTestMode() ? 0.4 : EvaluationsService.STEP_DETECTION_THRESHOLD;
+    return this.isTestMode() ? 0.6 : EvaluationsService.STEP_DETECTION_THRESHOLD;
   }
 
   private getBehaviorThreshold(): number {
-    return this.isTestMode() ? 0.45 : EvaluationsService.BEHAVIOR_THRESHOLD;
+    return this.isTestMode() ? 0.6 : EvaluationsService.BEHAVIOR_THRESHOLD;
   }
 
   private getSuccessThreshold(): number {
-    return this.isTestMode() ? 0.35 : EvaluationsService.SUCCESS_THRESHOLD;
+    return this.isTestMode() ? 0.6 : EvaluationsService.SUCCESS_THRESHOLD;
   }
 
   public async evaluateAfterTurn(

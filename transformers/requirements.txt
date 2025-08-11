@@ -26,5 +26,5 @@ pydantic>=2.0.0
 python-dotenv>=1.0.0
 
 # Optional: for better performance and GPU support
-# torch[cuda] # Uncomment if you have CUDA GPU
-# accelerate>=0.20.0 # Uncomment for faster inference
+torch # Uncomment if you have CUDA GPU
+accelerate>=0.20.0 # Uncomment for faster inference

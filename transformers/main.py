@@ -28,6 +28,7 @@ from transformers import (
     AutoConfig,
     pipeline,
 )
+import torch
 
 # Load environment variables
 load_dotenv()
@@ -95,6 +96,23 @@ tokenizers = {}
 configs = {}
 pipelines = {}
 
+
+# Device selection for acceleration (CUDA on Linux, MPS on Apple Silicon)
+def select_torch_device() -> torch.device:
+    try:
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return torch.device("mps")
+    except Exception:
+        pass
+    return torch.device("cpu")
+
+
+TORCH_DEVICE = select_torch_device()
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+logger.info(f"🧠 Torch device selected: {TORCH_DEVICE.type}")
+
 # Security
 security = HTTPBearer()
 
@@ -125,7 +143,9 @@ class TextInput(BaseModel):
 
 
 class SequenceInput(BaseModel):
-    text: str = Field(..., description="Text to classify", min_length=1, max_length=1024)
+    text: str = Field(
+        ..., description="Text to classify", min_length=1, max_length=1024
+    )
     candidate_labels: List[str] = Field(
         ..., description="List of possible labels", min_items=1
     )
@@ -212,9 +232,43 @@ async def load_models():
             # For sequence classification, we use pipeline approach
             try:
                 logger.info(f"Loading {model_key.capitalize()} model: {config['name']}")
-                pipelines[model_key] = pipeline(
-                    "zero-shot-classification", model=config["name"]
-                )
+                # Select device for pipeline
+                pipeline_device = -1
+                if TORCH_DEVICE.type == "cuda":
+                    pipeline_device = 0
+                elif TORCH_DEVICE.type == "mps":
+                    # Transformers supports torch.device for mps in newer versions
+                    try:
+                        pipelines[model_key] = pipeline(
+                            "zero-shot-classification",
+                            model=config["name"],
+                            device=TORCH_DEVICE,
+                        )
+                    except Exception:
+                        pipelines[model_key] = pipeline(
+                            "zero-shot-classification",
+                            model=config["name"],
+                            device=-1,
+                        )
+                    logger.info(
+                        "✅ Sequence pipeline configured for MPS where supported"
+                    )
+                else:
+                    pipelines[model_key] = pipeline(
+                        "zero-shot-classification",
+                        model=config["name"],
+                        device=pipeline_device,
+                    )
+                    logger.info("✅ Sequence pipeline configured for CPU/CUDA")
+                    continue
+
+                # If we set up via the mps branch above, we already assigned the pipeline
+                if "sequence" not in pipelines:
+                    pipelines[model_key] = pipeline(
+                        "zero-shot-classification",
+                        model=config["name"],
+                        device=pipeline_device,
+                    )
                 logger.info(f"✅ {model_key.capitalize()} model loaded successfully")
             except Exception as e:
                 logger.error(
@@ -230,6 +284,17 @@ async def load_models():
                 models[model_key] = AutoModelForSequenceClassification.from_pretrained(
                     config["name"]
                 )
+                # Move model to the selected device and set eval mode
+                try:
+                    models[model_key] = models[model_key].to(TORCH_DEVICE)
+                    models[model_key].eval()
+                    logger.info(
+                        f"🚀 {model_key.capitalize()} model moved to {TORCH_DEVICE.type}"
+                    )
+                except Exception as move_err:
+                    logger.warning(
+                        f"⚠️ Could not move {model_key} model to {TORCH_DEVICE.type}, falling back to CPU: {str(move_err)}"
+                    )
                 logger.info(f"✅ {model_key.capitalize()} model loaded successfully")
             except Exception as e:
                 logger.error(
@@ -391,8 +456,15 @@ async def analyze_sentiment(input_data: TextInput, token: str = get_auth_depende
         encoded_input = tokenizer(
             processed_text, return_tensors="pt", truncation=True, max_length=1024
         )
-        output = model(**encoded_input)
-        scores = output[0][0].detach().numpy()
+        # Move tensors to the selected device for faster inference
+        try:
+            encoded_input = {k: v.to(TORCH_DEVICE) for k, v in encoded_input.items()}
+        except Exception:
+            pass
+        with torch.inference_mode():
+            output = model(**encoded_input)
+        logits = output.logits if hasattr(output, "logits") else output[0]
+        scores = logits[0].detach().to("cpu").numpy()
         scores = softmax(scores)
 
         # Prepare results
@@ -437,8 +509,14 @@ async def detect_toxicity(input_data: TextInput, token: str = get_auth_dependenc
         encoded_input = tokenizer(
             input_data.text, return_tensors="pt", truncation=True, max_length=1024
         )
-        output = model(**encoded_input)
-        scores = output[0][0].detach().numpy()
+        try:
+            encoded_input = {k: v.to(TORCH_DEVICE) for k, v in encoded_input.items()}
+        except Exception:
+            pass
+        with torch.inference_mode():
+            output = model(**encoded_input)
+        logits = output.logits if hasattr(output, "logits") else output[0]
+        scores = logits[0].detach().to("cpu").numpy()
         scores = softmax(scores)
 
         # Get prediction
@@ -473,8 +551,14 @@ async def classify_emotion(input_data: TextInput, token: str = get_auth_dependen
         encoded_input = tokenizer(
             input_data.text, return_tensors="pt", truncation=True, max_length=1024
         )
-        output = model(**encoded_input)
-        scores = output[0][0].detach().numpy()
+        try:
+            encoded_input = {k: v.to(TORCH_DEVICE) for k, v in encoded_input.items()}
+        except Exception:
+            pass
+        with torch.inference_mode():
+            output = model(**encoded_input)
+        logits = output.logits if hasattr(output, "logits") else output[0]
+        scores = logits[0].detach().to("cpu").numpy()
         scores = softmax(scores)
 
         # Prepare results
