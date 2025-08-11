@@ -121,11 +121,11 @@ def get_auth_dependency():
 
 # Pydantic models for API
 class TextInput(BaseModel):
-    text: str = Field(..., description="Text to analyze", min_length=1, max_length=512)
+    text: str = Field(..., description="Text to analyze", min_length=1, max_length=1024)
 
 
 class SequenceInput(BaseModel):
-    text: str = Field(..., description="Text to classify", min_length=1, max_length=512)
+    text: str = Field(..., description="Text to classify", min_length=1, max_length=1024)
     candidate_labels: List[str] = Field(
         ..., description="List of possible labels", min_items=1
     )
@@ -389,7 +389,7 @@ async def analyze_sentiment(input_data: TextInput, token: str = get_auth_depende
 
         # Tokenize and predict
         encoded_input = tokenizer(
-            processed_text, return_tensors="pt", truncation=True, max_length=512
+            processed_text, return_tensors="pt", truncation=True, max_length=1024
         )
         output = model(**encoded_input)
         scores = output[0][0].detach().numpy()
@@ -435,7 +435,7 @@ async def detect_toxicity(input_data: TextInput, token: str = get_auth_dependenc
 
         # Tokenize and predict
         encoded_input = tokenizer(
-            input_data.text, return_tensors="pt", truncation=True, max_length=512
+            input_data.text, return_tensors="pt", truncation=True, max_length=1024
         )
         output = model(**encoded_input)
         scores = output[0][0].detach().numpy()
@@ -471,7 +471,7 @@ async def classify_emotion(input_data: TextInput, token: str = get_auth_dependen
 
         # Tokenize and predict
         encoded_input = tokenizer(
-            input_data.text, return_tensors="pt", truncation=True, max_length=512
+            input_data.text, return_tensors="pt", truncation=True, max_length=1024
         )
         output = model(**encoded_input)
         scores = output[0][0].detach().numpy()
