@@ -5,6 +5,7 @@ import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType, MessageInputMethod } from '@/entities/SessionMessage';
 import { evaluationsService } from '@/services/evaluations';
+import { emitGoalProgressUpdate } from '@/services/realtime';
 import { config } from '@/config/env';
 
 const router: Router = Router();
@@ -776,6 +777,13 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           }
 
           await sessionRepository.save(session);
+
+          // Emit goal progress update to session room
+          try {
+            await emitGoalProgressUpdate(session);
+          } catch (emitErr) {
+            console.warn('⚠️ Failed to emit goal progress update:', emitErr);
+          }
         } else {
           // Run evaluation in the background
           void (async () => {
@@ -789,8 +797,15 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
             } catch (e) {
               console.warn('⚠️ [background] Goal evaluation failed:', e);
             }
+
             try {
               await sessionRepository.save(session);
+              // Emit goal progress update to session room after background save
+              try {
+                await emitGoalProgressUpdate(session);
+              } catch (emitErr) {
+                console.warn('⚠️ [background] Failed to emit goal progress update:', emitErr);
+              }
             } catch (saveErr) {
               console.warn('⚠️ [background] Failed to save session after evaluation:', saveErr);
             }

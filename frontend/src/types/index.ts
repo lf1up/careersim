@@ -162,6 +162,8 @@ export interface Simulation {
   personas: Persona[];
   createdAt: string;
   updatedAt: string;
+  // Conversation goals/steps shown in the chat sidebar
+  conversationGoals?: ConversationGoal[];
 }
 
 // Session interfaces
@@ -190,6 +192,32 @@ export interface SimulationSession {
   messages: SessionMessage[];
   createdAt: string;
   updatedAt: string;
+  // Per-step goal progress tracked during the session
+  goalProgress?: Array<{
+    stepNumber: number;
+    isOptional?: boolean;
+    title: string;
+    status: 'not_started' | 'in_progress' | 'achieved';
+    confidence: number;
+    startedAt?: string;
+    achievedAt?: string;
+    evidence?: Array<{
+      messageId: string;
+      role: 'user' | 'ai';
+      label: string;
+      score: number;
+    }>;
+  }>;
+}
+
+// Conversation goal definition (mirrors backend)
+export interface ConversationGoal {
+  stepNumber: number;
+  isOptional?: boolean;
+  title: string;
+  description: string;
+  keyBehaviors?: string[];
+  successIndicators?: string[];
 }
 
 // Analytics interfaces

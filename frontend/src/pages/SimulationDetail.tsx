@@ -10,7 +10,8 @@ import {
   SimulationSession, 
   SessionMessage, 
   SessionStatus,
-  SimulationDifficulty 
+    SimulationDifficulty,
+    ConversationGoal
 } from '../types/index.ts';
 import {
   ClockIcon,
@@ -70,6 +71,13 @@ export const SimulationDetail: React.FC = () => {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [goalTooltip, setGoalTooltip] = useState<{
+    visible: boolean;
+    goal?: ConversationGoal;
+    top: number;
+    left: number;
+  }>({ visible: false, top: 0, left: 0 });
+  const goalTooltipRef = useRef<HTMLDivElement | null>(null);
 
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -161,12 +169,50 @@ export const SimulationDetail: React.FC = () => {
       });
     };
 
+    // Listen for goal progress updates from backend
+    const handleGoalProgressUpdated = (data: { sessionId: string; goalProgress?: any; currentStep?: number; totalSteps?: number; status?: string }) => {
+      if (!session?.id || data.sessionId !== session.id) return;
+      setSession(prev => prev ? {
+        ...prev,
+        goalProgress: data.goalProgress ?? prev.goalProgress,
+        currentStep: typeof data.currentStep === 'number' ? data.currentStep : prev.currentStep,
+        totalSteps: typeof data.totalSteps === 'number' ? data.totalSteps : prev.totalSteps,
+        status: (data.status as any) ?? prev.status,
+      } : prev);
+    };
+
     socket.on('message-received', handleMessageReceived);
+    socket.on('goal-progress-updated', handleGoalProgressUpdated);
 
     return () => {
       socket.off('message-received', handleMessageReceived);
+      socket.off('goal-progress-updated', handleGoalProgressUpdated);
     };
   }, [socket, session?.id]); // Only depend on session.id, not the entire session object
+
+  // Tooltip helpers for goals
+  const showGoalTooltip = (goal: ConversationGoal, target: HTMLElement) => {
+    const rect = target.getBoundingClientRect();
+    const left = Math.round(rect.right + 12);
+    const top = Math.round(rect.top);
+    setGoalTooltip({ visible: true, goal, top, left });
+  };
+  const hideGoalTooltip = () => setGoalTooltip(prev => ({ ...prev, visible: false }));
+
+  // After tooltip mounts, clamp within viewport bottom and top
+  useEffect(() => {
+    if (!goalTooltip.visible || !goalTooltipRef.current) return;
+    const tooltipEl = goalTooltipRef.current;
+    const padding = 12;
+    const tooltipHeight = tooltipEl.offsetHeight;
+    const maxTop = window.innerHeight - tooltipHeight - padding;
+    let clampedTop = goalTooltip.top;
+    if (clampedTop > maxTop) clampedTop = Math.max(padding, maxTop);
+    if (clampedTop < padding) clampedTop = padding;
+    if (clampedTop !== goalTooltip.top) {
+      setGoalTooltip(prev => ({ ...prev, top: clampedTop }));
+    }
+  }, [goalTooltip.visible, goalTooltip.top]);
 
   const handleStartSession = async () => {
     if (!simulation) return;
@@ -468,10 +514,51 @@ export const SimulationDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Chat interface */}
-        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 flex-1 flex flex-col min-h-0">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Chat interface with goals sidebar */}
+        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 flex-1 flex flex-row min-h-0">
+          {/* Left goals sidebar */}
+          <div className="relative z-[2147483647] w-64 border-r border-secondary-200 p-4 overflow-y-auto hidden md:block">
+            <h3 className="text-sm font-semibold text-secondary-700 mb-3">Conversation Goals</h3>
+            {simulation.conversationGoals && simulation.conversationGoals.length > 0 ? (
+              <ul className="space-y-2">
+                {simulation.conversationGoals
+                  .slice()
+                  .sort((a, b) => a.stepNumber - b.stepNumber)
+                  .map((goal) => {
+                    const progress = session.goalProgress?.find(g => g.stepNumber === goal.stepNumber);
+                    const status = progress?.status || 'not_started';
+                    const isAchieved = status === 'achieved';
+                    const isInProgress = status === 'in_progress';
+
+                    return (
+                      <li
+                        key={goal.stepNumber}
+                        className={`relative rounded-md border px-3 py-2 ${isAchieved ? 'bg-green-50 border-green-200' : isInProgress ? 'bg-yellow-50 border-yellow-200' : 'bg-secondary-50 border-secondary-200'}`}
+                        onMouseEnter={(e) => showGoalTooltip(goal, e.currentTarget as unknown as HTMLElement)}
+                        onMouseLeave={hideGoalTooltip}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-secondary-900">{goal.title}</span>
+                          {goal.isOptional && (
+                            <span className="ml-2 text-[10px] uppercase tracking-wide text-secondary-500">Optional</span>
+                          )}
+                        </div>
+                        <div className="mt-1">
+                          <span className={`text-xs ${isAchieved ? 'text-green-700' : isInProgress ? 'text-yellow-700' : 'text-secondary-600'}`}>{isAchieved ? 'Achieved' : isInProgress ? 'In progress' : 'Not started'}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+              </ul>
+            ) : (
+              <p className="text-sm text-secondary-500">No goals defined.</p>
+            )}
+          </div>
+
+          {/* Right chat column */}
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {session.messages && session.messages.length > 0 ? (
               session.messages.map((message, index) => {
                 const persona = simulation.personas && simulation.personas.length > 0 ? simulation.personas[0] : null;
@@ -531,32 +618,33 @@ export const SimulationDetail: React.FC = () => {
                 <p>Start the conversation! Send your first message below.</p>
               </div>
             )}
-            <div ref={messagesEndRef} />
-          </div>
+              <div ref={messagesEndRef} />
+            </div>
 
-          {/* Message input */}
-          <div className="border-t border-secondary-200 p-4">
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <input
-                type="text"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                disabled={isSendingMessage}
-              />
-              <Button
-                type="submit"
-                disabled={!messageInput.trim() || isSendingMessage}
-                className="px-4 py-2"
-              >
-                {isSendingMessage ? (
-                  <LoadingSpinner size="sm" />
-                ) : (
-                  <PaperAirplaneIcon className="h-4 w-4" />
-                )}
-              </Button>
-            </form>
+            {/* Message input */}
+            <div className="border-t border-secondary-200 p-4">
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  disabled={isSendingMessage}
+                />
+                <Button
+                  type="submit"
+                  disabled={!messageInput.trim() || isSendingMessage}
+                  className="px-4 py-2"
+                >
+                  {isSendingMessage ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <PaperAirplaneIcon className="h-4 w-4" />
+                  )}
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
 
@@ -564,6 +652,43 @@ export const SimulationDetail: React.FC = () => {
         {error && (
           <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex-shrink-0">
             <p className="text-red-600">{error}</p>
+          </div>
+        )}
+
+        {/* Fixed-position tooltip overlay for goals */}
+        {goalTooltip.visible && goalTooltip.goal && (
+          <div
+            className="fixed z-[2147483647] pointer-events-none"
+            style={{ top: goalTooltip.top, left: goalTooltip.left }}
+          >
+            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal rounded-md border border-secondary-300 bg-white text-secondary-900 text-xs shadow-lg">
+              <div className="p-3">
+                <div className="font-semibold mb-1">{goalTooltip.goal.title}</div>
+                {goalTooltip.goal.description && (
+                  <p className="text-secondary-700 leading-snug">{goalTooltip.goal.description}</p>
+                )}
+                {(goalTooltip.goal.keyBehaviors && goalTooltip.goal.keyBehaviors.length > 0) && (
+                  <div className="mt-2">
+                    <div className="font-medium text-secondary-600 mb-1">Key behaviors</div>
+                    <ul className="list-disc list-inside space-y-0.5 text-secondary-700">
+                      {goalTooltip.goal.keyBehaviors.map((b, i) => (
+                        <li key={i}>{b}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(goalTooltip.goal.successIndicators && goalTooltip.goal.successIndicators.length > 0) && (
+                  <div className="mt-2">
+                    <div className="font-medium text-secondary-600 mb-1">Success indicators</div>
+                    <ul className="list-disc list-inside space-y-0.5 text-secondary-700">
+                      {goalTooltip.goal.successIndicators.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
