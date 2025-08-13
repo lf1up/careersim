@@ -142,7 +142,7 @@ describe('Automatic conversational tests', () => {
         const msgRes = await request(app)
           .post(`/api/simulations/${simulation.id}/sessions/${sessionId}/messages`)
           .set('Authorization', authToken)
-          .send({ content: line, type: 'user' })
+          .send({ content: line, type: 'user', syncMode: true })
           .expect(201);
         expect(msgRes.body.message).toBeDefined();
       }
@@ -152,7 +152,7 @@ describe('Automatic conversational tests', () => {
         const msgRes = await request(app)
           .post(`/api/simulations/${simulation.id}/sessions/${sessionId}/messages`)
           .set('Authorization', authToken)
-          .send({ content: userText, type: 'user' })
+          .send({ content: userText, type: 'user', syncMode: true })
           .expect(201);
         expect(msgRes.body.message).toBeDefined();
       }

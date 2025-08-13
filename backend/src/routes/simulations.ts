@@ -5,6 +5,7 @@ import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType, MessageInputMethod } from '@/entities/SessionMessage';
 import { evaluationsService } from '@/services/evaluations';
+import { config } from '@/config/env';
 
 const router: Router = Router();
 
@@ -614,6 +615,10 @@ router.get('/:id/sessions/:sessionId/messages', authenticateToken as any, async 
  *               metadata:
  *                 type: object
  *                 description: Additional message metadata
+  *               syncMode:
+  *                 type: boolean
+  *                 description: Development only. If true, run evaluations synchronously; if false or omitted, run evaluations in background.
+  *                 example: false
  *     responses:
  *       201:
  *         description: Message created successfully
@@ -631,7 +636,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
   try {
     const simulationId = req.params.id;
     const sessionId = req.params.sessionId;
-    const { content, type, inputMethod, metadata } = req.body;
+    const { content, type, inputMethod, metadata, syncMode } = req.body;
 
     if (!content || !type) {
       return res.status(400).json({ error: 'Content and type are required' });
@@ -754,18 +759,43 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         session.addMessage();
 
         // Evaluate goals based on last user and AI messages
-        try {
-          const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
-          session.goalProgress = evalResult.updatedProgress as any;
-          if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
-            session.markAsCompleted();
-          }
-          console.log('💡 Goal evaluation result:', evalResult);
-        } catch (e) {
-          console.warn('⚠️ Goal evaluation failed:', e);
-        }
+        const syncModeParam = typeof syncMode === 'string' ? syncMode.toLowerCase() === 'true' : !!syncMode;
+        const shouldRunEvalSync = !config.isDevelopment || syncModeParam === true;
 
-        await sessionRepository.save(session);
+        if (shouldRunEvalSync) {
+          // Run evaluation synchronously (development mode and syncMode is true)
+          try {
+            const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
+            session.goalProgress = evalResult.updatedProgress as any;
+            if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
+              session.markAsCompleted();
+            }
+            console.log('💡 Goal evaluation result:', evalResult);
+          } catch (e) {
+            console.warn('⚠️ Goal evaluation failed:', e);
+          }
+
+          await sessionRepository.save(session);
+        } else {
+          // Run evaluation in the background
+          void (async () => {
+            try {
+              const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
+              session.goalProgress = evalResult.updatedProgress as any;
+              if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
+                session.markAsCompleted();
+              }
+              console.log('💡 [background] Goal evaluation result:', evalResult);
+            } catch (e) {
+              console.warn('⚠️ [background] Goal evaluation failed:', e);
+            }
+            try {
+              await sessionRepository.save(session);
+            } catch (saveErr) {
+              console.warn('⚠️ [background] Failed to save session after evaluation:', saveErr);
+            }
+          })();
+        }
 
         // Transform AI message for frontend
         // Exclude the session property to avoid circular reference
