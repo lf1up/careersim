@@ -22,6 +22,10 @@ interface AISettings {
   frequencyPenalty: number;
   presencePenalty: number;
   topP: number;
+  profiles?: {
+    generation?: Partial<AISettings>;
+    evaluation?: Partial<AISettings>;
+  };
 }
 
 interface SystemPrompts {
@@ -52,6 +56,7 @@ export const AdminSystem: React.FC = () => {
   
   const [config, setConfig] = useState<SystemConfigResponse | null>(null);
   const [tempSettings, setTempSettings] = useState<AISettings | null>(null);
+  const [tempEvalProfile, setTempEvalProfile] = useState<Partial<AISettings> | null>(null);
   const [tempPrompts, setTempPrompts] = useState<SystemPrompts | null>(null);
 
   useEffect(() => {
@@ -63,6 +68,19 @@ export const AdminSystem: React.FC = () => {
       setLoading(true);
       const data = await apiClient.getSystemConfig();
       setConfig(data);
+      // Prime evaluation profile editor with current values (fallback to base)
+      if (data?.aiSettings) {
+        const base = data.aiSettings;
+        const evalProfile = data.aiSettings.profiles?.evaluation || {};
+        setTempEvalProfile({
+          model: evalProfile.model || base.model,
+          maxTokens: typeof evalProfile.maxTokens === 'number' ? evalProfile.maxTokens : Math.min(2000, base.maxTokens),
+          temperature: typeof evalProfile.temperature === 'number' ? evalProfile.temperature : 0.3,
+          frequencyPenalty: typeof evalProfile.frequencyPenalty === 'number' ? evalProfile.frequencyPenalty : base.frequencyPenalty,
+          presencePenalty: typeof evalProfile.presencePenalty === 'number' ? evalProfile.presencePenalty : base.presencePenalty,
+          topP: typeof evalProfile.topP === 'number' ? evalProfile.topP : base.topP,
+        });
+      }
     } catch (error) {
       toast.error('Failed to load system configuration');
       console.error('System config error:', error);
@@ -71,20 +89,7 @@ export const AdminSystem: React.FC = () => {
     }
   };
 
-  const updateAISettings = async (settings: AISettings) => {
-    try {
-      setSaving(true);
-      await apiClient.updateAISettings(settings);
-      toast.success('AI settings updated successfully');
-      await fetchSystemConfig();
-      setEditingSettings(false);
-      setTempSettings(null);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to update AI settings');
-    } finally {
-      setSaving(false);
-    }
-  };
+
 
   const updateSystemPrompts = async (prompts: SystemPrompts) => {
     try {
@@ -123,9 +128,22 @@ export const AdminSystem: React.FC = () => {
   };
 
   const handleSaveSettings = () => {
-    if (tempSettings) {
-      updateAISettings(tempSettings);
-    }
+    if (!tempSettings) return;
+    (async () => {
+      setSaving(true);
+      try {
+        await apiClient.updateAISettings(tempSettings);
+        await apiClient.updateAIProfiles({ evaluation: tempEvalProfile || {} });
+        toast.success('AI settings updated successfully');
+        await fetchSystemConfig();
+        setEditingSettings(false);
+        setTempSettings(null);
+      } catch (err: any) {
+        toast.error(err?.response?.data?.error || 'Failed to update evaluation settings');
+      } finally {
+        setSaving(false);
+      }
+    })();
   };
 
   const handleEditPrompts = () => {
@@ -287,6 +305,90 @@ export const AdminSystem: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Evaluation profile overrides */}
+              <div className="border-t pt-6">
+                <h3 className="text-md font-medium text-gray-900 mb-4">Evaluation Profile Overrides</h3>
+                <p className="text-xs text-gray-500 mb-4">These settings are used by goal and performance evaluations. Leave blank to inherit from base settings.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Model</label>
+                    <input
+                      type="text"
+                      value={tempEvalProfile?.model || ''}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), model: e.target.value }))}
+                      placeholder={config.aiSettings.model}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
+                    <input
+                      type="number"
+                      min="100"
+                      max="4000"
+                      value={typeof tempEvalProfile?.maxTokens === 'number' ? tempEvalProfile.maxTokens : ''}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), maxTokens: e.target.value === '' ? undefined : parseInt(e.target.value) }))}
+                      placeholder={String(Math.min(2000, config.aiSettings.maxTokens))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="2"
+                      value={typeof tempEvalProfile?.temperature === 'number' ? tempEvalProfile.temperature : ''}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), temperature: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      placeholder="0.3"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Frequency Penalty</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="-2"
+                      max="2"
+                      value={typeof tempEvalProfile?.frequencyPenalty === 'number' ? tempEvalProfile.frequencyPenalty : ''}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), frequencyPenalty: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      placeholder={String(config.aiSettings.frequencyPenalty)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Presence Penalty</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="-2"
+                      max="2"
+                      value={typeof tempEvalProfile?.presencePenalty === 'number' ? tempEvalProfile.presencePenalty : ''}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), presencePenalty: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      placeholder={String(config.aiSettings.presencePenalty)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Top P</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="1"
+                      value={typeof tempEvalProfile?.topP === 'number' ? tempEvalProfile.topP : ''}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), topP: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      placeholder={String(config.aiSettings.topP)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">Clear a field to revert to base.</div>
+              </div>
+
               <div className="flex justify-end space-x-3">
                 <Button
                   onClick={handleCancelSettings}
@@ -376,6 +478,20 @@ export const AdminSystem: React.FC = () => {
                 <p className="text-xs text-gray-500 mt-1">
                   Nucleus sampling (0.0 - 1.0)
                 </p>
+              </div>
+
+              {/* Evaluation profile summary */}
+              <div className="bg-gray-50 p-4 rounded-lg md:col-span-2 lg:col-span-2 xl:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Evaluation Profile</label>
+                <div className="text-sm text-gray-700">
+                  <div><span className="text-gray-500">Model:</span> {(config.aiSettings.profiles?.evaluation?.model) || config.aiSettings.model}</div>
+                  <div><span className="text-gray-500">Max Tokens:</span> {config.aiSettings.profiles?.evaluation?.maxTokens ?? Math.min(2000, config.aiSettings.maxTokens)}</div>
+                  <div><span className="text-gray-500">Temperature:</span> {config.aiSettings.profiles?.evaluation?.temperature ?? 0.3}</div>
+                  <div><span className="text-gray-500">Frequency Penalty:</span> {config.aiSettings.profiles?.evaluation?.frequencyPenalty ?? config.aiSettings.frequencyPenalty}</div>
+                  <div><span className="text-gray-500">Presence Penalty:</span> {config.aiSettings.profiles?.evaluation?.presencePenalty ?? config.aiSettings.presencePenalty}</div>
+                  <div><span className="text-gray-500">Top P:</span> {config.aiSettings.profiles?.evaluation?.topP ?? config.aiSettings.topP}</div>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Overrides used by evaluations; defaults shown where not set.</p>
               </div>
             </div>
           )}

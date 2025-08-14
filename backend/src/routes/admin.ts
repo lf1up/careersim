@@ -2340,6 +2340,7 @@ router.put('/system/config/ai', requireAdmin as any, async (req: AuthenticatedRe
       where: { configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS },
     });
 
+    const preservedProfiles = config?.aiModelSettings?.profiles;
     const newSettings: AIModelSettings = {
       model,
       maxTokens,
@@ -2347,6 +2348,7 @@ router.put('/system/config/ai', requireAdmin as any, async (req: AuthenticatedRe
       frequencyPenalty,
       presencePenalty,
       topP,
+      profiles: preservedProfiles,
     };
 
     if (config) {
@@ -2373,6 +2375,106 @@ router.put('/system/config/ai', requireAdmin as any, async (req: AuthenticatedRe
   } catch (error) {
     console.error('Error updating AI settings:', error);
     res.status(500).json({ error: 'Failed to update AI settings' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/system/config/ai/profiles:
+ *   put:
+ *     summary: Update AI profile overrides (generation, goalEvaluation, performanceAnalysis)
+ *     tags: [Admin System]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               profiles:
+ *                 type: object
+ *                 properties:
+ *                   generation:
+ *                     type: object
+ *                     description: Overrides for persona response generation
+ *                   goalEvaluation:
+ *                     type: object
+ *                     description: Overrides for goal evaluation via LLM
+ *                   performanceAnalysis:
+ *                     type: object
+ *                     description: Overrides for performance analysis
+ *                   evaluations:
+ *                     type: object
+ *                     description: Generic overrides used by the evaluations service
+ *     responses:
+ *       200:
+ *         description: AI profile overrides updated successfully
+ *       400:
+ *         description: Bad request - validation errors
+ *       401:
+ *         description: Unauthorized - invalid or missing token
+ *       403:
+ *         description: Forbidden - admin access required
+ *       500:
+ *         description: Server error
+ */
+router.put('/system/config/ai/profiles', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const configRepository = AppDataSource.getRepository(SystemConfiguration);
+    const { profiles } = req.body as { profiles?: AIModelSettings['profiles'] };
+
+    if (!profiles || typeof profiles !== 'object') {
+      return res.status(400).json({ error: 'profiles object is required' });
+    }
+
+    let configRow = await configRepository.findOne({
+      where: { configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS },
+    });
+
+    if (!configRow) {
+      configRow = configRepository.create({
+        configKey: SystemConfiguration.CONFIG_KEYS.AI_MODEL_SETTINGS,
+        aiModelSettings: SystemConfiguration.getDefaultAISettings(),
+        description: 'AI model configuration settings',
+        isActive: true,
+      });
+    }
+
+    const current = configRow.aiModelSettings || SystemConfiguration.getDefaultAISettings();
+
+    // Normalize incoming profiles to supported keys only
+    const incoming: any = profiles as any;
+    const generationUpdates = incoming.generation || {};
+    // Merge any alias keys into the single supported 'evaluation' profile
+    const evaluationUpdates = {
+      ...(incoming.evaluation || {}),
+      ...(incoming.goalEvaluation || {}),
+      ...(incoming.performanceAnalysis || {}),
+      ...(incoming.evaluations || {}),
+    };
+
+    configRow.aiModelSettings = {
+      ...current,
+      profiles: {
+        generation: { ...(current.profiles?.generation || {}), ...generationUpdates },
+        evaluation: { ...(current.profiles?.evaluation || {}), ...evaluationUpdates },
+      },
+    };
+
+    await configRepository.save(configRow);
+
+    // Clear AI service cache so new settings take effect immediately
+    AIService.clearGlobalConfigCache();
+
+    res.json({
+      message: 'AI profile overrides updated successfully',
+      configuration: configRow,
+    });
+  } catch (error) {
+    console.error('Error updating AI profile overrides:', error);
+    res.status(500).json({ error: 'Failed to update AI profile overrides' });
   }
 });
 

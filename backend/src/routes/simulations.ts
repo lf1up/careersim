@@ -766,7 +766,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         if (shouldRunEvalSync) {
           // Run evaluation synchronously (development mode and syncMode is true)
           try {
-            const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
+            const evalResult = await evaluationsService.evaluateAfterTurnLLM(session.simulation, session, message, aiMessage);
             session.goalProgress = evalResult.updatedProgress as any;
             if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
               session.markAsCompleted();
@@ -788,7 +788,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           // Run evaluation in the background
           void (async () => {
             try {
-              const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
+              const evalResult = await evaluationsService.evaluateAfterTurnLLM(session.simulation, session, message, aiMessage);
               session.goalProgress = evalResult.updatedProgress as any;
               if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
                 session.markAsCompleted();
@@ -840,7 +840,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         });
 
         console.log(`✅ AI response generated for session ${String(sessionId)}`);
-        console.log(`🤖 Model used: ${String(aiResponse.metadata.model)} (default configured: ${String((await import('@/config/env')).config.ai.openai.model)})`);
+        console.log(`🤖 Persona model used: ${String(aiResponse.metadata.model)} (default configured: ${String((await import('@/config/env')).config.ai.openai.model)})`);
       } catch (aiError) {
         console.error('Error generating AI response:', aiError);
         // Don't fail the entire request if AI response fails

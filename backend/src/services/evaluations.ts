@@ -32,6 +32,7 @@ export class EvaluationsService {
     return this.isTestMode() ? 0.6 : EvaluationsService.SUCCESS_THRESHOLD;
   }
 
+  // Transformers-based evaluation of the latest messages in conversation (might be broken, needs to be adjusted)
   public async evaluateAfterTurn(
     simulation: Simulation,
     session: SimulationSession,
@@ -148,6 +149,87 @@ export class EvaluationsService {
     if (behaviorOk && successOk && target.status !== 'achieved') {
       target.status = 'achieved';
       target.achievedAt = new Date().toISOString();
+    }
+
+    return {
+      updatedProgress: progress,
+      allRequiredAchieved: this.requiredAchieved(progress, goals),
+    };
+  }
+
+  // AI-driven version using LLM to evaluate achieved goals given the latest exchange
+  public async evaluateAfterTurnLLM(
+    simulation: Simulation,
+    session: SimulationSession,
+    lastUserMessage: SessionMessage,
+    lastAiMessage?: SessionMessage,
+  ): Promise<GoalEvaluationResult> {
+    const goals = (simulation.conversationGoals || []).slice().sort((a, b) => a.stepNumber - b.stepNumber);
+    const progress = (session.goalProgress || this.initializeProgress(goals)).map((p) => ({ ...p }));
+
+    if (goals.length === 0) {
+      return { updatedProgress: progress, allRequiredAchieved: true };
+    }
+
+    // Dynamically import to avoid potential circular deps
+    const { AIService } = await import('@/services/ai');
+    const ai = new AIService();
+
+    // Provide a compact recent window: last user + last AI
+    const recentMessages = [lastUserMessage, lastAiMessage].filter(Boolean) as SessionMessage[];
+
+    const aiResult = await ai.evaluateGoalsWithLLM({
+      simulation,
+      session,
+      goals,
+      lastUserMessage,
+      lastAiMessage,
+      recentMessages,
+    });
+
+    // Merge AI-evaluated steps into progress
+    const evalByStep = new Map<number, (typeof aiResult)['steps'][number]>();
+    for (const step of aiResult.steps) evalByStep.set(step.stepNumber, step);
+
+    for (const target of progress) {
+      const stepEval = evalByStep.get(target.stepNumber);
+      if (!stepEval) continue;
+
+      // Update confidence and status based on AI evaluation
+      const clampedConfidence = Math.max(0, Math.min(1, stepEval.confidence || 0));
+      target.confidence = Math.max(target.confidence || 0, clampedConfidence);
+
+      if (stepEval.status === 'in_progress' && target.status === 'not_started') {
+        target.status = 'in_progress';
+        target.startedAt = new Date().toISOString();
+      }
+
+      if (stepEval.status === 'achieved' && target.status !== 'achieved') {
+        // Use same thresholds as behavior/success for consistency
+        const pass = clampedConfidence >= this.getBehaviorThreshold();
+        if (pass) {
+          if (target.status === 'not_started') {
+            target.startedAt = new Date().toISOString();
+          }
+          target.status = 'achieved';
+          target.achievedAt = new Date().toISOString();
+        }
+      }
+
+      // Map evidence to known last message ids
+      if (Array.isArray(stepEval.evidence) && stepEval.evidence.length > 0) {
+        if (!target.evidence) target.evidence = [];
+        for (const e of stepEval.evidence) {
+          const messageId = e.role === 'user' ? lastUserMessage?.id : lastAiMessage?.id;
+          if (!messageId) continue;
+          target.evidence.push({
+            messageId,
+            role: e.role,
+            label: 'llm_evidence',
+            score: clampedConfidence,
+          });
+        }
+      }
     }
 
     return {

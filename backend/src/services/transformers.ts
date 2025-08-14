@@ -8,17 +8,20 @@ import { config } from '@/config/env';
 export interface SentimentResult {
   sentiment: 'positive' | 'neutral' | 'negative';
   confidence: number;
+  source?: 'remote' | 'fallback';
 }
 
 export interface EmotionResult {
   emotion: string;
   confidence: number;
+  source?: 'remote' | 'fallback';
 }
 
 export interface ToxicityResult {
   isToxic: boolean;
   toxicityScore: number;
   categories: string[];
+  source?: 'remote' | 'fallback';
 }
 
 export interface TransformersHealthStatus {
@@ -45,6 +48,7 @@ export interface ZeroShotResult {
   label: string;
   confidence: number;
   allPredictions: Array<{ label: string; confidence: number }>;
+  source?: 'remote' | 'fallback';
 }
 
 export class TransformersService {
@@ -154,11 +158,13 @@ export class TransformersService {
       return {
         sentiment,
         confidence: prediction.confidence,
+        source: 'remote',
       };
 
     } catch (error) {
       console.warn('🔄 Sentiment analysis failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-      return this.analyzeSentimentFallback(text);
+      const fallback = this.analyzeSentimentFallback(text);
+      return { ...fallback, source: 'fallback' };
     }
   }
 
@@ -201,11 +207,13 @@ export class TransformersService {
       return {
         emotion,
         confidence: prediction.confidence,
+        source: 'remote',
       };
 
     } catch (error) {
       console.warn('🔄 Emotion analysis failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-      return this.analyzeEmotionFallback(text);
+      const fallback = this.analyzeEmotionFallback(text);
+      return { ...fallback, source: 'fallback' };
     }
   }
 
@@ -237,11 +245,13 @@ export class TransformersService {
         isToxic,
         toxicityScore,
         categories: isToxic ? ['toxic'] : [],
+        source: 'remote',
       };
 
     } catch (error) {
       console.warn('🔄 Toxicity analysis failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
-      return this.analyzeToxicityFallback(text);
+      const fallback = this.analyzeToxicityFallback(text);
+      return { ...fallback, source: 'fallback' };
     }
   }
 
@@ -272,6 +282,7 @@ export class TransformersService {
         label: result.top_prediction.label,
         confidence: result.top_prediction.confidence,
         allPredictions: result.predictions,
+        source: 'remote',
       };
 
     } catch (error) {
@@ -281,6 +292,7 @@ export class TransformersService {
         label: candidateLabels[0],
         confidence: 0.3,
         allPredictions: candidateLabels.map(label => ({ label, confidence: 0.3 })),
+        source: 'fallback',
       };
     }
   }

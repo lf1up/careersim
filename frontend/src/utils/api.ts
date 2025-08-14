@@ -457,6 +457,24 @@ class ApiClient {
       frequencyPenalty: number;
       presencePenalty: number;
       topP: number;
+      profiles?: {
+        generation?: Partial<{
+          model: string;
+          maxTokens: number;
+          temperature: number;
+          frequencyPenalty: number;
+          presencePenalty: number;
+          topP: number;
+        }>;
+        evaluation?: Partial<{
+          model: string;
+          maxTokens: number;
+          temperature: number;
+          frequencyPenalty: number;
+          presencePenalty: number;
+          topP: number;
+        }>;
+      };
     };
     systemPrompts: {
       baseSystemPrompt: string;
@@ -489,6 +507,28 @@ class ApiClient {
     performanceAnalysisPrompt: string;
   }): Promise<{ message: string; configuration: any }> {
     const response = await this.client.put('/admin/system/config/prompts', prompts);
+    return response.data;
+  }
+
+  public async updateAIProfiles(profiles: {
+    generation?: Partial<{
+      model: string;
+      maxTokens: number;
+      temperature: number;
+      frequencyPenalty: number;
+      presencePenalty: number;
+      topP: number;
+    }>;
+    evaluation?: Partial<{
+      model: string;
+      maxTokens: number;
+      temperature: number;
+      frequencyPenalty: number;
+      presencePenalty: number;
+      topP: number;
+    }>;
+  }): Promise<{ message: string; configuration: any }> {
+    const response = await this.client.put('/admin/system/config/ai/profiles', { profiles });
     return response.data;
   }
 

@@ -13,6 +13,11 @@ export interface AIModelSettings {
   frequencyPenalty: number;
   presencePenalty: number;
   topP: number;
+  // Optional task-specific overrides without breaking existing shape
+  profiles?: {
+    generation?: Partial<AIModelSettings>;
+    evaluation?: Partial<AIModelSettings>;
+  };
 }
 
 export interface SystemPrompts {
@@ -66,6 +71,15 @@ export interface RateLimitSettings {
  *               type: number
  *               format: float
  *               example: 1.0
+ *             profiles:
+ *               type: object
+ *               properties:
+ *                 generation:
+ *                   type: object
+ *                   description: "Overrides for persona response generation"
+ *                 evaluation:
+ *                   type: object
+ *                   description: "Generic overrides for the evaluations service"
  *         systemPrompts:
  *           type: object
  *           properties:
@@ -141,10 +155,28 @@ export class SystemConfiguration {
     return {
       model: config.ai.openai.model,
       maxTokens: config.ai.openai.maxTokens,
-      temperature: 0.8,
-      frequencyPenalty: 0.3,
-      presencePenalty: 0.3,
-      topP: 1.0,
+      temperature: (config.ai.openai.temperature ?? 0.8),
+      frequencyPenalty: (config.ai.openai.frequencyPenalty ?? 0.3),
+      presencePenalty: (config.ai.openai.presencePenalty ?? 0.3),
+      topP: (config.ai.openai.topP ?? 1.0),
+      profiles: {
+        generation: {
+          model: config.ai.openai.generationModel ?? config.ai.openai.model,
+          maxTokens: config.ai.openai.maxTokens,
+          temperature: (config.ai.openai.temperature ?? 0.8),
+          frequencyPenalty: (config.ai.openai.frequencyPenalty ?? 0.3),
+          presencePenalty: (config.ai.openai.presencePenalty ?? 0.3),
+          topP: (config.ai.openai.topP ?? 1.0),
+        },
+        evaluation: {
+          model: (config.ai.openai.evalProfile?.model ?? config.ai.openai.model),
+          maxTokens: (config.ai.openai.evalProfile?.maxTokens ?? Math.min(2000, config.ai.openai.maxTokens)),
+          temperature: (config.ai.openai.evalProfile?.temperature ?? 0.3),
+          frequencyPenalty: (config.ai.openai.evalProfile?.frequencyPenalty ?? (config.ai.openai.frequencyPenalty ?? 0.3)),
+          presencePenalty: (config.ai.openai.evalProfile?.presencePenalty ?? (config.ai.openai.presencePenalty ?? 0.3)),
+          topP: (config.ai.openai.evalProfile?.topP ?? (config.ai.openai.topP ?? 1.0)),
+        },
+      },
     };
   }
 

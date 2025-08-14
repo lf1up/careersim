@@ -45,6 +45,18 @@ const envSchema = Joi.object({
   OPENAI_MODEL: Joi.string().default('gpt-4-turbo-preview'),
   OPENAI_PROVIDER: Joi.string().default('openai'),
   OPENAI_MAX_TOKENS: Joi.number().default(2000),
+  OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.8),
+  OPENAI_TOP_P: Joi.number().min(0).max(1).default(1.0),
+  OPENAI_FREQUENCY_PENALTY: Joi.number().min(-2).max(2).default(0.3),
+  OPENAI_PRESENCE_PENALTY: Joi.number().min(-2).max(2).default(0.3),
+  // Optional task-specific overrides
+  OPENAI_EVAL_MODEL: Joi.string().optional(),
+  OPENAI_EVAL_PROVIDER: Joi.string().optional(),
+  OPENAI_EVAL_MAX_TOKENS: Joi.number().optional(),
+  OPENAI_EVAL_TEMPERATURE: Joi.number().min(0).max(2).default(0.3),
+  OPENAI_EVAL_TOP_P: Joi.number().min(0).max(1).optional(),
+  OPENAI_EVAL_FREQUENCY_PENALTY: Joi.number().min(-2).max(2).optional(),
+  OPENAI_EVAL_PRESENCE_PENALTY: Joi.number().min(-2).max(2).optional(),
   
   // Transformers Microservice
   TRANSFORMERS_API_URL: Joi.string().default('http://localhost:8001'),
@@ -122,6 +134,19 @@ export const config = {
       model: envVars.OPENAI_MODEL,
       provider: envVars.OPENAI_PROVIDER,
       maxTokens: envVars.OPENAI_MAX_TOKENS,
+      temperature: envVars.OPENAI_TEMPERATURE,
+      topP: envVars.OPENAI_TOP_P,
+      frequencyPenalty: envVars.OPENAI_FREQUENCY_PENALTY,
+      presencePenalty: envVars.OPENAI_PRESENCE_PENALTY,
+      evalProfile: {
+        model: envVars.OPENAI_EVAL_MODEL || envVars.OPENAI_MODEL,
+        provider: envVars.OPENAI_EVAL_PROVIDER || envVars.OPENAI_PROVIDER,
+        maxTokens: envVars.OPENAI_EVAL_MAX_TOKENS || envVars.OPENAI_MAX_TOKENS,
+        temperature: envVars.OPENAI_EVAL_TEMPERATURE || envVars.OPENAI_TEMPERATURE,
+        topP: envVars.OPENAI_EVAL_TOP_P || envVars.OPENAI_TOP_P,
+        frequencyPenalty: envVars.OPENAI_EVAL_FREQUENCY_PENALTY || envVars.OPENAI_FREQUENCY_PENALTY,
+        presencePenalty: envVars.OPENAI_EVAL_PRESENCE_PENALTY || envVars.OPENAI_PRESENCE_PENALTY,
+      },
     },
     transformers: {
       apiUrl: envVars.TRANSFORMERS_API_URL,

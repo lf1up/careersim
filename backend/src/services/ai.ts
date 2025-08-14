@@ -4,6 +4,7 @@ import { AppDataSource } from '@/config/database';
 import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { Persona } from '@/entities/Persona';
 import { Simulation } from '@/entities/Simulation';
+import { SimulationSession } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType } from '@/entities/SessionMessage';
 import { transformersService } from '@/services/transformers';
 
@@ -61,6 +62,176 @@ export class AIService {
     
     // Store instance for static access
     AIService.instance = this;
+  }
+
+  /**
+   * Resolve a specific AI profile by name with fallback to base settings
+   */
+  private resolveAIProfile(
+    base: SystemConfiguration['aiModelSettings'],
+    profile: 'generation' | 'evaluation',
+  ) {
+    const overrides = base?.profiles?.[profile] || {};
+    return {
+      model: overrides.model || base?.model,
+      maxTokens: Math.min(
+        typeof overrides.maxTokens === 'number' ? overrides.maxTokens : (base?.maxTokens || 2000),
+        4000,
+      ),
+      temperature: typeof overrides.temperature === 'number' ? overrides.temperature : (base?.temperature ?? 0.8),
+      frequencyPenalty: typeof overrides.frequencyPenalty === 'number' ? overrides.frequencyPenalty : (base?.frequencyPenalty ?? 0.3),
+      presencePenalty: typeof overrides.presencePenalty === 'number' ? overrides.presencePenalty : (base?.presencePenalty ?? 0.3),
+      topP: typeof overrides.topP === 'number' ? overrides.topP : (base?.topP ?? 1.0),
+    };
+  }
+
+  /**
+   * Evaluate which conversation goals were reached using the LLM.
+   * Returns a normalized structure that caller can merge into session progress.
+   */
+  public async evaluateGoalsWithLLM(params: {
+    simulation: Simulation;
+    session: SimulationSession;
+    goals: NonNullable<Simulation['conversationGoals']>;
+    lastUserMessage?: SessionMessage;
+    lastAiMessage?: SessionMessage;
+    recentMessages?: SessionMessage[]; // optional, if caller wants to pass a larger window
+  }): Promise<{
+    steps: Array<{
+      stepNumber: number;
+      status: 'achieved' | 'in_progress' | 'not_started';
+      confidence: number; // 0..1
+      evidence?: Array<{ role: 'user' | 'ai'; quote: string }>;
+    }>;
+  }> {
+    const start = Date.now();
+    const { simulation, goals, lastAiMessage, lastUserMessage, recentMessages } = params;
+
+    const [aiSettings] = await Promise.all([
+      this.getAIConfig(),
+      // We re-use config cache; system prompts are not required for this task
+    ]);
+
+    const evalConfig = this.resolveAIProfile(aiSettings, 'evaluation');
+
+    // Prepare compact recent conversation window (fallback to last two messages)
+    const windowMessages: SessionMessage[] = Array.isArray(recentMessages) && recentMessages.length > 0
+      ? recentMessages
+      : [lastUserMessage, lastAiMessage].filter(Boolean) as SessionMessage[];
+
+    const messagesForModel = windowMessages
+      .sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+      .map((m) => ({ role: m.isFromUser ? 'user' : (m.isFromAI ? 'assistant' : 'system'), content: m.content }));
+
+    // Build task prompt with strict JSON output instructions
+    const systemInstruction = [
+      'You are an expert evaluator for conversation-based simulations.',
+      'Your task is to evaluate which conversation goals have been achieved based on the most recent exchange(s).',
+      'Be conservative. Only mark a goal as achieved if there is clear evidence in the provided messages.',
+      'If evidence is partial, use in_progress with appropriate confidence.',
+      'Return ONLY valid JSON. Do not include any commentary or code fences.',
+    ].join(' ');
+
+    const goalsDescription = goals
+      .slice()
+      .sort((a, b) => a.stepNumber - b.stepNumber)
+      .map((g) => ({
+        stepNumber: g.stepNumber,
+        isOptional: !!g.isOptional,
+        title: g.title,
+        description: g.description,
+        keyBehaviors: g.keyBehaviors || [],
+        successIndicators: g.successIndicators || [],
+      }));
+
+    const userInstruction = {
+      task: 'Evaluate achieved goals from the recent conversation window.',
+      simulation: {
+        title: simulation.title,
+        scenario: simulation.scenario,
+      },
+      goals: goalsDescription,
+      recentConversation: messagesForModel,
+      outputSchema: {
+        steps: [
+          {
+            stepNumber: 'number',
+            status: '\'achieved\' | \'in_progress\' | \'not_started\'',
+            confidence: 'number (0..1)',
+            evidence: [
+              { role: '\'user\' | \'ai\'', quote: 'string (short quote demonstrating evidence)' },
+            ],
+          },
+        ],
+      },
+      instructions: [
+        'Only include steps that are achieved or in_progress. Omit not_started unless it was previously in progress and regressed (rare).',
+        'Confidence should reflect certainty from the provided messages only.',
+        'Prefer concise evidence quotes. Include at most 2 items per step.',
+      ],
+    };
+
+    const completion = await this.openai.chat.completions.create({
+      model: evalConfig.model,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: JSON.stringify(userInstruction) },
+      ],
+      max_tokens: evalConfig.maxTokens,
+      temperature: evalConfig.temperature,
+      top_p: evalConfig.topP,
+      frequency_penalty: evalConfig.frequencyPenalty,
+      presence_penalty: evalConfig.presencePenalty,
+    });
+
+    const raw = completion.choices?.[0]?.message?.content?.trim() || '{}';
+    const parsed = this.parseJsonLax(raw);
+    const steps = Array.isArray(parsed?.steps) ? parsed.steps : [];
+
+    // Normalize step items and clamp values
+    const normalized = steps
+      .filter((s: any) => typeof s?.stepNumber === 'number')
+      .map((s: any) => ({
+        stepNumber: s.stepNumber,
+        status: s.status === 'achieved' || s.status === 'in_progress' ? s.status : 'not_started',
+        confidence: Math.max(0, Math.min(1, typeof s.confidence === 'number' ? s.confidence : 0)),
+        evidence: Array.isArray(s.evidence)
+          ? s.evidence
+            .filter((e: any) => e && (e.role === 'user' || e.role === 'ai') && typeof e.quote === 'string')
+            .slice(0, 2)
+          : undefined,
+      }));
+
+    const durationMs = Date.now() - start;
+    console.log(`✅ LLM goals evaluation completed in ${durationMs}ms, steps=${normalized.length}`);
+    console.log(
+      `🤖 Evaluation model used: requested=${String(evalConfig.model)}, actual=${String(completion.model)}, default=${String(config.ai.openai.evalProfile?.model)}`,
+    );
+    return { steps: normalized };
+  }
+
+  /**
+   * Attempt to parse JSON allowing common formatting such as code fences.
+   */
+  private parseJsonLax(text: string): any {
+    try {
+      return JSON.parse(text);
+    } catch {}
+    try {
+      const match = text.match(/```json\s*([\s\S]*?)\s*```/i) || text.match(/```\s*([\s\S]*?)\s*```/i);
+      if (match && match[1]) {
+        return JSON.parse(match[1]);
+      }
+    } catch {}
+    try {
+      // Fallback: extract first JSON object
+      const start = text.indexOf('{');
+      const end = text.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        return JSON.parse(text.slice(start, end + 1));
+      }
+    } catch {}
+    return {};
   }
 
   /**
@@ -173,26 +344,28 @@ export class AIService {
     const startTime = Date.now();
 
     try {
-      const [aiConfig, systemPrompts] = await Promise.all([
+      const [aiSettings, systemPrompts] = await Promise.all([
         this.getAIConfig(),
         this.getSystemPrompts(),
       ]);
+
+      const genConfig = this.resolveAIProfile(aiSettings, 'generation');
 
       const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt);
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
 
       const completion = await this.openai.chat.completions.create({
-        model: aiConfig.model,
+        model: genConfig.model,
         messages: [
           { role: 'system', content: systemPrompt },
           ...conversationMessages,
           { role: 'user', content: userMessage },
         ],
-        max_tokens: aiConfig.maxTokens,
-        temperature: aiConfig.temperature,
-        frequency_penalty: aiConfig.frequencyPenalty,
-        presence_penalty: aiConfig.presencePenalty,
-        top_p: aiConfig.topP,
+        max_tokens: genConfig.maxTokens,
+        temperature: genConfig.temperature,
+        frequency_penalty: genConfig.frequencyPenalty,
+        presence_penalty: genConfig.presencePenalty,
+        top_p: genConfig.topP,
       });
 
       const response = completion.choices[0]?.message?.content || '';
@@ -296,7 +469,10 @@ export class AIService {
     try {
       const emotionResult = await transformersService.analyzeEmotion(response);
       
-      console.log(`Transformers emotion analysis: ${String(emotionResult.emotion)} (${Number(emotionResult.confidence).toFixed(3)})`);
+      // Only log a remote success here; fallback already logged inside the transformers client
+      if (emotionResult.source !== 'fallback') {
+        console.log(`Transformers emotion analysis: ${String(emotionResult.emotion)} (${Number(emotionResult.confidence).toFixed(3)})`);
+      }
       return { tone: emotionResult.emotion, confidence: emotionResult.confidence };
       
     } catch (error: any) {
@@ -316,7 +492,10 @@ export class AIService {
     try {
       const sentimentResult = await transformersService.analyzeSentiment(response);
       
-      console.log(`Transformers sentiment analysis: ${String(sentimentResult.sentiment)} (${Number(sentimentResult.confidence).toFixed(3)})`);
+      // Only log a remote success here; fallback already logged inside the transformers client
+      if (sentimentResult.source !== 'fallback') {
+        console.log(`Transformers sentiment analysis: ${String(sentimentResult.sentiment)} (${Number(sentimentResult.confidence).toFixed(3)})`);
+      }
       return sentimentResult;
       
     } catch (error: any) {
