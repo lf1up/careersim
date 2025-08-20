@@ -242,8 +242,9 @@ class ApiClient {
   }
 
   public async startSession(simulationId: string): Promise<SimulationSession> {
-    const response = await this.client.post<{ session: SimulationSession }>('/sessions', {
-      simulationId,
+    // Use simulations start-session so persona-initiated openings appear immediately
+    const response = await this.client.post<{ session: SimulationSession }>(`/simulations/${simulationId}/start-session`, {
+      // userGoals can be added here if needed in the future
     });
     return response.data.session;
   }

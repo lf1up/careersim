@@ -219,9 +219,9 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     // Initialize goal progress from simulation goals
     if (simulation.conversationGoals && simulation.conversationGoals.length > 0) {
       session.goalProgress = simulation.conversationGoals
-        .sort((a, b) => a.stepNumber - b.stepNumber)
+        .sort((a, b) => a.goalNumber - b.goalNumber)
         .map((g) => ({
-          stepNumber: g.stepNumber,
+          goalNumber: g.goalNumber,
           isOptional: !!g.isOptional,
           title: g.title,
           status: 'not_started',

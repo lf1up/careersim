@@ -86,6 +86,15 @@ const seedData = async (): Promise<void> => {
           pace: 'Measured',
           emotionalRange: ['cautious', 'skeptical', 'relieved'],
           commonPhrases: ['Can you walk me through...', 'How do you handle...', 'What would you do if...'],
+          // New behavior controls
+          startsConversation: false,
+          initiativeProbability: 0.2,
+          inactivityNudgeSec: 40,
+          burstiness: { min: 1, max: 2 },
+          typingSpeedWpm: 110,
+          backchannelProbability: 0.2,
+          openingStyle: 'Formal, structured opening suitable for HR; professional and measured.',
+          nudgeStyle: 'Polite, gentle check-in asking to continue or clarify.',
         },
       },
       {
@@ -103,6 +112,15 @@ const seedData = async (): Promise<void> => {
           pace: 'Fast',
           emotionalRange: ['excited', 'curious', 'concerned'],
           commonPhrases: ['That\'s awesome!', 'Tell me more about...', 'How would you approach...'],
+          // New behavior controls
+          startsConversation: 'sometimes' as const,
+          initiativeProbability: 0.6,
+          inactivityNudgeSec: 20,
+          burstiness: { min: 1, max: 3 },
+          typingSpeedWpm: 140,
+          backchannelProbability: 0.4,
+          openingStyle: 'Enthusiastic, casual opener that shares excitement about product/team.',
+          nudgeStyle: 'Friendly energetic nudge to keep the momentum.',
         },
       },
       // Workplace Communication & Influence
@@ -121,6 +139,15 @@ const seedData = async (): Promise<void> => {
           pace: 'Deliberate',
           emotionalRange: ['doubtful', 'analytical', 'cautiously optimistic'],
           commonPhrases: ['I\'ve seen this before...', 'What data supports...', 'Have you considered...'],
+          // New behavior controls
+          startsConversation: false,
+          initiativeProbability: 0.1,
+          inactivityNudgeSec: 30,
+          burstiness: { min: 1, max: 1 },
+          typingSpeedWpm: 120,
+          backchannelProbability: 0.3,
+          openingStyle: 'Reserved, probing opener focusing on rationale and data.',
+          nudgeStyle: 'Direct request for data or specifics.',
         },
       },
       {
@@ -138,6 +165,15 @@ const seedData = async (): Promise<void> => {
           pace: 'Rushed',
           emotionalRange: ['anxious', 'hopeful', 'grateful'],
           commonPhrases: ['I know it\'s a lot to ask...', 'Could you possibly...', 'It would really help me out...'],
+          // New behavior controls
+          startsConversation: true,
+          initiativeProbability: 0.7,
+          inactivityNudgeSec: 15,
+          burstiness: { min: 1, max: 2 },
+          typingSpeedWpm: 130,
+          backchannelProbability: 0.5,
+          openingStyle: 'Warm but rushed opener seeking quick help.',
+          nudgeStyle: 'Gentle, appreciative follow-up asking if you had a chance.',
         },
       },
       // Early Management & Leadership
@@ -156,6 +192,15 @@ const seedData = async (): Promise<void> => {
           pace: 'Slow',
           emotionalRange: ['bored', 'resigned', 'potentially interested'],
           commonPhrases: ['Sure', 'I guess', 'If you say so', 'Whatever works'],
+          // New behavior controls
+          startsConversation: false,
+          initiativeProbability: 0.1,
+          inactivityNudgeSec: 35,
+          burstiness: { min: 1, max: 1 },
+          typingSpeedWpm: 100,
+          backchannelProbability: 0.1,
+          openingStyle: 'Minimal, guarded opener if needed.',
+          nudgeStyle: 'Low-energy follow-up asking for thoughts.',
         },
       },
       {
@@ -173,11 +218,20 @@ const seedData = async (): Promise<void> => {
           pace: 'Quick',
           emotionalRange: ['nervous', 'enthusiastic', 'overwhelmed'],
           commonPhrases: ['Yes, absolutely!', 'I can handle that', 'Should I...?', 'Is that right?'],
+          // New behavior controls
+          startsConversation: false,
+          initiativeProbability: 0.15,
+          inactivityNudgeSec: 25,
+          burstiness: { min: 1, max: 2 },
+          typingSpeedWpm: 135,
+          backchannelProbability: 0.6,
+          openingStyle: 'Eager but slightly nervous opener when prompted to start.',
+          nudgeStyle: 'Kind, clarifying follow-up asking for specifics.',
         },
       },
     ];
 
-    const createdPersonas = await personaRepository.save(personas);
+    const createdPersonas = await personaRepository.save(personas as any);
     console.log('👥 Created personas:', String(createdPersonas.length));
 
     // Seed Simulations
@@ -204,7 +258,7 @@ const seedData = async (): Promise<void> => {
         },
         conversationGoals: [
           {
-            stepNumber: 1,
+            goalNumber: 1,
             isOptional: true,
             title: 'Opening and Rapport Building',
             description: 'Start the interview with a professional greeting and attempt to build initial rapport with Brenda',
@@ -212,7 +266,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Brenda appears more relaxed', 'Professional tone is established', 'Initial nervousness decreases'],
           },
           {
-            stepNumber: 2,
+            goalNumber: 2,
             isOptional: true,
             title: 'Behavioral Question Response',
             description: 'Answer Brenda\'s behavioral questions using the STAR method with relevant, specific examples',
@@ -220,7 +274,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Brenda takes notes and shows engagement', 'Follow-up questions indicate interest', 'Examples resonate with company needs'],
           },
           {
-            stepNumber: 3,
+            goalNumber: 3,
             isOptional: true,
             title: 'Addressing Concerns',
             description: 'Proactively address any concerns Brenda might have about your fit or potential risks',
@@ -228,7 +282,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Brenda\'s skeptical questions decrease', 'Language becomes more open', 'Discussion becomes more collaborative'],
           },
           {
-            stepNumber: 4,
+            goalNumber: 4,
             isOptional: true,
             title: 'Thoughtful Questions',
             description: 'Ask insightful questions that show your research and genuine interest in the role',
@@ -236,7 +290,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Brenda provides detailed answers', 'Discussion becomes more conversational', 'She shares insider perspectives'],
           },
           {
-            stepNumber: 5,
+            goalNumber: 5,
             title: 'Professional Closing',
             description: 'Close the interview professionally while reinforcing your interest and qualifications',
             keyBehaviors: ['Summarize key qualifications', 'Express continued interest', 'Ask about next steps'],
@@ -266,7 +320,7 @@ const seedData = async (): Promise<void> => {
         },
         conversationGoals: [
           {
-            stepNumber: 1,
+            goalNumber: 1,
             isOptional: true,
             title: 'Casual Opening and Energy Matching',
             description: 'Match Alex\'s enthusiastic energy while keeping the conversation natural and genuine',
@@ -274,7 +328,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Alex becomes more animated', 'Conversation flows naturally', 'Mutual enthusiasm builds'],
           },
           {
-            stepNumber: 2,
+            goalNumber: 2,
             isOptional: true,
             title: 'Technical Discussion',
             description: 'Engage in technical conversation that demonstrates both competence and curiosity',
@@ -282,7 +336,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Alex gets excited about technical details', 'Deep technical conversation emerges', 'He starts sharing insider perspectives'],
           },
           {
-            stepNumber: 3,
+            goalNumber: 3,
             isOptional: true,
             title: 'Team Culture Exploration',
             description: 'Explore the team dynamics and show how you would contribute to the collaborative culture',
@@ -290,7 +344,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Alex talks about team members positively', 'He shares challenges and growth stories', 'Discussion becomes very interactive'],
           },
           {
-            stepNumber: 4,
+            goalNumber: 4,
             isOptional: true,
             title: 'Problem-Solving Demonstration',
             description: 'Show your approach to problem-solving and handling challenges in a startup environment',
@@ -298,7 +352,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Alex poses hypothetical challenges', 'He shows excitement about your approaches', 'Conversation becomes collaborative problem-solving'],
           },
           {
-            stepNumber: 5,
+            goalNumber: 5,
             title: 'Enthusiastic Wrap-up',
             description: 'Close with genuine excitement about the opportunity and next steps',
             keyBehaviors: ['Express authentic enthusiasm', 'Ask about immediate challenges', 'Show eagerness to contribute'],
@@ -328,7 +382,7 @@ const seedData = async (): Promise<void> => {
         },
         conversationGoals: [
           {
-            stepNumber: 1,
+            goalNumber: 1,
             isOptional: true,
             title: 'Respectful Opening and Context',
             description: 'Start by acknowledging David\'s expertise and experience before presenting your idea',
@@ -336,7 +390,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['David shows initial willingness to listen', 'His defensive posture softens slightly', 'He asks clarifying questions'],
           },
           {
-            stepNumber: 2,
+            goalNumber: 2,
             isOptional: true,
             title: 'Data-Driven Presentation',
             description: 'Present your idea with solid data, research, and logical reasoning that appeals to David\'s analytical nature',
@@ -344,7 +398,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['David asks for more details', 'He challenges specific points constructively', 'His questions become more engaged'],
           },
           {
-            stepNumber: 3,
+            goalNumber: 3,
             isOptional: true,
             title: 'Addressing Skepticism',
             description: 'Proactively address David\'s concerns and objections with patience and additional evidence',
@@ -352,7 +406,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['David\'s objections become more specific', 'He starts suggesting modifications', 'His tone becomes less dismissive'],
           },
           {
-            stepNumber: 4,
+            goalNumber: 4,
             isOptional: true,
             title: 'Incorporating His Expertise',
             description: 'Ask for his input and show how his experience could strengthen the proposal',
@@ -360,7 +414,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['David begins contributing ideas', 'He shares relevant historical context', 'His body language opens up'],
           },
           {
-            stepNumber: 5,
+            goalNumber: 5,
             title: 'Collaborative Next Steps',
             description: 'Work together to define next steps and get his support for moving forward',
             keyBehaviors: ['Propose pilot approach', 'Ask for his ongoing involvement', 'Define success metrics together'],
@@ -390,7 +444,7 @@ const seedData = async (): Promise<void> => {
         },
         conversationGoals: [
           {
-            stepNumber: 1,
+            goalNumber: 1,
             isOptional: true,
             title: 'Empathetic Listening',
             description: 'Listen to Sarah\'s request with empathy and acknowledge her stressful situation',
@@ -398,7 +452,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Sarah feels heard and understood', 'Her anxiety decreases slightly', 'She provides more context about her situation'],
           },
           {
-            stepNumber: 2,
+            goalNumber: 2,
             isOptional: true,
             title: 'Honest Assessment',
             description: 'Honestly assess and communicate your current capacity and commitments',
@@ -406,7 +460,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Sarah understands your situation', 'She shows some disappointment but acceptance', 'Conversation remains professional'],
           },
           {
-            stepNumber: 3,
+            goalNumber: 3,
             isOptional: true,
             title: 'Alternative Solutions',
             description: 'Offer alternative solutions or resources that might help Sarah without compromising your boundaries',
@@ -414,7 +468,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Sarah considers the alternatives', 'She expresses gratitude for suggestions', 'Her stress level appears to decrease'],
           },
           {
-            stepNumber: 4,
+            goalNumber: 4,
             isOptional: true,
             title: 'Future Support',
             description: 'Discuss how you might be able to help in the future or prevent similar situations',
@@ -422,7 +476,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Sarah feels supported long-term', 'She accepts the boundary gracefully', 'Relationship remains intact'],
           },
           {
-            stepNumber: 5,
+            goalNumber: 5,
             title: 'Professional Closure',
             description: 'Close the conversation on a positive note while maintaining your boundary',
             keyBehaviors: ['Reaffirm your support', 'Maintain professional warmth', 'Wish her success'],
@@ -452,7 +506,7 @@ const seedData = async (): Promise<void> => {
         },
         conversationGoals: [
           {
-            stepNumber: 1,
+            goalNumber: 1,
             isOptional: true,
             title: 'Non-Threatening Opening',
             description: 'Start the conversation with a non-judgmental tone that makes Michael feel safe to open up',
@@ -460,7 +514,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Michael doesn\'t become defensive', 'He maintains eye contact', 'His posture remains open'],
           },
           {
-            stepNumber: 2,
+            goalNumber: 2,
             isOptional: true,
             title: 'Observation Without Judgment',
             description: 'Share your observations about his decreased engagement without making it personal',
@@ -468,7 +522,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Michael acknowledges the observations', 'He doesn\'t deny or get defensive', 'He begins to share some context'],
           },
           {
-            stepNumber: 3,
+            goalNumber: 3,
             isOptional: true,
             title: 'Deep Listening and Probing',
             description: 'Listen carefully and ask probing questions to understand the root cause of his disengagement',
@@ -476,7 +530,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Michael opens up about his feelings', 'He shares frustrations or concerns', 'The real issues begin to surface'],
           },
           {
-            stepNumber: 4,
+            goalNumber: 4,
             isOptional: true,
             title: 'Exploring Growth Opportunities',
             description: 'Discuss potential growth opportunities and new challenges that might re-engage him',
@@ -484,7 +538,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Michael shows increased interest', 'He begins suggesting ideas', 'His energy level noticeably increases'],
           },
           {
-            stepNumber: 5,
+            goalNumber: 5,
             title: 'Action Planning and Commitment',
             description: 'Work together to create a specific action plan for his re-engagement and growth',
             keyBehaviors: ['Co-create development plan', 'Set specific goals and timelines', 'Get his commitment'],
@@ -514,7 +568,7 @@ const seedData = async (): Promise<void> => {
         },
         conversationGoals: [
           {
-            stepNumber: 1,
+            goalNumber: 1,
             isOptional: true,
             title: 'Opening and Context Setting',
             description: 'Start the conversation by setting a supportive tone and explaining why Chloe was chosen for this task',
@@ -522,7 +576,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Chloe feels valued and chosen for good reasons', 'Initial nervousness begins to subside', 'She shows engagement and interest'],
           },
           {
-            stepNumber: 2,
+            goalNumber: 2,
             isOptional: true,
             title: 'Task Overview and Importance',
             description: 'Clearly explain what the client presentation entails and why it\'s important to the team/company',
@@ -530,7 +584,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Chloe understands the task scope', 'She grasps the importance without feeling overwhelmed', 'Questions start to emerge naturally'],
           },
           {
-            stepNumber: 3,
+            goalNumber: 3,
             isOptional: true,
             title: 'Detailed Requirements and Expectations',
             description: 'Break down the specific deliverables, timeline, and quality expectations for the presentation',
@@ -538,7 +592,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Chloe can repeat back key requirements', 'Timeline is clearly understood', 'Expectations are realistic and achievable'],
           },
           {
-            stepNumber: 4,
+            goalNumber: 4,
             isOptional: true,
             title: 'Resource Provision and Support Structure',
             description: 'Identify what resources, tools, and support Chloe will have access to complete the task',
@@ -546,7 +600,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Chloe knows where to find help', 'Resources are clearly identified', 'Support network is established'],
           },
           {
-            stepNumber: 5,
+            goalNumber: 5,
             isOptional: true,
             title: 'Check-in Schedule and Communication Plan',
             description: 'Establish regular check-ins and make it safe for Chloe to ask questions or raise concerns',
@@ -554,7 +608,7 @@ const seedData = async (): Promise<void> => {
             successIndicators: ['Regular meeting times are set', 'Chloe feels comfortable asking questions', 'Communication preferences are established'],
           },
           {
-            stepNumber: 6,
+            goalNumber: 6,
             title: 'Confidence Building and Final Agreement',
             description: 'Reinforce confidence in Chloe\'s abilities and get her explicit agreement to take on the task',
             keyBehaviors: ['Reinforce her capabilities', 'Address any final concerns', 'Get clear commitment'],
@@ -575,7 +629,7 @@ const seedData = async (): Promise<void> => {
       const savedSimulation = await simulationRepository.save(simulation);
       
       // Set the personas relationship
-      savedSimulation.personas = personas;
+      savedSimulation.personas = personas as unknown as Persona[];
       await simulationRepository.save(savedSimulation);
       
       createdSimulations.push(savedSimulation);

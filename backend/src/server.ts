@@ -16,6 +16,7 @@ import { swaggerSpec } from '@/config/swagger';
 import { errorHandler } from '@/middleware/error';
 import { requestLogger } from '@/middleware/logger';
 import { AIService } from '@/services/ai';
+import { startInactivityScheduler } from '@/services/realtime';
 
 // Import routes
 import authRoutes from '@/routes/auth';
@@ -200,6 +201,13 @@ const startServer = async (): Promise<void> => {
       if (config.isDevelopment) {
         console.log(`📖 API Documentation: http://localhost:${config.port}/api/docs`);
         console.log(`🔍 Health Check: http://localhost:${config.port}/health`);
+      }
+      // Start lightweight inactivity scheduler
+      try {
+        startInactivityScheduler();
+        console.log('⏱️ Inactivity nudge scheduler started');
+      } catch (schedErr) {
+        console.warn('⚠️ Failed to start inactivity scheduler:', schedErr);
       }
     });
   } catch (error) {

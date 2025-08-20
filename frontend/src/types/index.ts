@@ -192,9 +192,9 @@ export interface SimulationSession {
   messages: SessionMessage[];
   createdAt: string;
   updatedAt: string;
-  // Per-step goal progress tracked during the session
+  // Per-goal progress tracked during the session
   goalProgress?: Array<{
-    stepNumber: number;
+    goalNumber: number;
     isOptional?: boolean;
     title: string;
     status: 'not_started' | 'in_progress' | 'achieved';
@@ -212,7 +212,7 @@ export interface SimulationSession {
 
 // Conversation goal definition (mirrors backend)
 export interface ConversationGoal {
-  stepNumber: number;
+  goalNumber: number;
   isOptional?: boolean;
   title: string;
   description: string;

@@ -523,16 +523,16 @@ export const SimulationDetail: React.FC = () => {
               <ul className="space-y-2">
                 {simulation.conversationGoals
                   .slice()
-                  .sort((a, b) => a.stepNumber - b.stepNumber)
+                  .sort((a, b) => a.goalNumber - b.goalNumber)
                   .map((goal) => {
-                    const progress = session.goalProgress?.find(g => g.stepNumber === goal.stepNumber);
+                    const progress = session.goalProgress?.find(g => g.goalNumber === goal.goalNumber);
                     const status = progress?.status || 'not_started';
                     const isAchieved = status === 'achieved';
                     const isInProgress = status === 'in_progress';
 
                     return (
                       <li
-                        key={goal.stepNumber}
+                        key={goal.goalNumber}
                         className={`relative rounded-md border px-3 py-2 ${isAchieved ? 'bg-green-50 border-green-200' : isInProgress ? 'bg-yellow-50 border-yellow-200' : 'bg-secondary-50 border-secondary-200'}`}
                         onMouseEnter={(e) => showGoalTooltip(goal, e.currentTarget as unknown as HTMLElement)}
                         onMouseLeave={hideGoalTooltip}

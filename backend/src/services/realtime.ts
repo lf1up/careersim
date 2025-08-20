@@ -1,4 +1,9 @@
 import { SimulationSession } from '@/entities/SimulationSession';
+import { AppDataSource } from '@/config/database';
+import { SessionMessage, MessageType } from '@/entities/SessionMessage';
+import { Simulation } from '@/entities/Simulation';
+import { Persona } from '@/entities/Persona';
+import * as crypto from 'crypto';
 
 /**
  * Emit a Socket.IO event with the latest goal progress for a session.
@@ -23,4 +28,113 @@ export async function emitGoalProgressUpdate(session: SimulationSession): Promis
   });
 }
 
+/**
+ * Lightweight in-memory scheduler to send inactivity nudges.
+ * Runs only in a single process (sufficient for dev or single-instance).
+ */
+let inactivityIntervalStarted = false;
 
+export function startInactivityScheduler(): void {
+  if (inactivityIntervalStarted) return;
+  inactivityIntervalStarted = true;
+
+  setInterval(async () => {
+    try {
+      // Find sessions that are in progress and due for a nudge
+      const repo = AppDataSource.getRepository(SimulationSession);
+      const sessions = await repo.createQueryBuilder('session')
+        .leftJoinAndSelect('session.simulation', 'simulation')
+        .leftJoinAndSelect('simulation.personas', 'personas')
+        .where('session.status IN (:...statuses)', { statuses: ['started', 'in_progress'] })
+        .andWhere('session.inactivityNudgeAt IS NOT NULL')
+        .andWhere('session.inactivityNudgeAt <= :now', { now: new Date() })
+        .getMany();
+
+      for (const s of sessions) {
+        // Only nudge if it's user's turn
+        if (s.turn !== 'user' || !s.simulation?.personas?.length) {
+          continue;
+        }
+        const persona = (s.simulation.personas as unknown as Persona[])[0];
+
+        try {
+          // Limit number of inactivity nudges per session
+          if ((s.inactivityNudgeCount || 0) >= 2) {
+            // Disable further nudges by clearing the schedule
+            s.inactivityNudgeAt = null as any;
+            await repo.save(s);
+            continue;
+          }
+
+          const { AIService } = await import('@/services/ai');
+          const aiService = new AIService();
+          const messageRepo = AppDataSource.getRepository(SessionMessage);
+          const history = await messageRepo.createQueryBuilder('message')
+            .where('message.sessionId = :sid', { sid: s.id })
+            .orderBy('message.sequenceNumber', 'ASC')
+            .getMany();
+
+          const context = {
+            persona,
+            simulation: s.simulation as unknown as Simulation,
+            conversationHistory: history,
+            sessionDuration: s.startedAt ? (Date.now() - s.startedAt.getTime()) : 0,
+          } as const;
+
+          const lastUser = history.filter(m => m.type === MessageType.USER).slice(-1)[0]?.content;
+          const nudge = await aiService.generateProactivePersonaMessage(context, { reason: 'inactivity', lastUserMessage: lastUser });
+
+          const seq = (history[history.length - 1]?.sequenceNumber || 0) + 1;
+          const aiMessage = new SessionMessage();
+          aiMessage.session = s as any;
+          aiMessage.sequenceNumber = seq;
+          aiMessage.type = MessageType.AI;
+          aiMessage.content = nudge.message;
+          aiMessage.timestamp = new Date();
+          aiMessage.metadata = {
+            confidence: nudge.confidence,
+            processingTime: nudge.processingTime,
+            emotionalTone: nudge.emotionalTone,
+            sentiment: nudge.metadata.sentiment,
+          };
+          await messageRepo.save(aiMessage);
+
+          s.addMessage();
+          s.lastAiMessageAt = new Date();
+          // After a nudge, schedule next random delay (1-3 minutes)
+          const minMs = 1 * 60 * 1000;
+          const maxMs = 3 * 60 * 1000;
+          const delay = crypto.randomInt(minMs, maxMs + 1);
+          s.inactivityNudgeAt = new Date(Date.now() + delay);
+          s.inactivityNudgeCount = (s.inactivityNudgeCount || 0) + 1;
+          await repo.save(s);
+
+          const { io } = await import('@/server');
+          io.to(`session-${s.id}`).emit('message-received', {
+            sessionId: s.id,
+            message: {
+              id: aiMessage.id,
+              sessionId: s.id,
+              sequenceNumber: aiMessage.sequenceNumber,
+              type: aiMessage.type,
+              content: aiMessage.content,
+              inputMethod: aiMessage.inputMethod,
+              metadata: aiMessage.metadata,
+              timestamp: aiMessage.timestamp,
+              isHighlighted: aiMessage.isHighlighted,
+              highlightReason: aiMessage.highlightReason,
+              analysisData: aiMessage.analysisData,
+              createdAt: aiMessage.createdAt,
+              isFromUser: false,
+            },
+            timestamp: new Date(),
+          });
+        } catch (err) {
+          console.warn('⚠️ Failed to send inactivity nudge:', err);
+        }
+      }
+    } catch (outerErr) {
+      console.warn('⚠️ Inactivity scheduler iteration failed:', outerErr);
+    }
+  }, 10_000); // check every 10s
+}

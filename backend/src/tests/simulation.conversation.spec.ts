@@ -81,6 +81,8 @@ const signForUser = (userId: string, email: string, role: string) => {
   return token;
 };
 
+// TODO: That one is working bad, need to fix it or implement other testing strategies
+// SEE https://gist.github.com/louislva/4b53182b1b64a5a7d505360e9ff936ec (JestLLM implementation)
 describe('Automatic conversational tests', () => {
   // Keep a generous but finite timeout; transformers and AI are stubbed in test mode
   jest.setTimeout(240000);
@@ -169,7 +171,7 @@ describe('Automatic conversational tests', () => {
     const requiredGoals = (session.simulation.conversationGoals || []).filter((g: any) => !g.isOptional);
 
     // All required steps should be achieved (session may be completed)
-    const requiredAchieved = requiredGoals.every((g: any) => session.goalProgress.find((p: any) => p.stepNumber === g.stepNumber)?.status === 'achieved');
+    const requiredAchieved = requiredGoals.every((g: any) => session.goalProgress.find((p: any) => p.goalNumber === g.goalNumber)?.status === 'achieved');
     expect(requiredAchieved).toBe(true);
 
     // Session is allowed to be completed while optional goals may remain

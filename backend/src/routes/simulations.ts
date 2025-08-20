@@ -7,6 +7,7 @@ import { SessionMessage, MessageType, MessageInputMethod } from '@/entities/Sess
 import { evaluationsService, computeAndPersistSessionScores } from '@/services/evaluations';
 import { emitGoalProgressUpdate } from '@/services/realtime';
 import { config } from '@/config/env';
+import { randomFloat, randomDelayMs, randomInt } from '@/utils/secureRandom';
 
 const router: Router = Router();
 
@@ -350,9 +351,9 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
     // Initialize goal progress from simulation goals
     if (simulation.conversationGoals && simulation.conversationGoals.length > 0) {
       session.goalProgress = simulation.conversationGoals
-        .sort((a, b) => a.stepNumber - b.stepNumber)
+        .sort((a, b) => a.goalNumber - b.goalNumber)
         .map((g) => ({
-          stepNumber: g.stepNumber,
+          goalNumber: g.goalNumber,
           isOptional: !!g.isOptional,
           title: g.title,
           status: 'not_started',
@@ -363,11 +364,107 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
 
     await sessionRepository.save(session);
 
+    // Optionally, allow persona to initiate the conversation based on settings
+    try {
+      const persona = simulation.personas?.[0];
+      const cs: any = persona?.conversationStyle || {};
+      const startsConversation = cs?.startsConversation === true || (cs?.startsConversation === 'sometimes' && randomFloat() < (cs?.initiativeProbability ?? 0.3));
+      if (persona && startsConversation) {
+        const { AIService } = await import('@/services/ai');
+        const aiService = new AIService();
+        const context = {
+          persona,
+          simulation,
+          conversationHistory: [] as SessionMessage[],
+          sessionDuration: 0,
+        };
+
+        const aiResponse = await aiService.generateProactivePersonaMessage(context, { reason: 'start' });
+
+        // Persist AI opening message
+        const messageRepository = AppDataSource.getRepository(SessionMessage);
+        const aiMessage = new SessionMessage();
+        aiMessage.session = session;
+        aiMessage.sequenceNumber = 1;
+        aiMessage.type = MessageType.AI;
+        aiMessage.content = aiResponse.message;
+        aiMessage.timestamp = new Date();
+        aiMessage.metadata = {
+          confidence: aiResponse.confidence,
+          processingTime: aiResponse.processingTime,
+          emotionalTone: aiResponse.emotionalTone,
+          sentiment: aiResponse.metadata.sentiment,
+        };
+        await messageRepository.save(aiMessage);
+        session.addMessage();
+        session.turn = 'user';
+        session.aiInitiated = true;
+        session.lastAiMessageAt = new Date();
+
+        // Set initial inactivity nudge time: random 1-3 minutes
+        {
+          const minMs = 1 * 60 * 1000;
+          const maxMs = 3 * 60 * 1000;
+          const delay = randomDelayMs(minMs, maxMs);
+          session.inactivityNudgeAt = new Date(Date.now() + delay);
+          session.inactivityNudgeCount = 0;
+        }
+        await sessionRepository.save(session);
+
+        // Emit via Socket.IO
+        try {
+          const { io } = await import('@/server');
+          io.to(`session-${session.id}`).emit('message-received', {
+            sessionId: session.id,
+            message: {
+              id: aiMessage.id,
+              sessionId: session.id,
+              sequenceNumber: aiMessage.sequenceNumber,
+              type: aiMessage.type,
+              content: aiMessage.content,
+              inputMethod: aiMessage.inputMethod,
+              metadata: aiMessage.metadata,
+              timestamp: aiMessage.timestamp,
+              isHighlighted: aiMessage.isHighlighted,
+              highlightReason: aiMessage.highlightReason,
+              analysisData: aiMessage.analysisData,
+              createdAt: aiMessage.createdAt,
+              isFromUser: false,
+            },
+            timestamp: new Date(),
+          });
+        } catch (emitErr) {
+          console.warn('⚠️ Failed to emit opening AI message:', emitErr);
+        }
+      } else {
+        // If AI does not initiate, set turn to user and schedule nudge
+        if (persona) {
+          session.turn = 'user';
+          const minMs = 1 * 60 * 1000;
+          const maxMs = 3 * 60 * 1000;
+          const delay = randomDelayMs(minMs, maxMs);
+          session.inactivityNudgeAt = new Date(Date.now() + delay);
+          session.inactivityNudgeCount = 0;
+          await sessionRepository.save(session);
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to process AI initiation:', e);
+    }
+
     // Return the session with simulation details
     const sessionWithDetails = await sessionRepository.findOne({
       where: { id: session.id },
       relations: ['simulation', 'simulation.category', 'simulation.personas'],
     });
+
+    // Fetch initial messages (so AI openings appear immediately on client)
+    const messageRepository = AppDataSource.getRepository(SessionMessage);
+    const initialMessages = await messageRepository
+      .createQueryBuilder('message')
+      .where('message.sessionId = :sessionId', { sessionId: session.id })
+      .orderBy('message.sequenceNumber', 'ASC')
+      .getMany();
 
     // Add currentStep and totalSteps for frontend
     let totalDuration = sessionWithDetails?.durationSeconds || 0;
@@ -382,6 +479,21 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
         ? sessionWithDetails.goalProgress.filter((g: any) => g.status === 'achieved').length
         : 0,
       totalDuration,
+      messages: initialMessages.map((m) => ({
+        id: m.id,
+        sessionId: m.sessionId,
+        sequenceNumber: m.sequenceNumber,
+        type: m.type,
+        content: m.content,
+        inputMethod: m.inputMethod,
+        metadata: m.metadata,
+        timestamp: m.timestamp,
+        isHighlighted: m.isHighlighted,
+        highlightReason: m.highlightReason,
+        analysisData: m.analysisData,
+        createdAt: m.createdAt,
+        isFromUser: m.type === MessageType.USER,
+      })),
     };
 
     res.status(201).json({ session: transformedSession });
@@ -687,6 +799,8 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
     // Update message count without manually managing the messages collection
     // TypeORM will handle the relationship synchronization automatically
     session.addMessage();
+    session.lastUserMessageAt = new Date();
+    session.turn = 'ai';
     await sessionRepository.save(session);
 
     // Transform message to include isFromUser field for frontend compatibility
@@ -758,6 +872,14 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
         // Update message count
         session.addMessage();
+        session.lastAiMessageAt = new Date();
+        session.turn = 'user';
+        // Schedule inactivity nudge window for user: random 1-3 minutes
+        const minMs = 1 * 60 * 1000;
+        const maxMs = 3 * 60 * 1000;
+        const delay = randomDelayMs(minMs, maxMs);
+        session.inactivityNudgeAt = new Date(Date.now() + delay);
+        session.inactivityNudgeCount = session.inactivityNudgeCount || 0;
 
         // Evaluate goals based on last user and AI messages
         const syncModeParam = typeof syncMode === 'string' ? syncMode.toLowerCase() === 'true' : !!syncMode;
@@ -771,7 +893,11 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
             if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
               session.markAsCompleted();
             }
-            console.log('💡 Goal evaluation result:', evalResult);
+            const summary = {
+              allRequiredAchieved: evalResult.allRequiredAchieved,
+              steps: (evalResult.updatedProgress || []).map((p: any) => ({ goalNumber: p.goalNumber, status: p.status, confidence: p.confidence })),
+            };
+            console.log('💡 Goal evaluation result:', JSON.stringify(summary));
           } catch (e) {
             console.warn('⚠️ Goal evaluation failed:', e);
           }
@@ -800,7 +926,11 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
               if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
                 session.markAsCompleted();
               }
-              console.log('💡 [background] Goal evaluation result:', evalResult);
+              const bgSummary = {
+                allRequiredAchieved: evalResult.allRequiredAchieved,
+                steps: (evalResult.updatedProgress || []).map((p: any) => ({ goalNumber: p.goalNumber, status: p.status, confidence: p.confidence })),
+              };
+              console.log('💡 [background] Goal evaluation result:', JSON.stringify(bgSummary));
             } catch (e) {
               console.warn('⚠️ [background] Goal evaluation failed:', e);
             }
@@ -855,6 +985,115 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
         console.log(`✅ AI response generated for session ${String(sessionId)}`);
         console.log(`🤖 Persona model used: ${String(aiResponse.metadata.model)} (default configured: ${String((await import('@/config/env')).config.ai.openai.model)})`);
+
+        // Optionally trigger a small burst of follow-up messages in background
+        void (async () => {
+          try {
+            const cs: any = activePersona.conversationStyle || {};
+            const burst = cs?.burstiness;
+            const burstMin = Math.max(1, Number(burst?.min) || 1);
+            const burstMax = Math.max(burstMin, Number(burst?.max) || 1);
+            const extraCount = Math.max(0, randomInt(burstMin, burstMax) - 1);
+            const typingWpm = Math.max(60, Number(cs?.typingSpeedWpm) || 120);
+            let nextSeq = aiMessage.sequenceNumber + 1;
+            for (let i = 0; i < extraCount; i++) {
+              // Prepare context with current messages
+              const updatedMessages = await messageRepository
+                .createQueryBuilder('message')
+                .where('message.sessionId = :sessionId', { sessionId })
+                .orderBy('message.sequenceNumber', 'ASC')
+                .getMany();
+
+              const contextForFollowup = {
+                persona: activePersona,
+                simulation: session.simulation,
+                conversationHistory: updatedMessages as SessionMessage[],
+                sessionDuration: Date.now() - session.createdAt.getTime(),
+              };
+
+              const follow = await aiService.generateProactivePersonaMessage(contextForFollowup, { reason: 'followup', lastUserMessage: content });
+
+              // Simulate typing delay based on length
+              const words = Math.max(3, follow.message.split(/\s+/).length);
+              const millis = Math.min(4000, Math.ceil((words / typingWpm) * 60_000));
+              await new Promise(r => setTimeout(r, millis));
+
+              const followMsg = new SessionMessage();
+              followMsg.session = session;
+              followMsg.sequenceNumber = nextSeq++;
+              followMsg.type = MessageType.AI;
+              followMsg.content = follow.message;
+              followMsg.timestamp = new Date();
+              followMsg.metadata = {
+                confidence: follow.confidence,
+                processingTime: follow.processingTime,
+                emotionalTone: follow.emotionalTone,
+                sentiment: follow.metadata.sentiment,
+              };
+              await messageRepository.save(followMsg);
+
+              session.addMessage();
+              session.lastAiMessageAt = new Date();
+              // Reset inactivity timer each follow-up (random 1-3 minutes)
+              const minMsFollow = 1 * 60 * 1000;
+              const maxMsFollow = 3 * 60 * 1000;
+              const delayFollow = randomDelayMs(minMsFollow, maxMsFollow);
+              session.inactivityNudgeAt = new Date(Date.now() + delayFollow);
+              await sessionRepository.save(session);
+
+              const transformedFollow = {
+                id: followMsg.id,
+                sessionId: session.id,
+                sequenceNumber: followMsg.sequenceNumber,
+                type: followMsg.type,
+                content: followMsg.content,
+                inputMethod: followMsg.inputMethod,
+                metadata: followMsg.metadata,
+                timestamp: followMsg.timestamp,
+                isHighlighted: followMsg.isHighlighted,
+                highlightReason: followMsg.highlightReason,
+                analysisData: followMsg.analysisData,
+                createdAt: followMsg.createdAt,
+                isFromUser: false,
+              };
+              io.to(`session-${sessionId}`).emit('message-received', {
+                sessionId,
+                message: transformedFollow,
+                timestamp: new Date(),
+              });
+            }
+
+            // After the burst, run a consolidated goal evaluation only if we actually sent follow-ups
+            if (extraCount > 0) {
+              try {
+                const latestMessages = await messageRepository
+                  .createQueryBuilder('message')
+                  .where('message.sessionId = :sessionId', { sessionId })
+                  .orderBy('message.sequenceNumber', 'DESC')
+                  .getMany();
+                const latestAi = latestMessages.find((m) => m.type === MessageType.AI);
+                const lastUser = latestMessages.find((m) => m.type === MessageType.USER);
+                if (lastUser) {
+                  const evalResult = await evaluationsService.evaluateAfterTurnLLM(session.simulation, session, lastUser, latestAi);
+                  session.goalProgress = evalResult.updatedProgress as any;
+                  if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
+                    session.markAsCompleted();
+                  }
+                  await sessionRepository.save(session);
+                  try {
+                    await emitGoalProgressUpdate(session);
+                  } catch (emitErr) {
+                    console.warn('⚠️ Failed to emit goal progress after burst:', emitErr);
+                  }
+                }
+              } catch (postEvalErr) {
+                console.warn('⚠️ Post-burst evaluation failed:', postEvalErr);
+              }
+            }
+          } catch (burstErr) {
+            console.warn('⚠️ Burst follow-up failed:', burstErr);
+          }
+        })();
       } catch (aiError) {
         console.error('Error generating AI response:', aiError);
         // Don't fail the entire request if AI response fails

@@ -226,7 +226,7 @@ export class SimulationSession {
   // Per-step goal tracking for this session
   @Column({ type: 'json', nullable: true })
     goalProgress?: Array<{
-    stepNumber: number;
+    goalNumber: number;
     isOptional?: boolean;
     title: string;
     status: 'not_started' | 'in_progress' | 'achieved';
@@ -246,6 +246,28 @@ export class SimulationSession {
 
   @UpdateDateColumn()
     updatedAt!: Date;
+
+  // Turn-taking and pacing metadata
+  @Column({ type: 'varchar', length: 16, default: 'user' })
+    turn!: 'user' | 'ai';
+
+  @Column({ type: 'timestamp', nullable: true })
+    lastUserMessageAt?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+    lastAiMessageAt?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+    inactivityNudgeAt?: Date;
+
+  @Column({ type: 'boolean', default: false })
+    aiInitiated!: boolean;
+
+  @Column({ type: 'int', default: 0 })
+    aiBurstRemaining!: number;
+
+  @Column({ type: 'int', default: 0 })
+    inactivityNudgeCount!: number;
 
   // Relationships
   @ManyToOne(() => User, (user) => user.simulationSessions)

@@ -236,7 +236,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
   const [goals, setGoals] = useState<ConversationGoal[]>(
     (simulation.conversationGoals || [])
       .slice()
-      .sort((a, b) => a.stepNumber - b.stepNumber)
+      .sort((a, b) => a.goalNumber - b.goalNumber)
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -254,7 +254,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
         objectives: formData.objectives ? formData.objectives.split('\n').filter(obj => obj.trim() !== '') : [],
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
         conversationGoals: goals.map((g, idx) => ({
-          stepNumber: typeof g.stepNumber === 'number' && g.stepNumber > 0 ? g.stepNumber : idx + 1,
+          goalNumber: typeof (g as any).goalNumber === 'number' && (g as any).goalNumber > 0 ? (g as any).goalNumber : idx + 1,
           isOptional: !!g.isOptional,
           title: (g.title || '').trim(),
           description: (g.description || '').trim(),
@@ -413,11 +413,11 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                   type="button"
                   onClick={() => {
                     setGoals((prev) => {
-                      const nextStep = (prev[prev.length - 1]?.stepNumber || 0) + 1;
+                      const nextStep = (prev[prev.length - 1]?.goalNumber || 0) + 1;
                       return [
                         ...prev,
                         {
-                          stepNumber: nextStep,
+                          goalNumber: nextStep,
                           isOptional: false,
                           title: '',
                           description: '',
@@ -440,7 +440,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                     <div key={index} className="border border-secondary-200 rounded-md p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-secondary-700">Step {goal.stepNumber}</span>
+                          <span className="text-sm font-medium text-secondary-700">Goal {goal.goalNumber}</span>
                           <label className="inline-flex items-center text-sm text-secondary-700">
                             <input
                               type="checkbox"
@@ -465,7 +465,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                                 const tmp = copy[index - 1];
                                 copy[index - 1] = copy[index];
                                 copy[index] = tmp;
-                                return copy.map((g, idx) => ({ ...g, stepNumber: idx + 1 }));
+                                return copy.map((g, idx) => ({ ...g, goalNumber: idx + 1 }));
                               });
                             }}
                             disabled={index === 0}
@@ -482,7 +482,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                                 const tmp = copy[index + 1];
                                 copy[index + 1] = copy[index];
                                 copy[index] = tmp;
-                                return copy.map((g, idx) => ({ ...g, stepNumber: idx + 1 }));
+                                return copy.map((g, idx) => ({ ...g, goalNumber: idx + 1 }));
                               });
                             }}
                             disabled={index === goals.length - 1}
@@ -493,7 +493,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                             type="button"
                             className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded"
                             onClick={() => {
-                              setGoals(prev => prev.filter((_, i) => i !== index).map((g, idx) => ({ ...g, stepNumber: idx + 1 })));
+                              setGoals(prev => prev.filter((_, i) => i !== index).map((g, idx) => ({ ...g, goalNumber: idx + 1 })));
                             }}
                           >
                             Remove

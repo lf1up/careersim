@@ -179,6 +179,16 @@ export class Persona {
     pace: string;
     emotionalRange: string[];
     commonPhrases: string[];
+    // Extended behavior controls for more realistic conversations
+    // All fields are optional to preserve backward compatibility
+    initiativeProbability?: number; // 0..1 likelihood to proactively lead
+    startsConversation?: boolean | 'sometimes';
+    inactivityNudgeSec?: number; // seconds before nudging after silence
+    burstiness?: { min: number; max: number }; // how many consecutive AI messages
+    typingSpeedWpm?: number; // used for client-side pacing/indicators
+    backchannelProbability?: number; // 0..1 chance to interject on short replies
+    openingStyle?: string; // hint for opening message tone/content
+    nudgeStyle?: string; // hint for inactivity nudges
   };
 
   @Column({ type: 'json', nullable: true })

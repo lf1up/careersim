@@ -40,7 +40,7 @@ export class EvaluationsService {
     lastUserMessage: SessionMessage,
     lastAiMessage?: SessionMessage,
   ): Promise<GoalEvaluationResult> {
-    const goals = (simulation.conversationGoals || []).slice().sort((a, b) => a.stepNumber - b.stepNumber);
+    const goals = (simulation.conversationGoals || []).slice().sort((a, b) => a.goalNumber - b.goalNumber);
     const progress = (session.goalProgress || this.initializeProgress(goals)).map((p) => ({ ...p }));
 
     if (goals.length === 0) {
@@ -50,8 +50,8 @@ export class EvaluationsService {
     // Optimization: determine if a required step is pending first (no external calls)
     const unachievedRequired = goals
       .filter((g) => !g.isOptional)
-      .sort((a, b) => a.stepNumber - b.stepNumber)
-      .find((g) => !(progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved'));
+      .sort((a, b) => a.goalNumber - b.goalNumber)
+      .find((g) => !(progress.find((p) => p.goalNumber === g.goalNumber)?.status === 'achieved'));
 
     let activeStep = unachievedRequired || null;
 
@@ -65,7 +65,7 @@ export class EvaluationsService {
     }
 
     // mark started
-    const target = progress.find((p) => p.stepNumber === activeStep.stepNumber)!;
+    const target = progress.find((p) => p.goalNumber === activeStep.goalNumber)!;
     if (target.status === 'not_started') {
       target.status = 'in_progress';
       target.startedAt = new Date().toISOString();
@@ -165,7 +165,7 @@ export class EvaluationsService {
     lastUserMessage: SessionMessage,
     lastAiMessage?: SessionMessage,
   ): Promise<GoalEvaluationResult> {
-    const goals = (simulation.conversationGoals || []).slice().sort((a, b) => a.stepNumber - b.stepNumber);
+    const goals = (simulation.conversationGoals || []).slice().sort((a, b) => a.goalNumber - b.goalNumber);
     const progress = (session.goalProgress || this.initializeProgress(goals)).map((p) => ({ ...p }));
 
     if (goals.length === 0) {
@@ -176,8 +176,20 @@ export class EvaluationsService {
     const { AIService } = await import('@/services/ai');
     const ai = new AIService();
 
-    // Provide a compact recent window: last user + last AI
-    const recentMessages = [lastUserMessage, lastAiMessage].filter(Boolean) as SessionMessage[];
+    // Provide a compact but realistic window: from the last user message through the latest AI messages
+    // This supports AI bursts (multiple AI replies after a single user input)
+    const messageRepository = AppDataSource.getRepository(SessionMessage);
+    const fullHistory = await messageRepository
+      .createQueryBuilder('message')
+      .where('message.sessionId = :sessionId', { sessionId: session.id })
+      .orderBy('message.sequenceNumber', 'ASC')
+      .getMany();
+
+    // Find the slice that starts at the last user message
+    const startIdx = fullHistory.findIndex((m) => m.id === lastUserMessage.id) ?? -1;
+    const windowMessages = startIdx >= 0 ? fullHistory.slice(startIdx) : [lastUserMessage, ...(lastAiMessage ? [lastAiMessage] : [])];
+    // Optionally cap the window length to avoid token bloat (keep last ~8 messages)
+    const recentMessages = windowMessages.slice(-8);
 
     const aiResult = await ai.evaluateGoalsWithLLM({
       simulation,
@@ -193,7 +205,7 @@ export class EvaluationsService {
     for (const step of aiResult.steps) evalByStep.set(step.stepNumber, step);
 
     for (const target of progress) {
-      const stepEval = evalByStep.get(target.stepNumber);
+      const stepEval = evalByStep.get(target.goalNumber);
       if (!stepEval) continue;
 
       // Update confidence and status based on AI evaluation
@@ -217,11 +229,12 @@ export class EvaluationsService {
         }
       }
 
-      // Map evidence to known last message ids
+      // Map evidence to the most recent messages in the evaluation window
       if (Array.isArray(stepEval.evidence) && stepEval.evidence.length > 0) {
         if (!target.evidence) target.evidence = [];
+        const lastAiInWindow = [...recentMessages].reverse().find((m) => m.type === MessageType.AI);
         for (const e of stepEval.evidence) {
-          const messageId = e.role === 'user' ? lastUserMessage?.id : lastAiMessage?.id;
+          const messageId = e.role === 'user' ? lastUserMessage?.id : (lastAiInWindow?.id || lastAiMessage?.id);
           if (!messageId) continue;
           target.evidence.push({
             messageId,
@@ -241,7 +254,7 @@ export class EvaluationsService {
 
   private initializeProgress(goals: NonNullable<Simulation['conversationGoals']>): SimulationSession['goalProgress'] {
     return goals.map((g) => ({
-      stepNumber: g.stepNumber,
+      goalNumber: g.goalNumber,
       isOptional: !!g.isOptional,
       title: g.title,
       status: 'not_started',
@@ -265,15 +278,15 @@ export class EvaluationsService {
     // Required steps must be completed in order; optional can be matched anytime
     const unachievedRequired = goals
       .filter((g) => !g.isOptional)
-      .sort((a, b) => a.stepNumber - b.stepNumber)
-      .find((g) => !(progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved'));
+      .sort((a, b) => a.goalNumber - b.goalNumber)
+      .find((g) => !(progress.find((p) => p.goalNumber === g.goalNumber)?.status === 'achieved'));
 
     if (unachievedRequired) {
       return unachievedRequired; // enforce order for required steps
     }
 
     // Helper to check achieved status
-    const isAchieved = (g: any) => progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved';
+    const isAchieved = (g: any) => progress.find((p) => p.goalNumber === g.goalNumber)?.status === 'achieved';
 
     // Otherwise allow optional candidate if detected and not already achieved
     if (candidate && candidate.isOptional && !isAchieved(candidate)) return candidate;
@@ -281,7 +294,7 @@ export class EvaluationsService {
     // If candidate is missing or already achieved, pick the next unachieved optional in step order
     const nextOptional = goals
       .filter((g) => !!g.isOptional)
-      .sort((a, b) => a.stepNumber - b.stepNumber)
+      .sort((a, b) => a.goalNumber - b.goalNumber)
       .find((g) => !isAchieved(g));
     if (nextOptional) return nextOptional;
 
@@ -297,7 +310,7 @@ export class EvaluationsService {
   private requiredAchieved(progress: NonNullable<SimulationSession['goalProgress']>, goals: NonNullable<Simulation['conversationGoals']>): boolean {
     const required = goals.filter((g) => !g.isOptional);
     if (required.length === 0) return true;
-    return required.every((g) => progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved');
+    return required.every((g) => progress.find((p) => p.goalNumber === g.goalNumber)?.status === 'achieved');
   }
 }
 
@@ -330,7 +343,7 @@ export async function computeAndPersistSessionScores(sessionId: string): Promise
   const requiredGoals = goals.filter((g) => !g.isOptional);
   const requiredCount = requiredGoals.length;
   const achievedRequiredCount = requiredGoals.filter((g) =>
-    progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved',
+    progress.find((p) => (p as any).goalNumber === (g as any).goalNumber)?.status === 'achieved',
   ).length;
   const requiredAchievedRatio = requiredCount > 0 ? achievedRequiredCount / requiredCount : 0;
 

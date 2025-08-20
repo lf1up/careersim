@@ -45,6 +45,8 @@ export interface ConversationContext {
   sessionDuration: number;
 }
 
+type ProactiveReason = 'start' | 'inactivity' | 'backchannel' | 'followup';
+
 export class AIService {
   private openai: OpenAI;
   private configCache: Map<string, any> = new Map();
@@ -137,9 +139,9 @@ export class AIService {
 
     const goalsDescription = goals
       .slice()
-      .sort((a, b) => a.stepNumber - b.stepNumber)
+      .sort((a, b) => a.goalNumber - b.goalNumber)
       .map((g) => ({
-        stepNumber: g.stepNumber,
+        stepNumber: g.goalNumber,
         isOptional: !!g.isOptional,
         title: g.title,
         description: g.description,
@@ -430,6 +432,96 @@ export class AIService {
     } catch (error) {
       console.error('🚨 Error generating AI response:', error);
       throw new Error('Failed to generate AI response');
+    }
+  }
+
+  /**
+   * Generate a proactive persona message (no immediate user input required)
+   */
+  async generateProactivePersonaMessage(
+    context: ConversationContext,
+    options: { reason: ProactiveReason; lastUserMessage?: string },
+  ): Promise<AIResponse> {
+    const startTime = Date.now();
+
+    const { reason, lastUserMessage } = options;
+    const { persona } = context;
+
+    try {
+      const [aiSettings, systemPrompts] = await Promise.all([
+        this.getAIConfig(),
+        this.getSystemPrompts(),
+      ]);
+
+      const genConfig = this.resolveAIProfile(aiSettings, 'generation');
+
+      const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt);
+      const conversationMessages = this.buildConversationHistory(context.conversationHistory);
+
+      // Steering instruction for proactive message
+      const personaHints = persona.conversationStyle || {} as any;
+      const openingStyle = (personaHints.openingStyle || '').toString();
+      const nudgeStyle = (personaHints.nudgeStyle || '').toString();
+
+      const steering = (() => {
+        switch (reason) {
+        case 'start':
+          return `Act first with a natural opening line consistent with the persona. ${openingStyle ? `Opening style hint: ${openingStyle}.` : ''} Keep it concise and engaging.`;
+        case 'inactivity':
+          return `Send a polite, in-character nudge to re-engage after user silence. ${nudgeStyle ? `Nudge style hint: ${nudgeStyle}.` : ''} Keep it short and friendly.`;
+        case 'backchannel':
+          return 'Send a brief backchannel request for clarification or elaboration. Keep it very short.';
+        case 'followup':
+        default:
+          return 'Add a short follow-up that advances the conversation naturally. Avoid repeating yourself.';
+        }
+      })();
+
+      const userInstruction = [
+        '[Proactive action]',
+        steering,
+        lastUserMessage ? `Last user input to consider: ${lastUserMessage}` : '',
+      ].filter(Boolean).join('\n');
+
+      const completion = await this.openai.chat.completions.create({
+        model: genConfig.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...conversationMessages,
+          { role: 'user', content: userInstruction },
+        ],
+        max_tokens: genConfig.maxTokens,
+        temperature: genConfig.temperature,
+        frequency_penalty: genConfig.frequencyPenalty,
+        presence_penalty: genConfig.presencePenalty,
+        top_p: genConfig.topP,
+      });
+
+      const response = completion.choices[0]?.message?.content || '';
+      const processingTime = Date.now() - startTime;
+
+      // Lightweight analysis to keep parity with normal generation
+      const [emotionAnalysis, sentimentAnalysis] = await Promise.all([
+        this.analyzeEmotionalToneWithConfidence(response, context.persona),
+        this.analyzeSentimentWithConfidence(response),
+      ]);
+
+      const confidence = this.calculateBasicConfidence(emotionAnalysis, sentimentAnalysis);
+
+      return {
+        message: response,
+        emotionalTone: emotionAnalysis.tone,
+        confidence,
+        processingTime,
+        metadata: {
+          tokenCount: completion.usage?.total_tokens || 0,
+          model: completion.model,
+          sentiment: sentimentAnalysis.sentiment,
+        },
+      };
+    } catch (error) {
+      console.error('🚨 Error generating proactive AI message:', error);
+      throw new Error('Failed to generate proactive AI message');
     }
   }
 

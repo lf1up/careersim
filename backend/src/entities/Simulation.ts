@@ -17,7 +17,7 @@ import { SimulationSession } from './SimulationSession';
 
 // Conversation goal types used to drive step tracking during a session
 export interface ConversationGoal {
-  stepNumber: number;
+  goalNumber: number;
   isOptional?: boolean;
   title: string;
   description: string;
@@ -73,7 +73,7 @@ export enum SimulationStatus {
  *           items:
  *             type: object
  *             properties:
- *               stepNumber:
+ *               goalNumber:
  *                 type: integer
  *                 example: 1
  *               isOptional:
@@ -240,7 +240,7 @@ export class Simulation {
   @Column({ type: 'json', default: '[]' })
     objectives!: string[];
 
-  // Conversation goals/steps for tracking progress during a session
+  // Conversation goals for tracking progress during a session
   @Column({ type: 'json', nullable: true })
     conversationGoals?: ConversationGoal[];
 
