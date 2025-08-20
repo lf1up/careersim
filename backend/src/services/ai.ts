@@ -71,7 +71,10 @@ export class AIService {
     base: SystemConfiguration['aiModelSettings'],
     profile: 'generation' | 'evaluation',
   ) {
-    const overrides = base?.profiles?.[profile] || {};
+    // Avoid dynamic key access to satisfy security/detect-object-injection
+    const overrides = profile === 'generation'
+      ? (base?.profiles?.generation ?? {})
+      : (base?.profiles?.evaluation ?? {});
     return {
       model: overrides.model || base?.model,
       maxTokens: Math.min(

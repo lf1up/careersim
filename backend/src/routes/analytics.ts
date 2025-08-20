@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { authenticateToken, AuthenticatedRequest } from '@/middleware/auth';
 import { AppDataSource } from '@/config/database';
-import { SimulationSession } from '@/entities/SimulationSession';
+import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { PerformanceAnalytics } from '@/entities/PerformanceAnalytics';
 
 const router: Router = Router();
@@ -93,15 +93,61 @@ router.get('/performance', async (req: AuthenticatedRequest, res: Response) => {
     });
 
     // Calculate average scores
-    const avgScores = await sessionRepository
+    const avgScoresRaw = await sessionRepository
       .createQueryBuilder('session')
       .select('AVG(session.overallScore)', 'avgOverall')
       .addSelect('AVG((session.scores->>\'communication\')::numeric)', 'avgCommunication')
       .addSelect('AVG((session.scores->>\'problemSolving\')::numeric)', 'avgProblemSolving')
       .addSelect('AVG((session.scores->>\'emotional\')::numeric)', 'avgEmotional')
+      .addSelect('AVG((session.scores->>\'outcome\')::numeric)', 'avgOutcome')
       .where('session.user.id = :userId', { userId: req.user!.id })
       .andWhere('session.overallScore IS NOT NULL')
       .getRawOne();
+
+    // Normalize numeric strings -> numbers and clamp to sensible ranges
+    const toNum = (v: any) => (v === null || v === undefined ? 0 : Number(v));
+    const averageScores = {
+      // Convert overall 0..100 -> 0..1 for frontend consistency
+      avgOverall: Number((toNum(avgScoresRaw?.avgOverall) / 100).toFixed(3)),
+      avgCommunication: Number(toNum(avgScoresRaw?.avgCommunication).toFixed(3)), // 0..1
+      avgProblemSolving: Number(toNum(avgScoresRaw?.avgProblemSolving).toFixed(3)), // 0..1
+      avgEmotional: Number(toNum(avgScoresRaw?.avgEmotional).toFixed(3)), // 0..1
+      avgOutcome: Number(toNum(avgScoresRaw?.avgOutcome).toFixed(3)), // 0..1
+    };
+
+    // Derived metrics
+    const avgDurationRaw = await sessionRepository
+      .createQueryBuilder('session')
+      .select('AVG(session.durationSeconds)', 'avgDuration')
+      .where('session.user.id = :userId', { userId: req.user!.id })
+      .getRawOne();
+
+    const bestOverallRaw = await sessionRepository
+      .createQueryBuilder('session')
+      .select('MAX(session.overallScore)', 'best')
+      .where('session.user.id = :userId', { userId: req.user!.id })
+      .andWhere('session.overallScore IS NOT NULL')
+      .getRawOne();
+
+    const thirtyDaysAgoRate = await (async () => {
+      const totals = await sessionRepository
+        .createQueryBuilder('session')
+        .select('COUNT(*)', 'total')
+        .where('session.user.id = :userId', { userId: req.user!.id })
+        .andWhere('session.createdAt >= NOW() - INTERVAL \'30 days\'')
+        .getRawOne();
+      const completed = await sessionRepository
+        .createQueryBuilder('session')
+        .select('COUNT(*)', 'count')
+        .where('session.user.id = :userId', { userId: req.user!.id })
+        .andWhere('session.createdAt >= NOW() - INTERVAL \'30 days\'')
+        .andWhere('session.status = :status', { status: SessionStatus.COMPLETED })
+        .getRawOne();
+      const totalNum = Number(totals?.total || 0);
+      const compNum = Number(completed?.count || 0);
+      const rate = totalNum > 0 ? (compNum / totalNum) * 100 : 0;
+      return Number(rate.toFixed(2));
+    })();
 
     res.json({
       stats: {
@@ -109,7 +155,13 @@ router.get('/performance', async (req: AuthenticatedRequest, res: Response) => {
         completedSessions,
         completionRate: totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0,
       },
-      averageScores: avgScores,
+      averageScores,
+      // Extra derived metrics for the UI
+      derived: {
+        averageDurationSeconds: Number((Number(avgDurationRaw?.avgDuration || 0)).toFixed(0)),
+        bestOverallScore: Number((Number(bestOverallRaw?.best || 0)).toFixed(2)),
+        recentCompletionRate30d: thirtyDaysAgoRate,
+      },
       recentAnalytics,
     });
   } catch (error) {

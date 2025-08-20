@@ -699,6 +699,28 @@ router.get('/simulations/:id', async (req: AuthenticatedRequest, res: Response) 
  *                 type: array
  *                 items:
  *                   type: string
+ *               conversationGoals:
+ *                 type: array
+ *                 nullable: true
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     stepNumber:
+ *                       type: integer
+ *                     isOptional:
+ *                       type: boolean
+ *                     title:
+ *                       type: string
+ *                     description:
+ *                       type: string
+ *                     keyBehaviors:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     successIndicators:
+ *                       type: array
+ *                       items:
+ *                         type: string
  *     responses:
  *       200:
  *         description: Simulation updated successfully
@@ -735,8 +757,10 @@ router.patch('/simulations/:id', async (req: AuthenticatedRequest, res: Response
       difficulty,
       estimatedDurationMinutes,
       status,
-      isPremiumOnly,
+      isPublic,
       thumbnailUrl,
+      tags,
+      conversationGoals,
     } = req.body;
 
     const simulation = await simulationRepository.findOne({
@@ -774,8 +798,10 @@ router.patch('/simulations/:id', async (req: AuthenticatedRequest, res: Response
     if (difficulty !== undefined) simulation.difficulty = difficulty;
     if (estimatedDurationMinutes !== undefined) simulation.estimatedDurationMinutes = estimatedDurationMinutes;
     if (status !== undefined) simulation.status = status;
-    if (isPremiumOnly !== undefined) simulation.isPremiumOnly = isPremiumOnly;
+    if (isPublic !== undefined) simulation.isPublic = !!isPublic;
     if (thumbnailUrl !== undefined) simulation.thumbnailUrl = thumbnailUrl;
+    if (Array.isArray(tags)) simulation.tags = tags;
+    if (conversationGoals !== undefined) simulation.conversationGoals = conversationGoals;
 
     await simulationRepository.save(simulation);
 
@@ -929,50 +955,52 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
     const sessionRepository = AppDataSource.getRepository(SimulationSession);
     const userRepository = AppDataSource.getRepository(User);
 
-    console.log('Starting analytics fetch...');
-
-    // Simple user count first
+    // User counts
     const totalUsers = await userRepository.count();
     const activeUsers = await userRepository.count({ where: { isActive: true } });
-    
-    console.log('User counts:', JSON.stringify({ totalUsers: Number(totalUsers), activeUsers: Number(activeUsers) }));
 
-    // Simple session count
+    // Session counts
     const totalSessions = await sessionRepository.count();
-    const completedSessions = await sessionRepository.count({ 
-      where: { status: SessionStatus.COMPLETED }, 
-    });
+    const completedSessions = await sessionRepository.count({ where: { status: SessionStatus.COMPLETED } });
 
-    console.log('Session counts:', JSON.stringify({ totalSessions: Number(totalSessions), completedSessions: Number(completedSessions) }));
-
-    // Calculate averages safely
+    // Averages
     let avgSimulationsPerUser = 0;
     let avgDuration = 0;
     let avgScore = 0;
 
     if (totalUsers > 0) {
-      const users = await userRepository.find({ 
-        select: ['monthlySimulationsUsed'], 
-      });
-      avgSimulationsPerUser = users.reduce((sum, user) => sum + user.monthlySimulationsUsed, 0) / totalUsers;
+      const users = await userRepository.find({ select: ['monthlySimulationsUsed'] });
+      avgSimulationsPerUser = users.reduce((sum, user) => sum + (user.monthlySimulationsUsed || 0), 0) / totalUsers;
     }
 
     if (totalSessions > 0) {
-      const sessions = await sessionRepository.find({ 
-        select: ['durationSeconds', 'overallScore'], 
-      });
-      avgDuration = sessions.reduce((sum, session) => sum + session.durationSeconds, 0) / totalSessions;
-      
+      const sessions = await sessionRepository.find({ select: ['durationSeconds', 'overallScore'] });
+      avgDuration = sessions.reduce((sum, session) => sum + (session.durationSeconds || 0), 0) / totalSessions;
       const sessionsWithScore = sessions.filter(s => s.overallScore !== null && s.overallScore !== undefined);
       if (sessionsWithScore.length > 0) {
         avgScore = sessionsWithScore.reduce((sum, session) => sum + (session.overallScore || 0), 0) / sessionsWithScore.length;
       }
     }
 
-    console.log('Calculated averages:', JSON.stringify({ avgSimulationsPerUser: Number(avgSimulationsPerUser), avgDuration: Number(avgDuration), avgScore: Number(avgScore) }));
+    // Popular simulations: top 10 by session count with avg score
+    const popularRaw = await sessionRepository
+      .createQueryBuilder('session')
+      .leftJoin('session.simulation', 'simulation')
+      .select('simulation.id', 'id')
+      .addSelect('simulation.title', 'title')
+      .addSelect('COUNT(session.id)', 'sessionCount')
+      .addSelect('AVG(session.overallScore)', 'avgScore')
+      .groupBy('simulation.id')
+      .orderBy('"sessionCount"', 'DESC')
+      .limit(10)
+      .getRawMany();
 
-    // Get popular simulations - simplified
-    const popularSimulations: any[] = [];
+    const popularSimulations = popularRaw.map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      sessionCount: Number(row.sessionCount) || 0,
+      avgScore: Number(parseFloat(row.avgScore as string || '0').toFixed(1)),
+    }));
 
     res.json({
       userStats: {
@@ -988,8 +1016,6 @@ router.get('/analytics', async (req: AuthenticatedRequest, res: Response) => {
       },
       popularSimulations,
     });
-
-    console.log('Analytics response sent successfully');
   } catch (error) {
     console.error('Analytics error:', error);
     console.error('Error stack:', error.stack);
@@ -1075,6 +1101,25 @@ router.get('/export/users', async (req: AuthenticatedRequest, res: Response) => 
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: includeMessages
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Include full conversation logs per session
+ *       - in: query
+ *         name: includeAnalytics
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Include performance analytics when available
+ *       - in: query
+ *         name: includeGoals
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Include simulation conversation goals and session goal progress
  *     responses:
  *       200:
  *         description: Session data exported successfully
@@ -1084,37 +1129,6 @@ router.get('/export/users', async (req: AuthenticatedRequest, res: Response) => 
  *               type: array
  *               items:
  *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                   status:
- *                     type: string
- *                   durationSeconds:
- *                     type: integer
- *                   overallScore:
- *                     type: number
- *                     format: float
- *                   createdAt:
- *                     type: string
- *                     format: date-time
- *                   user:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       firstName:
- *                         type: string
- *                       lastName:
- *                         type: string
- *                       email:
- *                         type: string
- *                   simulation:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       title:
- *                         type: string
  *       401:
  *         description: Unauthorized - invalid or missing token
  *       403:
@@ -1124,30 +1138,103 @@ router.get('/export/users', async (req: AuthenticatedRequest, res: Response) => 
  */
 router.get('/export/sessions', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const includeMessages = String(req.query.includeMessages ?? 'true') === 'true';
+    const includeAnalytics = String(req.query.includeAnalytics ?? 'true') === 'true';
+    const includeGoals = String(req.query.includeGoals ?? 'true') === 'true';
+
     const sessionRepository = AppDataSource.getRepository(SimulationSession);
-    const sessions = await sessionRepository.find({
-      relations: ['user', 'simulation'],
-      select: {
-        id: true,
-        status: true,
-        durationSeconds: true,
-        overallScore: true,
-        createdAt: true,
-        user: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-        simulation: {
-          id: true,
-          title: true,
-        },
-      },
+
+    // Load base relations
+    const query = sessionRepository
+      .createQueryBuilder('session')
+      .leftJoinAndSelect('session.user', 'user')
+      .leftJoinAndSelect('session.simulation', 'simulation');
+
+    if (includeMessages) {
+      query.leftJoinAndSelect('session.messages', 'messages').orderBy('messages.sequenceNumber', 'ASC');
+    }
+    if (includeAnalytics) {
+      query.leftJoinAndSelect('session.analytics', 'analytics');
+    }
+
+    // For JSON columns that are not selected by default in some drivers
+    if (includeGoals) {
+      query.addSelect('session.goalProgress');
+    }
+
+    const sessions = await query.getMany();
+
+    const result = sessions.map((s) => {
+      const base: any = {
+        id: s.id,
+        status: s.status,
+        startedAt: s.startedAt,
+        completedAt: s.completedAt,
+        durationSeconds: s.durationSeconds,
+        messageCount: s.messageCount,
+        overallScore: s.overallScore ?? null,
+        scores: s.scores ?? null,
+        userGoals: s.userGoals ?? null,
+        sessionMetadata: s.sessionMetadata ?? null,
+        userFeedback: s.userFeedback ?? null,
+        userRating: s.userRating ?? null,
+        completionData: s.completionData ?? null,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+        user: s.user
+          ? {
+            id: s.user.id,
+            firstName: s.user.firstName,
+            lastName: s.user.lastName,
+            email: s.user.email,
+          }
+          : null,
+        simulation: s.simulation
+          ? {
+            id: s.simulation.id,
+            title: s.simulation.title,
+            slug: s.simulation.slug,
+            difficulty: s.simulation.difficulty,
+            status: s.simulation.status,
+            tags: s.simulation.tags,
+            conversationGoals: includeGoals ? (s.simulation.conversationGoals || []) : undefined,
+          }
+          : null,
+      };
+
+      if (includeGoals) {
+        (base as any).goalProgress = s.goalProgress ?? [];
+      }
+      if (includeAnalytics) {
+        (base as any).analytics = s.analytics || null;
+      }
+      if (includeMessages) {
+        (base as any).messages = (s.messages || []).map((m) => ({
+          id: m.id,
+          sessionId: m.sessionId,
+          sequenceNumber: m.sequenceNumber,
+          type: m.type,
+          content: m.content,
+          inputMethod: m.inputMethod ?? null,
+          metadata: m.metadata ?? null,
+          timestamp: m.timestamp ?? null,
+          isHighlighted: m.isHighlighted,
+          highlightReason: m.highlightReason ?? null,
+          analysisData: m.analysisData ?? null,
+          isFromUser: m.isFromUser,
+          isFromAI: m.isFromAI,
+          wordCount: m.wordCount,
+          hasEmotionalTone: m.hasEmotionalTone,
+          createdAt: m.createdAt,
+        }));
+      }
+
+      return base;
     });
 
-    res.json(sessions);
+    res.json(result);
   } catch (error) {
+    console.error('Failed to export sessions:', error);
     res.status(500).json({ error: 'Failed to export sessions' });
   }
 });

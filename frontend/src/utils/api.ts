@@ -426,24 +426,12 @@ class ApiClient {
     return response.data;
   }
 
-  public async exportAdminSessions(): Promise<{
-    id: string;
-    status: string;
-    durationSeconds: number;
-    overallScore: number;
-    createdAt: string;
-    user: {
-      id: string;
-      firstName: string;
-      lastName: string;
-      email: string;
-    };
-    simulation: {
-      id: string;
-      title: string;
-    };
-  }[]> {
-    const response = await this.client.get('/admin/export/sessions');
+  public async exportAdminSessions(params?: {
+    includeMessages?: boolean;
+    includeAnalytics?: boolean;
+    includeGoals?: boolean;
+  }): Promise<any[]> {
+    const response = await this.client.get('/admin/export/sessions', { params });
     return response.data;
   }
 

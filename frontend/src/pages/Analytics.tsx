@@ -120,7 +120,7 @@ export const Analytics: React.FC = () => {
     );
   }
 
-  const { stats, averageScores } = analytics;
+  const { stats, averageScores, derived } = analytics as any;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -153,10 +153,32 @@ export const Analytics: React.FC = () => {
          />
         <AnalyticsCard
           title="Overall Score"
-          value={`${Math.round((averageScores?.avgOverall || 0) * 10) / 10}%`}
+          value={`${Math.round((averageScores?.avgOverall || 0) * 1000) / 10}%`}
           icon={TrophyIcon}
           subtitle="Average across all"
         />
+        {derived && (
+          <>
+            <AnalyticsCard
+              title="Best Overall"
+              value={`${Math.round((derived.bestOverallScore || 0) * 10) / 10}`}
+              icon={TrophyIcon}
+              subtitle="Personal best"
+            />
+            <AnalyticsCard
+              title="Avg Duration"
+              value={`${derived.averageDurationSeconds || 0}s`}
+              icon={PlayIcon}
+              subtitle="Per session"
+            />
+            <AnalyticsCard
+              title="30d Completion"
+              value={`${Math.round((derived.recentCompletionRate30d || 0))}%`}
+              icon={CheckCircleIcon}
+              subtitle="Last 30 days"
+            />
+          </>
+        )}
       </div>
 
       {/* Performance Breakdown */}
@@ -201,31 +223,31 @@ export const Analytics: React.FC = () => {
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary-700">Leadership</span>
+                <span className="text-sm font-medium text-secondary-700">Emotional Intelligence</span>
                 <div className="flex items-center">
                   <div className="w-32 bg-secondary-200 rounded-full h-2 mr-3">
                     <div 
                       className="bg-purple-600 h-2 rounded-full" 
-                      style={{ width: `${(averageScores?.avgLeadership || 0) * 100}%` }}
+                      style={{ width: `${(averageScores?.avgEmotional || 0) * 100}%` }}
                     />
                   </div>
                   <span className="text-sm font-medium text-secondary-900">
-                    {Math.round((averageScores?.avgLeadership || 0) * 100)}%
+                    {Math.round((averageScores?.avgEmotional || 0) * 100)}%
                   </span>
                 </div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary-700">Technical Skills</span>
+                <span className="text-sm font-medium text-secondary-700">Outcome</span>
                 <div className="flex items-center">
                   <div className="w-32 bg-secondary-200 rounded-full h-2 mr-3">
                     <div 
                       className="bg-orange-600 h-2 rounded-full" 
-                      style={{ width: `${(averageScores?.avgTechnical || 0) * 100}%` }}
+                      style={{ width: `${(averageScores?.avgOutcome || 0) * 100}%` }}
                     />
                   </div>
                   <span className="text-sm font-medium text-secondary-900">
-                    {Math.round((averageScores?.avgTechnical || 0) * 100)}%
+                    {Math.round((averageScores?.avgOutcome || 0) * 100)}%
                   </span>
                 </div>
               </div>
@@ -266,7 +288,7 @@ export const Analytics: React.FC = () => {
                <div className="flex justify-between items-center">
                  <span className="text-sm font-medium text-secondary-700">Overall Average</span>
                  <span className="text-sm font-medium text-secondary-900">
-                   {Math.round((averageScores?.avgOverall || 0) * 10) / 10}%
+                   {Math.round((averageScores?.avgOverall || 0) * 1000) / 10}%
                  </span>
                </div>
              </div>

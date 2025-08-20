@@ -63,6 +63,9 @@ const ExportCard: React.FC<ExportCardProps> = ({
 
 export const AdminExport: React.FC = () => {
   const [exporting, setExporting] = useState<'users' | 'sessions' | null>(null);
+  const [includeMessages, setIncludeMessages] = useState(true);
+  const [includeAnalytics, setIncludeAnalytics] = useState(true);
+  const [includeGoals, setIncludeGoals] = useState(true);
 
   const handleExport = async (type: 'users' | 'sessions') => {
     try {
@@ -75,7 +78,11 @@ export const AdminExport: React.FC = () => {
         data = await apiClient.exportAdminUsers();
         filename = `users-export-${new Date().toISOString().split('T')[0]}.json`;
       } else {
-        data = await apiClient.exportAdminSessions();
+        data = await apiClient.exportAdminSessions({
+          includeMessages,
+          includeAnalytics,
+          includeGoals,
+        });
         filename = `sessions-export-${new Date().toISOString().split('T')[0]}.json`;
       }
 
@@ -127,12 +134,31 @@ export const AdminExport: React.FC = () => {
         />
         <ExportCard
           title="Session Data Export"
-          description="Export all simulation session data including scores, durations, and user interactions"
+          description="Export simulation sessions with optional conversation logs, goal progress, and analytics"
           icon={PlayIcon}
           onExport={() => handleExport('sessions')}
           isLoading={exporting === 'sessions'}
           exportType="Sessions"
         />
+      </div>
+
+      {/* Session export options */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Session Export Options</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <label className="inline-flex items-center space-x-2">
+            <input type="checkbox" className="h-4 w-4" checked={includeMessages} onChange={(e) => setIncludeMessages(e.target.checked)} />
+            <span className="text-sm text-gray-700">Include Messages</span>
+          </label>
+          <label className="inline-flex items-center space-x-2">
+            <input type="checkbox" className="h-4 w-4" checked={includeGoals} onChange={(e) => setIncludeGoals(e.target.checked)} />
+            <span className="text-sm text-gray-700">Include Goals & Progress</span>
+          </label>
+          <label className="inline-flex items-center space-x-2">
+            <input type="checkbox" className="h-4 w-4" checked={includeAnalytics} onChange={(e) => setIncludeAnalytics(e.target.checked)} />
+            <span className="text-sm text-gray-700">Include Analytics</span>
+          </label>
+        </div>
       </div>
 
       {/* Export Information */}
@@ -154,21 +180,6 @@ export const AdminExport: React.FC = () => {
           <div className="flex items-start">
             <span className="font-medium mr-2">•</span>
             <span>Export data includes all records up to the current moment</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Export Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="text-center p-4 border border-gray-200 rounded-lg">
-            <UsersIcon className="h-8 w-8 text-primary-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">User data includes profile information, subscription details, and account status</p>
-          </div>
-          <div className="text-center p-4 border border-gray-200 rounded-lg">
-            <PlayIcon className="h-8 w-8 text-primary-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">Session data includes performance scores, completion status, and timing information</p>
           </div>
         </div>
       </div>

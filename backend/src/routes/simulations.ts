@@ -4,7 +4,7 @@ import { AppDataSource } from '@/config/database';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType, MessageInputMethod } from '@/entities/SessionMessage';
-import { evaluationsService } from '@/services/evaluations';
+import { evaluationsService, computeAndPersistSessionScores } from '@/services/evaluations';
 import { emitGoalProgressUpdate } from '@/services/realtime';
 import { config } from '@/config/env';
 
@@ -777,6 +777,13 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           }
 
           await sessionRepository.save(session);
+          if (session.status === SessionStatus.COMPLETED) {
+            setImmediate(() => {
+              computeAndPersistSessionScores(session.id).catch((e) => {
+                console.warn('⚠️ Failed to compute scores after completion:', e);
+              });
+            });
+          }
 
           // Emit goal progress update to session room
           try {
@@ -800,6 +807,13 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
 
             try {
               await sessionRepository.save(session);
+              if (session.status === SessionStatus.COMPLETED) {
+                setImmediate(() => {
+                  computeAndPersistSessionScores(session.id).catch((e) => {
+                    console.warn('⚠️ [background] Failed to compute scores after completion:', e);
+                  });
+                });
+              }
               // Emit goal progress update to session room after background save
               try {
                 await emitGoalProgressUpdate(session);

@@ -8,7 +8,7 @@ import {
   PencilIcon,
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../../utils/api.ts';
-import { Simulation, SimulationStatus, SimulationDifficulty, Persona } from '../../types/index.ts';
+import { Simulation, SimulationStatus, SimulationDifficulty, Persona, ConversationGoal } from '../../types/index.ts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
 import { Button } from '../../components/ui/Button.tsx';
 import toast from 'react-hot-toast';
@@ -174,6 +174,11 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
                   <div className="text-xs text-gray-400">
                     {simulation.completionCount} completions
                   </div>
+                  {Array.isArray(simulation.conversationGoals) && simulation.conversationGoals.length > 0 && (
+                    <div className="text-xs text-gray-400">
+                      🎯 {simulation.conversationGoals.length} goal{simulation.conversationGoals.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
                   {simulation.averageRating > 0 && (
                     <div className="text-xs text-gray-400">
                       ⭐ {simulation.averageRating.toFixed(1)}
@@ -228,6 +233,12 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
     tags: Array.isArray(simulation.tags) ? simulation.tags.join(', ') : '',
   });
 
+  const [goals, setGoals] = useState<ConversationGoal[]>(
+    (simulation.conversationGoals || [])
+      .slice()
+      .sort((a, b) => a.stepNumber - b.stepNumber)
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -242,6 +253,14 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
         isPublic: formData.isPublic,
         objectives: formData.objectives ? formData.objectives.split('\n').filter(obj => obj.trim() !== '') : [],
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+        conversationGoals: goals.map((g, idx) => ({
+          stepNumber: typeof g.stepNumber === 'number' && g.stepNumber > 0 ? g.stepNumber : idx + 1,
+          isOptional: !!g.isOptional,
+          title: (g.title || '').trim(),
+          description: (g.description || '').trim(),
+          keyBehaviors: Array.isArray(g.keyBehaviors) ? g.keyBehaviors.filter(Boolean) : [],
+          successIndicators: Array.isArray(g.successIndicators) ? g.successIndicators.filter(Boolean) : [],
+        })),
       };
 
       const updatedSimulation = await apiClient.updateSimulation(simulation.id, updateData);
@@ -384,6 +403,152 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                   className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
+            </div>
+
+            {/* Conversation Goals */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-md font-medium text-secondary-900">Conversation Goals</h3>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setGoals((prev) => {
+                      const nextStep = (prev[prev.length - 1]?.stepNumber || 0) + 1;
+                      return [
+                        ...prev,
+                        {
+                          stepNumber: nextStep,
+                          isOptional: false,
+                          title: '',
+                          description: '',
+                          keyBehaviors: [],
+                          successIndicators: [],
+                        },
+                      ];
+                    });
+                  }}
+                >
+                  Add Goal
+                </Button>
+              </div>
+
+              {goals.length === 0 ? (
+                <p className="text-sm text-secondary-500">No goals defined. Add goals to structure the conversation and enable progress tracking.</p>
+              ) : (
+                <div className="space-y-4">
+                  {goals.map((goal, index) => (
+                    <div key={index} className="border border-secondary-200 rounded-md p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-secondary-700">Step {goal.stepNumber}</span>
+                          <label className="inline-flex items-center text-sm text-secondary-700">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded mr-2"
+                              checked={!!goal.isOptional}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setGoals(prev => prev.map((g, i) => i === index ? { ...g, isOptional: checked } : g));
+                              }}
+                            />
+                            Optional
+                          </label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs border border-secondary-300 rounded disabled:opacity-50"
+                            onClick={() => {
+                              if (index === 0) return;
+                              setGoals(prev => {
+                                const copy = prev.slice();
+                                const tmp = copy[index - 1];
+                                copy[index - 1] = copy[index];
+                                copy[index] = tmp;
+                                return copy.map((g, idx) => ({ ...g, stepNumber: idx + 1 }));
+                              });
+                            }}
+                            disabled={index === 0}
+                          >
+                            Move Up
+                          </button>
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs border border-secondary-300 rounded disabled:opacity-50"
+                            onClick={() => {
+                              if (index === goals.length - 1) return;
+                              setGoals(prev => {
+                                const copy = prev.slice();
+                                const tmp = copy[index + 1];
+                                copy[index + 1] = copy[index];
+                                copy[index] = tmp;
+                                return copy.map((g, idx) => ({ ...g, stepNumber: idx + 1 }));
+                              });
+                            }}
+                            disabled={index === goals.length - 1}
+                          >
+                            Move Down
+                          </button>
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded"
+                            onClick={() => {
+                              setGoals(prev => prev.filter((_, i) => i !== index).map((g, idx) => ({ ...g, stepNumber: idx + 1 })));
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-secondary-700 mb-2">Title</label>
+                          <input
+                            type="text"
+                            value={goal.title || ''}
+                            onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, title: e.target.value } : g))}
+                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-secondary-700 mb-2">Description</label>
+                          <input
+                            type="text"
+                            value={goal.description || ''}
+                            onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, description: e.target.value } : g))}
+                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-secondary-700 mb-2">Key Behaviors (one per line)</label>
+                          <textarea
+                            rows={3}
+                            value={(goal.keyBehaviors || []).join('\n')}
+                            onChange={(e) => {
+                              const list = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                              setGoals(prev => prev.map((g, i) => i === index ? { ...g, keyBehaviors: list } : g));
+                            }}
+                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-secondary-700 mb-2">Success Indicators (one per line)</label>
+                          <textarea
+                            rows={3}
+                            value={(goal.successIndicators || []).join('\n')}
+                            onChange={(e) => {
+                              const list = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                              setGoals(prev => prev.map((g, i) => i === index ? { ...g, successIndicators: list } : g));
+                            }}
+                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Status */}

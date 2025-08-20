@@ -1,7 +1,8 @@
 import { transformersService } from '@/services/transformers';
 import { Simulation } from '@/entities/Simulation';
-import { SessionMessage } from '@/entities/SessionMessage';
+import { SessionMessage, MessageType } from '@/entities/SessionMessage';
 import { SimulationSession } from '@/entities/SimulationSession';
+import { AppDataSource } from '@/config/database';
 
 export interface GoalEvaluationResult {
   updatedProgress: SimulationSession['goalProgress'];
@@ -302,4 +303,77 @@ export class EvaluationsService {
 
 export const evaluationsService = new EvaluationsService();
 
+
+
+// Compute and persist aggregate session scores when a session is completed.
+// This provides the per-skill `scores` (0..1) and `overallScore` (0..100) expected by analytics.
+export async function computeAndPersistSessionScores(sessionId: string): Promise<SimulationSession | null> {
+  const sessionRepository = AppDataSource.getRepository(SimulationSession);
+  const messageRepository = AppDataSource.getRepository(SessionMessage);
+
+  const session = await sessionRepository.findOne({
+    where: { id: sessionId },
+    relations: ['simulation'],
+  });
+  if (!session) return null;
+
+  // Gather AI messages for lightweight aggregation
+  const messages = await messageRepository.find({
+    where: { session: { id: sessionId } as any },
+    order: { sequenceNumber: 'ASC' as any },
+  });
+  const aiMessages = messages.filter((m) => m.type === MessageType.AI);
+
+  // Required-achieved ratio from goal progress
+  const goals = session.simulation?.conversationGoals || [];
+  const progress = session.goalProgress || [];
+  const requiredGoals = goals.filter((g) => !g.isOptional);
+  const requiredCount = requiredGoals.length;
+  const achievedRequiredCount = requiredGoals.filter((g) =>
+    progress.find((p) => p.stepNumber === g.stepNumber)?.status === 'achieved',
+  ).length;
+  const requiredAchievedRatio = requiredCount > 0 ? achievedRequiredCount / requiredCount : 0;
+
+  // Coherence proxy for communication from AI quality scores when present
+  let coherenceAvg = 0;
+  let coherenceCount = 0;
+  for (const m of aiMessages) {
+    const c = (m.metadata as any)?.qualityScores?.coherence;
+    if (typeof c === 'number' && !Number.isNaN(c)) {
+      coherenceAvg += c;
+      coherenceCount += 1;
+    }
+  }
+  const communicationScore = coherenceCount > 0 ? Math.max(0, Math.min(1, coherenceAvg / coherenceCount)) : requiredAchievedRatio || 0.6;
+
+  // Emotional score from AI sentiment analysis when present
+  let positive = 0;
+  let totalSent = 0;
+  for (const m of aiMessages) {
+    const sent = (m.metadata as any)?.sentimentAnalysis?.sentiment || (m.metadata as any)?.sentiment;
+    if (sent === 'positive' || sent === 'neutral' || sent === 'negative') {
+      totalSent += 1;
+      if (sent === 'positive') positive += 1;
+    }
+  }
+  const emotionalScore = totalSent > 0 ? positive / totalSent : 0.5;
+
+  // Problem solving and outcome: use goal completion as a baseline
+  const problemSolvingScore = requiredAchievedRatio;
+  const outcomeScore = requiredAchievedRatio;
+
+  session.scores = {
+    communication: Number(Math.max(0, Math.min(1, communicationScore)).toFixed(3)),
+    problemSolving: Number(Math.max(0, Math.min(1, problemSolvingScore)).toFixed(3)),
+    emotional: Number(Math.max(0, Math.min(1, emotionalScore)).toFixed(3)),
+    outcome: Number(Math.max(0, Math.min(1, outcomeScore)).toFixed(3)),
+  };
+
+  // Overall is a weighted sum (0..1) scaled to 0..100
+  const overall01 = session.calculateOverallScore();
+  session.overallScore = Number((overall01 * 100).toFixed(2));
+
+  await sessionRepository.save(session);
+  return session;
+}
 

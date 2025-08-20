@@ -4,6 +4,7 @@ import { AppDataSource } from '@/config/database';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Simulation } from '@/entities/Simulation';
 import { MessageType } from '@/entities/SessionMessage';
+import { computeAndPersistSessionScores } from '@/services/evaluations';
 
 const router: Router = Router();
 
@@ -419,6 +420,14 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => 
     }
 
     await sessionRepository.save(session);
+    if (status === SessionStatus.COMPLETED) {
+      // Compute and persist scores/overall (background)
+      setImmediate(() => {
+        computeAndPersistSessionScores(session.id).catch((e) => {
+          console.warn('Failed to compute session scores on status update:', e);
+        });
+      });
+    }
 
     // Reload session with relations to get simulation goals
     const updatedSession = await sessionRepository.findOne({
@@ -497,6 +506,12 @@ router.patch('/:id/complete', async (req: AuthenticatedRequest, res: Response) =
 
     session.markAsCompleted();
     await sessionRepository.save(session);
+    // Compute and persist scores/overall (background)
+    setImmediate(() => {
+      computeAndPersistSessionScores(session.id).catch((e) => {
+        console.warn('Failed to compute session scores on complete:', e);
+      });
+    });
 
     // Reload session with relations to get simulation goals
     const updatedSession = await sessionRepository.findOne({

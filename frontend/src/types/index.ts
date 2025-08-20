@@ -228,16 +228,22 @@ export interface PerformanceStats {
 }
 
 export interface AverageScores {
+  // All values are normalized 0..1
   avgOverall: number;
   avgCommunication: number;
   avgProblemSolving: number;
-  avgLeadership: number;
-  avgTechnical: number;
+  avgEmotional: number;
+  avgOutcome: number;
 }
 
 export interface PerformanceAnalytics {
   stats: PerformanceStats;
   averageScores: AverageScores;
+  derived?: {
+    averageDurationSeconds: number;
+    bestOverallScore: number; // 0..100
+    recentCompletionRate30d: number; // percentage 0..100
+  };
 }
 
 // Subscription interfaces
