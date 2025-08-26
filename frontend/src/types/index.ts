@@ -126,6 +126,15 @@ export interface Persona {
     pace: string;
     emotionalRange: string[];
     commonPhrases: string[];
+    initiativeProbability?: number;
+    startsConversation?: boolean | 'sometimes';
+    inactivityNudgeDelaySec?: { min: number; max: number };
+    inactivityNudgeMaxCount?: number;
+    burstiness?: { min: number; max: number };
+    typingSpeedWpm?: number;
+    backchannelProbability?: number;
+    openingStyle?: string;
+    nudgeStyle?: string;
   };
   triggerWords?: string[];
   responsePatterns?: {

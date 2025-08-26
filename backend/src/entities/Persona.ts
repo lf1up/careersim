@@ -183,7 +183,8 @@ export class Persona {
     // All fields are optional to preserve backward compatibility
     initiativeProbability?: number; // 0..1 likelihood to proactively lead
     startsConversation?: boolean | 'sometimes';
-    inactivityNudgeSec?: number; // seconds before nudging after silence
+    inactivityNudgeDelaySec?: { min: number; max: number }; // unified min/max inactivity window
+    inactivityNudgeMaxCount?: number; // max number of inactivity nudges per session
     burstiness?: { min: number; max: number }; // how many consecutive AI messages
     typingSpeedWpm?: number; // used for client-side pacing/indicators
     backchannelProbability?: number; // 0..1 chance to interject on short replies

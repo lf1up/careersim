@@ -22,6 +22,15 @@ interface PersonaFormData {
     pace: string;
     emotionalRange: string[];
     commonPhrases: string[];
+    initiativeProbability?: number;
+    startsConversation?: boolean | 'sometimes';
+    inactivityNudgeDelaySec?: { min?: number; max?: number };
+    inactivityNudgeMaxCount?: number;
+    burstiness?: { min?: number; max?: number };
+    typingSpeedWpm?: number;
+    backchannelProbability?: number;
+    openingStyle?: string;
+    nudgeStyle?: string;
   };
   triggerWords?: string[];
   responsePatterns?: {
@@ -49,6 +58,15 @@ const initialFormData: PersonaFormData = {
     pace: '',
     emotionalRange: [],
     commonPhrases: [],
+    initiativeProbability: undefined,
+    startsConversation: undefined,
+    inactivityNudgeDelaySec: undefined,
+    inactivityNudgeMaxCount: undefined,
+    burstiness: undefined,
+    typingSpeedWpm: undefined,
+    backchannelProbability: undefined,
+    openingStyle: '',
+    nudgeStyle: '',
   },
   triggerWords: [],
   responsePatterns: {
@@ -154,6 +172,15 @@ export const AdminPersonas: React.FC = () => {
         pace: '',
         emotionalRange: [],
         commonPhrases: [],
+        initiativeProbability: undefined,
+        startsConversation: undefined,
+        inactivityNudgeDelaySec: undefined,
+        inactivityNudgeMaxCount: undefined,
+        burstiness: undefined,
+        typingSpeedWpm: undefined,
+        backchannelProbability: undefined,
+        openingStyle: '',
+        nudgeStyle: '',
       },
       triggerWords: persona.triggerWords || [],
       responsePatterns: persona.responsePatterns || {
@@ -199,6 +226,13 @@ export const AdminPersonas: React.FC = () => {
       .replace(/-+/g, '-')
       .trim();
   };
+
+  const toCsv = (arr?: string[]) => (arr && arr.length ? arr.join(', ') : '');
+  const fromCsv = (text: string): string[] =>
+    text
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
 
   const getCategoryBadgeColor = (category: PersonaCategory) => {
     switch (category) {
@@ -592,6 +626,311 @@ export const AdminPersonas: React.FC = () => {
                       onChange={(e) => setFormData(prev => ({ ...prev, backgroundStory: e.target.value }))}
                       className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                     />
+                  </div>
+                </div>
+
+                {/* Conversation Style */}
+                <div className="space-y-4">
+                  <h3 className="text-md font-semibold text-secondary-900">Conversation Style</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Tone</label>
+                      <input
+                        type="text"
+                        value={formData.conversationStyle?.tone || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), tone: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Formality</label>
+                      <input
+                        type="text"
+                        value={formData.conversationStyle?.formality || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), formality: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Pace</label>
+                      <input
+                        type="text"
+                        value={formData.conversationStyle?.pace || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), pace: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Emotional Range (CSV)</label>
+                      <input
+                        type="text"
+                        value={toCsv(formData.conversationStyle?.emotionalRange)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), emotionalRange: fromCsv(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Common Phrases (CSV)</label>
+                      <input
+                        type="text"
+                        value={toCsv(formData.conversationStyle?.commonPhrases)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), commonPhrases: fromCsv(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Initiative Probability (0..1)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        value={formData.conversationStyle?.initiativeProbability ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), initiativeProbability: e.target.value === '' ? undefined : Number(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Starts Conversation</label>
+                      <select
+                        value={
+                          formData.conversationStyle?.startsConversation === undefined
+                            ? ''
+                            : formData.conversationStyle?.startsConversation === true
+                              ? 'true'
+                              : formData.conversationStyle?.startsConversation === false
+                                ? 'false'
+                                : 'sometimes'
+                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setFormData(prev => ({
+                            ...prev,
+                            conversationStyle: {
+                              ...(prev.conversationStyle || {}),
+                              startsConversation: v === '' ? undefined : v === 'true' ? true : v === 'false' ? false : 'sometimes'
+                            }
+                          }));
+                        }}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      >
+                        <option value="">Unspecified</option>
+                        <option value="true">Always</option>
+                        <option value="sometimes">Sometimes</option>
+                        <option value="false">Never</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Inactivity Nudge Delay Min (sec)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.conversationStyle?.inactivityNudgeDelaySec?.min ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: {
+                            ...(prev.conversationStyle || {}),
+                            inactivityNudgeDelaySec: {
+                              min: e.target.value === '' ? undefined : Number(e.target.value),
+                              max: prev.conversationStyle?.inactivityNudgeDelaySec?.max,
+                            }
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Inactivity Nudge Delay Max (sec)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.conversationStyle?.inactivityNudgeDelaySec?.max ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: {
+                            ...(prev.conversationStyle || {}),
+                            inactivityNudgeDelaySec: {
+                              min: prev.conversationStyle?.inactivityNudgeDelaySec?.min,
+                              max: e.target.value === '' ? undefined : Number(e.target.value),
+                            }
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Max Inactivity Nudges</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.conversationStyle?.inactivityNudgeMaxCount ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), inactivityNudgeMaxCount: e.target.value === '' ? undefined : Number(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Burstiness Min (messages)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.conversationStyle?.burstiness?.min ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: {
+                            ...(prev.conversationStyle || {}),
+                            burstiness: {
+                              min: e.target.value === '' ? undefined : Number(e.target.value),
+                              max: prev.conversationStyle?.burstiness?.max,
+                            }
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Burstiness Max (messages)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.conversationStyle?.burstiness?.max ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: {
+                            ...(prev.conversationStyle || {}),
+                            burstiness: {
+                              min: prev.conversationStyle?.burstiness?.min,
+                              max: e.target.value === '' ? undefined : Number(e.target.value),
+                            }
+                          }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Typing Speed (WPM)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.conversationStyle?.typingSpeedWpm ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), typingSpeedWpm: e.target.value === '' ? undefined : Number(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Backchannel Probability (0..1)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        value={formData.conversationStyle?.backchannelProbability ?? ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), backchannelProbability: e.target.value === '' ? undefined : Number(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Opening Style</label>
+                      <input
+                        type="text"
+                        value={formData.conversationStyle?.openingStyle || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), openingStyle: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Nudge Style</label>
+                      <input
+                        type="text"
+                        value={formData.conversationStyle?.nudgeStyle || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          conversationStyle: { ...(prev.conversationStyle || {}), nudgeStyle: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Triggers and Responses */}
+                <div className="space-y-4">
+                  <h3 className="text-md font-semibold text-secondary-900">Triggers and Response Patterns</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Trigger Words (CSV)</label>
+                      <input
+                        type="text"
+                        value={toCsv(formData.triggerWords)}
+                        onChange={(e) => setFormData(prev => ({ ...prev, triggerWords: fromCsv(e.target.value) }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Positive Responses (CSV)</label>
+                      <input
+                        type="text"
+                        value={toCsv(formData.responsePatterns?.positive)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          responsePatterns: { ...(prev.responsePatterns || { positive: [], negative: [], neutral: [] }), positive: fromCsv(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-secondary-700 mb-2">Negative Responses (CSV)</label>
+                      <input
+                        type="text"
+                        value={toCsv(formData.responsePatterns?.negative)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          responsePatterns: { ...(prev.responsePatterns || { positive: [], negative: [], neutral: [] }), negative: fromCsv(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text sm font-medium text-secondary-700 mb-2">Neutral Responses (CSV)</label>
+                      <input
+                        type="text"
+                        value={toCsv(formData.responsePatterns?.neutral)}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          responsePatterns: { ...(prev.responsePatterns || { positive: [], negative: [], neutral: [] }), neutral: fromCsv(e.target.value) }
+                        }))}
+                        className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
                   </div>
                 </div>
 

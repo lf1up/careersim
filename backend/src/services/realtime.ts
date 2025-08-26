@@ -58,8 +58,12 @@ export function startInactivityScheduler(): void {
         const persona = (s.simulation.personas as unknown as Persona[])[0];
 
         try {
+          // Persona-configured limits
+          const cs: any = persona?.conversationStyle || {};
+          const maxNudges = Math.max(0, Number(cs?.inactivityNudgeMaxCount ?? 2));
+
           // Limit number of inactivity nudges per session
-          if ((s.inactivityNudgeCount || 0) >= 2) {
+          if ((s.inactivityNudgeCount || 0) >= maxNudges) {
             // Disable further nudges by clearing the schedule
             s.inactivityNudgeAt = null as any;
             await repo.save(s);
@@ -101,9 +105,12 @@ export function startInactivityScheduler(): void {
 
           s.addMessage();
           s.lastAiMessageAt = new Date();
-          // After a nudge, schedule next random delay (1-3 minutes)
-          const minMs = 1 * 60 * 1000;
-          const maxMs = 3 * 60 * 1000;
+          // After a nudge, schedule next delay from persona config (unified {min,max} with fallbacks)
+          const delayCfg = cs?.inactivityNudgeDelaySec || {};
+          const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
+          const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
+          const minMs = minSec * 1000;
+          const maxMs = maxSec * 1000;
           const delay = crypto.randomInt(minMs, maxMs + 1);
           s.inactivityNudgeAt = new Date(Date.now() + delay);
           s.inactivityNudgeCount = (s.inactivityNudgeCount || 0) + 1;
