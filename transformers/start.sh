@@ -7,8 +7,8 @@ echo "🚀 Starting FastAPI Transformer Models Microservice..."
 # Check for environment file
 if [ ! -f ".env" ]; then
     echo "⚠️  No .env file found. Creating from example..."
-    if [ -f "env.example" ]; then
-        cp env.example .env
+    if [ -f ".env.example" ]; then
+        cp .env.example .env
         echo "📝 Please edit .env file and set your AUTH_TOKEN before production use!"
     else
         echo "🔒 Using default authentication token (change in production!)"

@@ -43,11 +43,11 @@ if not AUTH_TOKEN:
     # Create default token if not provided
     AUTH_TOKEN = "default-dev-token-change-in-production-min-32-chars"
     logger = logging.getLogger(__name__)
-    logger.warning("⚠️  No AUTH_TOKEN found in environment. Using default token!")
+    logger.warning("⚠️ No AUTH_TOKEN found in environment. Using default token!")
     logger.warning("🔒 Please set AUTH_TOKEN in .env file for production!")
 
 if len(AUTH_TOKEN) < 32:
-    raise ValueError("AUTH_TOKEN must be at least 32 characters long for security!")
+    raise ValueError("⚠️AUTH_TOKEN must be at least 32 characters long for security!")
 
 # Configure logging
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()

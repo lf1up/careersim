@@ -71,8 +71,7 @@ USER appuser
 EXPOSE 8001
 
 # Health check with longer start period for model loading
-HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8001/health')" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 CMD ["python", "-c", "import sys,httpx; r=httpx.get('http://localhost:8001/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)"]
 
 # Run the application
 CMD ["sh", "-c", "uvicorn main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8001} --log-level ${LOG_LEVEL:-info}"]

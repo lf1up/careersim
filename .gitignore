@@ -153,3 +153,8 @@ env/
 
 # Cache
 models_cache/
+__pycache__/
+
+# ChromaDB
+chroma/
+chroma_db/

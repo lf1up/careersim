@@ -47,7 +47,7 @@ The service uses **Bearer token authentication** for security:
 
 1. **Copy environment example**:
    ```bash
-   cp env.example .env
+   cp .env.example .env
    ```
 
 2. **Set your secure token** in `.env`:

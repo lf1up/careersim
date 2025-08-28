@@ -16,12 +16,15 @@ services:
       DB_HOST: postgres
       REDIS_HOST: redis
       TRANSFORMERS_API_URL: http://host.docker.internal:8001
+      RAG_API_URL: http://host.docker.internal:8002
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
       # transformers:
+      #   condition: service_healthy
+      # rag:
       #   condition: service_healthy
     volumes:
       - ./backend:/app
@@ -110,19 +113,44 @@ services:
   #     - careersim-network
   #   restart: unless-stopped
   #   healthcheck:
-  #     test: ["CMD", "python", "-c", "import requests; r = requests.get('http://localhost:8001/', timeout=5); exit(0 if r.status_code == 200 else 1)"]
+  #     test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8001/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
   #     interval: 30s
   #     timeout: 10s
   #     retries: 5
   #     start_period: 60s
   #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload", "--log-level", "info"]
 
+  # TODO: Uncomment this to obtain the dockerized rag service (GPU acceleration could not be supported on M1/M2 Macs)
+  # rag:
+  #   build:
+  #     context: ./rag
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8002:8002"
+  #   env_file:
+  #     - ./rag/.env
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   volumes:
+  #     - ./rag:/app
+  #     - rag_data:/app/chroma
+  #   networks:
+  #     - careersim-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8002/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload", "--log-level", "info"]
 
 volumes:
   postgres_data:
   redis_data:
   backend_uploads:
   # models_cache:
+  # rag_data:
 
 networks:
   careersim-network:
