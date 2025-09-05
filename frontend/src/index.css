@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,6 +15,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: theme('colors.retro.paper');
+  color: theme('colors.retro.ink');
 }
 
 code {
@@ -43,6 +45,19 @@ code {
 /* Focus styles */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+/* Retro utility classes */
+.retro-card {
+  @apply bg-white border-2 border-black shadow-[4px_4px_0_#111827] rounded-md;
+}
+
+.retro-btn-base {
+  @apply inline-flex items-center justify-center border-2 border-black shadow-[3px_3px_0_#111827] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_#111827] transition-transform;
+}
+
+.retro-input {
+  @apply border-2 border-black bg-white px-3 py-2 rounded-none focus:ring-0 focus:outline-none shadow-[3px_3px_0_#111827];
 }
 
 /* Custom select styling with better chevron positioning */

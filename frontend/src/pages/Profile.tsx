@@ -53,12 +53,12 @@ export const Profile: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="bg-white shadow rounded-lg">
+    <div className="max-w-4xl mx-auto">
+      <div className="retro-card">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-secondary-200">
-          <h1 className="text-2xl font-bold text-secondary-900">Profile Settings</h1>
-          <p className="text-secondary-600 mt-1">
+        <div className="px-6 py-4 border-b-2 border-black">
+          <h1 className="text-2xl font-retro tracking-wider2">PROFILE SETTINGS</h1>
+          <p className="font-monoRetro mt-1">
             Update your profile information and preferences
           </p>
         </div>
@@ -70,7 +70,7 @@ export const Profile: React.FC = () => {
             <h2 className="text-lg font-medium text-secondary-900 mb-4">Basic Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-secondary-700 mb-1">
+                <label htmlFor="firstName" className="block text-sm font-semibold mb-1">
                   First Name
                 </label>
                 <input
@@ -79,12 +79,12 @@ export const Profile: React.FC = () => {
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="retro-input w-full"
                   placeholder="Enter your first name"
                 />
               </div>
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-secondary-700 mb-1">
+                <label htmlFor="lastName" className="block text-sm font-semibold mb-1">
                   Last Name
                 </label>
                 <input
@@ -93,7 +93,7 @@ export const Profile: React.FC = () => {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="retro-input w-full"
                   placeholder="Enter your last name"
                 />
               </div>
@@ -105,7 +105,7 @@ export const Profile: React.FC = () => {
             <h2 className="text-lg font-medium text-secondary-900 mb-4">Professional Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="jobTitle" className="block text-sm font-medium text-secondary-700 mb-1">
+                <label htmlFor="jobTitle" className="block text-sm font-semibold mb-1">
                   Job Title
                 </label>
                 <input
@@ -114,12 +114,12 @@ export const Profile: React.FC = () => {
                   name="jobTitle"
                   value={formData.jobTitle}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="retro-input w-full"
                   placeholder="e.g., Senior Software Engineer"
                 />
               </div>
               <div>
-                <label htmlFor="company" className="block text-sm font-medium text-secondary-700 mb-1">
+                <label htmlFor="company" className="block text-sm font-semibold mb-1">
                   Company
                 </label>
                 <input
@@ -128,12 +128,12 @@ export const Profile: React.FC = () => {
                   name="company"
                   value={formData.company}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="retro-input w-full"
                   placeholder="e.g., Tech Corp"
                 />
               </div>
               <div>
-                <label htmlFor="industry" className="block text-sm font-medium text-secondary-700 mb-1">
+                <label htmlFor="industry" className="block text-sm font-semibold mb-1">
                   Industry
                 </label>
                 <input
@@ -142,7 +142,7 @@ export const Profile: React.FC = () => {
                   name="industry"
                   value={formData.industry}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="retro-input w-full"
                   placeholder="e.g., Technology, Healthcare, Finance"
                 />
               </div>
@@ -151,7 +151,7 @@ export const Profile: React.FC = () => {
 
           {/* Bio */}
           <div>
-            <label htmlFor="bio" className="block text-sm font-medium text-secondary-700 mb-1">
+            <label htmlFor="bio" className="block text-sm font-semibold mb-1">
               Bio
             </label>
             <textarea
@@ -160,14 +160,14 @@ export const Profile: React.FC = () => {
               rows={4}
               value={formData.bio}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="retro-input w-full"
               placeholder="Tell us about yourself, your experience, and your career goals..."
             />
           </div>
 
           {/* Profile Image URL */}
           <div>
-            <label htmlFor="profileImageUrl" className="block text-sm font-medium text-secondary-700 mb-1">
+            <label htmlFor="profileImageUrl" className="block text-sm font-semibold mb-1">
               Profile Image URL
             </label>
             <input
@@ -176,38 +176,38 @@ export const Profile: React.FC = () => {
               name="profileImageUrl"
               value={formData.profileImageUrl}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="retro-input w-full"
               placeholder="https://example.com/profile-image.jpg"
             />
-            <p className="text-sm text-secondary-500 mt-1">
+            <p className="text-sm mt-1 font-monoRetro">
               Enter a URL to an image that represents you professionally
             </p>
           </div>
 
           {/* Account Information (Read-only) */}
           <div>
-            <h2 className="text-lg font-medium text-secondary-900 mb-4">Account Information</h2>
+            <h2 className="text-lg font-semibold mb-4">Account Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                <label className="block text-sm font-semibold mb-1">
                   Email
                 </label>
                 <input
                   type="email"
                   value={user.email}
                   disabled
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg bg-secondary-50 text-secondary-500"
+                  className="w-full px-3 py-2 border-2 border-black bg-white text-black"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                <label className="block text-sm font-semibold mb-1">
                   Subscription Tier
                 </label>
                 <input
                   type="text"
                   value={user.subscriptionTier}
                   disabled
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg bg-secondary-50 text-secondary-500 capitalize"
+                  className="w-full px-3 py-2 border-2 border-black bg-white text-black capitalize"
                 />
               </div>
             </div>
@@ -215,35 +215,35 @@ export const Profile: React.FC = () => {
 
           {/* Statistics (Read-only) */}
           <div>
-            <h2 className="text-lg font-medium text-secondary-900 mb-4">Statistics</h2>
+            <h2 className="text-lg font-semibold mb-4">Statistics</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                <label className="block text-sm font-semibold mb-1">
                   Total Simulations Completed
                 </label>
                 <input
                   type="number"
                   value={user.totalSimulationsCompleted || 0}
                   disabled
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg bg-secondary-50 text-secondary-500"
+                  className="w-full px-3 py-2 border-2 border-black bg-white text-black"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                <label className="block text-sm font-semibold mb-1">
                   This Month's Usage
                 </label>
                 <input
                   type="number"
                   value={user.monthlySimulationsUsed || 0}
                   disabled
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-lg bg-secondary-50 text-secondary-500"
+                  className="w-full px-3 py-2 border-2 border-black bg-white text-black"
                 />
               </div>
             </div>
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end pt-6 border-t border-secondary-200">
+          <div className="flex justify-end pt-6 border-t-2 border-black">
             <Button
               type="submit"
               isLoading={isLoading}

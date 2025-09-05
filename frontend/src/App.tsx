@@ -66,9 +66,9 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // App Layout component
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-secondary-50">
+    <div className="min-h-screen bg-retro-paper">
       <Navbar />
-      <main>{children}</main>
+      <main className="p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
   );
 };

@@ -41,7 +41,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-retro-paper flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -54,14 +54,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       {/* Sidebar */}
       <div
-        className={`${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
+        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-retro-paper border-r-2 border-black shadow-[4px_0_0_#111827] transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+        <div className="flex items-center justify-between h-16 px-4 border-b-2 border-black">
           <div className="flex items-center">
-            <BeakerIcon className="h-8 w-8 text-primary-600" />
-            <span className="ml-2 text-xl font-bold text-gray-900">Admin Panel</span>
+            <BeakerIcon className="h-8 w-8 text-black" />
+            <span className="ml-2 text-xl font-bold font-retro tracking-wider2">ADMIN PANEL</span>
           </div>
           <button
             className="lg:hidden"
@@ -77,55 +75,47 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`${
-                  isActive(item.href)
-                    ? 'bg-primary-100 text-primary-900 border-r-2 border-primary-600'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                } group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors`}
+                className={`${isActive(item.href) ? 'bg-yellow-300 text-black border-2 border-black shadow-[2px_2px_0_#111827]' : 'text-black border-2 border-black shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827]'} group flex items-center px-3 py-2 text-sm font-semibold transition-transform`}
                 onClick={() => setSidebarOpen(false)}
               >
-                <item.icon
-                  className={`${
-                    isActive(item.href) ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
-                  } flex-shrink-0 -ml-1 mr-3 h-5 w-5`}
-                />
+                <item.icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5`} />
                 {item.name}
               </Link>
             ))}
           </div>
 
-          <div className="mt-8 pt-6 border-t border-gray-200">
+          <div className="mt-8 pt-6 border-t-2 border-black">
             <Link
               to="/dashboard"
-              className="group flex items-center px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              className="group flex items-center px-3 py-2 text-sm font-semibold border-2 border-black shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
             >
-              <HomeIcon className="flex-shrink-0 -ml-1 mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
+              <HomeIcon className="flex-shrink-0 -ml-1 mr-3 h-5 w-5" />
               Back to App
             </Link>
           </div>
         </nav>
 
         {/* User info at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t-2 border-black">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-primary-100 rounded-full flex items-center justify-center">
-                  <span className="text-primary-600 text-sm font-medium">
+                <div className="h-8 w-8 bg-yellow-300 border-2 border-black flex items-center justify-center">
+                  <span className="text-black text-sm font-bold">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </span>
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-semibold">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-gray-500">Admin</p>
+                <p className="text-xs">Admin</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="text-gray-400 hover:text-gray-600 text-sm"
+              className="text-sm border-2 border-black px-2 py-1 shadow-[2px_2px_0_#111827] active:translate-x-[1px] active:translate-y-[1px]"
             >
               Logout
             </button>
@@ -136,24 +126,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Main content */}
       <div className="flex-1 lg:pl-0 min-w-0">
         {/* Mobile header */}
-        <div className="lg:hidden bg-white shadow-sm border-b border-gray-200">
+        <div className="lg:hidden bg-retro-paper border-b-2 border-black shadow-[0_4px_0_#111827]">
           <div className="flex items-center justify-between h-16 px-4">
             <button
-              className="text-gray-500"
+              className="border-2 border-black px-2 py-1 shadow-[2px_2px_0_#111827] active:translate-x-[1px] active:translate-y-[1px]"
               onClick={() => setSidebarOpen(true)}
             >
               <Bars3Icon className="h-6 w-6" />
             </button>
             <div className="flex items-center">
-              <BeakerIcon className="h-8 w-8 text-primary-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Admin</span>
+              <BeakerIcon className="h-8 w-8 text-black" />
+              <span className="ml-2 text-xl font-bold font-retro tracking-wider2">ADMIN</span>
             </div>
             <div className="w-6" /> {/* Spacer */}
           </div>
         </div>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 p-4">
           {children}
         </main>
       </div>

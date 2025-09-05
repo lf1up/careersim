@@ -10,6 +10,8 @@ import {
   ArrowTrendingUpIcon,
   PlayIcon
 } from '@heroicons/react/24/outline';
+import { ValueText } from '../components/ui/ValueText.tsx';
+
 
 interface AnalyticsCardProps {
   title: string;
@@ -22,35 +24,29 @@ interface AnalyticsCardProps {
   };
 }
 
-const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ 
-  title, 
-  value, 
-  icon: Icon, 
+const AnalyticsCard: React.FC<AnalyticsCardProps> = ({
+  title,
+  value,
+  icon: Icon,
   subtitle,
-  trend 
+  trend,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="retro-card p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div className="flex-shrink-0">
-            <Icon className="h-6 w-6 text-secondary-400" />
+            <Icon className="h-6 w-6" />
           </div>
           <div className="ml-3">
-            <p className="text-sm font-medium text-secondary-500">{title}</p>
-            <p className="text-2xl font-semibold text-secondary-900">{value}</p>
-            {subtitle && (
-              <p className="text-sm text-secondary-500">{subtitle}</p>
-            )}
+            <p className="text-sm font-semibold">{title}</p>
+            <p className="text-2xl font-semibold"><ValueText value={value} /></p>
+            {subtitle && <p className="text-sm font-monoRetro">{subtitle}</p>}
           </div>
         </div>
         {trend && (
-          <div className={`flex items-center text-sm ${
-            trend.isPositive ? 'text-green-600' : 'text-red-600'
-          }`}>
-                         <ArrowTrendingUpIcon className={`h-4 w-4 mr-1 ${
-               trend.isPositive ? '' : 'transform rotate-180'
-             }`} />
+          <div className={`flex items-center text-sm ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <ArrowTrendingUpIcon className={`h-4 w-4 mr-1 ${trend.isPositive ? '' : 'transform rotate-180'}`} />
             {Math.abs(trend.value)}%
           </div>
         )}
@@ -123,11 +119,11 @@ export const Analytics: React.FC = () => {
   const { stats, averageScores, derived } = analytics as any;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-secondary-900">Personal Analytics</h1>
-        <p className="mt-2 text-secondary-600">
+        <h1 className="text-3xl font-retro tracking-wider2">PERSONAL ANALYTICS</h1>
+        <p className="mt-2 font-monoRetro">
           Track your performance and progress across simulations
         </p>
       </div>
@@ -184,70 +180,70 @@ export const Analytics: React.FC = () => {
       {/* Performance Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Average Scores by Category */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-secondary-200">
-            <h2 className="text-xl font-semibold text-secondary-900">
+        <div className="retro-card">
+          <div className="px-6 py-4 border-b-2 border-black">
+            <h2 className="text-xl font-semibold">
               Performance by Skill
             </h2>
           </div>
           <div className="p-6">
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary-700">Communication</span>
+                <span className="text-sm font-semibold">Communication</span>
                 <div className="flex items-center">
-                  <div className="w-32 bg-secondary-200 rounded-full h-2 mr-3">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full" 
+                      className="bg-blue-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgCommunication || 0) * 100}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-secondary-900">
-                    {Math.round((averageScores?.avgCommunication || 0) * 100)}%
+                  <span className="text-sm font-semibold">
+                    <ValueText value={`${Math.round((averageScores?.avgCommunication || 0) * 100)}%`} />
                   </span>
                 </div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary-700">Problem Solving</span>
+                <span className="text-sm font-semibold">Problem Solving</span>
                 <div className="flex items-center">
-                  <div className="w-32 bg-secondary-200 rounded-full h-2 mr-3">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
                     <div 
-                      className="bg-green-600 h-2 rounded-full" 
+                      className="bg-green-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgProblemSolving || 0) * 100}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-secondary-900">
-                    {Math.round((averageScores?.avgProblemSolving || 0) * 100)}%
+                  <span className="text-sm font-semibold">
+                    <ValueText value={`${Math.round((averageScores?.avgProblemSolving || 0) * 100)}%`} />
                   </span>
                 </div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary-700">Emotional Intelligence</span>
+                <span className="text-sm font-semibold">Emotional Intelligence</span>
                 <div className="flex items-center">
-                  <div className="w-32 bg-secondary-200 rounded-full h-2 mr-3">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
                     <div 
-                      className="bg-purple-600 h-2 rounded-full" 
+                      className="bg-purple-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgEmotional || 0) * 100}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-secondary-900">
-                    {Math.round((averageScores?.avgEmotional || 0) * 100)}%
+                  <span className="text-sm font-semibold">
+                    <ValueText value={`${Math.round((averageScores?.avgEmotional || 0) * 100)}%`} />
                   </span>
                 </div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary-700">Outcome</span>
+                <span className="text-sm font-semibold">Outcome</span>
                 <div className="flex items-center">
-                  <div className="w-32 bg-secondary-200 rounded-full h-2 mr-3">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
                     <div 
-                      className="bg-orange-600 h-2 rounded-full" 
+                      className="bg-orange-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgOutcome || 0) * 100}%` }}
                     />
                   </div>
-                  <span className="text-sm font-medium text-secondary-900">
-                    {Math.round((averageScores?.avgOutcome || 0) * 100)}%
+                  <span className="text-sm font-semibold">
+                    <ValueText value={`${Math.round((averageScores?.avgOutcome || 0) * 100)}%`} />
                   </span>
                 </div>
               </div>
@@ -256,39 +252,39 @@ export const Analytics: React.FC = () => {
         </div>
 
                  {/* Performance Summary */}
-         <div className="bg-white rounded-lg shadow">
-           <div className="px-6 py-4 border-b border-secondary-200">
-             <h2 className="text-xl font-semibold text-secondary-900">
+         <div className="retro-card">
+           <div className="px-6 py-4 border-b-2 border-black">
+             <h2 className="text-xl font-semibold">
                Performance Summary
              </h2>
            </div>
            <div className="p-6">
              <div className="space-y-4">
                <div className="flex justify-between items-center">
-                 <span className="text-sm font-medium text-secondary-700">Sessions Started</span>
-                 <span className="text-sm font-medium text-secondary-900">
-                   {stats?.totalSessions || 0}
+                 <span className="text-sm font-semibold">Sessions Started</span>
+                 <span className="text-sm font-semibold">
+                   <ValueText value={stats?.totalSessions || 0} />
                  </span>
                </div>
                
                <div className="flex justify-between items-center">
-                 <span className="text-sm font-medium text-secondary-700">Sessions Completed</span>
-                 <span className="text-sm font-medium text-secondary-900">
-                   {stats?.completedSessions || 0}
+                 <span className="text-sm font-semibold">Sessions Completed</span>
+                 <span className="text-sm font-semibold">
+                   <ValueText value={stats?.completedSessions || 0} />
                  </span>
                </div>
                
                <div className="flex justify-between items-center">
-                 <span className="text-sm font-medium text-secondary-700">Success Rate</span>
-                 <span className="text-sm font-medium text-secondary-900">
-                   {Math.round(stats?.completionRate || 0)}%
+                 <span className="text-sm font-semibold">Success Rate</span>
+                 <span className="text-sm font-semibold">
+                   <ValueText value={`${Math.round(stats?.completionRate || 0)}%`} />
                  </span>
                </div>
                
                <div className="flex justify-between items-center">
-                 <span className="text-sm font-medium text-secondary-700">Overall Average</span>
-                 <span className="text-sm font-medium text-secondary-900">
-                   {Math.round((averageScores?.avgOverall || 0) * 1000) / 10}%
+                 <span className="text-sm font-semibold">Overall Average</span>
+                 <span className="text-sm font-semibold">
+                   <ValueText value={`${Math.round((averageScores?.avgOverall || 0) * 1000) / 10}%`} />
                  </span>
                </div>
              </div>

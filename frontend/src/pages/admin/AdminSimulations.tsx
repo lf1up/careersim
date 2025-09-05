@@ -2,50 +2,27 @@ import React, { useState, useEffect } from 'react';
 import {
   FunnelIcon,
   EyeIcon,
-  BeakerIcon,
   TagIcon,
   UserGroupIcon,
   PencilIcon,
+  PlusIcon,
 } from '@heroicons/react/24/outline';
+import { BeakerIcon } from '@heroicons/react/24/solid';
 import { apiClient } from '../../utils/api.ts';
-import { Simulation, SimulationStatus, SimulationDifficulty, Persona, ConversationGoal } from '../../types/index.ts';
+import { Simulation, SimulationStatus, SimulationDifficulty, Persona, ConversationGoal, Category } from '../../types/index.ts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
 import { Button } from '../../components/ui/Button.tsx';
 import toast from 'react-hot-toast';
+import { RetroBadge } from '../../components/ui/RetroBadge.tsx';
+import { categoryNameToBadgeColor, difficultyToBadgeColor, getDifficultyLabel } from '../../utils/badges.ts';
+import { ValueText } from '../../components/ui/ValueText.tsx';
+import { RetroTable } from '../../components/ui/RetroTable.tsx';
+import { RetroDialog } from '../../components/ui/RetroDialog.tsx';
+import { RetroInput, RetroSelect, RetroTextArea, RetroCheckbox } from '../../components/ui/RetroInput.tsx';
 
-const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
-  switch (difficulty) {
-    case SimulationDifficulty.BEGINNER:
-      return 'Beginner';
-    case SimulationDifficulty.INTERMEDIATE:
-      return 'Intermediate';
-    case SimulationDifficulty.ADVANCED:
-      return 'Advanced';
-    case SimulationDifficulty.EXPERT:
-      return 'Expert';
-    case SimulationDifficulty.MASTER:
-      return 'Master';
-    default:
-      return 'Unknown';
-  }
-};
+// labels handled via shared utils
 
-const getDifficultyColor = (difficulty: SimulationDifficulty): string => {
-  switch (difficulty) {
-    case SimulationDifficulty.BEGINNER:
-      return 'bg-green-100 text-green-800';
-    case SimulationDifficulty.INTERMEDIATE:
-      return 'bg-blue-100 text-blue-800';
-    case SimulationDifficulty.ADVANCED:
-      return 'bg-yellow-100 text-yellow-800';
-    case SimulationDifficulty.EXPERT:
-      return 'bg-orange-100 text-orange-800';
-    case SimulationDifficulty.MASTER:
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
+// difficulty styling handled via retro badge style
 
 interface SimulationsTableProps {
   simulations: Simulation[];
@@ -55,162 +32,153 @@ interface SimulationsTableProps {
 }
 
 const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit, onDelete, onEditPersonas }) => {
+  const columns = [
+    {
+      key: 'simulation',
+      header: 'Simulation',
+      render: (simulation: Simulation) => (
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10 border-2 border-black">
+            {simulation.thumbnailUrl ? (
+              <img
+                className="h-full w-full object-cover"
+                src={simulation.thumbnailUrl}
+                alt={simulation.title}
+              />
+            ) : (
+              <div className="h-full w-full bg-primary-100 flex items-center justify-center">
+                <BeakerIcon className="h-6 w-6 text-black" />
+              </div>
+            )}
+          </div>
+          <div className="ml-4">
+            <div className="text-sm font-semibold">
+              {simulation.title}
+            </div>
+            <div className="text-sm text-neutral-600 max-w-xs truncate">
+              {simulation.description}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      render: (simulation: Simulation) => (
+        <RetroBadge color={categoryNameToBadgeColor(simulation.category.name)} className="text-xs">
+          <TagIcon className="h-3 w-3 mr-1" />
+          {simulation.category.name}
+        </RetroBadge>
+      ),
+    },
+    {
+      key: 'difficulty',
+      header: 'Difficulty',
+      render: (simulation: Simulation) => (
+        <RetroBadge color={difficultyToBadgeColor(simulation.difficulty)} className="text-xs">
+          {getDifficultyLabel(simulation.difficulty)}
+        </RetroBadge>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (simulation: Simulation) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
+          {simulation.status.charAt(0).toUpperCase() + simulation.status.slice(1).toLowerCase()}
+        </span>
+      ),
+    },
+    {
+      key: 'personas',
+      header: 'Personas',
+      render: (simulation: Simulation) => (
+        <div className="flex items-center space-x-2">
+          <div className="text-sm">
+            {simulation.personas && simulation.personas.length > 0 ? (
+              <div className="flex items-center whitespace-nowrap">
+                <UserGroupIcon className="h-4 w-4 mr-1 text-neutral-700" />
+                <span className="text-sm">
+                  {simulation.personas.length} persona{simulation.personas.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            ) : (
+              <span className="text-sm text-neutral-700">No personas</span>
+            )}
+          </div>
+          <button
+            onClick={() => onEditPersonas(simulation)}
+            className="retro-btn-base bg-white px-2 py-1"
+            title="Edit Personas"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+    {
+      key: 'stats',
+      header: 'Stats',
+      render: (simulation: Simulation) => (
+        <div className="text-sm text-neutral-700 whitespace-nowrap">
+          <div className="flex items-center">
+            <EyeIcon className="h-4 w-4 mr-1" />
+            {simulation.viewCount} views
+          </div>
+          <div className="text-xs text-neutral-500 whitespace-nowrap">
+            ✅ {simulation.completionCount} completions
+          </div>
+          {Array.isArray(simulation.conversationGoals) && simulation.conversationGoals.length > 0 && (
+            <div className="text-xs text-neutral-500 whitespace-nowrap">
+              🎯 {simulation.conversationGoals.length} goal{simulation.conversationGoals.length !== 1 ? 's' : ''}
+            </div>
+          )}
+          {simulation.averageRating > 0 && (
+            <div className="text-xs text-neutral-500 whitespace-nowrap">
+              ⭐ {simulation.averageRating.toFixed(1)}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      render: (simulation: Simulation) => (
+        <span className="text-sm text-neutral-700">{new Date(simulation.createdAt).toLocaleDateString()}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      render: (simulation: Simulation) => (
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={() => onEdit(simulation)}
+            className="retro-btn-base bg-white px-2 py-1 text-sm"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onDelete(simulation)}
+            className="retro-btn-base bg-white px-2 py-1 text-sm"
+          >
+            Delete
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="overflow-x-auto" style={{ 
-      scrollbarWidth: 'thin', 
-      scrollbarColor: '#d1d5db #f3f4f6',
-      WebkitOverflowScrolling: 'touch'
-    }}>
-      <div className="inline-block min-w-full align-middle">
-        <table className="min-w-full bg-white divide-y divide-gray-200" style={{ minWidth: '1200px' }}>
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Simulation
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Category
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Difficulty
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Personas
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Stats
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Created
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {simulations.map((simulation) => (
-            <tr key={simulation.id} className="hover:bg-gray-50">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10">
-                    {simulation.thumbnailUrl ? (
-                      <img
-                        className="h-10 w-10 rounded-lg object-cover"
-                        src={simulation.thumbnailUrl}
-                        alt={simulation.title}
-                      />
-                    ) : (
-                      <div className="h-10 w-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                        <BeakerIcon className="h-6 w-6 text-primary-600" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-sm font-medium text-gray-900">
-                      {simulation.title}
-                    </div>
-                    <div className="text-sm text-gray-500 max-w-xs truncate">
-                      {simulation.description}
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center">
-                  <div className="text-sm text-gray-900">
-                    {simulation.category.name}
-                  </div>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getDifficultyColor(simulation.difficulty)}`}>
-                  {getDifficultyLabel(simulation.difficulty)}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  simulation.status === SimulationStatus.PUBLISHED
-                    ? 'bg-green-100 text-green-800'
-                    : simulation.status === SimulationStatus.DRAFT
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {simulation.status.charAt(0).toUpperCase() + simulation.status.slice(1).toLowerCase()}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center space-x-2">
-                  <div className="text-sm text-gray-900">
-                    {simulation.personas && simulation.personas.length > 0 ? (
-                      <div className="flex items-center">
-                        <UserGroupIcon className="h-4 w-4 mr-1 text-gray-400" />
-                        <span className="text-xs">
-                          {simulation.personas.length} persona{simulation.personas.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">No personas</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => onEditPersonas(simulation)}
-                    className="text-primary-600 hover:text-primary-900"
-                    title="Edit Personas"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <div>
-                  <div className="flex items-center">
-                    <EyeIcon className="h-4 w-4 mr-1" />
-                    {simulation.viewCount} views
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    {simulation.completionCount} completions
-                  </div>
-                  {Array.isArray(simulation.conversationGoals) && simulation.conversationGoals.length > 0 && (
-                    <div className="text-xs text-gray-400">
-                      🎯 {simulation.conversationGoals.length} goal{simulation.conversationGoals.length !== 1 ? 's' : ''}
-                    </div>
-                  )}
-                  {simulation.averageRating > 0 && (
-                    <div className="text-xs text-gray-400">
-                      ⭐ {simulation.averageRating.toFixed(1)}
-                    </div>
-                  )}
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {new Date(simulation.createdAt).toLocaleDateString()}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <div className="flex justify-end space-x-2">
-                  <button
-                    onClick={() => onEdit(simulation)}
-                    className="text-primary-600 hover:text-primary-900"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => onDelete(simulation)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        </table>
-      </div>
-    </div>
+    <RetroTable<Simulation>
+      columns={columns}
+      data={simulations}
+      keyExtractor={(row) => row.id}
+      tableClassName="min-w-[1200px]"
+    />
   );
 };
 
@@ -274,135 +242,79 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-secondary-900">
-              Edit Simulation
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-secondary-400 hover:text-secondary-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+    <RetroDialog open={true} onClose={onClose} title="Edit Simulation" className="!max-w-7xl w-[95vw]">
+      <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Duration (minutes) *
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  value={formData.estimatedDurationMinutes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, estimatedDurationMinutes: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Difficulty *
-                </label>
-                <select
-                  required
-                  value={formData.difficulty}
-                  onChange={(e) => setFormData(prev => ({ ...prev, difficulty: Number(e.target.value) as SimulationDifficulty }))}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value={SimulationDifficulty.BEGINNER}>1 - Beginner</option>
-                  <option value={SimulationDifficulty.INTERMEDIATE}>2 - Intermediate</option>
-                  <option value={SimulationDifficulty.ADVANCED}>3 - Advanced</option>
-                  <option value={SimulationDifficulty.EXPERT}>4 - Expert</option>
-                  <option value={SimulationDifficulty.MASTER}>5 - Master</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Status *
-                </label>
-                <select
-                  required
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as SimulationStatus }))}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value={SimulationStatus.DRAFT}>Draft</option>
-                  <option value={SimulationStatus.PUBLISHED}>Published</option>
-                  <option value={SimulationStatus.ARCHIVED}>Archived</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Tags (comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={formData.tags}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-                  placeholder="tag1, tag2, tag3"
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
+              <RetroInput
+                label="Title *"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: (e.target as HTMLInputElement).value }))}
+              />
+              <RetroInput
+                label="Duration (minutes) *"
+                type="number"
+                required
+                min={1}
+                value={formData.estimatedDurationMinutes}
+                onChange={(e) => setFormData(prev => ({ ...prev, estimatedDurationMinutes: Number((e.target as HTMLInputElement).value) }))}
+              />
+              <RetroSelect
+                label="Difficulty *"
+                required
+                value={formData.difficulty}
+                onChange={(e) => setFormData(prev => ({ ...prev, difficulty: Number((e.target as HTMLSelectElement).value) as SimulationDifficulty }))}
+              >
+                <option value={SimulationDifficulty.BEGINNER}>1 - Beginner</option>
+                <option value={SimulationDifficulty.INTERMEDIATE}>2 - Intermediate</option>
+                <option value={SimulationDifficulty.ADVANCED}>3 - Advanced</option>
+                <option value={SimulationDifficulty.EXPERT}>4 - Expert</option>
+                <option value={SimulationDifficulty.MASTER}>5 - Master</option>
+              </RetroSelect>
+              <RetroSelect
+                label="Status *"
+                required
+                value={formData.status}
+                onChange={(e) => setFormData(prev => ({ ...prev, status: (e.target as HTMLSelectElement).value as SimulationStatus }))}
+              >
+                <option value={SimulationStatus.DRAFT}>Draft</option>
+                <option value={SimulationStatus.PUBLISHED}>Published</option>
+                <option value={SimulationStatus.ARCHIVED}>Archived</option>
+              </RetroSelect>
+              <RetroInput
+                label="Tags (comma separated)"
+                value={formData.tags}
+                onChange={(e) => setFormData(prev => ({ ...prev, tags: (e.target as HTMLInputElement).value }))}
+                placeholder="tag1, tag2, tag3"
+                containerClassName="md:col-span-2"
+              />
             </div>
 
             {/* Text Areas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Description *
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Scenario *
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={formData.scenario}
-                  onChange={(e) => setFormData(prev => ({ ...prev, scenario: e.target.value }))}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  Objectives (one per line)
-                </label>
-                <textarea
-                  rows={4}
-                  value={formData.objectives}
-                  onChange={(e) => setFormData(prev => ({ ...prev, objectives: e.target.value }))}
-                  placeholder="Enter each objective on a new line"
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
+              <RetroTextArea
+                label="Description *"
+                required
+                rows={4}
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: (e.target as HTMLTextAreaElement).value }))}
+              />
+              <RetroTextArea
+                label="Scenario *"
+                required
+                rows={4}
+                value={formData.scenario}
+                onChange={(e) => setFormData(prev => ({ ...prev, scenario: (e.target as HTMLTextAreaElement).value }))}
+              />
+              <RetroTextArea
+                label="Objectives (one per line)"
+                rows={4}
+                value={formData.objectives}
+                onChange={(e) => setFormData(prev => ({ ...prev, objectives: (e.target as HTMLTextAreaElement).value }))}
+                placeholder="Enter each objective on a new line"
+                containerClassName="md:col-span-2"
+              />
             </div>
 
             {/* Conversation Goals */}
@@ -441,23 +353,20 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
                           <span className="text-sm font-medium text-secondary-700">Goal {goal.goalNumber}</span>
-                          <label className="inline-flex items-center text-sm text-secondary-700">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded mr-2"
-                              checked={!!goal.isOptional}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setGoals(prev => prev.map((g, i) => i === index ? { ...g, isOptional: checked } : g));
-                              }}
-                            />
-                            Optional
-                          </label>
+                          <RetroCheckbox
+                            label="Optional"
+                            checked={!!goal.isOptional}
+                            onChange={(e) => {
+                              const checked = (e.target as HTMLInputElement).checked;
+                              setGoals(prev => prev.map((g, i) => i === index ? { ...g, isOptional: checked } : g));
+                            }}
+                          />
                         </div>
                         <div className="flex items-center space-x-2">
-                          <button
+                          <Button
                             type="button"
-                            className="px-2 py-1 text-xs border border-secondary-300 rounded disabled:opacity-50"
+                            size="sm"
+                            variant="outline"
                             onClick={() => {
                               if (index === 0) return;
                               setGoals(prev => {
@@ -471,10 +380,11 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                             disabled={index === 0}
                           >
                             Move Up
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            className="px-2 py-1 text-xs border border-secondary-300 rounded disabled:opacity-50"
+                            size="sm"
+                            variant="outline"
                             onClick={() => {
                               if (index === goals.length - 1) return;
                               setGoals(prev => {
@@ -488,60 +398,55 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                             disabled={index === goals.length - 1}
                           >
                             Move Down
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded"
+                            size="sm"
+                            variant="danger"
                             onClick={() => {
                               setGoals(prev => prev.filter((_, i) => i !== index).map((g, idx) => ({ ...g, goalNumber: idx + 1 })));
                             }}
                           >
                             Remove
-                          </button>
+                          </Button>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-secondary-700 mb-2">Title</label>
-                          <input
-                            type="text"
+                          <RetroInput
+                            label="Title"
                             value={goal.title || ''}
-                            onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, title: e.target.value } : g))}
-                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                            onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, title: (e.target as HTMLInputElement).value } : g))}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-secondary-700 mb-2">Description</label>
-                          <input
-                            type="text"
+                          <RetroInput
+                            label="Description"
                             value={goal.description || ''}
-                            onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, description: e.target.value } : g))}
-                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                            onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, description: (e.target as HTMLInputElement).value } : g))}
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-secondary-700 mb-2">Key Behaviors (one per line)</label>
-                          <textarea
+                          <RetroTextArea
+                            label="Key Behaviors (one per line)"
                             rows={3}
                             value={(goal.keyBehaviors || []).join('\n')}
                             onChange={(e) => {
-                              const list = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                              const list = (e.target as HTMLTextAreaElement).value.split('\n').map(s => s.trim()).filter(Boolean);
                               setGoals(prev => prev.map((g, i) => i === index ? { ...g, keyBehaviors: list } : g));
                             }}
-                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-secondary-700 mb-2">Success Indicators (one per line)</label>
-                          <textarea
+                          <RetroTextArea
+                            label="Success Indicators (one per line)"
                             rows={3}
                             value={(goal.successIndicators || []).join('\n')}
                             onChange={(e) => {
-                              const list = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+                              const list = (e.target as HTMLTextAreaElement).value.split('\n').map(s => s.trim()).filter(Boolean);
                               setGoals(prev => prev.map((g, i) => i === index ? { ...g, successIndicators: list } : g));
                             }}
-                            className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                           />
                         </div>
                       </div>
@@ -552,21 +457,14 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
             </div>
 
             {/* Status */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isPublic"
-                checked={formData.isPublic}
-                onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 rounded"
-              />
-              <label htmlFor="isPublic" className="ml-2 block text-sm text-secondary-900">
-                Public Simulation
-              </label>
-            </div>
+            <RetroCheckbox
+              label="Public Simulation"
+              checked={formData.isPublic}
+              onChange={(e) => setFormData(prev => ({ ...prev, isPublic: (e.target as HTMLInputElement).checked }))}
+            />
 
             {/* Form Actions */}
-            <div className="flex justify-end space-x-3 pt-6 border-t border-secondary-200">
+            <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black">
               <Button
                 type="button"
                 variant="secondary"
@@ -578,10 +476,8 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                 Update Simulation
               </Button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </form>
+    </RetroDialog>
   );
 };
 
@@ -642,107 +538,258 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-secondary-900">
-              Manage Personas for "{simulation.title}"
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-secondary-400 hover:text-secondary-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-lg font-medium text-secondary-900 mb-4">
-              Select Personas ({selectedPersonaIds.length} selected)
-            </h3>
-            
-            {availablePersonas.length === 0 ? (
-              <div className="text-center py-8">
-                <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No personas available</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Create personas first to attach them to simulations.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                {availablePersonas.map((persona) => {
-                  const isSelected = selectedPersonaIds.includes(persona.id);
-                  return (
-                    <div
-                      key={persona.id}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        isSelected 
-                          ? 'border-primary-500 bg-primary-50' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={(e) => {
-                        // Only handle click if it's not on the checkbox
-                        if (e.target !== e.currentTarget.querySelector('input[type="checkbox"]')) {
+    <RetroDialog
+      open={true}
+      onClose={onClose}
+      title={`Manage Personas for "${simulation.title}"`}
+      className="!max-w-7xl w-[95vw]"
+    >
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-md font-medium text-secondary-900 mb-4">
+            Select Personas <span className="font-monoRetro text-sm">({selectedPersonaIds.length} selected)</span>
+          </h3>
+          {availablePersonas.length === 0 ? (
+            <div className="text-center py-8">
+              <UserGroupIcon className="mx-auto h-12 w-12 text-neutral-400" />
+              <h3 className="mt-2 text-sm font-medium">No personas available</h3>
+              <p className="mt-1 text-sm text-neutral-600">
+                Create personas first to attach them to simulations.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {availablePersonas.map((persona) => {
+                const isSelected = selectedPersonaIds.includes(persona.id);
+                return (
+                  <div
+                    key={persona.id}
+                    className={`p-4 border-2 border-black shadow-[2px_2px_0_#111827] cursor-pointer transition-colors ${
+                      isSelected ? 'bg-yellow-100' : 'bg-white hover:bg-neutral-50'
+                    }`}
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest('input[type="checkbox"]')) return;
+                      handlePersonaToggle(persona.id);
+                    }}
+                  >
+                    <div className="flex items-start">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          e.stopPropagation();
                           handlePersonaToggle(persona.id);
-                        }
-                      }}
-                    >
-                      <div className="flex items-start">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            handlePersonaToggle(persona.id);
-                          }}
-                          className="mt-1 mr-3 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center">
-                            <h4 className="text-sm font-medium text-gray-900">
-                              {persona.name}
-                            </h4>
-                            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {persona.difficultyText}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">{persona.role}</p>
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                            {persona.personality}
-                          </p>
+                        }}
+                        className="mt-1 mr-3 h-4 w-4"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center">
+                          <h4 className="text-sm font-semibold text-secondary-900">
+                            {persona.name}
+                          </h4>
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs border-2 border-black bg-white shadow-[2px_2px_0_#111827]">
+                            {persona.difficultyText}
+                          </span>
                         </div>
+                        <p className="text-sm text-neutral-700 mt-1">{persona.role}</p>
+                        <p className="text-xs text-neutral-600 mt-1 line-clamp-2">
+                          {persona.personality}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-6 border-t border-secondary-200">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSave}
-              disabled={loading}
-            >
-              {loading ? 'Updating...' : 'Update Personas'}
-            </Button>
-          </div>
+        {/* Form Actions */}
+        <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? 'Updating...' : 'Update Personas'}
+          </Button>
         </div>
       </div>
-    </div>
+    </RetroDialog>
+  );
+};
+
+interface CreateSimulationModalProps {
+  onClose: () => void;
+  onCreated: (simulation: Simulation) => void;
+}
+
+const CreateSimulationModal: React.FC<CreateSimulationModalProps> = ({ onClose, onCreated }) => {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    scenario: '',
+    difficulty: SimulationDifficulty.BEGINNER as SimulationDifficulty,
+    status: SimulationStatus.DRAFT as SimulationStatus,
+    estimatedDurationMinutes: 30,
+    isPublic: true,
+    objectives: '',
+    tags: '',
+    categoryId: '',
+  });
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const cats = await apiClient.getCategories();
+        setCategories(cats);
+        if (cats.length > 0) {
+          setFormData(prev => ({ ...prev, categoryId: cats[0].id }));
+        }
+      } catch (e) {
+        toast.error('Failed to load categories');
+      }
+    };
+    load();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        scenario: formData.scenario.trim(),
+        objectives: formData.objectives
+          ? formData.objectives.split('\n').map(s => s.trim()).filter(Boolean)
+          : [],
+        difficulty: Number(formData.difficulty),
+        estimatedDurationMinutes: Number(formData.estimatedDurationMinutes),
+        status: formData.status,
+        isPublic: !!formData.isPublic,
+        tags: formData.tags
+          ? formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+          : [],
+        categoryId: formData.categoryId,
+      };
+      const created = await apiClient.createSimulation(payload as any);
+      toast.success('Simulation created');
+      onCreated(created);
+    } catch (error: any) {
+      console.error('Failed to create simulation:', error);
+      const message = error.response?.data?.error || 'Failed to create simulation';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <RetroDialog open={true} onClose={onClose} title="Create Simulation" className="!max-w-7xl w-[95vw]">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <RetroInput
+            label="Title *"
+            required
+            value={formData.title}
+            onChange={(e) => setFormData(prev => ({ ...prev, title: (e.target as HTMLInputElement).value }))}
+          />
+          <RetroInput
+            label="Duration (minutes) *"
+            type="number"
+            required
+            min={1}
+            value={formData.estimatedDurationMinutes}
+            onChange={(e) => setFormData(prev => ({ ...prev, estimatedDurationMinutes: Number((e.target as HTMLInputElement).value) }))}
+          />
+          <RetroSelect
+            label="Difficulty *"
+            required
+            value={formData.difficulty}
+            onChange={(e) => setFormData(prev => ({ ...prev, difficulty: Number((e.target as HTMLSelectElement).value) as SimulationDifficulty }))}
+          >
+            <option value={SimulationDifficulty.BEGINNER}>1 - Beginner</option>
+            <option value={SimulationDifficulty.INTERMEDIATE}>2 - Intermediate</option>
+            <option value={SimulationDifficulty.ADVANCED}>3 - Advanced</option>
+            <option value={SimulationDifficulty.EXPERT}>4 - Expert</option>
+            <option value={SimulationDifficulty.MASTER}>5 - Master</option>
+          </RetroSelect>
+          <RetroSelect
+            label="Status *"
+            required
+            value={formData.status}
+            onChange={(e) => setFormData(prev => ({ ...prev, status: (e.target as HTMLSelectElement).value as SimulationStatus }))}
+          >
+            <option value={SimulationStatus.DRAFT}>Draft</option>
+            <option value={SimulationStatus.PUBLISHED}>Published</option>
+            <option value={SimulationStatus.ARCHIVED}>Archived</option>
+          </RetroSelect>
+          <RetroSelect
+            label="Category *"
+            required
+            value={formData.categoryId}
+            onChange={(e) => setFormData(prev => ({ ...prev, categoryId: (e.target as HTMLSelectElement).value }))}
+            containerClassName="md:col-span-2"
+          >
+            <option value="" disabled>Select category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </RetroSelect>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <RetroTextArea
+            label="Description *"
+            required
+            rows={4}
+            value={formData.description}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: (e.target as HTMLTextAreaElement).value }))}
+          />
+          <RetroTextArea
+            label="Scenario *"
+            required
+            rows={4}
+            value={formData.scenario}
+            onChange={(e) => setFormData(prev => ({ ...prev, scenario: (e.target as HTMLTextAreaElement).value }))}
+          />
+          <RetroTextArea
+            label="Objectives (one per line)"
+            rows={4}
+            value={formData.objectives}
+            onChange={(e) => setFormData(prev => ({ ...prev, objectives: (e.target as HTMLTextAreaElement).value }))}
+            placeholder="Enter each objective on a new line"
+            containerClassName="md:col-span-2"
+          />
+        </div>
+
+        <RetroCheckbox
+          label="Public Simulation"
+          checked={formData.isPublic}
+          onChange={(e) => setFormData(prev => ({ ...prev, isPublic: (e.target as HTMLInputElement).checked }))}
+        />
+
+        <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading || !formData.categoryId}>
+            {loading ? 'Creating...' : 'Create Simulation'}
+          </Button>
+        </div>
+      </form>
+    </RetroDialog>
   );
 };
 
@@ -753,6 +800,7 @@ export const AdminSimulations: React.FC = () => {
   const [editingSimulation, setEditingSimulation] = useState<Simulation | null>(null);
   const [showPersonaModal, setShowPersonaModal] = useState(false);
   const [editingPersonaSimulation, setEditingPersonaSimulation] = useState<Simulation | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -871,88 +919,89 @@ export const AdminSimulations: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Simulation Management</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-retro tracking-wider2">SIMULATION MANAGEMENT</h1>
+          <p className="mt-1 text-sm font-monoRetro">
             Manage simulations, content, and publishing status
           </p>
         </div>
-        <button className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        <button className="retro-btn-base bg-white px-4 py-2 gap-2" onClick={() => setShowCreateModal(true)}>
+          <PlusIcon className="h-4 w-4" />
           Create Simulation
         </button>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="retro-card overflow-hidden">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <BeakerIcon className="h-6 w-6 text-gray-400" />
+                <BeakerIcon className="h-6 w-6 text-black" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-semibold truncate">
                     Total Simulations
                   </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {pagination.count}
+                  <dd className="text-2xl font-semibold">
+                    <ValueText value={pagination.count} />
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="retro-card overflow-hidden">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TagIcon className="h-6 w-6 text-gray-400" />
+                <TagIcon className="h-6 w-6" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-semibold truncate">
                     Published
                   </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {simulations.filter(s => s.status === SimulationStatus.PUBLISHED).length}
+                  <dd className="text-2xl font-semibold">
+                    <ValueText value={simulations.filter(s => s.status === SimulationStatus.PUBLISHED).length} />
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="retro-card overflow-hidden">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <EyeIcon className="h-6 w-6 text-gray-400" />
+                <EyeIcon className="h-6 w-6" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-semibold truncate">
                     Total Views
                   </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {simulations.reduce((sum, s) => sum + s.viewCount, 0).toLocaleString()}
+                  <dd className="text-2xl font-semibold">
+                    <ValueText value={simulations.reduce((sum, s) => sum + s.viewCount, 0).toLocaleString()} />
                   </dd>
                 </dl>
               </div>
             </div>
           </div>
         </div>
-        <div className="bg-white overflow-hidden shadow rounded-lg">
+        <div className="retro-card overflow-hidden">
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TagIcon className="h-6 w-6 text-gray-400" />
+                <TagIcon className="h-6 w-6" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                  <dt className="text-sm font-semibold truncate">
                     Completions
                   </dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {simulations.reduce((sum, s) => sum + s.completionCount, 0).toLocaleString()}
+                  <dd className="text-2xl font-semibold">
+                    <ValueText value={simulations.reduce((sum, s) => sum + s.completionCount, 0).toLocaleString()} />
                   </dd>
                 </dl>
               </div>
@@ -962,12 +1011,12 @@ export const AdminSimulations: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow">
+      <div className="retro-card p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="retro-input"
           >
             <option value="">All Statuses</option>
             <option value={SimulationStatus.DRAFT}>Draft</option>
@@ -977,20 +1026,20 @@ export const AdminSimulations: React.FC = () => {
           <select
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="retro-input"
           >
             <option value="">All Categories</option>
             {/* Categories would be loaded from API */}
           </select>
-          <div className="flex items-center text-sm text-gray-500">
-            <FunnelIcon className="h-4 w-4 mr-2" />
+          <div className="flex items-center text-sm">
+            <FunnelIcon className="h-4 w-4 mr-2 text-black" />
             {pagination.count} total simulations
           </div>
         </div>
       </div>
 
       {/* Simulations Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="retro-card overflow-hidden">
         <div className="max-w-full">
         {loading ? (
           <div className="flex justify-center items-center h-64">
@@ -1005,14 +1054,14 @@ export const AdminSimulations: React.FC = () => {
           />
         ) : (
           <div className="text-center py-12">
-            <BeakerIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No simulations</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <BeakerIcon className="mx-auto h-12 w-12 text-black" />
+            <h3 className="mt-2 text-sm font-medium">No simulations</h3>
+            <p className="mt-1 text-sm">
               Get started by creating a new simulation.
             </p>
             <div className="mt-6">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700">
-                <BeakerIcon className="-ml-1 mr-2 h-5 w-5" />
+              <button className="retro-btn-base bg-white px-4 py-2 inline-flex items-center text-sm" onClick={() => setShowCreateModal(true)}>
+                <BeakerIcon className="-ml-1 mr-2 h-5 w-5 text-black" />
                 New Simulation
               </button>
             </div>
@@ -1025,9 +1074,9 @@ export const AdminSimulations: React.FC = () => {
       {pagination.total > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-700">
-            Showing {((pagination.current - 1) * pagination.limit) + 1} to{' '}
-            {Math.min(pagination.current * pagination.limit, pagination.count)} of{' '}
-            {pagination.count} results
+            Showing <ValueText value={((pagination.current - 1) * pagination.limit) + 1} /> to{' '}
+            <ValueText value={Math.min(pagination.current * pagination.limit, pagination.count)} /> of{' '}
+            <ValueText value={pagination.count} /> results
           </div>
           <div className="flex space-x-2">
             <button
@@ -1058,6 +1107,27 @@ export const AdminSimulations: React.FC = () => {
       )}
 
       {/* Persona Management Modal */}
+      {/* Create Simulation Modal */}
+      {showCreateModal && (
+        <CreateSimulationModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={async () => {
+            // Refresh list
+            try {
+              const params = {
+                ...filters,
+                status: filters.status || undefined,
+                category: filters.category || undefined,
+              } as any;
+              const response = await apiClient.getAdminSimulations(params);
+              setSimulations(response.simulations);
+              setPagination(response.pagination);
+            } finally {
+              setShowCreateModal(false);
+            }
+          }}
+        />
+      )}
       {showPersonaModal && editingPersonaSimulation && (
         <PersonaManagementModal
           simulation={editingPersonaSimulation}

@@ -9,6 +9,7 @@ import {
 import { apiClient } from '../../utils/api.ts';
 import { User, UserRole, SubscriptionTier, AdminUserUpdate } from '../../types/index.ts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
+import { RetroPagination } from '../../components/ui/RetroTable.tsx';
 import toast from 'react-hot-toast';
 
 interface UsersTableProps {
@@ -65,55 +66,43 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full bg-white divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="min-w-full border-separate border-spacing-0">
+        <thead>
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              User
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Role
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Subscription
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Joined
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
+            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">User</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Role</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Subscription</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Status</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Joined</th>
+            <th className="text-right px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
+        <tbody>
           {users.map((user) => {
             const isEditing = editingUser?.id === user.id;
             
             return (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+              <tr key={user.id} className="odd:bg-white even:bg-neutral-50">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10">
-                      <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-primary-600 font-medium">
+                      <div className="h-10 w-10 border-2 border-black flex items-center justify-center shadow-[2px_2px_0_#111827]">
+                        <span className="font-bold">
                           {user.firstName?.[0]}{user.lastName?.[0]}
                         </span>
                       </div>
                     </div>
                     <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-semibold">
                         {user.firstName} {user.lastName}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm font-monoRetro">
                         {user.email}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
                   {isEditing ? (
                     <select
                       value={editingUser.role}
@@ -121,22 +110,18 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ...editingUser,
                         role: e.target.value as UserRole
                       })}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      className="retro-input text-sm"
                     >
                       <option value={UserRole.USER}>User</option>
                       <option value={UserRole.ADMIN}>Admin</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === UserRole.ADMIN
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()}
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
                   {isEditing ? (
                     <select
                       value={editingUser.subscriptionTier}
@@ -144,25 +129,19 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ...editingUser,
                         subscriptionTier: e.target.value as SubscriptionTier
                       })}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      className="retro-input text-sm"
                     >
                       <option value={SubscriptionTier.FREEMIUM}>Freemium</option>
                       <option value={SubscriptionTier.PRO}>Pro</option>
                       <option value={SubscriptionTier.PREMIUM}>Premium</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.subscriptionTier === SubscriptionTier.PREMIUM
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : user.subscriptionTier === SubscriptionTier.PRO
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
                       {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1).toLowerCase()}
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
                   {isEditing ? (
                     <select
                       value={editingUser.isActive ? 'active' : 'inactive'}
@@ -170,31 +149,27 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                         ...editingUser,
                         isActive: e.target.value === 'active'
                       })}
-                      className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                      className="retro-input text-sm"
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
                       {user.isActive ? 'Active' : 'Inactive'}
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-monoRetro border-b border-neutral-300">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium border-b border-neutral-300">
                   {isEditing ? (
                     <div className="flex justify-end space-x-2">
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                        className="retro-btn-base bg-white px-2 py-1 disabled:opacity-50"
                       >
                         {saving ? (
                           <LoadingSpinner size="sm" />
@@ -205,7 +180,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <button
                         onClick={handleCancel}
                         disabled={saving}
-                        className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                        className="retro-btn-base bg-white px-2 py-1 disabled:opacity-50"
                       >
                         <XMarkIcon className="h-4 w-4" />
                       </button>
@@ -213,7 +188,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                   ) : (
                     <button
                       onClick={() => handleEdit(user)}
-                      className="text-primary-600 hover:text-primary-900"
+                      className="retro-btn-base bg-white px-2 py-1"
                     >
                       <PencilIcon className="h-4 w-4" />
                     </button>
@@ -293,30 +268,31 @@ export const AdminUsers: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-retro tracking-wider2">USER MANAGEMENT</h1>
+          <p className="mt-1 text-sm font-monoRetro">
             Manage user accounts, roles, and subscriptions
           </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow">
+      <div className="retro-card p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search users..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+              className="retro-input pl-10 pr-4 py-2 w-full"
+              style={{ paddingLeft: '2.5rem' }}
             />
           </div>
           <select
             value={filters.tier}
             onChange={(e) => handleFilterChange('tier', e.target.value)}
-            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="retro-input"
           >
             <option value="">All Tiers</option>
             <option value={SubscriptionTier.FREEMIUM}>Freemium</option>
@@ -326,13 +302,13 @@ export const AdminUsers: React.FC = () => {
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+            className="retro-input"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          <div className="flex items-center text-sm text-gray-500">
+          <div className="flex items-center text-sm">
             <FunnelIcon className="h-4 w-4 mr-2" />
             {pagination.count} total users
           </div>
@@ -340,7 +316,7 @@ export const AdminUsers: React.FC = () => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="retro-card overflow-hidden">
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner size="lg" />
@@ -349,35 +325,19 @@ export const AdminUsers: React.FC = () => {
           <UsersTable users={users} onUserUpdate={handleUserUpdate} />
         ) : (
           <div className="text-center py-12">
-            <p className="text-gray-500">No users found</p>
+            <p>No users found</p>
           </div>
         )}
       </div>
 
       {/* Pagination */}
       {pagination.total > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing {((pagination.current - 1) * pagination.limit) + 1} to{' '}
-            {Math.min(pagination.current * pagination.limit, pagination.count)} of{' '}
-            {pagination.count} results
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => handlePageChange(pagination.current - 1)}
-              disabled={pagination.current === 1}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => handlePageChange(pagination.current + 1)}
-              disabled={pagination.current === pagination.total}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
+        <div>
+          <RetroPagination
+            page={pagination.current}
+            pageCount={pagination.total}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
     </div>

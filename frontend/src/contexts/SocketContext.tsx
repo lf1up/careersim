@@ -31,6 +31,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
+
     if (isAuthenticated && user?.id) {
       // Initialize socket connection
       const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8000';
@@ -38,7 +40,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         auth: {
           token: localStorage.getItem('authToken'),
         },
-        // Prevent automatic reconnection to avoid rate limiting
         reconnection: true,
         reconnectionAttempts: 3,
         reconnectionDelay: 1000,
@@ -47,7 +48,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       newSocket.on('connect', () => {
         console.log('Connected to server');
         setIsConnected(true);
-        // Join user's personal room for notifications
         newSocket.emit('join-user-room', user.id);
       });
 
@@ -63,17 +63,19 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
       setSocket(newSocket);
 
-      return () => {
+      cleanup = () => {
         console.log('Cleaning up socket connection');
         newSocket.close();
       };
     } else if (socket) {
-      // User logged out, disconnect socket
       console.log('User logged out, disconnecting socket');
       socket.close();
       setSocket(null);
       setIsConnected(false);
+      cleanup = undefined;
     }
+
+    return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id]); // socket intentionally omitted to prevent infinite loop
 

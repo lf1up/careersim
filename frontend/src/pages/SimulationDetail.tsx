@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
+import { RetroBadge, RetroAlert } from '../components/ui/RetroBadge.tsx';
 import { useSocket } from '../contexts/SocketContext.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { 
@@ -10,52 +11,19 @@ import {
   SimulationSession, 
   SessionMessage, 
   SessionStatus,
-    SimulationDifficulty,
     ConversationGoal
 } from '../types/index.ts';
+import { categoryNameToBadgeColor, difficultyToBadgeColor, getDifficultyLabel } from '../utils/badges.ts';
 import {
   ClockIcon,
   TagIcon,
   PlayIcon,
   PaperAirplaneIcon,
   UserIcon,
-  ComputerDesktopIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 
-const getDifficultyColor = (difficulty: SimulationDifficulty): string => {
-  switch (difficulty) {
-    case SimulationDifficulty.BEGINNER:
-      return 'bg-green-100 text-green-800';
-    case SimulationDifficulty.INTERMEDIATE:
-      return 'bg-yellow-100 text-yellow-800';
-    case SimulationDifficulty.ADVANCED:
-      return 'bg-orange-100 text-orange-800';
-    case SimulationDifficulty.EXPERT:
-      return 'bg-red-100 text-red-800';
-    case SimulationDifficulty.MASTER:
-      return 'bg-purple-100 text-purple-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
-  switch (difficulty) {
-    case SimulationDifficulty.BEGINNER:
-      return 'Beginner';
-    case SimulationDifficulty.INTERMEDIATE:
-      return 'Intermediate';
-    case SimulationDifficulty.ADVANCED:
-      return 'Advanced';
-    case SimulationDifficulty.EXPERT:
-      return 'Expert';
-    case SimulationDifficulty.MASTER:
-      return 'Master';
-    default:
-      return 'Unknown';
-  }
-};
+// styling handled via RetroBadge
 
 export const SimulationDetail: React.FC = () => {
   const { id, sessionId } = useParams<{ id: string; sessionId?: string }>();
@@ -69,6 +37,7 @@ export const SimulationDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isStartingSession, setIsStartingSession] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isAwaitingAIResponse, setIsAwaitingAIResponse] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [goalTooltip, setGoalTooltip] = useState<{
@@ -167,6 +136,11 @@ export const SimulationDetail: React.FC = () => {
           messages: [...(prev.messages || []), data.message]
         };
       });
+
+      // If AI responded, stop typing indicator
+      if (data.message.type === 'ai') {
+        setIsAwaitingAIResponse(false);
+      }
     };
 
     // Listen for goal progress updates from backend
@@ -245,6 +219,7 @@ export const SimulationDetail: React.FC = () => {
 
     try {
       setIsSendingMessage(true);
+      setIsAwaitingAIResponse(true);
       
       // Add user message immediately to UI with temporary ID
       const tempId = `temp-${Date.now()}`;
@@ -283,6 +258,7 @@ export const SimulationDetail: React.FC = () => {
     } catch (error) {
       console.error('Failed to send message:', error);
       setError('Failed to send message. Please try again.');
+      setIsAwaitingAIResponse(false);
       
       // Remove the optimistic message on error
       setSession(prev => {
@@ -352,7 +328,7 @@ export const SimulationDetail: React.FC = () => {
   // If no active session, show simulation details with start button
   if (!session) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back button */}
         <div className="mb-6">
           <Button
@@ -366,7 +342,7 @@ export const SimulationDetail: React.FC = () => {
         </div>
 
         {/* Simulation details */}
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div className="retro-card overflow-hidden">
           {simulation.thumbnailUrl && (
             <div className="h-48 bg-secondary-200">
               <img
@@ -380,10 +356,10 @@ export const SimulationDetail: React.FC = () => {
           <div className="p-8">
             <div className="flex items-start justify-between mb-6">
               <div className="flex-1">
-                <h1 className="text-3xl font-bold text-secondary-900 mb-2">
+                <h1 className="text-3xl font-retro tracking-wider2 mb-2">
                   {simulation.title}
                 </h1>
-                <p className="text-lg text-secondary-600 mb-4">
+                <p className="text-lg mb-4">
                   {simulation.description}
                 </p>
               </div>
@@ -392,26 +368,26 @@ export const SimulationDetail: React.FC = () => {
             {/* Tags and metadata */}
             <div className="flex items-center gap-3 mb-6">
               {simulation.category && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+                <RetroBadge color={categoryNameToBadgeColor(simulation.category.name)} className="text-sm">
                   <TagIcon className="h-4 w-4 mr-1" />
                   {simulation.category.name}
-                </span>
+                </RetroBadge>
               )}
               
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(simulation.difficulty)}`}>
+              <RetroBadge color={difficultyToBadgeColor(simulation.difficulty)} className="text-sm">
                 {getDifficultyLabel(simulation.difficulty)}
-              </span>
+              </RetroBadge>
 
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-secondary-100 text-secondary-800">
+              <RetroBadge className="text-sm">
                 <ClockIcon className="h-4 w-4 mr-1" />
                 {simulation.estimatedDurationMinutes} min
-              </span>
+              </RetroBadge>
             </div>
 
             {/* Scenario */}
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-secondary-900 mb-3">Scenario</h2>
-              <p className="text-secondary-700 leading-relaxed">
+              <h2 className="text-xl font-semibold mb-3">Scenario</h2>
+              <p className="leading-relaxed">
                 {simulation.scenario}
               </p>
             </div>
@@ -419,10 +395,10 @@ export const SimulationDetail: React.FC = () => {
             {/* Objectives */}
             {simulation.objectives && simulation.objectives.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-secondary-900 mb-3">Learning Objectives</h2>
+                <h2 className="text-xl font-semibold mb-3">Learning Objectives</h2>
                 <ul className="list-disc list-inside space-y-2">
                   {simulation.objectives.map((objective, index) => (
-                    <li key={index} className="text-secondary-700">
+                    <li key={index} className="">
                       {objective}
                     </li>
                   ))}
@@ -433,10 +409,10 @@ export const SimulationDetail: React.FC = () => {
             {/* Personas */}
             {simulation.personas && simulation.personas.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-secondary-900 mb-3">You'll interact with</h2>
+                <h2 className="text-xl font-semibold mb-3">You'll interact with</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {simulation.personas.map((persona) => (
-                    <div key={persona.id} className="flex items-center p-4 bg-secondary-50 rounded-lg">
+                    <div key={persona.id} className="flex items-center p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
                       {persona.avatarUrl ? (
                         <img
                           src={persona.avatarUrl}
@@ -444,13 +420,13 @@ export const SimulationDetail: React.FC = () => {
                           className="h-12 w-12 rounded-full mr-3"
                         />
                       ) : (
-                        <div className="h-12 w-12 rounded-full bg-secondary-300 flex items-center justify-center mr-3">
-                          <UserIcon className="h-6 w-6 text-secondary-600" />
+                        <div className="h-12 w-12 border-2 border-black flex items-center justify-center mr-3">
+                          <UserIcon className="h-6 w-6" />
                         </div>
                       )}
                       <div>
-                        <h3 className="font-medium text-secondary-900">{persona.name}</h3>
-                        <p className="text-sm text-secondary-600">{persona.role}</p>
+                        <h3 className="font-semibold">{persona.name}</h3>
+                        <p className="text-sm">{persona.role}</p>
                       </div>
                     </div>
                   ))}
@@ -460,8 +436,8 @@ export const SimulationDetail: React.FC = () => {
 
             {/* Error message */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-600">{error}</p>
+              <div className="mb-6">
+                <RetroAlert tone="error" title="Error">{error}</RetroAlert>
               </div>
             )}
 
@@ -493,18 +469,18 @@ export const SimulationDetail: React.FC = () => {
 
   // Active session - show chat interface
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col min-h-0" style={{ height: 'calc(100vh - 8rem)' }}>
         {/* Session header */}
-        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 mb-4 p-4 flex-shrink-0">
+        <div className="retro-card mb-4 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold text-secondary-900">{simulation.title}</h1>
-              <p className="text-sm text-secondary-600">Session in progress</p>
+              <h1 className="text-xl font-semibold">{simulation.title}</h1>
+              <p className="text-sm font-monoRetro">Session in progress</p>
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="secondary"
+                variant="danger"
                 size="sm"
                 onClick={handleEndSession}
               >
@@ -515,10 +491,10 @@ export const SimulationDetail: React.FC = () => {
         </div>
 
         {/* Chat interface with goals sidebar */}
-        <div className="bg-white rounded-lg shadow-sm border border-secondary-200 flex-1 flex flex-row min-h-0">
+        <div className="retro-card flex-1 flex flex-row min-h-0">
           {/* Left goals sidebar */}
-          <div className="relative z-[2147483647] w-64 border-r border-secondary-200 p-4 overflow-y-auto hidden md:block">
-            <h3 className="text-sm font-semibold text-secondary-700 mb-3">Conversation Goals</h3>
+          <div className="relative w-64 border-r-2 border-black p-4 overflow-y-auto hidden md:block">
+            <h3 className="text-sm font-semibold mb-3">Conversation Goals</h3>
             {simulation.conversationGoals && simulation.conversationGoals.length > 0 ? (
               <ul className="space-y-2">
                 {simulation.conversationGoals
@@ -533,18 +509,18 @@ export const SimulationDetail: React.FC = () => {
                     return (
                       <li
                         key={goal.goalNumber}
-                        className={`relative rounded-md border px-3 py-2 ${isAchieved ? 'bg-green-50 border-green-200' : isInProgress ? 'bg-yellow-50 border-yellow-200' : 'bg-secondary-50 border-secondary-200'}`}
+                        className={`relative border-2 px-3 py-2 shadow-[2px_2px_0_#111827] ${isAchieved ? 'bg-green-100 border-green-500' : isInProgress ? 'bg-yellow-100 border-yellow-500' : 'bg-white border-black'}`}
                         onMouseEnter={(e) => showGoalTooltip(goal, e.currentTarget as unknown as HTMLElement)}
                         onMouseLeave={hideGoalTooltip}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-secondary-900">{goal.title}</span>
+                          <span className="text-sm font-semibold">{goal.title}</span>
                           {goal.isOptional && (
-                            <span className="ml-2 text-[10px] uppercase tracking-wide text-secondary-500">Optional</span>
+                            <span className="ml-2 text-[10px] uppercase tracking-wider2">Optional</span>
                           )}
                         </div>
                         <div className="mt-1">
-                          <span className={`text-xs ${isAchieved ? 'text-green-700' : isInProgress ? 'text-yellow-700' : 'text-secondary-600'}`}>{isAchieved ? 'Achieved' : isInProgress ? 'In progress' : 'Not started'}</span>
+                          <span className={`text-xs ${isAchieved ? 'text-green-700' : isInProgress ? 'text-yellow-700' : ''}`}>{isAchieved ? 'Achieved' : isInProgress ? 'In progress' : 'Not started'}</span>
                         </div>
                       </li>
                     );
@@ -562,74 +538,70 @@ export const SimulationDetail: React.FC = () => {
             {session.messages && session.messages.length > 0 ? (
               session.messages.map((message, index) => {
                 const persona = simulation.personas && simulation.personas.length > 0 ? simulation.personas[0] : null;
-                const userName = user ? `${user.firstName} ${user.lastName}` : 'User';
-                
+                const userName = user ? `${user.firstName} ${user.lastName}` : 'You';
+                const userTitle = user?.jobTitle;
+                const personaName = persona?.name || 'Assistant';
+                const personaRole = persona?.role || 'AI Assistant';
+
                 return (
-                  <div
-                    key={message.id || index}
-                    className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                        message.isFromUser
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-secondary-100 text-secondary-900'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {!message.isFromUser && (
-                          <ComputerDesktopIcon className="h-4 w-4 mt-1 flex-shrink-0" />
+                  <div key={message.id || index} className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'} mb-4`}>
+                    <div className="max-w-[70%] min-w-0">
+                      <div className={`text-xs mb-1 ${message.isFromUser ? 'text-right' : 'text-left'}`}>
+                        <div className="font-medium">{message.isFromUser ? userName : personaName}</div>
+                        {(message.isFromUser ? userTitle : personaRole) && (
+                          <div className="font-monoRetro">{message.isFromUser ? userTitle : personaRole}</div>
                         )}
-                        <div className="flex-1">
-                          {/* Name header */}
-                          <div className={`text-xs font-medium mb-1 ${
-                            message.isFromUser ? 'text-primary-100' : 'text-secondary-600'
-                          }`}>
-                            {message.isFromUser ? (
-                              userName
-                            ) : (
-                              <span>
-                                {persona?.name || 'AI Assistant'}
-                                {persona?.role && (
-                                  <span className="ml-1 font-normal">
-                                    • {persona.role}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                          </div>
-                          <p className="whitespace-pre-wrap">{message.content}</p>
-                          <p className={`text-xs mt-1 ${
-                            message.isFromUser ? 'text-primary-200' : 'text-secondary-500'
-                          }`}>
-                            {new Date(message.timestamp).toLocaleTimeString()}
-                          </p>
-                        </div>
-                        {message.isFromUser && (
-                          <UserIcon className="h-4 w-4 mt-1 flex-shrink-0" />
-                        )}
+                      </div>
+                      <div className={`px-4 py-2 border-2 border-black shadow-[2px_2px_0_#111827] break-words max-w-full ${message.isFromUser ? 'bg-black text-white' : 'bg-white'}`}>
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      </div>
+                      <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${message.isFromUser ? 'text-right' : 'text-left'}`}>
+                        {new Date(message.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
                   </div>
                 );
               })
             ) : (
-              <div className="text-center text-secondary-500 py-8">
+              <div className="text-center py-8">
                 <p>Start the conversation! Send your first message below.</p>
+              </div>
+            )}
+            {/* Typing indicator */}
+            {isAwaitingAIResponse && (
+              <div className="flex justify-start mb-4">
+                <div className="max-w-[70%] min-w-0">
+                  <div className="text-xs mb-1 text-left">
+                    <div className="font-medium">{simulation.personas && simulation.personas[0]?.name ? simulation.personas[0].name : 'Assistant'}</div>
+                    {simulation.personas && simulation.personas[0]?.role && (
+                      <div className="font-monoRetro">{simulation.personas[0].role}</div>
+                    )}
+                  </div>
+                  <div className="px-4 py-2 border-2 border-black shadow-[2px_2px_0_#111827] break-words max-w-full bg-white">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">is typing</span>
+                      <div className="flex gap-1">
+                        <span className="h-2 w-2 bg-secondary-400 inline-block animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="h-2 w-2 bg-secondary-400 inline-block animate-bounce" style={{ animationDelay: '100ms' }}></span>
+                        <span className="h-2 w-2 bg-secondary-400 inline-block animate-bounce" style={{ animationDelay: '200ms' }}></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Message input */}
-            <div className="border-t border-secondary-200 p-4">
+            <div className="border-t-2 border-black p-4">
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   placeholder="Type your message..."
-                  className="flex-1 px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="retro-input flex-1"
                   disabled={isSendingMessage}
                 />
                 <Button
@@ -650,8 +622,8 @@ export const SimulationDetail: React.FC = () => {
 
         {/* Error message */}
         {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex-shrink-0">
-            <p className="text-red-600">{error}</p>
+          <div className="mt-4 flex-shrink-0">
+            <RetroAlert tone="error" title="Error">{error}</RetroAlert>
           </div>
         )}
 
@@ -661,16 +633,16 @@ export const SimulationDetail: React.FC = () => {
             className="fixed z-[2147483647] pointer-events-none"
             style={{ top: goalTooltip.top, left: goalTooltip.left }}
           >
-            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal rounded-md border border-secondary-300 bg-white text-secondary-900 text-xs shadow-lg">
+            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal border-2 border-black bg-white text-xs shadow-[4px_4px_0_#111827]">
               <div className="p-3">
                 <div className="font-semibold mb-1">{goalTooltip.goal.title}</div>
                 {goalTooltip.goal.description && (
-                  <p className="text-secondary-700 leading-snug">{goalTooltip.goal.description}</p>
+                  <p className="leading-snug">{goalTooltip.goal.description}</p>
                 )}
                 {(goalTooltip.goal.keyBehaviors && goalTooltip.goal.keyBehaviors.length > 0) && (
                   <div className="mt-2">
-                    <div className="font-medium text-secondary-600 mb-1">Key behaviors</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-secondary-700">
+                    <div className="font-medium mb-1">Key behaviors</div>
+                    <ul className="list-disc list-inside space-y-0.5">
                       {goalTooltip.goal.keyBehaviors.map((b, i) => (
                         <li key={i}>{b}</li>
                       ))}
@@ -679,8 +651,8 @@ export const SimulationDetail: React.FC = () => {
                 )}
                 {(goalTooltip.goal.successIndicators && goalTooltip.goal.successIndicators.length > 0) && (
                   <div className="mt-2">
-                    <div className="font-medium text-secondary-600 mb-1">Success indicators</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-secondary-700">
+                    <div className="font-medium mb-1">Success indicators</div>
+                    <ul className="list-disc list-inside space-y-0.5">
                       {goalTooltip.goal.successIndicators.map((s, i) => (
                         <li key={i}>{s}</li>
                       ))}

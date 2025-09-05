@@ -6,7 +6,8 @@ import {
   DocumentArrowDownIcon,
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../../utils/api.ts';
-import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
+import { Button } from '../../components/ui/Button.tsx';
+import { RetroCheckbox } from '../../components/ui/RetroInput.tsx';
 import toast from 'react-hot-toast';
 
 interface ExportCardProps {
@@ -27,35 +28,32 @@ const ExportCard: React.FC<ExportCardProps> = ({
   exportType,
 }) => {
   return (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
+    <div className="retro-card overflow-hidden">
       <div className="p-6">
         <div className="flex items-center">
           <div className="flex-shrink-0">
-            <Icon className="h-8 w-8 text-primary-600" />
+            <Icon className="h-8 w-8" />
           </div>
           <div className="ml-5 w-0 flex-1">
             <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-              <dd className="text-lg font-medium text-gray-900">{description}</dd>
+              <dt className="text-sm font-semibold truncate">{title}</dt>
+              <dd className="text-lg font-semibold">{description}</dd>
             </dl>
           </div>
         </div>
       </div>
-      <div className="bg-gray-50 px-6 py-3">
-        <button
+      <div className="px-6 py-3">
+        <Button
           onClick={onExport}
+          isLoading={isLoading}
           disabled={isLoading}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed w-full justify-center"
+          variant="danger"
+          size="md"
+          className="w-full text-sm"
         >
-          {isLoading ? (
-            <LoadingSpinner size="sm" />
-          ) : (
-            <>
-              <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-              Export {exportType}
-            </>
-          )}
-        </button>
+          <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+          Export {exportType}
+        </Button>
       </div>
     </div>
   );
@@ -111,14 +109,14 @@ export const AdminExport: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Export Data</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-retro tracking-wider2">EXPORT DATA</h1>
+          <p className="mt-1 text-sm font-monoRetro">
             Download platform data for analysis and reporting
           </p>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-500">
-          <DocumentArrowDownIcon className="h-4 w-4" />
-          <span>JSON Format</span>
+        <div className="flex items-center space-x-2 text-sm text-black">
+          <DocumentArrowDownIcon className="h-4 w-4 text-black" />
+          <span className="font-semibold">JSON Format</span>
         </div>
       </div>
 
@@ -143,28 +141,31 @@ export const AdminExport: React.FC = () => {
       </div>
 
       {/* Session export options */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Session Export Options</h3>
+      <div className="retro-card p-6">
+        <h3 className="text-lg font-semibold mb-4">Session Export Options</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <label className="inline-flex items-center space-x-2">
-            <input type="checkbox" className="h-4 w-4" checked={includeMessages} onChange={(e) => setIncludeMessages(e.target.checked)} />
-            <span className="text-sm text-gray-700">Include Messages</span>
-          </label>
-          <label className="inline-flex items-center space-x-2">
-            <input type="checkbox" className="h-4 w-4" checked={includeGoals} onChange={(e) => setIncludeGoals(e.target.checked)} />
-            <span className="text-sm text-gray-700">Include Goals & Progress</span>
-          </label>
-          <label className="inline-flex items-center space-x-2">
-            <input type="checkbox" className="h-4 w-4" checked={includeAnalytics} onChange={(e) => setIncludeAnalytics(e.target.checked)} />
-            <span className="text-sm text-gray-700">Include Analytics</span>
-          </label>
+          <RetroCheckbox
+            label="Include Messages"
+            checked={includeMessages}
+            onChange={(e) => setIncludeMessages(e.target.checked)}
+          />
+          <RetroCheckbox
+            label="Include Goals & Progress"
+            checked={includeGoals}
+            onChange={(e) => setIncludeGoals(e.target.checked)}
+          />
+          <RetroCheckbox
+            label="Include Analytics"
+            checked={includeAnalytics}
+            onChange={(e) => setIncludeAnalytics(e.target.checked)}
+          />
         </div>
       </div>
 
       {/* Export Information */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-blue-900 mb-4">Export Information</h3>
-        <div className="space-y-3 text-sm text-blue-800">
+      <div className="retro-card p-6">
+        <h3 className="text-lg font-semibold mb-4">Export Information</h3>
+        <div className="space-y-3 text-sm">
           <div className="flex items-start">
             <span className="font-medium mr-2">•</span>
             <span>All exports are generated in JSON format for easy parsing and analysis</span>

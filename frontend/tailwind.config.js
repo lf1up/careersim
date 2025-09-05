@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
+    "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
@@ -29,12 +30,26 @@ export default {
           700: '#334155',
           800: '#1e293b',
           900: '#0f172a',
-        }
+        },
+        // Retro-themed tokens
+        retro: {
+          paper: '#fffdf5',
+          surface: '#ffffff',
+          ink: '#111827',
+          muted: '#e5e7eb',
+          accent: '#fbbf24', // amber-400
+          accent2: '#22d3ee', // cyan-400
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        retro: ['"Press Start 2P"', 'system-ui', 'sans-serif'],
+        monoRetro: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      letterSpacing: {
+        wider2: '0.08em',
       },
     },
   },
   plugins: [],
-} 
+}

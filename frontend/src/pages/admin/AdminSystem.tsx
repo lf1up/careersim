@@ -12,6 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
 import { Button } from '../../components/ui/Button.tsx';
+import { RetroInput } from '../../components/ui/RetroInput.tsx';
 import { apiClient } from '../../utils/api.ts';
 import toast from 'react-hot-toast';
 
@@ -194,19 +195,19 @@ export const AdminSystem: React.FC = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">System Configuration</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-retro tracking-wider2">SYSTEM CONFIGURATION</h1>
+        <p className="mt-1 text-sm font-monoRetro">
           AI settings, internal prompts, and system configuration
         </p>
       </div>
 
       {/* AI Settings */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="retro-card">
+        <div className="px-6 py-4 border-b-2 border-black">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <CpuChipIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-lg font-medium text-gray-900">AI Configuration</h2>
+              <CpuChipIcon className="h-6 w-6 mr-3" />
+              <h2 className="text-lg font-semibold">AI Configuration</h2>
             </div>
             {!editingSettings && (
               <Button
@@ -225,83 +226,64 @@ export const AdminSystem: React.FC = () => {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Model
-                  </label>
-                  <input
-                    type="text"
+                  <RetroInput
+                    label="Model"
                     value={tempSettings?.model || ''}
-                    onChange={(e) => setTempSettings(prev => prev ? {...prev, model: e.target.value} : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onChange={(e) => setTempSettings(prev => prev ? { ...prev, model: (e.target as HTMLInputElement).value } : null)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Max Tokens
-                  </label>
-                  <input
+                  <RetroInput
+                    label="Max Tokens"
                     type="number"
-                    min="100"
-                    max="4000"
+                    min={100}
+                    max={4000}
                     value={tempSettings?.maxTokens || 0}
-                    onChange={(e) => setTempSettings(prev => prev ? {...prev, maxTokens: parseInt(e.target.value)} : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onChange={(e) => setTempSettings(prev => prev ? { ...prev, maxTokens: parseInt((e.target as HTMLInputElement).value) } : null)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Temperature
-                  </label>
-                  <input
+                  <RetroInput
+                    label="Temperature"
                     type="number"
-                    step="0.1"
-                    min="0"
-                    max="2"
+                    step={0.1}
+                    min={0}
+                    max={2}
                     value={tempSettings?.temperature || 0}
-                    onChange={(e) => setTempSettings(prev => prev ? {...prev, temperature: parseFloat(e.target.value)} : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onChange={(e) => setTempSettings(prev => prev ? { ...prev, temperature: parseFloat((e.target as HTMLInputElement).value) } : null)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Frequency Penalty
-                  </label>
-                  <input
+                  <RetroInput
+                    label="Frequency Penalty"
                     type="number"
-                    step="0.1"
-                    min="-2"
-                    max="2"
+                    step={0.1}
+                    min={-2}
+                    max={2}
                     value={tempSettings?.frequencyPenalty || 0}
-                    onChange={(e) => setTempSettings(prev => prev ? {...prev, frequencyPenalty: parseFloat(e.target.value)} : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onChange={(e) => setTempSettings(prev => prev ? { ...prev, frequencyPenalty: parseFloat((e.target as HTMLInputElement).value) } : null)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Presence Penalty
-                  </label>
-                  <input
+                  <RetroInput
+                    label="Presence Penalty"
                     type="number"
-                    step="0.1"
-                    min="-2"
-                    max="2"
+                    step={0.1}
+                    min={-2}
+                    max={2}
                     value={tempSettings?.presencePenalty || 0}
-                    onChange={(e) => setTempSettings(prev => prev ? {...prev, presencePenalty: parseFloat(e.target.value)} : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onChange={(e) => setTempSettings(prev => prev ? { ...prev, presencePenalty: parseFloat((e.target as HTMLInputElement).value) } : null)}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Top P
-                  </label>
-                  <input
+                  <RetroInput
+                    label="Top P"
                     type="number"
-                    step="0.1"
-                    min="0"
-                    max="1"
+                    step={0.1}
+                    min={0}
+                    max={1}
                     value={tempSettings?.topP || 0}
-                    onChange={(e) => setTempSettings(prev => prev ? {...prev, topP: parseFloat(e.target.value)} : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onChange={(e) => setTempSettings(prev => prev ? { ...prev, topP: parseFloat((e.target as HTMLInputElement).value) } : null)}
                   />
                 </div>
               </div>
@@ -312,77 +294,70 @@ export const AdminSystem: React.FC = () => {
                 <p className="text-xs text-gray-500 mb-4">These settings are used by goal and performance evaluations. Leave blank to inherit from base settings.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Model</label>
-                    <input
-                      type="text"
+                    <RetroInput
+                      label="Model"
                       value={tempEvalProfile?.model || ''}
-                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), model: e.target.value }))}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), model: (e.target as HTMLInputElement).value }))}
                       placeholder={config.aiSettings.model}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Tokens</label>
-                    <input
+                    <RetroInput
+                      label="Max Tokens"
                       type="number"
-                      min="100"
-                      max="4000"
+                      min={100}
+                      max={4000}
                       value={typeof tempEvalProfile?.maxTokens === 'number' ? tempEvalProfile.maxTokens : ''}
-                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), maxTokens: e.target.value === '' ? undefined : parseInt(e.target.value) }))}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), maxTokens: (e.target as HTMLInputElement).value === '' ? undefined : parseInt((e.target as HTMLInputElement).value) }))}
                       placeholder={String(Math.min(2000, config.aiSettings.maxTokens))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Temperature</label>
-                    <input
+                    <RetroInput
+                      label="Temperature"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      max="2"
+                      step={0.1}
+                      min={0}
+                      max={2}
                       value={typeof tempEvalProfile?.temperature === 'number' ? tempEvalProfile.temperature : ''}
-                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), temperature: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), temperature: (e.target as HTMLInputElement).value === '' ? undefined : parseFloat((e.target as HTMLInputElement).value) }))}
                       placeholder="0.3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Frequency Penalty</label>
-                    <input
+                    <RetroInput
+                      label="Frequency Penalty"
                       type="number"
-                      step="0.1"
-                      min="-2"
-                      max="2"
+                      step={0.1}
+                      min={-2}
+                      max={2}
                       value={typeof tempEvalProfile?.frequencyPenalty === 'number' ? tempEvalProfile.frequencyPenalty : ''}
-                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), frequencyPenalty: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), frequencyPenalty: (e.target as HTMLInputElement).value === '' ? undefined : parseFloat((e.target as HTMLInputElement).value) }))}
                       placeholder={String(config.aiSettings.frequencyPenalty)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Presence Penalty</label>
-                    <input
+                    <RetroInput
+                      label="Presence Penalty"
                       type="number"
-                      step="0.1"
-                      min="-2"
-                      max="2"
+                      step={0.1}
+                      min={-2}
+                      max={2}
                       value={typeof tempEvalProfile?.presencePenalty === 'number' ? tempEvalProfile.presencePenalty : ''}
-                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), presencePenalty: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), presencePenalty: (e.target as HTMLInputElement).value === '' ? undefined : parseFloat((e.target as HTMLInputElement).value) }))}
                       placeholder={String(config.aiSettings.presencePenalty)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Top P</label>
-                    <input
+                    <RetroInput
+                      label="Top P"
                       type="number"
-                      step="0.1"
-                      min="0"
-                      max="1"
+                      step={0.1}
+                      min={0}
+                      max={1}
                       value={typeof tempEvalProfile?.topP === 'number' ? tempEvalProfile.topP : ''}
-                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), topP: e.target.value === '' ? undefined : parseFloat(e.target.value) }))}
+                      onChange={(e) => setTempEvalProfile(prev => ({ ...(prev || {}), topP: (e.target as HTMLInputElement).value === '' ? undefined : parseFloat((e.target as HTMLInputElement).value) }))}
                       placeholder={String(config.aiSettings.topP)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                 </div>
@@ -408,7 +383,7 @@ export const AdminSystem: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Model
                 </label>
@@ -420,7 +395,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Max Tokens
                 </label>
@@ -432,7 +407,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Temperature
                 </label>
@@ -444,7 +419,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Frequency Penalty
                 </label>
@@ -456,7 +431,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Presence Penalty
                 </label>
@@ -481,7 +456,7 @@ export const AdminSystem: React.FC = () => {
               </div>
 
               {/* Evaluation profile summary */}
-              <div className="bg-gray-50 p-4 rounded-lg md:col-span-2 lg:col-span-2 xl:col-span-2">
+              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827] md:col-span-2 lg:col-span-2 xl:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Evaluation Profile</label>
                 <div className="text-sm text-gray-700">
                   <div><span className="text-gray-500">Model:</span> {(config.aiSettings.profiles?.evaluation?.model) || config.aiSettings.model}</div>
@@ -499,11 +474,11 @@ export const AdminSystem: React.FC = () => {
       </div>
 
       {/* System Status */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="retro-card">
+        <div className="px-6 py-4 border-b-2 border-black">
           <div className="flex items-center">
-            <AdjustmentsHorizontalIcon className="h-6 w-6 text-primary-600 mr-3" />
-            <h2 className="text-lg font-medium text-gray-900">System Status</h2>
+            <AdjustmentsHorizontalIcon className="h-6 w-6 mr-3" />
+            <h2 className="text-lg font-semibold">System Status</h2>
           </div>
         </div>
         <div className="p-6">
@@ -543,12 +518,12 @@ export const AdminSystem: React.FC = () => {
       </div>
 
       {/* System Prompts */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="retro-card">
+        <div className="px-6 py-4 border-b-2 border-black">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <CodeBracketIcon className="h-6 w-6 text-primary-600 mr-3" />
-              <h2 className="text-lg font-medium text-gray-900">System Prompts</h2>
+              <CodeBracketIcon className="h-6 w-6 mr-3" />
+              <h2 className="text-lg font-semibold">System Prompts</h2>
             </div>
             {!editingPrompts && (
               <Button
@@ -573,7 +548,7 @@ export const AdminSystem: React.FC = () => {
                   value={tempPrompts?.baseSystemPrompt || ''}
                   onChange={(e) => setTempPrompts(prev => prev ? {...prev, baseSystemPrompt: e.target.value} : null)}
                   rows={15}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+                  className="w-full px-3 py-2 retro-input font-mono text-sm"
                 />
               </div>
               <div>
@@ -584,7 +559,7 @@ export const AdminSystem: React.FC = () => {
                   value={tempPrompts?.performanceAnalysisPrompt || ''}
                   onChange={(e) => setTempPrompts(prev => prev ? {...prev, performanceAnalysisPrompt: e.target.value} : null)}
                   rows={12}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
+                  className="w-full px-3 py-2 retro-input font-mono text-sm"
                 />
               </div>
               <div className="flex justify-end space-x-3">
@@ -618,9 +593,10 @@ export const AdminSystem: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex space-x-2">
-                    <button
+                    <Button
                       onClick={() => togglePromptExpansion('base')}
-                      className="flex items-center px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                      variant="outline"
+                      size="sm"
                     >
                       {expandedPrompts.base ? (
                         <>
@@ -633,14 +609,15 @@ export const AdminSystem: React.FC = () => {
                           Expand
                         </>
                       )}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => copyToClipboard(config.systemPrompts.baseSystemPrompt, 'Base System Prompt')}
-                      className="flex items-center px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                      variant="outline"
+                      size="sm"
                     >
                       {copiedPrompt === 'Base System Prompt' ? (
                         <>
-                          <CheckIcon className="h-4 w-4 mr-2 text-green-600" />
+                          <CheckIcon className="h-4 w-4 mr-2" />
                           Copied
                         </>
                       ) : (
@@ -649,15 +626,17 @@ export const AdminSystem: React.FC = () => {
                           Copy
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg relative">
-                  <pre className={`text-sm text-gray-800 whitespace-pre-wrap font-mono overflow-x-auto ${!expandedPrompts.base ? 'max-h-32 overflow-hidden' : ''}`}>
-                    {config.systemPrompts.baseSystemPrompt}
-                  </pre>
+                <div className="relative">
+                  <div className="border-2 border-black shadow-[2px_2px_0_#111827] bg-white p-4">
+                    <pre className={`font-mono text-sm text-black whitespace-pre-wrap overflow-x-auto ${!expandedPrompts.base ? 'max-h-32 overflow-hidden' : ''}`}>
+                      {config.systemPrompts.baseSystemPrompt}
+                    </pre>
+                  </div>
                   {!expandedPrompts.base && (
-                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 to-transparent"></div>
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent"></div>
                   )}
                 </div>
               </div>
@@ -674,9 +653,10 @@ export const AdminSystem: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex space-x-2">
-                    <button
+                    <Button
                       onClick={() => togglePromptExpansion('performance')}
-                      className="flex items-center px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                      variant="outline"
+                      size="sm"
                     >
                       {expandedPrompts.performance ? (
                         <>
@@ -689,14 +669,15 @@ export const AdminSystem: React.FC = () => {
                           Expand
                         </>
                       )}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => copyToClipboard(config.systemPrompts.performanceAnalysisPrompt, 'Performance Analysis Prompt')}
-                      className="flex items-center px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                      variant="outline"
+                      size="sm"
                     >
                       {copiedPrompt === 'Performance Analysis Prompt' ? (
                         <>
-                          <CheckIcon className="h-4 w-4 mr-2 text-green-600" />
+                          <CheckIcon className="h-4 w-4 mr-2" />
                           Copied
                         </>
                       ) : (
@@ -705,15 +686,17 @@ export const AdminSystem: React.FC = () => {
                           Copy
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg relative">
-                  <pre className={`text-sm text-gray-800 whitespace-pre-wrap font-mono overflow-x-auto ${!expandedPrompts.performance ? 'max-h-32 overflow-hidden' : ''}`}>
-                    {config.systemPrompts.performanceAnalysisPrompt}
-                  </pre>
+                <div className="relative">
+                  <div className="border-2 border-black shadow-[2px_2px_0_#111827] bg-white p-4">
+                    <pre className={`font-mono text-sm text-black whitespace-pre-wrap overflow-x-auto ${!expandedPrompts.performance ? 'max-h-32 overflow-hidden' : ''}`}>
+                      {config.systemPrompts.performanceAnalysisPrompt}
+                    </pre>
+                  </div>
                   {!expandedPrompts.performance && (
-                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50 to-transparent"></div>
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent"></div>
                   )}
                 </div>
               </div>
@@ -723,10 +706,10 @@ export const AdminSystem: React.FC = () => {
       </div>
 
       {/* Environment Variables */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="retro-card">
+        <div className="px-6 py-4 border-b-2 border-black">
           <div className="flex items-center">
-            <AdjustmentsHorizontalIcon className="h-6 w-6 text-primary-600 mr-3" />
+            <AdjustmentsHorizontalIcon className="h-6 w-6 text-black mr-3" />
             <h2 className="text-lg font-medium text-gray-900">Environment Configuration</h2>
           </div>
         </div>

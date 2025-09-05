@@ -1,63 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   UsersIcon,
   BeakerIcon,
   PlayIcon,
   CheckCircleIcon,
   CreditCardIcon,
-  CpuChipIcon,
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../../utils/api.ts';
 import { AdminDashboardStats } from '../../types/index.ts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
 import toast from 'react-hot-toast';
+import { ValueText } from '../../components/ui/ValueText.tsx';
+import { RetroPanel } from '../../components/ui/RetroPanel.tsx';
+import { RetroCard } from '../../components/ui/RetroCard.tsx';
+import { RetroBadge, RetroAlert } from '../../components/ui/RetroBadge.tsx';
+import { RetroTable } from '../../components/ui/RetroTable.tsx';
+import { Button } from '../../components/ui/Button.tsx';
 
 interface StatCardProps {
   title: string;
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
+  trend?: { value: number; isPositive: boolean };
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend }) => (
-  <div className="bg-white overflow-hidden shadow rounded-lg">
-    <div className="p-5">
-      <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <Icon className="h-6 w-6 text-gray-400" />
+  <RetroCard className="h-full !rounded-none">
+    <div className="flex items-start justify-between">
+      <div className="flex-1">
+        <div className="text-sm text-neutral-600">{title}</div>
+        <div className="mt-1 text-3xl font-semibold">
+          <ValueText value={typeof value === 'number' ? value.toLocaleString() : value} />
         </div>
-        <div className="ml-5 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">
-              {title}
-            </dt>
-            <dd className="flex items-baseline">
-              <div className="text-2xl font-semibold text-gray-900">
-                {typeof value === 'number' ? value.toLocaleString() : value}
-              </div>
-              {trend && (
-                <div className={`ml-2 flex items-baseline text-sm ${
-                  trend.isPositive ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  <span>
-                    {trend.isPositive ? '+' : '-'}{Math.abs(trend.value)}%
-                  </span>
-                </div>
-              )}
-            </dd>
-          </dl>
+        {trend && (
+          <div className={`mt-2 text-xs font-monoRetro ${trend.isPositive ? 'text-green-700' : 'text-red-700'}`}>
+            {trend.isPositive ? '+' : '-'}{Math.abs(trend.value)}% vs last period
+          </div>
+        )}
+      </div>
+      <div className="ml-4">
+        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-amber-200 shadow-[3px_3px_0_#111827]">
+          <Icon className="h-6 w-6 text-neutral-800" />
         </div>
       </div>
     </div>
-  </div>
+  </RetroCard>
 );
 
 export const AdminDashboard: React.FC = () => {
-  const navigate = useNavigate();
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,16 +78,11 @@ export const AdminDashboard: React.FC = () => {
 
   if (!stats) {
     return (
-      <div className="p-6">
-        <div className="text-center">
-          <p className="text-gray-500">Failed to load dashboard statistics</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="p-6 max-w-3xl mx-auto">
+        <RetroAlert title="Failed to load dashboard statistics" tone="error" className="mb-4">
+          Please try refreshing the page. If the issue continues, verify the server status.
+        </RetroAlert>
+        <Button onClick={() => window.location.reload()} variant="outline" size="md">Retry</Button>
       </div>
     );
   }
@@ -111,157 +96,75 @@ export const AdminDashboard: React.FC = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Overview of your CareerSim platform performance
-        </p>
+        <h1 className="text-2xl font-retro tracking-wider2">ADMIN DASHBOARD</h1>
+        <p className="mt-1 text-sm font-monoRetro">Overview of your CAREERSIM platform performance</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Users"
-          value={overview.totalUsers}
-          icon={UsersIcon}
-        />
-        <StatCard
-          title="Active Users"
-          value={overview.activeUsers}
-          icon={UsersIcon}
-        />
-        <StatCard
-          title="Published Simulations"
-          value={overview.publishedSimulations}
-          icon={BeakerIcon}
-        />
-        <StatCard
-          title="Total Sessions"
-          value={overview.totalSessions}
-          icon={PlayIcon}
-        />
-      </div>
+      <RetroPanel title="Overview">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard title="Total Users" value={overview.totalUsers} icon={UsersIcon} />
+          <StatCard title="Active Users" value={overview.activeUsers} icon={UsersIcon} />
+          <StatCard title="Published Simulations" value={overview.publishedSimulations} icon={BeakerIcon} />
+          <StatCard title="Total Sessions" value={overview.totalSessions} icon={PlayIcon} />
+        </div>
+      </RetroPanel>
 
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Completed Sessions"
-          value={overview.completedSessions}
-          icon={CheckCircleIcon}
-        />
-        <StatCard
-          title="Completion Rate"
-          value={`${completionRate}%`}
-          icon={CheckCircleIcon}
-        />
-        <StatCard
-          title="Active Subscriptions"
-          value={overview.activeSubscriptions}
-          icon={CreditCardIcon}
-        />
-        <StatCard
-          title="Total Subscriptions"
-          value={overview.totalSubscriptions}
-          icon={CreditCardIcon}
-        />
-      </div>
+      <RetroPanel title="Key Metrics">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard title="Completed Sessions" value={overview.completedSessions} icon={CheckCircleIcon} />
+          <StatCard title="Completion Rate" value={`${completionRate}%`} icon={CheckCircleIcon} />
+          <StatCard title="Active Subscriptions" value={overview.activeSubscriptions} icon={CreditCardIcon} />
+          <StatCard title="Total Subscriptions" value={overview.totalSubscriptions} icon={CreditCardIcon} />
+        </div>
+      </RetroPanel>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Growth Chart */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">User Growth (Last 30 Days)</h3>
+        <RetroPanel title="User Growth (Last 30 Days)">
           {userGrowth.length > 0 ? (
-            <div className="space-y-2">
-              {userGrowth.slice(0, 10).map((day, index) => (
-                <div key={index} className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    {new Date(day.date).toLocaleDateString()}
-                  </span>
-                  <span className="text-sm font-medium text-gray-900">
-                    +{day.count} users
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-3">
+              {(() => {
+                const recent = userGrowth.slice(-14);
+                const max = Math.max(1, ...recent.map(d => d.count));
+                return recent.map((day, idx) => (
+                  <div key={`${day.date}-${idx}`} className="flex items-center gap-3">
+                    <span className="w-24 text-xs font-monoRetro">{new Date(day.date).toLocaleDateString()}</span>
+                    <div className="flex-1 border border-black h-4 bg-neutral-100 shadow-[2px_2px_0_#111827]">
+                      <div className="h-4 bg-green-500" style={{ width: `${(day.count / max) * 100}%` }} />
+                    </div>
+                    <span className="w-12 text-right text-xs font-monoRetro"><ValueText value={`+${day.count}`} /></span>
+                  </div>
+                ));
+              })()}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">No recent user growth data</p>
+            <RetroAlert tone="info">No recent user growth data</RetroAlert>
           )}
-        </div>
+        </RetroPanel>
 
-        {/* Top Simulations */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Top Simulations</h3>
+        <RetroPanel title="Top Simulations">
           {topSimulations.length > 0 ? (
-            <div className="space-y-4">
-              {topSimulations.slice(0, 5).map((simulation, index) => (
-                <div key={simulation.id} className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {simulation.title}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {simulation.total_sessions} sessions •{' '}
-                      {simulation.completed_sessions} completed
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">
-                      #{index + 1}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {simulation.total_sessions > 0 
-                        ? Math.round((simulation.completed_sessions / simulation.total_sessions) * 100)
-                        : 0}% completion
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <RetroTable
+              columns={[
+                { key: 'rank', header: 'Rank', render: (row: any) => <RetroBadge color="yellow">#{row.rank}</RetroBadge>, className: 'w-20' },
+                { key: 'title', header: 'Title', render: (row: any) => <span className="font-medium">{row.title}</span> },
+                { key: 'sessions', header: 'Sessions', render: (row: any) => <ValueText value={row.sessions} /> },
+                { key: 'completed', header: 'Completed', render: (row: any) => <ValueText value={row.completed} /> },
+                { key: 'completion', header: 'Completion', render: (row: any) => <ValueText value={`${row.completion}%`} /> },
+              ]}
+              data={topSimulations.slice(0, 8).map((s, idx) => ({
+                id: s.id,
+                rank: idx + 1,
+                title: s.title,
+                sessions: s.total_sessions,
+                completed: s.completed_sessions,
+                completion: s.total_sessions > 0 ? Math.round((s.completed_sessions / s.total_sessions) * 100) : 0,
+              }))}
+              keyExtractor={(row: any) => row.id}
+            />
           ) : (
-            <p className="text-gray-500 text-center py-8">No simulation data available</p>
+            <RetroAlert tone="info">No simulation data available</RetroAlert>
           )}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <button 
-            onClick={() => navigate('/admin/users')}
-            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <UsersIcon className="h-4 w-4 mr-2" />
-            Manage Users
-          </button>
-          <button 
-            onClick={() => navigate('/admin/simulations')}
-            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <BeakerIcon className="h-4 w-4 mr-2" />
-            View Simulations
-          </button>
-          <button 
-            onClick={() => navigate('/admin/analytics')}
-            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <CheckCircleIcon className="h-4 w-4 mr-2" />
-            Analytics
-          </button>
-          <button 
-            onClick={() => navigate('/admin/export')}
-            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <CreditCardIcon className="h-4 w-4 mr-2" />
-            Export Data
-          </button>
-          <button 
-            onClick={() => navigate('/admin/system')}
-            className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <CpuChipIcon className="h-4 w-4 mr-2" />
-            System
-          </button>
-        </div>
+        </RetroPanel>
       </div>
     </div>
   );

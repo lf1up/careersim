@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
+import { RetroBadge } from '../components/ui/RetroBadge.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { SimulationSession, SessionStatus } from '../types/index.ts';
-import { getSessionStatusIcon, getSessionStatusColor, getSessionStatusLabel } from '../utils/sessionStatus.tsx';
+import { getSessionStatusIcon, getSessionStatusLabel, getSessionStatusBadgeColor } from '../utils/sessionStatus.tsx';
 import {
   PlayIcon,
   EyeIcon,
@@ -110,11 +111,11 @@ export const Sessions: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-secondary-900">My Sessions</h1>
-        <p className="mt-2 text-secondary-600">
+        <h1 className="text-3xl font-retro tracking-wider2">MY SESSIONS</h1>
+        <p className="mt-2 font-monoRetro">
           Track your simulation progress and review past sessions
         </p>
       </div>
@@ -122,14 +123,14 @@ export const Sessions: React.FC = () => {
       {/* Filters */}
       <div className="mb-6 flex flex-wrap gap-4">
         <div>
-          <label htmlFor="status" className="block text-sm font-medium text-secondary-700 mb-1">
+          <label htmlFor="status" className="block text-sm font-semibold mb-1">
             Status
           </label>
           <select
             id="status"
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="retro-input block w-56 sm:text-sm"
           >
             <option value="">All Statuses</option>
             <option value={SessionStatus.ACTIVE}>In Progress</option>
@@ -145,43 +146,43 @@ export const Sessions: React.FC = () => {
           {sessions.map((session) => (
             <div
               key={session.id}
-              className="bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-secondary-200"
+              className="retro-card hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
             >
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-secondary-900">
+                      <h3 className="text-lg font-semibold">
                         {session.simulation?.title || 'Unknown Simulation'}
                       </h3>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSessionStatusColor(session.status)}`}>
+                      <RetroBadge color={getSessionStatusBadgeColor(session.status)} className="text-xs">
                         {getSessionStatusIcon(session.status)}
                         <span className="ml-1">{getSessionStatusLabel(session.status)}</span>
-                      </span>
+                      </RetroBadge>
                     </div>
                     
-                    <p className="text-sm text-secondary-600 mb-4">
+                    <p className="text-sm mb-4">
                       {session.simulation?.description}
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                      <div className="flex items-center text-sm text-secondary-500">
+                      <div className="flex items-center text-sm">
                         <CalendarIcon className="h-4 w-4 mr-2" />
                         Started: {formatDate(session.startedAt)}
                       </div>
                       
-                      <div className="flex items-center text-sm text-secondary-500">
+                      <div className="flex items-center text-sm">
                         <ClockIcon className="h-4 w-4 mr-2" />
                         Duration: {formatDuration(session.totalDuration)}
                       </div>
                       
-                      <div className="flex items-center text-sm text-secondary-500">
+                      <div className="flex items-center text-sm">
                         <CheckCircleIcon className="h-4 w-4 mr-2" />
                         Progress: {session.currentStep || 0}/{session.totalSteps || 0} steps
                       </div>
                       
                       {session.completedAt && (
-                        <div className="flex items-center text-sm text-secondary-500">
+                        <div className="flex items-center text-sm">
                           <CheckCircleIcon className="h-4 w-4 mr-2" />
                           Completed: {formatDate(session.completedAt)}
                         </div>
@@ -189,9 +190,9 @@ export const Sessions: React.FC = () => {
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="w-full bg-secondary-200 rounded-full h-2 mb-4">
-                      <div 
-                        className="bg-primary-600 h-2 rounded-full transition-all duration-300" 
+                    <div className="w-full border-2 border-black h-3 mb-4 shadow-[2px_2px_0_#111827]">
+                      <div
+                        className="bg-primary-500 h-[10px] transition-all duration-300"
                         style={{ 
                           width: `${(session.totalSteps || 0) > 0 ? ((session.currentStep || 0) / (session.totalSteps || 1)) * 100 : 0}%` 
                         }}

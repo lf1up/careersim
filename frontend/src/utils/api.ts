@@ -196,6 +196,24 @@ class ApiClient {
     return response.data;
   }
 
+  public async createSimulation(data: {
+    title: string;
+    description: string;
+    scenario: string;
+    objectives?: string[];
+    difficulty: number;
+    estimatedDurationMinutes: number;
+    status?: string;
+    isPublic?: boolean;
+    thumbnailUrl?: string | null;
+    tags?: string[];
+    conversationGoals?: any[];
+    categoryId: string;
+  }): Promise<Simulation> {
+    const response = await this.client.post<{ simulation: Simulation }>(`/admin/simulations`, data);
+    return response.data.simulation;
+  }
+
   public async updateSimulation(id: string, data: Partial<Simulation>): Promise<Simulation> {
     const response = await this.client.patch<{ simulation: Simulation }>(`/admin/simulations/${id}`, data);
     return response.data.simulation;

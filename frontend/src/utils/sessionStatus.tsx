@@ -99,3 +99,26 @@ export const getSessionStatusLabel = (status: SessionStatus | string): string =>
       return 'Unknown';
   }
 };
+
+/**
+ * Map session status to a RetroBadge color name
+ */
+export const getSessionStatusBadgeColor = (status: SessionStatus | string): 'default' | 'green' | 'blue' | 'yellow' | 'red' => {
+  switch (status) {
+    case SessionStatus.COMPLETED:
+    case 'completed':
+      return 'green';
+    case SessionStatus.ACTIVE:
+    case 'active':
+    case 'started':
+    case 'in_progress':
+      return 'blue';
+    case SessionStatus.PAUSED:
+    case 'paused':
+      return 'yellow';
+    case 'abandoned':
+      return 'red';
+    default:
+      return 'default';
+  }
+};

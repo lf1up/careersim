@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
+import { RetroBadge } from '../components/ui/RetroBadge.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Simulation, SimulationDifficulty, Category } from '../types/index.ts';
 import { 
@@ -11,39 +12,8 @@ import {
   PlayIcon
 } from '@heroicons/react/24/outline';
 
-const getDifficultyColor = (difficulty: SimulationDifficulty): string => {
-  switch (difficulty) {
-    case SimulationDifficulty.BEGINNER:
-      return 'bg-green-100 text-green-800';
-    case SimulationDifficulty.INTERMEDIATE:
-      return 'bg-yellow-100 text-yellow-800';
-    case SimulationDifficulty.ADVANCED:
-      return 'bg-orange-100 text-orange-800';
-    case SimulationDifficulty.EXPERT:
-      return 'bg-red-100 text-red-800';
-    case SimulationDifficulty.MASTER:
-      return 'bg-purple-100 text-purple-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {
-  switch (difficulty) {
-    case SimulationDifficulty.BEGINNER:
-      return 'Beginner';
-    case SimulationDifficulty.INTERMEDIATE:
-      return 'Intermediate';
-    case SimulationDifficulty.ADVANCED:
-      return 'Advanced';
-    case SimulationDifficulty.EXPERT:
-      return 'Expert';
-    case SimulationDifficulty.MASTER:
-      return 'Master';
-    default:
-      return 'Unknown';
-  }
-};
+// styling handled via RetroBadge
+import { categoryNameToBadgeColor, difficultyToBadgeColor, getDifficultyLabel } from '../utils/badges.ts';
 
 export const Simulations: React.FC = () => {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
@@ -127,11 +97,11 @@ export const Simulations: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-secondary-900">Simulations</h1>
-        <p className="mt-2 text-secondary-600">
+        <h1 className="text-3xl font-retro tracking-wider2">SIMULATIONS</h1>
+        <p className="mt-2 font-monoRetro">
           Explore and practice with realistic career scenarios
         </p>
       </div>
@@ -139,14 +109,14 @@ export const Simulations: React.FC = () => {
       {/* Filters */}
       <div className="mb-6 flex flex-wrap gap-4">
         <div>
-          <label htmlFor="category" className="block text-sm font-medium text-secondary-700 mb-1">
+          <label htmlFor="category" className="block text-sm font-semibold mb-1">
             Category
           </label>
           <select
             id="category"
             value={filters.category}
             onChange={(e) => handleFilterChange('category', e.target.value)}
-            className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="retro-input block w-56 sm:text-sm"
           >
             <option value="">All Categories</option>
             {categories.map((category) => (
@@ -158,14 +128,14 @@ export const Simulations: React.FC = () => {
         </div>
 
         <div>
-          <label htmlFor="difficulty" className="block text-sm font-medium text-secondary-700 mb-1">
+          <label htmlFor="difficulty" className="block text-sm font-semibold mb-1">
             Difficulty
           </label>
           <select
             id="difficulty"
             value={filters.difficulty}
             onChange={(e) => handleFilterChange('difficulty', e.target.value)}
-            className="p-2 border block w-full rounded-md border-secondary-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="retro-input block w-56 sm:text-sm"
           >
             <option value="">All Levels</option>
             <option value={SimulationDifficulty.BEGINNER}>Beginner</option>
@@ -183,15 +153,15 @@ export const Simulations: React.FC = () => {
           {simulations.map((simulation) => (
             <div
               key={simulation.id}
-              className="bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-secondary-200"
+              className="retro-card hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
             >
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-secondary-900 mb-2">
+                    <h3 className="text-lg font-semibold mb-2">
                       {simulation.title}
                     </h3>
-                    <p className="text-sm text-secondary-600 mb-3">
+                    <p className="text-sm mb-3">
                       {simulation.description}
                     </p>
                   </div>
@@ -199,19 +169,19 @@ export const Simulations: React.FC = () => {
 
                 <div className="flex items-center gap-2 mb-4">
                   {simulation.category && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                    <RetroBadge color={categoryNameToBadgeColor(simulation.category.name)} className="text-xs">
                       <TagIcon className="h-3 w-3 mr-1" />
                       {simulation.category.name}
-                    </span>
+                    </RetroBadge>
                   )}
                   
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDifficultyColor(simulation.difficulty)}`}>
+                  <RetroBadge color={difficultyToBadgeColor(simulation.difficulty)} className="text-xs">
                     {getDifficultyLabel(simulation.difficulty)}
-                  </span>
+                  </RetroBadge>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center text-sm text-secondary-500">
+                  <div className="flex items-center text-sm">
                     <ClockIcon className="h-4 w-4 mr-1" />
                     {simulation.estimatedDurationMinutes} min
                   </div>

@@ -4,6 +4,7 @@ import { AppDataSource } from '@/config/database';
 import { config } from '@/config/env';
 import { User } from '@/entities/User';
 import { Simulation, SimulationStatus } from '@/entities/Simulation';
+import { Category } from '@/entities/Category';
 import { Persona } from '@/entities/Persona';
 import { SimulationSession, SessionStatus } from '@/entities/SimulationSession';
 import { Subscription } from '@/entities/Subscription';
@@ -127,15 +128,17 @@ router.get('/dashboard', async (req: AuthenticatedRequest, res: Response) => {
     // Session completion rates by simulation
     const simulationStats = await sessionRepository
       .createQueryBuilder('session')
-      .leftJoinAndSelect('session.simulation', 'simulation')
-      .select([
-        'simulation.title',
-        'simulation.id',
-        'COUNT(session.id) as total_sessions',
-        'SUM(CASE WHEN session.status = :completed THEN 1 ELSE 0 END) as completed_sessions',
-      ])
+      .leftJoin('session.simulation', 'simulation')
+      .select('simulation.id', 'id')
+      .addSelect('simulation.title', 'title')
+      .addSelect('COUNT(session.id)', 'total_sessions')
+      .addSelect(
+        'SUM(CASE WHEN session.status = :completed THEN 1 ELSE 0 END)',
+        'completed_sessions',
+      )
       .setParameter('completed', SessionStatus.COMPLETED)
       .groupBy('simulation.id')
+      .addGroupBy('simulation.title')
       .orderBy('total_sessions', 'DESC')
       .limit(10)
       .getRawMany();
@@ -547,6 +550,164 @@ router.get('/simulations', async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch simulations' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/simulations:
+ *   post:
+ *     summary: Create a new simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - scenario
+ *               - difficulty
+ *               - estimatedDurationMinutes
+ *               - categoryId
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               scenario:
+ *                 type: string
+ *               objectives:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               difficulty:
+ *                 type: integer
+ *                 enum: [1,2,3,4,5]
+ *               estimatedDurationMinutes:
+ *                 type: integer
+ *               status:
+ *                 type: string
+ *                 enum: [draft, published, archived]
+ *               isPublic:
+ *                 type: boolean
+ *               thumbnailUrl:
+ *                 type: string
+ *                 nullable: true
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               conversationGoals:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               categoryId:
+ *                 type: string
+ *                 format: uuid
+ *     responses:
+ *       201:
+ *         description: Simulation created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 simulation:
+ *                   $ref: '#/components/schemas/Simulation'
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       409:
+ *         description: Conflict - slug already exists
+ *       500:
+ *         description: Server error
+ */
+// Create simulation
+router.post('/simulations', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationRepository = AppDataSource.getRepository(Simulation);
+    const categoryRepository = AppDataSource.getRepository(Category);
+
+    const {
+      title,
+      description,
+      scenario,
+      objectives = [],
+      difficulty,
+      estimatedDurationMinutes,
+      status = SimulationStatus.DRAFT,
+      isPublic = true,
+      thumbnailUrl,
+      tags = [],
+      conversationGoals,
+      categoryId,
+    } = req.body as any;
+
+    // Basic validation
+    if (!title || !description || !scenario || !difficulty || !estimatedDurationMinutes || !categoryId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Ensure category exists
+    const category = await categoryRepository.findOne({ where: { id: categoryId } });
+    if (!category) {
+      return res.status(400).json({ error: 'Invalid categoryId' });
+    }
+
+    // Generate unique slug from title
+    const baseSlug = String(title)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+
+    let slug = baseSlug || `simulation-${Date.now()}`;
+    let suffix = 1;
+    // Check uniqueness
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const exists = await simulationRepository.findOne({ where: { slug } });
+      if (!exists) break;
+      slug = `${baseSlug}-${suffix++}`;
+    }
+
+    const simulation = simulationRepository.create({
+      title,
+      slug,
+      description,
+      scenario,
+      objectives: Array.isArray(objectives) ? objectives : [],
+      difficulty,
+      estimatedDurationMinutes,
+      status,
+      isPublic: !!isPublic,
+      thumbnailUrl,
+      tags: Array.isArray(tags) ? tags : [],
+      conversationGoals: Array.isArray(conversationGoals) ? conversationGoals : undefined,
+      category,
+      personas: [],
+    });
+
+    await simulationRepository.save(simulation);
+
+    const created = await simulationRepository.findOne({
+      where: { id: simulation.id },
+      relations: ['category', 'personas'],
+    });
+
+    res.status(201).json({ simulation: created });
+  } catch (error) {
+    console.error('Error creating simulation:', error);
+    res.status(500).json({ error: 'Failed to create simulation' });
   }
 });
 
