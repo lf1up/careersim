@@ -54,7 +54,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       {/* Sidebar */}
       <div
-        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-retro-paper border-r-2 border-black shadow-[4px_0_0_#111827] transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
+        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-retro-paper border-r-2 border-black shadow-retro-x-4 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
       >
         <div className="flex items-center justify-between h-16 px-4 border-b-2 border-black">
           <div className="flex items-center">
@@ -75,7 +75,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`${isActive(item.href) ? 'bg-yellow-300 text-black border-2 border-black shadow-[2px_2px_0_#111827]' : 'text-black border-2 border-black shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827]'} group flex items-center px-3 py-2 text-sm font-semibold transition-transform`}
+                className={`${isActive(item.href) ? 'bg-yellow-300 text-black border-2 border-black shadow-retro-2' : 'text-black border-2 border-black shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1'} group flex items-center px-3 py-2 text-sm font-semibold transition-transform`}
                 onClick={() => setSidebarOpen(false)}
               >
                 <item.icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5`} />
@@ -87,7 +87,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <div className="mt-8 pt-6 border-t-2 border-black">
             <Link
               to="/dashboard"
-              className="group flex items-center px-3 py-2 text-sm font-semibold border-2 border-black shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
+              className="group flex items-center px-3 py-2 text-sm font-semibold border-2 border-black shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
             >
               <HomeIcon className="flex-shrink-0 -ml-1 mr-3 h-5 w-5" />
               Back to App
@@ -115,7 +115,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </div>
             <button
               onClick={logout}
-              className="text-sm border-2 border-black px-2 py-1 shadow-[2px_2px_0_#111827] active:translate-x-[1px] active:translate-y-[1px]"
+              className="text-sm border-2 border-black px-2 py-1 shadow-retro-2 active:translate-x-[1px] active:translate-y-[1px]"
             >
               Logout
             </button>
@@ -126,10 +126,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Main content */}
       <div className="flex-1 lg:pl-0 min-w-0">
         {/* Mobile header */}
-        <div className="lg:hidden bg-retro-paper border-b-2 border-black shadow-[0_4px_0_#111827]">
+        <div className="lg:hidden bg-retro-paper border-b-2 border-black shadow-retro-y-4">
           <div className="flex items-center justify-between h-16 px-4">
             <button
-              className="border-2 border-black px-2 py-1 shadow-[2px_2px_0_#111827] active:translate-x-[1px] active:translate-y-[1px]"
+              className="border-2 border-black px-2 py-1 shadow-retro-2 active:translate-x-[1px] active:translate-y-[1px]"
               onClick={() => setSidebarOpen(true)}
             >
               <Bars3Icon className="h-6 w-6" />

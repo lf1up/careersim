@@ -163,7 +163,7 @@ export const Dashboard: React.FC = () => {
                 {simulations.slice(0, 3).map((simulation) => (
                   <div
                     key={simulation.id}
-                    className="border-2 border-black p-4 shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
+                    className="border-2 border-black p-4 shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
                   >
                     <h3 className="font-semibold mb-2">
                       {simulation.title}
@@ -226,7 +226,7 @@ export const Dashboard: React.FC = () => {
                 {recentSessions.map((session) => (
                   <div
                     key={session.id}
-                    className="border-2 border-black p-4 shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
+                    className="border-2 border-black p-4 shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
                   >
                     <h3 className="font-semibold">
                       {session.simulation?.title || 'Unknown Simulation'}

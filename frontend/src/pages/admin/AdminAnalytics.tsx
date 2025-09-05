@@ -42,7 +42,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, value, icon: Icon,
         )}
       </div>
       <div className="ml-4">
-        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-yellow-200 shadow-[3px_3px_0_#111827]">
+        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-yellow-200 shadow-retro-3">
           <Icon className="h-6 w-6 text-neutral-800" />
         </div>
       </div>
@@ -175,7 +175,7 @@ export const AdminAnalytics: React.FC = () => {
                 <ValueText value={userStats.totalUsers > 0 ? `${Math.round((userStats.activeUsers / userStats.totalUsers) * 100)}%` : '0%'} />
               </span>
             </div>
-            <div className="w-full bg-neutral-200 h-2 border border-black shadow-[2px_2px_0_#111827]">
+            <div className="w-full bg-neutral-200 h-2 border border-black shadow-retro-2">
               <div
                 className="bg-green-500 h-2"
                 style={{ width: `${userStats.totalUsers > 0 ? (userStats.activeUsers / userStats.totalUsers) * 100 : 0}%` }}
@@ -187,7 +187,7 @@ export const AdminAnalytics: React.FC = () => {
                 <ValueText value={sessionStats.totalSessions > 0 ? `${Math.round((sessionStats.completedSessions / sessionStats.totalSessions) * 100)}%` : '0%'} />
               </span>
             </div>
-            <div className="w-full bg-neutral-200 h-2 border border-black shadow-[2px_2px_0_#111827]">
+            <div className="w-full bg-neutral-200 h-2 border border-black shadow-retro-2">
               <div
                 className="bg-blue-500 h-2"
                 style={{ width: `${sessionStats.totalSessions > 0 ? (sessionStats.completedSessions / sessionStats.totalSessions) * 100 : 0}%` }}

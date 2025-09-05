@@ -153,7 +153,7 @@ export const Simulations: React.FC = () => {
           {simulations.map((simulation) => (
             <div
               key={simulation.id}
-              className="retro-card hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
+              className="retro-card hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
             >
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">

@@ -71,7 +71,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div className="font-medium">{displayName}</div>
           {displayTitle && <div className="font-monoRetro">{displayTitle}</div>}
         </div>
-        <div className={`px-4 py-2 border-2 border-black shadow-[2px_2px_0_#111827] break-words max-w-full ${
+        <div className={`px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full ${
           isUser ? 'bg-black text-white' : 'bg-white'
         }`}>
           <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
@@ -268,7 +268,7 @@ export const SessionDetail: React.FC = () => {
                 <span>Progress</span>
                 <span>{session.currentStep || 0}/{session.totalSteps || 0} steps</span>
               </div>
-              <div className="w-full border-2 border-black h-3 shadow-[2px_2px_0_#111827]">
+              <div className="w-full border-2 border-black h-3 shadow-retro-2">
                 <div
                   className="bg-primary-500 h-[10px] transition-all duration-300"
                   style={{ 

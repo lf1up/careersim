@@ -26,7 +26,7 @@ const colorMap: Record<NonNullable<RetroBadgeProps['color']>, string> = {
 
 export const RetroBadge: React.FC<RetroBadgeProps> = ({ children, color = 'default', className }) => {
   return (
-    <span className={clsx('inline-flex items-center px-2.5 py-0.5 text-xs font-semibold border-2 shadow-[2px_2px_0_#111827]', colorMap[color], className)}>
+    <span className={clsx('inline-flex items-center px-2.5 py-0.5 text-xs font-semibold border-2 shadow-retro-2', colorMap[color], className)}>
       {children}
     </span>
   );
@@ -48,7 +48,7 @@ const toneMap: Record<NonNullable<RetroAlertProps['tone']>, string> = {
 
 export const RetroAlert: React.FC<RetroAlertProps> = ({ title, children, tone = 'info', className }) => {
   return (
-    <div className={clsx('border-2 border-black p-4 shadow-[4px_4px_0_#111827]', toneMap[tone], className)}>
+    <div className={clsx('border-2 border-black p-4 shadow-retro-4', toneMap[tone], className)}>
       {title && <h4 className="font-semibold mb-1">{title}</h4>}
       {children && <div className="text-sm">{children}</div>}
     </div>

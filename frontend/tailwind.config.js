@@ -49,6 +49,14 @@ export default {
       letterSpacing: {
         wider2: '0.08em',
       },
+      boxShadow: ({ theme }) => ({
+        'retro-1': `1px 1px 0 ${theme('colors.retro.ink')}`,
+        'retro-2': `2px 2px 0 ${theme('colors.retro.ink')}`,
+        'retro-3': `3px 3px 0 ${theme('colors.retro.ink')}`,
+        'retro-4': `4px 4px 0 ${theme('colors.retro.ink')}`,
+        'retro-y-4': `0 4px 0 ${theme('colors.retro.ink')}`,
+        'retro-x-4': `4px 0 0 ${theme('colors.retro.ink')}`,
+      }),
     },
   },
   plugins: [],

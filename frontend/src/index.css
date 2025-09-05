@@ -49,15 +49,15 @@ code {
 
 /* Retro utility classes */
 .retro-card {
-  @apply bg-white border-2 border-black shadow-[4px_4px_0_#111827] rounded-md;
+  @apply bg-white border-2 border-black shadow-retro-4 rounded-md;
 }
 
 .retro-btn-base {
-  @apply inline-flex items-center justify-center border-2 border-black shadow-[3px_3px_0_#111827] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_#111827] transition-transform;
+  @apply inline-flex items-center justify-center border-2 border-black shadow-retro-3 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 transition-transform;
 }
 
 .retro-input {
-  @apply border-2 border-black bg-white px-3 py-2 rounded-none focus:ring-0 focus:outline-none shadow-[3px_3px_0_#111827];
+  @apply border-2 border-black bg-white px-3 py-2 rounded-none focus:ring-0 focus:outline-none shadow-retro-3;
 }
 
 /* Custom select styling with better chevron positioning */

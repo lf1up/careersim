@@ -191,7 +191,7 @@ export const Analytics: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold">Communication</span>
                 <div className="flex items-center">
-                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-retro-2">
                     <div 
                       className="bg-blue-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgCommunication || 0) * 100}%` }}
@@ -206,7 +206,7 @@ export const Analytics: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold">Problem Solving</span>
                 <div className="flex items-center">
-                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-retro-2">
                     <div 
                       className="bg-green-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgProblemSolving || 0) * 100}%` }}
@@ -221,7 +221,7 @@ export const Analytics: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold">Emotional Intelligence</span>
                 <div className="flex items-center">
-                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-retro-2">
                     <div 
                       className="bg-purple-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgEmotional || 0) * 100}%` }}
@@ -236,7 +236,7 @@ export const Analytics: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold">Outcome</span>
                 <div className="flex items-center">
-                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-[2px_2px_0_#111827]">
+                  <div className="w-32 border-2 border-black h-3 mr-3 shadow-retro-2">
                     <div 
                       className="bg-orange-600 h-[10px]" 
                       style={{ width: `${(averageScores?.avgOutcome || 0) * 100}%` }}

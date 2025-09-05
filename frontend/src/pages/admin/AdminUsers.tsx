@@ -86,7 +86,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                 <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10">
-                      <div className="h-10 w-10 border-2 border-black flex items-center justify-center shadow-[2px_2px_0_#111827]">
+                      <div className="h-10 w-10 border-2 border-black flex items-center justify-center shadow-retro-2">
                         <span className="font-bold">
                           {user.firstName?.[0]}{user.lastName?.[0]}
                         </span>
@@ -116,7 +116,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <option value={UserRole.ADMIN}>Admin</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()}
                     </span>
                   )}
@@ -136,7 +136,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <option value={SubscriptionTier.PREMIUM}>Premium</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
                       {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1).toLowerCase()}
                     </span>
                   )}
@@ -155,7 +155,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <option value="inactive">Inactive</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
                       {user.isActive ? 'Active' : 'Inactive'}
                     </span>
                   )}

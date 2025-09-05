@@ -39,7 +39,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend }) 
         )}
       </div>
       <div className="ml-4">
-        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-amber-200 shadow-[3px_3px_0_#111827]">
+        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-amber-200 shadow-retro-3">
           <Icon className="h-6 w-6 text-neutral-800" />
         </div>
       </div>
@@ -128,7 +128,7 @@ export const AdminDashboard: React.FC = () => {
                 return recent.map((day, idx) => (
                   <div key={`${day.date}-${idx}`} className="flex items-center gap-3">
                     <span className="w-24 text-xs font-monoRetro">{new Date(day.date).toLocaleDateString()}</span>
-                    <div className="flex-1 border border-black h-4 bg-neutral-100 shadow-[2px_2px_0_#111827]">
+                    <div className="flex-1 border border-black h-4 bg-neutral-100 shadow-retro-2">
                       <div className="h-4 bg-green-500" style={{ width: `${(day.count / max) * 100}%` }} />
                     </div>
                     <span className="w-12 text-right text-xs font-monoRetro"><ValueText value={`+${day.count}`} /></span>

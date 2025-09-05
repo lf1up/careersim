@@ -81,7 +81,7 @@ export interface RetroCheckboxProps extends React.InputHTMLAttributes<HTMLInputE
 export const RetroCheckbox: React.FC<RetroCheckboxProps> = ({ label, containerClassName, className, ...props }) => {
   return (
     <label className={clsx('inline-flex items-center gap-2 select-none', containerClassName)}>
-      <input type="checkbox" className={clsx('appearance-none w-4 h-4 border-2 border-black shadow-[2px_2px_0_#111827] checked:bg-black', className)} {...props} />
+      <input type="checkbox" className={clsx('appearance-none w-4 h-4 border-2 border-black shadow-retro-2 checked:bg-black', className)} {...props} />
       {label && <span className="text-sm">{label}</span>}
     </label>
   );
@@ -95,7 +95,7 @@ export interface RetroToggleProps extends React.InputHTMLAttributes<HTMLInputEle
 export const RetroToggle: React.FC<RetroToggleProps> = ({ label, containerClassName, className, ...props }) => {
   return (
     <label className={clsx('inline-flex items-center gap-3 select-none', containerClassName, className)}>
-      <span className="relative inline-block w-10 h-6 border-2 border-black shadow-[2px_2px_0_#111827]">
+      <span className="relative inline-block w-10 h-6 border-2 border-black shadow-retro-2">
         <input type="checkbox" className="sr-only peer" {...props} />
         <span className="absolute top-0 left-0 h-full w-1/2 bg-black transition-all peer-checked:translate-x-full" />
       </span>

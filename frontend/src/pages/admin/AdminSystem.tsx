@@ -384,7 +384,7 @@ export const AdminSystem: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
+              <div className="p-4 border-2 border-black shadow-retro-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Model
                 </label>
@@ -396,7 +396,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
+              <div className="p-4 border-2 border-black shadow-retro-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Max Tokens
                 </label>
@@ -408,7 +408,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
+              <div className="p-4 border-2 border-black shadow-retro-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Temperature
                 </label>
@@ -420,7 +420,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
+              <div className="p-4 border-2 border-black shadow-retro-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Frequency Penalty
                 </label>
@@ -432,7 +432,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
+              <div className="p-4 border-2 border-black shadow-retro-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Presence Penalty
                 </label>
@@ -457,7 +457,7 @@ export const AdminSystem: React.FC = () => {
               </div>
 
               {/* Evaluation profile summary */}
-              <div className="p-4 border-2 border-black shadow-[2px_2px_0_#111827] md:col-span-2 lg:col-span-2 xl:col-span-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 md:col-span-2 lg:col-span-2 xl:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Evaluation Profile</label>
                 <div className="text-sm text-gray-700">
                   <div><span className="text-gray-500">Model:</span> {(config.aiSettings.profiles?.evaluation?.model) || config.aiSettings.model}</div>
@@ -643,7 +643,7 @@ export const AdminSystem: React.FC = () => {
                   </div>
                 </div>
                 <div className="relative">
-                  <div className="border-2 border-black shadow-[2px_2px_0_#111827] bg-white p-4">
+                  <div className="border-2 border-black shadow-retro-2 bg-white p-4">
                     <pre className={`font-mono text-sm text-black whitespace-pre-wrap overflow-x-auto ${!expandedPrompts.base ? 'max-h-32 overflow-hidden' : ''}`}>
                       {config.systemPrompts.baseSystemPrompt}
                     </pre>
@@ -703,7 +703,7 @@ export const AdminSystem: React.FC = () => {
                   </div>
                 </div>
                 <div className="relative">
-                  <div className="border-2 border-black shadow-[2px_2px_0_#111827] bg-white p-4">
+                  <div className="border-2 border-black shadow-retro-2 bg-white p-4">
                     <pre className={`font-mono text-sm text-black whitespace-pre-wrap overflow-x-auto ${!expandedPrompts.performance ? 'max-h-32 overflow-hidden' : ''}`}>
                       {config.systemPrompts.performanceAnalysisPrompt}
                     </pre>
@@ -763,7 +763,7 @@ export const AdminSystem: React.FC = () => {
                   </div>
                 </div>
                 <div className="relative">
-                  <div className="border-2 border-black shadow-[2px_2px_0_#111827] bg-white p-4">
+                  <div className="border-2 border-black shadow-retro-2 bg-white p-4">
                     <pre className={`font-mono text-sm text-black whitespace-pre-wrap overflow-x-auto ${!expandedPrompts.style ? 'max-h-32 overflow-hidden' : ''}`}>
                       {config.systemPrompts.styleGuidelines || ''}
                     </pre>

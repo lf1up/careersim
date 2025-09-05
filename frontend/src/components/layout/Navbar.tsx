@@ -22,29 +22,29 @@ export const Navbar: React.FC = () => {
   const desktopNavLinkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-2 text-sm font-semibold border-2 border-black transition-transform ${
       isActive
-        ? 'bg-primary-300 text-black translate-x-[1px] translate-y-[1px] shadow-[1px_1px_0_#111827]'
-        : 'shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827]'
+        ? 'bg-primary-300 text-black translate-x-[1px] translate-y-[1px] shadow-retro-1'
+        : 'shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1'
     }`;
 
   const adminDesktopNavLinkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-2 text-sm font-semibold border-2 border-black transition-transform ${
       isActive
-        ? 'bg-yellow-400 translate-x-[1px] translate-y-[1px] shadow-[1px_1px_0_#111827]'
-        : 'bg-yellow-300 shadow-[2px_2px_0_#111827] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827]'
+        ? 'bg-yellow-400 translate-x-[1px] translate-y-[1px] shadow-retro-1'
+        : 'bg-yellow-300 shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1'
     }`;
 
   const mobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
     `block px-3 py-2 text-base font-semibold border-2 border-black mx-2 ${
-      isActive ? 'bg-primary-300 text-black shadow-[1px_1px_0_#111827]' : 'shadow-[2px_2px_0_#111827]'
+      isActive ? 'bg-primary-300 text-black shadow-retro-1' : 'shadow-retro-2'
     }`;
 
   const adminMobileNavLinkClass = ({ isActive }: { isActive: boolean }) =>
     `block px-3 py-2 text-base font-semibold border-2 border-black mx-2 ${
-      isActive ? 'bg-yellow-400 shadow-[1px_1px_0_#111827]' : 'bg-yellow-300 shadow-[2px_2px_0_#111827]'
+      isActive ? 'bg-yellow-400 shadow-retro-1' : 'bg-yellow-300 shadow-retro-2'
     }`;
 
   return (
-    <nav className="bg-retro-paper border-b-2 border-black shadow-[0_4px_0_#111827] relative z-50">
+    <nav className="bg-retro-paper border-b-2 border-black shadow-retro-y-4 relative z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
@@ -84,7 +84,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setIsAccountOpen(true)}
                   aria-expanded={isAccountOpen}
                   aria-haspopup="menu"
-                  className="bg-white rounded-none border-2 border-black p-1 flex text-sm shadow-[2px_2px_0_#111827] transition-transform active:translate-x-[1px] active:translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+                  className="bg-white rounded-none border-2 border-black p-1 flex text-sm shadow-retro-2 transition-transform active:translate-x-[1px] active:translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
                 >
                   <img
                     className="h-8 w-8 rounded-full object-cover"
@@ -99,7 +99,7 @@ export const Navbar: React.FC = () => {
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <img
-                      className="h-12 w-12 rounded-full object-cover border-2 border-black shadow-[2px_2px_0_#111827]"
+                      className="h-12 w-12 rounded-full object-cover border-2 border-black shadow-retro-2"
                       src={user?.profileImageUrl || `https://ui-avatars.com/api/?name=${user?.firstName}+${user?.lastName}&background=3b82f6&color=fff`}
                       alt={`${user?.firstName} ${user?.lastName}`}
                     />
@@ -144,7 +144,7 @@ export const Navbar: React.FC = () => {
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-expanded={isMobileMenuOpen}
               aria-controls="mobile-menu"
-              className="inline-flex items-center justify-center p-2 border-2 border-black shadow-[2px_2px_0_#111827] active:translate-x-[1px] active:translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+              className="inline-flex items-center justify-center p-2 border-2 border-black shadow-retro-2 active:translate-x-[1px] active:translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
             >
               <svg
                 className="h-6 w-6"
@@ -188,14 +188,14 @@ export const Navbar: React.FC = () => {
             <div className="border-t-2 border-black mt-2 pt-2">
               <Link
                 to="/profile"
-                className="block px-3 py-2 text-base font-semibold border-2 border-black shadow-[2px_2px_0_#111827] mx-2"
+                className="block px-3 py-2 text-base font-semibold border-2 border-black shadow-retro-2 mx-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Profile
               </Link>
               <button
                 onClick={handleLogout}
-                className="block w-full text-left px-3 py-2 text-base font-semibold border-2 border-black shadow-[2px_2px_0_#111827] mx-2"
+                className="block w-full text-left px-3 py-2 text-base font-semibold border-2 border-black shadow-retro-2 mx-2"
               >
                 Sign out
               </button>

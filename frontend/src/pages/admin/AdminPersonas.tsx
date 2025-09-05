@@ -281,9 +281,9 @@ export const AdminPersonas: React.FC = () => {
       render: (persona: Persona) => (
         <div className="flex items-center">
           {persona.avatarUrl ? (
-            <img className="h-10 w-10 mr-3 border-2 border-black shadow-[2px_2px_0_#111827] object-cover" src={persona.avatarUrl} alt={persona.name} />
+            <img className="h-10 w-10 mr-3 border-2 border-black shadow-retro-2 object-cover" src={persona.avatarUrl} alt={persona.name} />
           ) : (
-            <div className="h-10 w-10 mr-3 border-2 border-black flex items-center justify-center shadow-[2px_2px_0_#111827]">
+            <div className="h-10 w-10 mr-3 border-2 border-black flex items-center justify-center shadow-retro-2">
               <span className="font-bold">{persona.name?.[0]}</span>
             </div>
           )}

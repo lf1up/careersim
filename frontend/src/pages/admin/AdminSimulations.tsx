@@ -85,7 +85,7 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
       key: 'status',
       header: 'Status',
       render: (simulation: Simulation) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-[2px_2px_0_#111827]`}>
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
           {simulation.status.charAt(0).toUpperCase() + simulation.status.slice(1).toLowerCase()}
         </span>
       ),
@@ -564,7 +564,7 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
                 return (
                   <div
                     key={persona.id}
-                    className={`p-4 border-2 border-black shadow-[2px_2px_0_#111827] cursor-pointer transition-colors ${
+                    className={`p-4 border-2 border-black shadow-retro-2 cursor-pointer transition-colors ${
                       isSelected ? 'bg-yellow-100' : 'bg-white hover:bg-neutral-50'
                     }`}
                     onClick={(e) => {
@@ -588,7 +588,7 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
                           <h4 className="text-sm font-semibold text-secondary-900">
                             {persona.name}
                           </h4>
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs border-2 border-black bg-white shadow-[2px_2px_0_#111827]">
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs border-2 border-black bg-white shadow-retro-2">
                             {persona.difficultyText}
                           </span>
                         </div>

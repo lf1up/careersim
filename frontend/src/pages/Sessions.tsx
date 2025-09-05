@@ -146,7 +146,7 @@ export const Sessions: React.FC = () => {
           {sessions.map((session) => (
             <div
               key={session.id}
-              className="retro-card hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#111827] transition-transform"
+              className="retro-card hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
             >
               <div className="p-6">
                 <div className="flex items-start justify-between">
@@ -190,7 +190,7 @@ export const Sessions: React.FC = () => {
                     </div>
 
                     {/* Progress Bar */}
-                    <div className="w-full border-2 border-black h-3 mb-4 shadow-[2px_2px_0_#111827]">
+                    <div className="w-full border-2 border-black h-3 mb-4 shadow-retro-2">
                       <div
                         className="bg-primary-500 h-[10px] transition-all duration-300"
                         style={{ 

@@ -412,7 +412,7 @@ export const SimulationDetail: React.FC = () => {
                 <h2 className="text-xl font-semibold mb-3">You'll interact with</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {simulation.personas.map((persona) => (
-                    <div key={persona.id} className="flex items-center p-4 border-2 border-black shadow-[2px_2px_0_#111827]">
+                    <div key={persona.id} className="flex items-center p-4 border-2 border-black shadow-retro-2">
                       {persona.avatarUrl ? (
                         <img
                           src={persona.avatarUrl}
@@ -509,7 +509,7 @@ export const SimulationDetail: React.FC = () => {
                     return (
                       <li
                         key={goal.goalNumber}
-                        className={`relative border-2 px-3 py-2 shadow-[2px_2px_0_#111827] ${isAchieved ? 'bg-green-100 border-green-500' : isInProgress ? 'bg-yellow-100 border-yellow-500' : 'bg-white border-black'}`}
+                        className={`relative border-2 px-3 py-2 shadow-retro-2 ${isAchieved ? 'bg-green-100 border-green-500' : isInProgress ? 'bg-yellow-100 border-yellow-500' : 'bg-white border-black'}`}
                         onMouseEnter={(e) => showGoalTooltip(goal, e.currentTarget as unknown as HTMLElement)}
                         onMouseLeave={hideGoalTooltip}
                       >
@@ -552,7 +552,7 @@ export const SimulationDetail: React.FC = () => {
                           <div className="font-monoRetro">{message.isFromUser ? userTitle : personaRole}</div>
                         )}
                       </div>
-                      <div className={`px-4 py-2 border-2 border-black shadow-[2px_2px_0_#111827] break-words max-w-full ${message.isFromUser ? 'bg-black text-white' : 'bg-white'}`}>
+                      <div className={`px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full ${message.isFromUser ? 'bg-black text-white' : 'bg-white'}`}>
                         <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                       </div>
                       <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${message.isFromUser ? 'text-right' : 'text-left'}`}>
@@ -577,7 +577,7 @@ export const SimulationDetail: React.FC = () => {
                       <div className="font-monoRetro">{simulation.personas[0].role}</div>
                     )}
                   </div>
-                  <div className="px-4 py-2 border-2 border-black shadow-[2px_2px_0_#111827] break-words max-w-full bg-white">
+                  <div className="px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full bg-white">
                     <div className="flex items-center gap-2">
                       <span className="text-sm">is typing</span>
                       <div className="flex gap-1">
@@ -633,7 +633,7 @@ export const SimulationDetail: React.FC = () => {
             className="fixed z-[2147483647] pointer-events-none"
             style={{ top: goalTooltip.top, left: goalTooltip.left }}
           >
-            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal border-2 border-black bg-white text-xs shadow-[4px_4px_0_#111827]">
+            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal border-2 border-black bg-white text-xs shadow-retro-4">
               <div className="p-3">
                 <div className="font-semibold mb-1">{goalTooltip.goal.title}</div>
                 {goalTooltip.goal.description && (
