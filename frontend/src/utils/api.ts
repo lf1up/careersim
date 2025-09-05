@@ -486,6 +486,7 @@ class ApiClient {
     systemPrompts: {
       baseSystemPrompt: string;
       performanceAnalysisPrompt: string;
+      styleGuidelines?: string;
     };
     rateLimitSettings: {
       windowMs: number;
@@ -512,6 +513,7 @@ class ApiClient {
   public async updateSystemPrompts(prompts: {
     baseSystemPrompt: string;
     performanceAnalysisPrompt: string;
+    styleGuidelines?: string;
   }): Promise<{ message: string; configuration: any }> {
     const response = await this.client.put('/admin/system/config/prompts', prompts);
     return response.data;

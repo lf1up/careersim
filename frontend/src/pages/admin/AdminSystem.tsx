@@ -32,6 +32,7 @@ interface AISettings {
 interface SystemPrompts {
   baseSystemPrompt: string;
   performanceAnalysisPrompt: string;
+  styleGuidelines?: string;
 }
 
 interface SystemConfigResponse {
@@ -562,6 +563,18 @@ export const AdminSystem: React.FC = () => {
                   className="w-full px-3 py-2 retro-input font-mono text-sm"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Style Guidelines
+                </label>
+                <textarea
+                  value={tempPrompts?.styleGuidelines || ''}
+                  onChange={(e) => setTempPrompts(prev => prev ? {...prev, styleGuidelines: e.target.value} : null)}
+                  rows={10}
+                  className="w-full px-3 py-2 retro-input font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">These are appended to every system prompt and also enforced at runtime.</p>
+              </div>
               <div className="flex justify-end space-x-3">
                 <Button
                   onClick={handleCancelPrompts}
@@ -696,6 +709,66 @@ export const AdminSystem: React.FC = () => {
                     </pre>
                   </div>
                   {!expandedPrompts.performance && (
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent"></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Style Guidelines */}
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Style Guidelines
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Global output rules applied to persona responses
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      onClick={() => togglePromptExpansion('style')}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {expandedPrompts.style ? (
+                        <>
+                          <ChevronUpIcon className="h-4 w-4 mr-2" />
+                          Collapse
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDownIcon className="h-4 w-4 mr-2" />
+                          Expand
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => copyToClipboard(config.systemPrompts.styleGuidelines || '', 'Style Guidelines')}
+                      variant="outline"
+                      size="sm"
+                    >
+                      {copiedPrompt === 'Style Guidelines' ? (
+                        <>
+                          <CheckIcon className="h-4 w-4 mr-2" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardDocumentIcon className="h-4 w-4 mr-2" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <div className="border-2 border-black shadow-[2px_2px_0_#111827] bg-white p-4">
+                    <pre className={`font-mono text-sm text-black whitespace-pre-wrap overflow-x-auto ${!expandedPrompts.style ? 'max-h-32 overflow-hidden' : ''}`}>
+                      {config.systemPrompts.styleGuidelines || ''}
+                    </pre>
+                  </div>
+                  {!expandedPrompts.style && (
                     <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent"></div>
                   )}
                 </div>

@@ -530,9 +530,9 @@ export class AIService {
    */
   private buildSystemPrompt(context: ConversationContext, promptTemplate: string): string {
     const { persona, simulation } = context;
-    
+
     // Replace template variables with actual values
-    return promptTemplate
+    const basePrompt = promptTemplate
       .replace(/\{persona\.name\}/g, persona.name)
       .replace(/\{persona\.role\}/g, persona.role)
       .replace(/\{persona\.personality\}/g, persona.personality)
@@ -543,6 +543,15 @@ export class AIService {
       .replace(/\{simulation\.scenario\}/g, simulation.scenario)
       .replace(/\{simulation\.objectives\}/g, Array.isArray(simulation.objectives) ? simulation.objectives.join(', ') : simulation.objectives)
       .replace(/\{persona\.conversationStyle\}/g, persona.conversationStyle ? JSON.stringify(persona.conversationStyle, null, 2) : 'Natural, professional conversation');
+
+    // Attempt to include DB-driven style guidelines if available in cache
+    let styleGuidelines: string | undefined;
+    try {
+      const prompts = this.configCache.get('system_prompts');
+      styleGuidelines = prompts?.styleGuidelines;
+    } catch {}
+
+    return `${basePrompt}\n\n${styleGuidelines}`;
   }
 
   /**

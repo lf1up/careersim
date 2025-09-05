@@ -673,7 +673,7 @@ router.post('/simulations', async (req: AuthenticatedRequest, res: Response) => 
     let slug = baseSlug || `simulation-${Date.now()}`;
     let suffix = 1;
     // Check uniqueness
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       const exists = await simulationRepository.findOne({ where: { slug } });
       if (!exists) break;
@@ -2778,7 +2778,7 @@ router.put('/system/config/ai/profiles', requireAdmin as any, async (req: Authen
 router.put('/system/config/prompts', requireAdmin as any, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const configRepository = AppDataSource.getRepository(SystemConfiguration);
-    const { baseSystemPrompt, performanceAnalysisPrompt } = req.body;
+    const { baseSystemPrompt, performanceAnalysisPrompt, styleGuidelines } = req.body;
 
     // Validation
     if (!baseSystemPrompt || typeof baseSystemPrompt !== 'string' || baseSystemPrompt.trim().length === 0) {
@@ -2795,6 +2795,9 @@ router.put('/system/config/prompts', requireAdmin as any, async (req: Authentica
     const newPrompts: SystemPrompts = {
       baseSystemPrompt: baseSystemPrompt.trim(),
       performanceAnalysisPrompt: performanceAnalysisPrompt.trim(),
+      styleGuidelines: typeof styleGuidelines === 'string' && styleGuidelines.trim().length > 0
+        ? styleGuidelines.trim()
+        : SystemConfiguration.getDefaultSystemPrompts().styleGuidelines,
     };
 
     if (config) {

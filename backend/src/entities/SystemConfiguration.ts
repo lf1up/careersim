@@ -23,6 +23,7 @@ export interface AIModelSettings {
 export interface SystemPrompts {
   baseSystemPrompt: string;
   performanceAnalysisPrompt: string;
+  styleGuidelines?: string;
   // Add more prompts as needed
 }
 
@@ -231,6 +232,11 @@ Provide detailed feedback in JSON format:
 }
 
 Focus on communication skills, emotional intelligence, problem-solving, and how well they understood and addressed the persona's motivations.`,
+
+      styleGuidelines: `STYLE AND OUTPUT RULES:
+1) Do not include stage directions, physical actions, or emotions as asterisks or in parentheses (e.g., *sighs*, (smiles)). Speak only the words you would actually say.
+2) Do not use bracketed emotes, third-person narration, or screenplay-style cues.
+3) If you provide any code, output it as a separate fenced Markdown code block with the correct language tag. Keep prose outside the code block.`,
     };
   }
 
