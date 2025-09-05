@@ -384,7 +384,7 @@ export const AdminSystem: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              <div className="p-4 border-2 border-black shadow-retro-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 bg-primary-100">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Model
                 </label>
@@ -396,7 +396,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-retro-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 bg-primary-100">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Max Tokens
                 </label>
@@ -408,7 +408,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-retro-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 bg-primary-100">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Temperature
                 </label>
@@ -420,7 +420,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-retro-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 bg-primary-100">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Frequency Penalty
                 </label>
@@ -432,7 +432,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="p-4 border-2 border-black shadow-retro-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 bg-primary-100">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Presence Penalty
                 </label>
@@ -444,7 +444,7 @@ export const AdminSystem: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="bg-primary-100 p-4 rounded-lg">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Top P
                 </label>
@@ -457,7 +457,7 @@ export const AdminSystem: React.FC = () => {
               </div>
 
               {/* Evaluation profile summary */}
-              <div className="p-4 border-2 border-black shadow-retro-2 md:col-span-2 lg:col-span-2 xl:col-span-2">
+              <div className="p-4 border-2 border-black shadow-retro-2 md:col-span-2 lg:col-span-2 xl:col-span-2 bg-primary-100">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Evaluation Profile</label>
                 <div className="text-sm text-gray-700">
                   <div><span className="text-gray-500">Model:</span> {(config.aiSettings.profiles?.evaluation?.model) || config.aiSettings.model}</div>

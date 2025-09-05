@@ -63,6 +63,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const displayName = isUser ? userName : personaName;
   const displayTitle = isUser ? userTitle : personaRole;
+  const toTitle = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '');
+  const sentimentToColor = (s?: string) => {
+    if (!s) return 'default' as const;
+    const v = s.toLowerCase();
+    if (v === 'positive') return 'green' as const;
+    if (v === 'negative') return 'red' as const;
+    return 'amber' as const;
+  };
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -76,6 +84,55 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         }`}>
           <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         </div>
+        {/* AI Response Metadata */}
+        {!isUser && message.metadata && (
+          <div className="mt-2">
+            <div className="p-2 border-2 border-black bg-white shadow-retro-2">
+              <div className="flex flex-wrap gap-2">
+                {typeof (message as any).metadata?.model === 'string' && (
+                  <RetroBadge className="text-[10px]">{(message as any).metadata.model}</RetroBadge>
+                )}
+                {typeof (message as any).metadata?.tokenCount === 'number' && (
+                  <RetroBadge color="default" className="text-[10px]">{(message as any).metadata.tokenCount} tokens</RetroBadge>
+                )}
+                {typeof (message as any).metadata?.processingTime === 'number' && (
+                  <RetroBadge color="default" className="text-[10px]">{(message as any).metadata.processingTime.toFixed(2)}s</RetroBadge>
+                )}
+                {typeof (message as any).metadata?.confidence === 'number' && (
+                  <RetroBadge color="default" className="text-[10px]">Conf {(message as any).metadata.confidence.toFixed(2)}</RetroBadge>
+                )}
+                {typeof (message as any).metadata?.sentiment === 'string' && (
+                  <RetroBadge color={sentimentToColor((message as any).metadata.sentiment)} className="text-[10px]">
+                    {toTitle((message as any).metadata.sentiment)}
+                  </RetroBadge>
+                )}
+                {typeof (message as any).metadata?.emotionalTone === 'string' && (
+                  <RetroBadge color="default" className="text-[10px]">{toTitle((message as any).metadata.emotionalTone)}</RetroBadge>
+                )}
+              </div>
+              {Array.isArray((message as any).metadata?.keyPhrases) && (message as any).metadata.keyPhrases.length > 0 && (
+                <div className="mt-2 text-[11px]">
+                  <span className="font-medium">Key Phrases:</span>{' '}
+                  <span className="font-monoRetro">
+                    {(message as any).metadata.keyPhrases.slice(0, 5).join(', ')}
+                    {(message as any).metadata.keyPhrases.length > 5 && ` +${(message as any).metadata.keyPhrases.length - 5} more`}
+                  </span>
+                </div>
+              )}
+              {((message as any).metadata?.qualityScores && Object.keys((message as any).metadata.qualityScores).length > 0) && (
+                <div className="mt-2 text-[11px]">
+                  <span className="font-medium">Quality:</span>{' '}
+                  <span className="font-monoRetro">
+                    {Object.entries((message as any).metadata.qualityScores)
+                      .filter(([_, v]) => typeof v === 'number')
+                      .map(([k, v]) => `${k}:${(v as number).toFixed(2)}`)
+                      .join(' · ')}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${isUser ? 'text-right' : 'text-left'}`}>
           {new Date(message.timestamp).toLocaleTimeString()}
         </div>
@@ -197,7 +254,7 @@ export const SessionDetail: React.FC = () => {
             <div className="flex items-center gap-4">
               <RetroBadge color={getSessionStatusBadgeColor(session.status)} className="text-sm">
                 {getSessionStatusIcon(session.status, 'h-5 w-5')}
-                <span className="ml-2">{getSessionStatusLabel(session.status)}</span>
+                <span className="ml-2 whitespace-nowrap">{getSessionStatusLabel(session.status)}</span>
               </RetroBadge>
               
               {(session.status === SessionStatus.ACTIVE || 

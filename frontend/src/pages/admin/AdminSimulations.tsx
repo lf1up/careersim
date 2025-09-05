@@ -67,7 +67,7 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
       header: 'Category',
       render: (simulation: Simulation) => (
         <RetroBadge color={categoryNameToBadgeColor(simulation.category.name)} className="text-xs">
-          <TagIcon className="h-3 w-3 mr-1" />
+          <TagIcon className="h-5 w-5 mr-1" />
           {simulation.category.name}
         </RetroBadge>
       ),
@@ -85,9 +85,18 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
       key: 'status',
       header: 'Status',
       render: (simulation: Simulation) => (
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
+        <RetroBadge
+          color={
+            simulation.status === SimulationStatus.PUBLISHED
+              ? 'green'
+              : simulation.status === SimulationStatus.DRAFT
+              ? 'amber'
+              : 'red'
+          }
+          className="text-xs"
+        >
           {simulation.status.charAt(0).toUpperCase() + simulation.status.slice(1).toLowerCase()}
-        </span>
+        </RetroBadge>
       ),
     },
     {
@@ -98,7 +107,6 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
           <div className="text-sm">
             {simulation.personas && simulation.personas.length > 0 ? (
               <div className="flex items-center whitespace-nowrap">
-                <UserGroupIcon className="h-4 w-4 mr-1 text-neutral-700" />
                 <span className="text-sm">
                   {simulation.personas.length} persona{simulation.personas.length !== 1 ? 's' : ''}
                 </span>
@@ -126,12 +134,12 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
             <EyeIcon className="h-4 w-4 mr-1" />
             {simulation.viewCount} views
           </div>
-          <div className="text-xs text-neutral-500 whitespace-nowrap">
-            ✅ {simulation.completionCount} completions
+          <div className="text-xs text-neutral-500 whitespace-nowrap mt-1">
+            {simulation.completionCount} completions
           </div>
           {Array.isArray(simulation.conversationGoals) && simulation.conversationGoals.length > 0 && (
             <div className="text-xs text-neutral-500 whitespace-nowrap">
-              🎯 {simulation.conversationGoals.length} goal{simulation.conversationGoals.length !== 1 ? 's' : ''}
+              {simulation.conversationGoals.length} goal{simulation.conversationGoals.length !== 1 ? 's' : ''}
             </div>
           )}
           {simulation.averageRating > 0 && (

@@ -10,6 +10,7 @@ import { apiClient } from '../../utils/api.ts';
 import { User, UserRole, SubscriptionTier, AdminUserUpdate } from '../../types/index.ts';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner.tsx';
 import { RetroPagination } from '../../components/ui/RetroTable.tsx';
+import { RetroBadge } from '../../components/ui/RetroBadge.tsx';
 import toast from 'react-hot-toast';
 
 interface UsersTableProps {
@@ -27,6 +28,30 @@ interface EditingUser {
 const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
   const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const getRoleBadgeColor = (role: UserRole) => {
+    switch (role) {
+      case UserRole.ADMIN:
+        return 'red' as const;
+      case UserRole.MODERATOR:
+        return 'orange' as const;
+      case UserRole.USER:
+      default:
+        return 'blue' as const;
+    }
+  };
+
+  const getTierBadgeColor = (tier: SubscriptionTier) => {
+    switch (tier) {
+      case SubscriptionTier.FREEMIUM:
+        return 'amber' as const;
+      case SubscriptionTier.PREMIUM:
+        return 'indigo' as const;
+      case SubscriptionTier.PRO:
+      default:
+        return 'blue' as const;
+    }
+  };
 
   const handleEdit = (user: User) => {
     setEditingUser({
@@ -116,9 +141,9 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <option value={UserRole.ADMIN}>Admin</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
+                    <RetroBadge color={getRoleBadgeColor(user.role)}>
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()}
-                    </span>
+                    </RetroBadge>
                   )}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
@@ -136,9 +161,9 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <option value={SubscriptionTier.PREMIUM}>Premium</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
+                    <RetroBadge color={getTierBadgeColor(user.subscriptionTier)}>
                       {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1).toLowerCase()}
-                    </span>
+                    </RetroBadge>
                   )}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
@@ -155,9 +180,9 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <option value="inactive">Inactive</option>
                     </select>
                   ) : (
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold border-2 border-black shadow-retro-2`}>
+                    <RetroBadge color={user.isActive ? 'green' : 'red'}>
                       {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    </RetroBadge>
                   )}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-sm font-monoRetro border-b border-neutral-300">
