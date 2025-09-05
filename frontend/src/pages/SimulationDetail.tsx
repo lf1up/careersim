@@ -4,6 +4,7 @@ import { apiClient } from '../utils/api.ts';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { RetroBadge, RetroAlert } from '../components/ui/RetroBadge.tsx';
+import { MarkdownMessage } from '../components/ui/MarkdownMessage.tsx';
 import { useSocket } from '../contexts/SocketContext.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { 
@@ -553,7 +554,7 @@ export const SimulationDetail: React.FC = () => {
                         )}
                       </div>
                       <div className={`px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full ${message.isFromUser ? 'bg-black text-white' : 'bg-white'}`}>
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                        <MarkdownMessage content={message.content} />
                       </div>
                       <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${message.isFromUser ? 'text-right' : 'text-left'}`}>
                         {new Date(message.timestamp).toLocaleTimeString()}
