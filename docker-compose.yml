@@ -54,6 +54,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
+      - PNPM_YES=true
+      - CI=true
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -62,6 +64,9 @@ services:
     networks:
       - careersim-network
     restart: unless-stopped
+    # TODO: Remove the following two lines when the .lock file will be frozen (to fix the pnpm install issue for dev)
+    command: >
+      sh -c "pnpm install && pnpm run dev"
 
   postgres:
     image: postgres:17-alpine
