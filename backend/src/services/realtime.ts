@@ -4,6 +4,7 @@ import { SessionMessage, MessageType } from '@/entities/SessionMessage';
 import { Simulation } from '@/entities/Simulation';
 import { Persona } from '@/entities/Persona';
 import * as crypto from 'crypto';
+import { compositeSimilarity } from '@/utils/textSimilarity';
 
 /**
  * Emit a Socket.IO event with the latest goal progress for a session.
@@ -86,7 +87,27 @@ export function startInactivityScheduler(): void {
           } as const;
 
           const lastUser = history.filter(m => m.type === MessageType.USER).slice(-1)[0]?.content;
-          const nudge = await aiService.generateProactivePersonaMessage(context, { reason: 'inactivity', lastUserMessage: lastUser });
+          const previousAi = history.filter(m => m.type === MessageType.AI).slice(-1)[0]?.content;
+
+          // Generate inactivity nudge with duplicate prevention
+          const similarityThreshold = 0.82;
+          let nudge = await aiService.generateProactivePersonaMessage(context, { reason: 'inactivity', lastUserMessage: lastUser, previousAiMessage: previousAi });
+          if (previousAi && compositeSimilarity(previousAi, nudge.message) >= similarityThreshold) {
+            const strongerPrev = `${previousAi}\n[Note: Provide a different angle, new detail, or concrete next step. Do not repeat prior phrasing.]`;
+            nudge = await aiService.generateProactivePersonaMessage(context, { reason: 'inactivity', lastUserMessage: lastUser, previousAiMessage: strongerPrev });
+          }
+          if (previousAi && compositeSimilarity(previousAi, nudge.message) >= similarityThreshold) {
+            // Still too similar; reschedule without sending to avoid spammy duplicates
+            const delayCfg = cs?.inactivityNudgeDelaySec || {};
+            const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
+            const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
+            const minMs = minSec * 1000;
+            const maxMs = maxSec * 1000;
+            const delay = crypto.randomInt(minMs, maxMs + 1);
+            s.inactivityNudgeAt = new Date(Date.now() + delay);
+            await repo.save(s);
+            continue;
+          }
 
           const seq = (history[history.length - 1]?.sequenceNumber || 0) + 1;
           const aiMessage = new SessionMessage();

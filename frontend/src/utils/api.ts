@@ -454,6 +454,91 @@ class ApiClient {
     return response.data;
   }
 
+  // Admin RAG API
+  public async getRagHealth(): Promise<{ available: boolean; health?: any; status?: string }> {
+    const response = await this.client.get('/admin/rag/health');
+    return response.data;
+  }
+
+  public async ensureRagCollections(): Promise<{ ensured: boolean }> {
+    const response = await this.client.post('/admin/rag/reindex', {});
+    return response.data;
+  }
+
+  public async upsertPersonaRagDocs(
+    personaId: string,
+    docs: Array<{ id?: string; text: string; metadata?: Record<string, any> }>,
+  ): Promise<{ result: { upserted: number; collection: string } }> {
+    const response = await this.client.post(`/admin/rag/personas/${personaId}/docs`, { docs });
+    return response.data;
+  }
+
+  public async deletePersonaRagDocs(
+    personaId: string,
+    ids?: string[],
+  ): Promise<{ deleted: boolean }> {
+    const response = await this.client.delete(`/admin/rag/personas/${personaId}/docs`, {
+      data: Array.isArray(ids) && ids.length > 0 ? { ids } : {},
+    });
+    return response.data;
+  }
+
+  public async searchPersonaRagDocs(
+    personaId: string,
+    q: string,
+    topK?: number,
+  ): Promise<{ results: Array<{ id: string; text: string; metadata: any; distance?: number }> }> {
+    const response = await this.client.get(`/admin/rag/personas/${personaId}/docs/search`, {
+      params: { q, topK },
+    });
+    return response.data;
+  }
+
+  public async listPersonaRagDocs(
+    personaId: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<{ results: Array<{ id: string; text: string; metadata: any }> }> {
+    const response = await this.client.get(`/admin/rag/personas/${personaId}/docs`, { params });
+    return response.data;
+  }
+
+  public async upsertSimulationRagDocs(
+    simulationId: string,
+    docs: Array<{ id?: string; text: string; metadata?: Record<string, any> }>,
+  ): Promise<{ result: { upserted: number; collection: string } }> {
+    const response = await this.client.post(`/admin/rag/simulations/${simulationId}/docs`, { docs });
+    return response.data;
+    }
+
+  public async deleteSimulationRagDocs(
+    simulationId: string,
+    ids?: string[],
+  ): Promise<{ deleted: boolean }> {
+    const response = await this.client.delete(`/admin/rag/simulations/${simulationId}/docs`, {
+      data: Array.isArray(ids) && ids.length > 0 ? { ids } : {},
+    });
+    return response.data;
+  }
+
+  public async searchSimulationRagDocs(
+    simulationId: string,
+    q: string,
+    topK?: number,
+  ): Promise<{ results: Array<{ id: string; text: string; metadata: any; distance?: number }> }> {
+    const response = await this.client.get(`/admin/rag/simulations/${simulationId}/docs/search`, {
+      params: { q, topK },
+    });
+    return response.data;
+  }
+
+  public async listSimulationRagDocs(
+    simulationId: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<{ results: Array<{ id: string; text: string; metadata: any }> }> {
+    const response = await this.client.get(`/admin/rag/simulations/${simulationId}/docs`, { params });
+    return response.data;
+  }
+
   // System Configuration methods
   public async getSystemConfig(): Promise<{
     configurations: any[];

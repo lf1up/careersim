@@ -4,10 +4,12 @@ import crypto from 'crypto';
  * Returns a cryptographically secure random float in [0, 1).
  */
 export function randomFloat(): number {
-  // Use 53 bits to match JS number mantissa precision
-  const max = Math.pow(2, 53);
-  const n = crypto.randomInt(0, max);
-  return n / max;
+  // Use 48 random bits to stay within safe integer boundaries
+  // Generate 6 random bytes (0 .. 2^48-1) and normalize to [0,1)
+  const buf = crypto.randomBytes(6);
+  const n = buf.readUIntBE(0, 6);
+  const maxExclusive = Math.pow(2, 48);
+  return n / maxExclusive;
 }
 
 /**

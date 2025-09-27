@@ -8,6 +8,7 @@ import { evaluationsService, computeAndPersistSessionScores } from '@/services/e
 import { emitGoalProgressUpdate } from '@/services/realtime';
 import { config } from '@/config/env';
 import { randomFloat, randomDelayMs, randomInt } from '@/utils/secureRandom';
+import { compositeSimilarity } from '@/utils/textSimilarity';
 
 const router: Router = Router();
 
@@ -1100,7 +1101,26 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
                   sessionDuration: Date.now() - session.createdAt.getTime(),
                 };
 
-                const follow = await aiService.generateProactivePersonaMessage(contextForFollowup, { reason: 'followup', lastUserMessage: content });
+                const previousAi = [...updatedMessages].reverse().find((m) => m.type === MessageType.AI)?.content;
+
+                // Try to generate a non-duplicative follow-up (one retry if too similar)
+                const similarityThreshold = 0.82;
+                let follow = await aiService.generateProactivePersonaMessage(
+                  contextForFollowup,
+                  { reason: 'followup', lastUserMessage: content, previousAiMessage: previousAi },
+                );
+                if (previousAi && compositeSimilarity(previousAi, follow.message) >= similarityThreshold) {
+                  // Retry once with a stronger instruction baked in via previousAiMessage
+                  const strongerPrev = `${previousAi}\n[Note: Provide a different angle, new detail, or next actionable step.]`;
+                  follow = await aiService.generateProactivePersonaMessage(
+                    contextForFollowup,
+                    { reason: 'followup', lastUserMessage: content, previousAiMessage: strongerPrev },
+                  );
+                }
+                if (previousAi && compositeSimilarity(previousAi, follow.message) >= similarityThreshold) {
+                  // Still too similar; skip sending this follow-up
+                  continue;
+                }
 
                 // Simulate typing delay based on length
                 const words = Math.max(3, follow.message.split(/\s+/).length);

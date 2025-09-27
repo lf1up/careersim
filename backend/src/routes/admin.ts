@@ -12,6 +12,7 @@ import { SystemConfiguration, AIModelSettings, SystemPrompts } from '@/entities/
 import { SubscriptionStatus } from '@/types';
 import { authenticateToken, requireAdmin, AuthenticatedRequest } from '@/middleware/auth';
 import { AIService } from '@/services/ai';
+import { RAGService } from '@/services/rag';
 
 const router: Router = Router();
 
@@ -1962,6 +1963,531 @@ router.patch('/personas/:id', async (req: AuthenticatedRequest, res: Response) =
     res.json({ persona });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update persona' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/health:
+ *   get:
+ *     summary: Get RAG microservice health
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: RAG health
+ *       503:
+ *         description: RAG unavailable
+ */
+router.get('/rag/health', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const available = await RAGService.isAvailable();
+    if (!available) {
+      return res.status(503).json({ available: false, status: 'unavailable' });
+    }
+
+    const health = await RAGService.getHealthInfo();
+    res.json({ available: true, health });
+  } catch (error) {
+    res.status(503).json({ available: false, status: 'unavailable' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/reindex:
+ *   post:
+ *     summary: Ensure RAG doc collections
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Collections ensured
+ *       503:
+ *         description: RAG unavailable
+ */
+router.post('/rag/reindex', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const available = await RAGService.isAvailable();
+    if (!available) {
+      return res.status(503).json({ error: 'RAG service unavailable' });
+    }
+
+    await RAGService.ensureDocCollections();
+    res.json({ ensured: true });
+  } catch (error) {
+    console.error('RAG reindex error:', error);
+    res.status(500).json({ error: 'Failed to reindex RAG' });
+  }
+});
+
+/**
+ * Persona RAG documents management
+ */
+/**
+ * @swagger
+ * /api/admin/rag/personas/{id}/docs:
+ *   post:
+ *     summary: Upsert RAG documents attached to a Persona
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Persona ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - docs
+ *             properties:
+ *               docs:
+ *                 type: array
+ *                 description: Array of documents to upsert
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Optional stable document ID
+ *                     text:
+ *                       type: string
+ *                       description: Document text content
+ *                     metadata:
+ *                       type: object
+ *                       description: Optional metadata (merged with personaId)
+ *     responses:
+ *       201:
+ *         description: Documents upserted
+ *       400:
+ *         description: Validation error
+ *       503:
+ *         description: RAG unavailable
+ */
+router.post('/rag/personas/:id/docs', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const personaId = req.params.id;
+    const { docs } = req.body as { docs: Array<{ id?: string; text: string; metadata?: Record<string, any> }> };
+    if (!Array.isArray(docs) || docs.length === 0) {
+      return res.status(400).json({ error: 'docs array is required' });
+    }
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    const result = await RAGService.upsertPersonaDocs(personaId, docs);
+    res.status(201).json({ result });
+  } catch (error) {
+    console.error('Persona docs upsert error:', error);
+    res.status(500).json({ error: 'Failed to upsert persona docs' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/personas/{id}/docs:
+ *   delete:
+ *     summary: Delete RAG documents for a Persona
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Persona ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Specific document IDs to delete. If omitted, deletes all docs for the persona.
+ *     responses:
+ *       200:
+ *         description: Documents deleted
+ *       503:
+ *         description: RAG unavailable
+ */
+router.delete('/rag/personas/:id/docs', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const personaId = req.params.id;
+    const { ids } = req.body as { ids?: string[] };
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    let ok = false;
+    if (Array.isArray(ids) && ids.length > 0) {
+      ok = await RAGService.deleteDocuments({ collection: 'persona_docs', ids });
+    } else {
+      ok = await RAGService.deleteAllPersonaDocs(personaId);
+    }
+
+    res.json({ deleted: ok });
+  } catch (error) {
+    console.error('Persona docs delete error:', error);
+    res.status(500).json({ error: 'Failed to delete persona docs' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/personas/{id}/docs/search:
+ *   get:
+ *     summary: Search Persona-attached RAG documents
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Persona ID
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Query text
+ *       - in: query
+ *         name: topK
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 5
+ *         description: Number of results
+ *     responses:
+ *       200:
+ *         description: Search results
+ *       400:
+ *         description: Validation error
+ *       503:
+ *         description: RAG unavailable
+ */
+router.get('/rag/personas/:id/docs/search', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const personaId = req.params.id;
+    const q = String(req.query.q || req.query.query || '').trim();
+    const topK = Number(req.query.topK || req.query.k || 5);
+    if (!q) return res.status(400).json({ error: 'q (query) is required' });
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    const results = await RAGService.searchPersonaDocs(personaId, q, topK);
+    res.json({ results });
+  } catch (error) {
+    console.error('Persona docs search error:', error);
+    res.status(500).json({ error: 'Failed to search persona docs' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/personas/{id}/docs:
+ *   get:
+ *     summary: List Persona-attached RAG documents
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Persona ID
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 1000
+ *           default: 100
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *     responses:
+ *       200:
+ *         description: List of persona docs
+ *       503:
+ *         description: RAG unavailable
+ */
+router.get('/rag/personas/:id/docs', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const personaId = req.params.id;
+    const limit = Number(req.query.limit || 100);
+    const offset = Number(req.query.offset || 0);
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    const results = await RAGService.listPersonaDocs(personaId, limit, offset);
+    res.json({ results });
+  } catch (error) {
+    console.error('Persona docs list error:', error);
+    res.status(500).json({ error: 'Failed to list persona docs' });
+  }
+});
+
+/**
+ * Simulation RAG documents management
+ */
+/**
+ * @swagger
+ * /api/admin/rag/simulations/{id}/docs:
+ *   post:
+ *     summary: Upsert RAG documents attached to a Simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - docs
+ *             properties:
+ *               docs:
+ *                 type: array
+ *                 description: Array of documents to upsert
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Optional stable document ID
+ *                     text:
+ *                       type: string
+ *                       description: Document text content
+ *                     metadata:
+ *                       type: object
+ *                       description: Optional metadata (merged with simulationId)
+ *     responses:
+ *       201:
+ *         description: Documents upserted
+ *       400:
+ *         description: Validation error
+ *       503:
+ *         description: RAG unavailable
+ */
+router.post('/rag/simulations/:id/docs', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationId = req.params.id;
+    const { docs } = req.body as { docs: Array<{ id?: string; text: string; metadata?: Record<string, any> }> };
+    if (!Array.isArray(docs) || docs.length === 0) {
+      return res.status(400).json({ error: 'docs array is required' });
+    }
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    const result = await RAGService.upsertSimulationDocs(simulationId, docs);
+    res.status(201).json({ result });
+  } catch (error) {
+    console.error('Simulation docs upsert error:', error);
+    res.status(500).json({ error: 'Failed to upsert simulation docs' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/simulations/{id}/docs:
+ *   delete:
+ *     summary: Delete RAG documents for a Simulation
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Specific document IDs to delete. If omitted, deletes all docs for the simulation.
+ *     responses:
+ *       200:
+ *         description: Documents deleted
+ *       503:
+ *         description: RAG unavailable
+ */
+router.delete('/rag/simulations/:id/docs', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationId = req.params.id;
+    const { ids } = req.body as { ids?: string[] };
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    let ok = false;
+    if (Array.isArray(ids) && ids.length > 0) {
+      ok = await RAGService.deleteDocuments({ collection: 'simulation_docs', ids });
+    } else {
+      ok = await RAGService.deleteAllSimulationDocs(simulationId);
+    }
+
+    res.json({ deleted: ok });
+  } catch (error) {
+    console.error('Simulation docs delete error:', error);
+    res.status(500).json({ error: 'Failed to delete simulation docs' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/simulations/{id}/docs/search:
+ *   get:
+ *     summary: Search Simulation-attached RAG documents
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Query text
+ *       - in: query
+ *         name: topK
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 5
+ *         description: Number of results
+ *     responses:
+ *       200:
+ *         description: Search results
+ *       400:
+ *         description: Validation error
+ *       503:
+ *         description: RAG unavailable
+ */
+router.get('/rag/simulations/:id/docs/search', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationId = req.params.id;
+    const q = String(req.query.q || req.query.query || '').trim();
+    const topK = Number(req.query.topK || req.query.k || 5);
+    if (!q) return res.status(400).json({ error: 'q (query) is required' });
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    const results = await RAGService.searchSimulationDocs(simulationId, q, topK);
+    res.json({ results });
+  } catch (error) {
+    console.error('Simulation docs search error:', error);
+    res.status(500).json({ error: 'Failed to search simulation docs' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/rag/simulations/{id}/docs:
+ *   get:
+ *     summary: List Simulation-attached RAG documents
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Simulation ID
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 1000
+ *           default: 100
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           default: 0
+ *     responses:
+ *       200:
+ *         description: List of simulation docs
+ *       503:
+ *         description: RAG unavailable
+ */
+router.get('/rag/simulations/:id/docs', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const simulationId = req.params.id;
+    const limit = Number(req.query.limit || 100);
+    const offset = Number(req.query.offset || 0);
+
+    const available = await RAGService.isAvailable();
+    if (!available) return res.status(503).json({ error: 'RAG service unavailable' });
+
+    const results = await RAGService.listSimulationDocs(simulationId, limit, offset);
+    res.json({ results });
+  } catch (error) {
+    console.error('Simulation docs list error:', error);
+    res.status(500).json({ error: 'Failed to list simulation docs' });
   }
 });
 

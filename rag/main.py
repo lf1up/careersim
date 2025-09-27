@@ -8,6 +8,7 @@ Endpoints:
 - DELETE /collections/{name}  : delete a collection
 - POST /upsert                : upsert documents with optional metadatas and ids
 - POST /query                 : semantic query over a collection (top_k, filters)
+- POST /list                  : list documents by metadata filter (ids, docs, metadatas)
 - POST /delete                : delete documents by ids or where clause
 - GET  /health                : health check
 
@@ -160,6 +161,19 @@ class QueryResult(BaseModel):
     distances: Optional[List[float]] = None
 
 
+class ListInput(BaseModel):
+    collection: str = Field(..., min_length=1)
+    where: Optional[Dict[str, Any]] = None
+    limit: Optional[int] = Field(100, ge=1, le=1000)
+    offset: Optional[int] = Field(0, ge=0)
+
+
+class ListResult(BaseModel):
+    ids: List[str]
+    documents: List[str]
+    metadatas: List[Optional[Dict[str, Any]]]
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -225,11 +239,16 @@ def ensure_collection(
     input_data: EnsureCollectionInput, token: str = get_auth_dependency()
 ):
     try:
-        col = chroma_client.get_or_create_collection(
-            name=input_data.name,
-            metadata=input_data.metadata or {},
-            embedding_function=embedding_fn,
-        )
+        # Only pass metadata when it is provided and non-empty; some Chroma versions
+        # reject an explicitly empty metadata dict
+        kwargs = {
+            "name": input_data.name,
+            "embedding_function": embedding_fn,
+        }
+        if input_data.metadata and isinstance(input_data.metadata, dict) and len(input_data.metadata) > 0:
+            kwargs["metadata"] = input_data.metadata
+
+        col = chroma_client.get_or_create_collection(**kwargs)
         return {"name": col.name, "metadata": getattr(col, "metadata", None)}
     except Exception as exc:
         raise HTTPException(
@@ -291,6 +310,35 @@ def query(input_data: QueryInput, token: str = get_auth_dependency()):
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Query failed: {exc}")
+
+
+@app.post("/list", response_model=ListResult)
+def list_documents(input_data: ListInput, token: str = get_auth_dependency()):
+    col = get_collection_or_404(input_data.collection)
+    try:
+        # Normalize simple equality filters to operator form expected by some backends
+        where = None
+        if input_data.where:
+            where = {}
+            for k, v in input_data.where.items():
+                if isinstance(v, dict):
+                    where[k] = v
+                else:
+                    where[k] = {"$eq": v}
+
+        result = col.get(
+            where=where,
+            limit=input_data.limit,
+            offset=input_data.offset,
+            include=["documents", "metadatas"],
+        )
+        ids = result.get("ids", [])
+        documents = result.get("documents", [])
+        metadatas = result.get("metadatas", [])
+        return ListResult(ids=ids, documents=documents, metadatas=metadatas)
+    except Exception as exc:
+        logger.exception("List failed")
+        raise HTTPException(status_code=500, detail=f"List failed: {exc}")
 
 
 @app.post("/delete", response_model=dict)

@@ -5,7 +5,7 @@ import { RetroTable, RetroPagination } from '../../components/ui/RetroTable.tsx'
 import { RetroBadge } from '../../components/ui/RetroBadge.tsx';
 import { RetroDialog } from '../../components/ui/RetroDialog.tsx';
 import { RetroInput, RetroSelect, RetroTextArea, RetroCheckbox } from '../../components/ui/RetroInput.tsx';
-import { FunnelIcon, PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { FunnelIcon, PencilIcon, TrashIcon, PlusIcon, DocumentTextIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { apiClient } from '../../utils/api.ts';
 import { Persona, PersonaCategory } from '../../types/index.ts';
 
@@ -87,6 +87,8 @@ export const AdminPersonas: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const [formData, setFormData] = useState<PersonaFormData>(initialFormData);
+  const [showRagModal, setShowRagModal] = useState(false);
+  const [ragPersona, setRagPersona] = useState<Persona | null>(null);
   const [filters, setFilters] = useState({
     category: '',
     active: '',
@@ -329,6 +331,16 @@ export const AdminPersonas: React.FC = () => {
         <div className="flex justify-end gap-2">
           <button onClick={() => handleEdit(p)} className="retro-btn-base bg-white px-2 py-1">
             <PencilIcon className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              setRagPersona(p);
+              setShowRagModal(true);
+            }}
+            className="retro-btn-base bg-white px-2 py-1"
+            title="Manage RAG Docs"
+          >
+            <DocumentTextIcon className="h-4 w-4" />
           </button>
           <button onClick={() => handleDelete(p)} className="retro-btn-base bg-white px-2 py-1">
             <TrashIcon className="h-4 w-4" />
@@ -675,6 +687,300 @@ export const AdminPersonas: React.FC = () => {
           </div>
         </form>
       </RetroDialog>
+      {showRagModal && ragPersona && (
+        <PersonaRagDocsModal
+          persona={ragPersona}
+          onClose={() => {
+            setShowRagModal(false);
+            setRagPersona(null);
+          }}
+        />
+      )}
     </div>
   );
 }; 
+
+interface PersonaRagDocsModalProps {
+  persona: Persona;
+  onClose: () => void;
+}
+
+const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onClose }) => {
+  const [docs, setDocs] = useState<Array<{ id?: string; text: string; metadataText?: string }>>([
+    { id: '', text: '', metadataText: '' },
+  ]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [topK, setTopK] = useState(5);
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; text: string; metadata: any; distance?: number }>>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [ragAvailable, setRagAvailable] = useState<boolean | null>(null);
+  const [existingDocs, setExistingDocs] = useState<Array<{ id: string; text: string; metadata: any }>>([]);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const health = await apiClient.getRagHealth();
+        setRagAvailable(!!health.available);
+      } catch {
+        setRagAvailable(false);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const loadExisting = async () => {
+      try {
+        setLoadingExisting(true);
+        const { results } = await apiClient.listPersonaRagDocs(persona.id, { limit: 200 });
+        setExistingDocs(results || []);
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+    loadExisting();
+  }, [persona.id]);
+
+  const handleAddDoc = () => {
+    setDocs((prev) => [...prev, { id: '', text: '', metadataText: '' }]);
+  };
+
+  const handleRemoveDoc = (index: number) => {
+    setDocs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const parseMetadata = (text?: string): Record<string, any> | undefined => {
+    const trimmed = (text || '').trim();
+    if (!trimmed) return undefined;
+    try {
+      return JSON.parse(trimmed);
+    } catch (e) {
+      toast.error('Metadata must be valid JSON');
+      throw e;
+    }
+  };
+
+  const handleUpsert = async () => {
+    try {
+      setLoading(true);
+      const payload = docs
+        .map((d) => ({ id: d.id?.trim() || undefined, text: d.text.trim(), metadata: parseMetadata(d.metadataText) }))
+        .filter((d) => d.text.length > 0);
+      if (payload.length === 0) {
+        toast.error('Please add at least one document with text');
+        return;
+      }
+      await apiClient.upsertPersonaRagDocs(persona.id, payload);
+      toast.success('Documents upserted');
+      setDocs([{ id: '', text: '', metadataText: '' }]);
+      // refresh existing list
+      try {
+        const { results } = await apiClient.listPersonaRagDocs(persona.id, { limit: 200 });
+        setExistingDocs(results || []);
+      } catch {
+        void 0;
+      }
+    } catch (e) {
+      // error handled globally
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    try {
+      setLoading(true);
+      const { results } = await apiClient.searchPersonaRagDocs(persona.id, searchQuery.trim(), topK);
+      setSearchResults(results || []);
+      setSelectedIds([]);
+    } catch (e) {
+      // handled globally
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('No documents selected');
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedIds.length} selected document(s)?`)) return;
+    try {
+      setLoading(true);
+      await apiClient.deletePersonaRagDocs(persona.id, selectedIds);
+      toast.success('Selected documents deleted');
+      // refresh search
+      await handleSearch();
+    } catch (e) {
+      // handled globally
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!window.confirm('Delete ALL docs for this persona?')) return;
+    try {
+      setLoading(true);
+      await apiClient.deletePersonaRagDocs(persona.id);
+      toast.success('All documents deleted');
+      setSearchResults([]);
+      setSelectedIds([]);
+      setExistingDocs([]);
+    } catch (e) {
+      // handled globally
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <RetroDialog open={true} onClose={onClose} title={`Manage RAG Docs — ${persona.name}`} className="max-w-5xl">
+      <div className="space-y-6">
+        {ragAvailable === false && (
+          <div className="p-3 border-2 border-black bg-red-100 text-sm">
+            RAG service is unavailable. You can continue, but actions will fail until it is online.
+          </div>
+        )}
+
+        <div className="space-y-3">
+        <h3 className="text-md font-semibold">Existing Documents</h3>
+        <div className="flex items-center justify-between">
+          <div className="text-sm">{loadingExisting ? 'Loading…' : `${existingDocs.length} doc(s)`}</div>
+          <div className="flex gap-2">
+            <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={async () => {
+              setLoadingExisting(true);
+              try {
+                const { results } = await apiClient.listPersonaRagDocs(persona.id, { limit: 200 });
+                setExistingDocs(results || []);
+              } finally {
+                setLoadingExisting(false);
+              }
+            }}>Refresh</button>
+          </div>
+        </div>
+        {existingDocs.length > 0 ? (
+          <div className="space-y-2 max-h-[30vh] overflow-auto pr-1">
+            {existingDocs.map((r) => (
+              <div key={r.id} className="p-3 border-2 border-black bg-white">
+                <div className="text-xs font-monoRetro break-all">{r.id}</div>
+                <div className="text-sm whitespace-pre-wrap mt-1">{r.text}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-neutral-700">No documents yet.</div>
+        )}
+      </div>
+
+      <div className="border-t-2 border-black" />
+
+      <div className="space-y-3">
+          <h3 className="text-md font-semibold">Add/Upsert Documents</h3>
+          <div className="space-y-3">
+            {docs.map((d, index) => (
+              <div key={index} className="p-3 border-2 border-black bg-white shadow-retro-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <RetroInput
+                    label="Document ID (optional, stable)"
+                    value={d.id || ''}
+                    onChange={(e) => setDocs((prev) => prev.map((it, i) => i === index ? { ...it, id: e.target.value } : it))}
+                  />
+                  <RetroInput
+                    label="Metadata JSON (optional)"
+                    value={d.metadataText || ''}
+                    onChange={(e) => setDocs((prev) => prev.map((it, i) => i === index ? { ...it, metadataText: e.target.value } : it))}
+                  />
+                  <div className="md:col-span-2">
+                    <RetroTextArea
+                      label="Text *"
+                      rows={4}
+                      value={d.text}
+                      onChange={(e) => setDocs((prev) => prev.map((it, i) => i === index ? { ...it, text: e.target.value } : it))}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end mt-2">
+                  <button type="button" className="retro-btn-base bg-white px-2 py-1" onClick={() => handleRemoveDoc(index)} disabled={docs.length === 1}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between">
+            <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={handleAddDoc}>
+              Add Another
+            </button>
+            <button type="button" className="retro-btn-base bg-yellow-300 px-3 py-2" onClick={handleUpsert} disabled={loading}>
+              {loading ? 'Saving...' : 'Upsert Documents'}
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t-2 border-black pt-4 space-y-3">
+          <h3 className="text-md font-semibold">Search and Delete</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <RetroInput label="Query" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <RetroInput label="Top K" type="number" min="1" max="50" value={topK} onChange={(e) => setTopK(Number(e.target.value) || 5)} />
+            <button type="button" className="retro-btn-base bg-white px-3 py-2 inline-flex items-center justify-center" onClick={handleSearch} disabled={loading || !searchQuery.trim()}>
+              <MagnifyingGlassIcon className="h-4 w-4 mr-2" /> Search
+            </button>
+          </div>
+          {searchResults.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm">{searchResults.length} result(s)</div>
+                <div className="flex items-center gap-2">
+                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={() => setSelectedIds(searchResults.map(r => r.id))}>Select All</button>
+                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={() => setSelectedIds([])}>Clear</button>
+                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={handleDeleteSelected} disabled={selectedIds.length === 0}>Delete Selected</button>
+                </div>
+              </div>
+              <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
+                {searchResults.map((r) => (
+                  <div key={r.id} className="p-3 border-2 border-black bg-white">
+                    <div className="flex items-start justify-between">
+                      <div className="mr-3">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={selectedIds.includes(r.id)}
+                          onChange={(e) => {
+                            const checked = (e.target as HTMLInputElement).checked;
+                            setSelectedIds((prev) => checked ? [...prev, r.id] : prev.filter((id) => id !== r.id));
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-monoRetro break-all">{r.id}</div>
+                        <div className="text-sm whitespace-pre-wrap mt-1">{r.text}</div>
+                        {r.distance !== undefined && (
+                          <div className="text-xs text-neutral-600 mt-1">distance: {r.distance.toFixed(4)}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={handleDeleteAll}>
+                  Delete All Docs for Persona
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-neutral-700">No results. Use search to view and manage existing docs.</div>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-4 border-t-2 border-black">
+          <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </RetroDialog>
+  );
+};

@@ -17,6 +17,7 @@ import { errorHandler } from '@/middleware/error';
 import { requestLogger } from '@/middleware/logger';
 import { AIService } from '@/services/ai';
 import { startInactivityScheduler } from '@/services/realtime';
+import { RAGService } from '@/services/rag';
 
 // Import routes
 import authRoutes from '@/routes/auth';
@@ -188,8 +189,10 @@ const startServer = async (): Promise<void> => {
     await connectDatabase();
 
     // Initialize AI models
-    console.log('🤖 Initializing AI models...');
     await AIService.preloadNLPModels();
+
+    // Initialize RAG microservice
+    await RAGService.preload();
 
     // Start server
     server.listen(config.port, () => {

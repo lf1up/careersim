@@ -7,6 +7,7 @@ import { Simulation } from '@/entities/Simulation';
 import { SimulationSession } from '@/entities/SimulationSession';
 import { SessionMessage, MessageType } from '@/entities/SessionMessage';
 import { transformersService } from '@/services/transformers';
+import { RAGService } from '@/services/rag';
 
 export interface AIResponse {
   message: string;
@@ -52,6 +53,7 @@ export class AIService {
   private configCache: Map<string, any> = new Map();
   private configCacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastConfigUpdate = 0;
+  private ragContextCache: Map<string, string> = new Map();
   
   // Static instance for cache management
   private static instance: AIService | null = null;
@@ -340,6 +342,47 @@ export class AIService {
   }
 
   /**
+   * Build a stable cache key for RAG context based on session if available
+   */
+  private getSessionCacheKey(context: ConversationContext): string {
+    const history = Array.isArray(context.conversationHistory) ? context.conversationHistory : [];
+    const firstMsg = history[0];
+    const lastMsg = history.length > 0 ? history[history.length - 1] : undefined;
+    const sessionId = firstMsg?.sessionId || lastMsg?.sessionId;
+    if (sessionId) return `session:${sessionId}`;
+    const simId = (context.simulation as any)?.id || 'unknown_sim';
+    const personaId = (context.persona as any)?.id || 'unknown_persona';
+    return `sim:${simId}:persona:${personaId}`;
+  }
+
+  /**
+   * Get or compute the RAG context once per session and cache it
+   */
+  private async getOrBuildRagContextOnce(context: ConversationContext, query: string): Promise<string> {
+    const cacheKey = this.getSessionCacheKey(context);
+    if (this.ragContextCache.has(cacheKey)) {
+      return this.ragContextCache.get(cacheKey) as string;
+    }
+    try {
+      const available = await RAGService.isAvailable();
+      if (!available) {
+        this.ragContextCache.set(cacheKey, '');
+        return '';
+      }
+      const ragContext = await RAGService.buildRagContextForConversation({
+        persona: context.persona,
+        simulation: context.simulation,
+        query,
+      });
+      this.ragContextCache.set(cacheKey, ragContext || '');
+      return ragContext || '';
+    } catch {
+      this.ragContextCache.set(cacheKey, '');
+      return '';
+    }
+  }
+
+  /**
    * Generate AI persona response based on conversation context
    */
   async generatePersonaResponse(
@@ -356,8 +399,12 @@ export class AIService {
 
       const genConfig = this.resolveAIProfile(aiSettings, 'generation');
 
-      const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt);
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
+
+      // Build RAG context once per session and inject into system prompt only
+      const queryForRag = userMessage || context.simulation.title || context.simulation.scenario || context.persona.name;
+      const ragContext = await this.getOrBuildRagContextOnce(context, queryForRag);
+      const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt, ragContext);
 
       const completion = await this.openai.chat.completions.create({
         model: genConfig.model,
@@ -440,11 +487,11 @@ export class AIService {
    */
   async generateProactivePersonaMessage(
     context: ConversationContext,
-    options: { reason: ProactiveReason; lastUserMessage?: string },
+    options: { reason: ProactiveReason; lastUserMessage?: string; previousAiMessage?: string },
   ): Promise<AIResponse> {
     const startTime = Date.now();
 
-    const { reason, lastUserMessage } = options;
+    const { reason, lastUserMessage, previousAiMessage } = options;
     const { persona } = context;
 
     try {
@@ -455,8 +502,12 @@ export class AIService {
 
       const genConfig = this.resolveAIProfile(aiSettings, 'generation');
 
-      const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt);
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
+
+      // Build RAG context once per session and inject into system prompt only
+      const queryForRag = lastUserMessage || context.simulation.title || context.simulation.scenario || context.persona.name;
+      const ragContext = await this.getOrBuildRagContextOnce(context, queryForRag);
+      const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt, ragContext);
 
       // Steering instruction for proactive message
       const personaHints = persona.conversationStyle || {} as any;
@@ -481,6 +532,8 @@ export class AIService {
         '[Proactive action]',
         steering,
         lastUserMessage ? `Last user input to consider: ${lastUserMessage}` : '',
+        previousAiMessage ? `Previous AI message to build on (avoid repetition): ${previousAiMessage}` : '',
+        'Add a distinct point or next step. Do not restate prior sentences.',
       ].filter(Boolean).join('\n');
 
       const completion = await this.openai.chat.completions.create({
@@ -528,7 +581,7 @@ export class AIService {
   /**
    * Build system prompt for the AI persona using configurable template
    */
-  private buildSystemPrompt(context: ConversationContext, promptTemplate: string): string {
+  private buildSystemPrompt(context: ConversationContext, promptTemplate: string, ragContext?: string): string {
     const { persona, simulation } = context;
 
     // Replace template variables with actual values
@@ -551,7 +604,10 @@ export class AIService {
       styleGuidelines = prompts?.styleGuidelines;
     } catch {}
 
-    return `${basePrompt}\n\n${styleGuidelines}`;
+    const parts: string[] = [basePrompt];
+    if (styleGuidelines) parts.push(styleGuidelines);
+    if (ragContext) parts.push(ragContext);
+    return parts.join('\n\n');
   }
 
   /**

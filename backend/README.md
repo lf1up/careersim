@@ -141,7 +141,11 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 
 # Transformers Microservice (local NLP models)
 TRANSFORMERS_API_URL=http://localhost:8001
-TRANSFORMERS_API_KEY=your-super-secure-auth-token-min-32-chars-long-change-this-in-production
+TRANSFORMERS_API_KEY=your-super-secret-session-key-change-in-production-32chars
+
+# RAG Microservice
+RAG_API_URL=http://localhost:8002
+RAG_API_KEY=your-super-secret-session-key-change-in-production-32chars
 ```
 
 > **Note**: All these environment variables are validated by the backend on startup. Make sure to update the placeholder values with your actual API keys and credentials.
@@ -408,7 +412,7 @@ The backend integrates with a local transformers microservice for advanced NLP p
 
 ### Configuration
 The microservice requires two environment variables:
-- `TRANSFORMERS_API_URL`: URL of the transformers microservice (default: http://localhost:8080)
+- `TRANSFORMERS_API_URL`: URL of the transformers microservice (default: `http://localhost:8001`)
 - `TRANSFORMERS_API_KEY`: Authentication token for the microservice
 
 ### Fallback Behavior
@@ -422,8 +426,36 @@ This ensures the application remains functional even when advanced NLP features 
 ### Starting the Transformers Service
 To start the transformers microservice:
 ```bash
-# From the project root
+# From the project root (if the rag service is enabled in docker-compose.yml)
 docker compose up transformers --build
 ```
 
 The service will be available at `http://localhost:8001` with API documentation at `http://localhost:8001/docs`.
+
+## 📚 RAG Microservice Integration
+
+The backend integrates with a local RAG (Retrieval-Augmented Generation) microservice backed by ChromaDB for storing and retrieving knowledge snippets per Persona and per Simulation.
+
+### Features
+- Document storage and semantic retrieval with persistent ChromaDB
+- Separate collections for persona and simulation knowledge: `persona_docs`, `simulation_docs`
+- FastAPI endpoints: `GET /health`, `GET/POST/DELETE /collections`, `POST /upsert`, `POST /query`, `POST /delete`
+- Bearer token authentication (can be disabled in development)
+
+### Configuration
+The microservice requires two environment variables:
+  - `RAG_API_URL`: (default: `http://localhost:8002`)
+  - `RAG_API_KEY`: (Bearer token used by the backend when calling the service)
+
+### Fallback Behavior
+If the RAG microservice is unavailable, the backend automatically skips RAG context retrieval. Conversations still proceed using LLM responses without RAG grounding.
+
+### Starting the RAG Service
+To start the RAG microservice:
+
+```bash
+# From the project root (if the rag service is enabled in docker-compose.yml)
+docker compose up rag --build
+```
+
+The service will be available at `http://localhost:8002` with API documentation at `http://localhost:8002/docs`.

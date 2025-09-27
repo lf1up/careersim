@@ -61,7 +61,11 @@ const envSchema = Joi.object({
   // Transformers Microservice
   TRANSFORMERS_API_URL: Joi.string().default('http://localhost:8001'),
   TRANSFORMERS_API_KEY: Joi.string().required(),
-  
+
+  // RAG Microservice
+  RAG_API_URL: Joi.string().default('http://localhost:8002'),
+  RAG_API_KEY: Joi.string().required(),
+
   // Stripe
   STRIPE_SECRET_KEY: Joi.string().required(),
   STRIPE_WEBHOOK_SECRET: Joi.string().required(),
@@ -151,6 +155,10 @@ export const config = {
     transformers: {
       apiUrl: envVars.TRANSFORMERS_API_URL,
       apiKey: envVars.TRANSFORMERS_API_KEY,
+    },
+    rag: {
+      apiUrl: envVars.RAG_API_URL,
+      apiKey: envVars.RAG_API_KEY,
     },
   },
   

@@ -38,9 +38,9 @@ services:
     command: >
       sh -c "
         # TODO: (Un)comment this to seed the database or reset it to a clean state
-        echo 'Running database seed...' &&
-        pnpm run db:seed &&
-        echo 'Database seeding completed! Starting development server...' &&
+        # echo 'Running database seed...' &&
+        # pnpm run db:seed &&
+        # echo 'Database seeding completed! Starting development server...' &&
         pnpm run dev
             "
 
