@@ -228,7 +228,7 @@ resource "aws_ecs_task_definition" "backend" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.backend.name
-          awslogs-region        = data.aws_region.current.name
+          awslogs-region        = data.aws_region.current.id
           awslogs-stream-prefix = "ecs"
         }
       }
@@ -263,7 +263,7 @@ resource "aws_ecs_task_definition" "rag" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.rag[0].name
-          awslogs-region        = data.aws_region.current.name
+          awslogs-region        = data.aws_region.current.id
           awslogs-stream-prefix = "ecs"
         }
       }
@@ -339,7 +339,7 @@ resource "aws_ecs_task_definition" "transformers" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.transformers[0].name
-          awslogs-region        = data.aws_region.current.name
+          awslogs-region        = data.aws_region.current.id
           awslogs-stream-prefix = "ecs"
         }
       }

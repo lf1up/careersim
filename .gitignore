@@ -159,3 +159,10 @@ __pycache__/
 # ChromaDB
 chroma/
 chroma_db/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfvars

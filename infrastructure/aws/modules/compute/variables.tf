@@ -28,7 +28,7 @@ variable "transformers_auth_token" { type = string }
 variable "transformers_use_gpu" {
   type        = bool
   description = "Run Transformers service on EC2 GPU capacity provider"
-  default     = false
+  default     = true
 }
 
 variable "gpu_instance_type" {

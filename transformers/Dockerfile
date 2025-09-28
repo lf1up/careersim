@@ -1,8 +1,8 @@
 # FastAPI Transformer Models Microservice Dockerfile
 # Multi-stage build to pre-download models and improve startup times
 
-# Stage 1: Model downloader
-FROM python:3.11-slim AS model-downloader
+# Stage 1: Model downloader (CUDA-enabled base with PyTorch)
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -33,7 +33,7 @@ COPY download_models.py .
 # Download all models during build time
 RUN python download_models.py
 
-# Stage 2: Final runtime image
+# Stage 2: Final runtime image (TODO: change to CUDA-enabled base with PyTorch if needed)
 FROM python:3.11-slim
 
 # Set working directory
@@ -56,15 +56,17 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy cached models from first stage
-COPY --from=model-downloader /app/models_cache /app/models_cache
-
-# Copy application code
-COPY . .
+# Create models cache directory in the final stage
+RUN mkdir -p /app/models_cache
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser
-RUN chown -R appuser:appuser /app
+
+# Copy cached models from first stage with chown
+COPY --from=model-downloader --chown=appuser:appuser /app/models_cache /app/models_cache
+
+# Copy application code with chown
+COPY --chown=appuser:appuser . .
 USER appuser
 
 # Expose port
