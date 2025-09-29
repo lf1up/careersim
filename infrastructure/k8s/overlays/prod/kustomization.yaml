@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: careersim
+
+resources:
+  - ../../base
+
+namePrefix: prod-
+
+configMapGenerator:
+  - name: app-config
+    behavior: merge
+    literals:
+      - NODE_ENV=production
+      - DB_LOGGING=false
+
+secretGenerator:
+  - name: app-secrets
+    behavior: replace
+    literals:
+      - DB_USERNAME=
+      - DB_PASSWORD=
+      - JWT_SECRET=
+      - JWT_REFRESH_SECRET=
+      - SESSION_SECRET=
+      - OPENAI_API_KEY=
+      - STRIPE_SECRET_KEY=
+      - STRIPE_WEBHOOK_SECRET=
+      - STRIPE_PUBLISHABLE_KEY=
+      - RAG_API_KEY=
+      - TRANSFORMERS_API_KEY=
+
+images:
+  - name: backend
+    newName: ghcr.io/your-org/backend
+    newTag: latest
+  - name: rag
+    newName: ghcr.io/your-org/rag
+    newTag: latest
+  - name: transformers
+    newName: ghcr.io/your-org/transformers
+    newTag: latest
+
+

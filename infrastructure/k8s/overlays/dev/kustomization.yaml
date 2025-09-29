@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: careersim
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+namePrefix: dev-
+
+configMapGenerator:
+  - name: app-config
+    behavior: merge
+    literals:
+      - NODE_ENV=development
+      - DB_LOGGING=true
+      - ALLOWED_ORIGINS=http://localhost:3000
+
+secretGenerator:
+  - name: app-secrets
+    behavior: replace
+    literals:
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=dev-secret
+      - JWT_REFRESH_SECRET=dev-refresh
+      - SESSION_SECRET=dev-session
+      - OPENAI_API_KEY=
+      - STRIPE_SECRET_KEY=
+      - STRIPE_WEBHOOK_SECRET=
+      - STRIPE_PUBLISHABLE_KEY=
+      - RAG_API_KEY=dev-token
+      - TRANSFORMERS_API_KEY=dev-token
+
+images:
+  - name: backend
+    newName: backend
+    newTag: dev
+  - name: rag
+    newName: rag
+    newTag: dev
+  - name: transformers
+    newName: transformers
+    newTag: dev
+
+
