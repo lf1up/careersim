@@ -237,7 +237,7 @@ variable "gpu_asg_desired" {
 variable "gpu_asg_max" {
   description = "ASG max capacity for GPU nodes"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "port" {
