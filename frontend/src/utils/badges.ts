@@ -35,8 +35,11 @@ export const categoryNameToBadgeColor = (name: string): RetroBadgeColor => {
     hash |= 0;
   }
   const index = Math.abs(hash) % categoryPalette.length;
-  const color = categoryPalette.at(index);
-  return color ?? 'default';
+  if (!Number.isInteger(index) || index < 0 || index >= categoryPalette.length) {
+    return 'default';
+  }
+  const color = categoryPalette.slice(index, index + 1)[0];
+  return (color as RetroBadgeColor | undefined) ?? 'default';
 };
 
 export const getDifficultyLabel = (difficulty: SimulationDifficulty): string => {

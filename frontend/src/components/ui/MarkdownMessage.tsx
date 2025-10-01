@@ -13,18 +13,24 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code({ inline, className, children, ...props }) {
+          code(rawProps) {
+            const { inline, className, children, ...rest } = (rawProps as unknown) as {
+              inline?: boolean;
+              className?: string;
+              children: React.ReactNode;
+              [key: string]: unknown;
+            };
             const language = /language-([\w-]+)/.exec(className || '')?.[1];
             if (inline) {
               return (
-                <code className="px-1 py-0.5 bg-gray-100 rounded text-secondary-800" {...props}>
+                <code className="px-1 py-0.5 bg-gray-100 rounded text-secondary-800" {...(rest as object)}>
                   {children}
                 </code>
               );
             }
             return (
-              <pre className="bg-white overflow-x-auto p-3" {...props}>
-                <code className={language ? `language-${language}` : undefined}>
+              <pre className="bg-white overflow-x-auto p-3">
+                <code className={language ? `language-${language}` : undefined} {...(rest as object)}>
                   {children}
                 </code>
               </pre>
