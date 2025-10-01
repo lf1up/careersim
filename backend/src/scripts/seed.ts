@@ -767,7 +767,7 @@ const seedData = async (): Promise<void> => {
     const adminUser = userRepository.create({
       firstName: 'Admin',
       lastName: 'User',
-      email: 'admin@careersim.com',
+      email: 'admin@careersim.ai',
       password: adminPassword,
       role: UserRole.ADMIN,
       subscriptionTier: SubscriptionTier.PREMIUM,
@@ -776,7 +776,7 @@ const seedData = async (): Promise<void> => {
     });
 
     await userRepository.save(adminUser);
-    console.log('👤 Created admin user: admin@careersim.com / admin123!@#');
+    console.log('👤 Created admin user: admin@careersim.ai / admin123!@#');
 
     // Seed Test Users
     const testUsers = [
