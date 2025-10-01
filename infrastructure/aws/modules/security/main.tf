@@ -67,7 +67,7 @@ resource "aws_security_group" "rds" {
     to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.services.id]
-    description     = "ECS -> RDS"
+    description     = "ECS to RDS"
   }
 
   egress {
@@ -90,7 +90,7 @@ resource "aws_security_group" "redis" {
     to_port         = 6379
     protocol        = "tcp"
     security_groups = [aws_security_group.services.id]
-    description     = "ECS -> Redis"
+    description     = "ECS to Redis"
   }
 
   egress {
@@ -113,7 +113,7 @@ resource "aws_security_group" "efs" {
     to_port         = 2049
     protocol        = "tcp"
     security_groups = [aws_security_group.services.id]
-    description     = "ECS -> EFS"
+    description     = "ECS to EFS"
   }
 
   egress {

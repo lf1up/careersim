@@ -2,7 +2,7 @@
 # Multi-stage build to pre-download models and improve startup times
 
 # Stage 1: Model downloader (CUDA-enabled base with PyTorch)
-FROM python:3.11-slim
+FROM python:3.11-slim AS model-downloader
 
 # Set working directory
 WORKDIR /app

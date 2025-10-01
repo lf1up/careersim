@@ -133,6 +133,11 @@ stripe_publishable_key  = "REPLACE_ME"
 # CORS
 allowed_origins = "https://yourapp.vercel.app,https://*.vercel.app"
 
+# Reuse existing networking
+# vpc_id            = "vpc-xxxxxxxx"
+# public_subnet_ids = ["subnet-aaaaaaa", "subnet-bbbbbbb"]
+# private_subnet_ids = ["subnet-ccccccc", "subnet-ddddddd"]
+
 # Optional tuning
 # db_instance_class       = "db.t4g.medium"
 # db_allocated_storage    = 20

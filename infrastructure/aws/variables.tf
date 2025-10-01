@@ -34,6 +34,29 @@ variable "private_subnet_cidrs" {
   default     = ["10.20.10.0/24", "10.20.11.0/24"]
 }
 
+# Optional: reuse an existing VPC and subnets instead of creating new ones
+variable "vpc_id" {
+  description = "If set, reuse this existing VPC ID. When null, a new VPC is created."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.vpc_id == null || (var.public_subnet_ids != null && length(var.public_subnet_ids) > 0 && var.private_subnet_ids != null && length(var.private_subnet_ids) > 0)
+    error_message = "When providing vpc_id, you must also provide non-empty public_subnet_ids and private_subnet_ids."
+  }
+}
+
+variable "public_subnet_ids" {
+  description = "Public subnet IDs to reuse when vpc_id is provided. Leave null when creating a new VPC."
+  type        = list(string)
+  default     = null
+}
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs to reuse when vpc_id is provided. Leave null when creating a new VPC."
+  type        = list(string)
+  default     = null
+}
+
 variable "db_instance_class" {
   description = "RDS instance class"
   type        = string
@@ -274,7 +297,7 @@ variable "rate_limit_window_ms" {
 variable "rate_limit_max_requests" {
   description = "Max requests per window"
   type        = number
-  default     = 100
+  default     = 500
 }
 
 variable "max_file_size" {

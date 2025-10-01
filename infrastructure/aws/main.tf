@@ -2,6 +2,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 module "network" {
+  count  = var.vpc_id == null ? 1 : 0
   source = "./modules/network"
 
   project               = var.project
@@ -12,12 +13,18 @@ module "network" {
   tags                  = local.common_tags
 }
 
+locals {
+  selected_vpc_id             = var.vpc_id != null ? var.vpc_id : module.network[0].vpc_id
+  selected_public_subnet_ids  = var.vpc_id != null ? var.public_subnet_ids : module.network[0].public_subnet_ids
+  selected_private_subnet_ids = var.vpc_id != null ? var.private_subnet_ids : module.network[0].private_subnet_ids
+}
+
 module "security" {
   source = "./modules/security"
 
   project     = var.project
   environment = var.environment
-  vpc_id      = module.network.vpc_id
+  vpc_id      = local.selected_vpc_id
   tags        = local.common_tags
 }
 
@@ -26,8 +33,8 @@ module "storage" {
 
   project           = var.project
   environment       = var.environment
-  vpc_id            = module.network.vpc_id
-  private_subnet_ids = module.network.private_subnet_ids
+  vpc_id            = local.selected_vpc_id
+  private_subnet_ids = local.selected_private_subnet_ids
   db_instance_class = var.db_instance_class
   db_allocated_storage = var.db_allocated_storage
   db_engine_version = var.db_engine_version
@@ -46,9 +53,9 @@ module "compute" {
 
   project             = var.project
   environment         = var.environment
-  vpc_id              = module.network.vpc_id
-  public_subnet_ids   = module.network.public_subnet_ids
-  private_subnet_ids  = module.network.private_subnet_ids
+  vpc_id              = local.selected_vpc_id
+  public_subnet_ids   = local.selected_public_subnet_ids
+  private_subnet_ids  = local.selected_private_subnet_ids
 
   alb_sg_id           = module.security.alb_sg_id
   services_sg_id      = module.security.services_sg_id

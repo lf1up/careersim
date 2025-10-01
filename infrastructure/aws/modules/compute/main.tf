@@ -91,6 +91,7 @@ resource "aws_autoscaling_group" "gpu" {
   min_size            = var.gpu_asg_min
   desired_capacity    = var.gpu_asg_desired
   vpc_zone_identifier = var.private_subnet_ids
+  protect_from_scale_in = true
   launch_template {
     id      = aws_launch_template.gpu[0].id
     version = "$Latest"
@@ -326,6 +327,7 @@ resource "aws_ecs_task_definition" "transformers" {
       image     = var.container_image_transformers
       essential = true
       portMappings = [{ containerPort = 8001, hostPort = 8001, protocol = "tcp" }]
+      memoryReservation = var.transformers_use_gpu ? var.transformers_container_memory_reservation : null
       resourceRequirements = var.transformers_use_gpu ? [
         { type = "GPU", value = "1" }
       ] : null

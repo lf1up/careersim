@@ -6,6 +6,7 @@ resource "aws_secretsmanager_secret" "env" {
   name        = "${local.name_prefix}-app-secrets"
   description = "App secrets for ${local.name_prefix}"
   tags        = var.tags
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "env" {

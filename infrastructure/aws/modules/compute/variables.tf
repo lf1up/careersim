@@ -52,7 +52,7 @@ variable "gpu_asg_desired" {
 variable "gpu_asg_max" {
   type        = number
   description = "ASG max capacity for GPU nodes"
-  default     = 2
+  default     = 1
 }
 
 variable "app_env" {
@@ -62,4 +62,11 @@ variable "app_env" {
 
 variable "tags" { type = map(string) }
 
+
+# Memory reservation for transformers container when running on EC2/GPU
+variable "transformers_container_memory_reservation" {
+  type        = number
+  description = "Container memoryReservation (MiB) for Transformers on EC2"
+  default     = 4096
+}
 

@@ -8,6 +8,30 @@ import { Simulation, SimulationDifficulty, SimulationStatus } from '@/entities/S
 import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { AuthUtils } from '@/utils/auth';
 
+// Determines whether the database has any existing application data.
+// Returns true when all sentinel tables are empty or missing.
+const isDatabaseEmpty = async (): Promise<boolean> => {
+  const repositories = [
+    AppDataSource.getRepository(User),
+    AppDataSource.getRepository(Category),
+    AppDataSource.getRepository(Persona),
+    AppDataSource.getRepository(Simulation),
+    AppDataSource.getRepository(SystemConfiguration),
+  ];
+
+  for (const repository of repositories) {
+    try {
+      const hasAnyRows = await repository.exist();
+      if (hasAnyRows) {
+        return false;
+      }
+    } catch {
+      // Likely the table does not exist yet (fresh database). Treat as empty and continue.
+    }
+  }
+  return true;
+};
+
 const seedData = async (): Promise<void> => {
   try {
     console.log('🌱 Starting database seeding...');
@@ -15,6 +39,13 @@ const seedData = async (): Promise<void> => {
     // Initialize database connection
     await AppDataSource.initialize();
     console.log('✅ Database connected');
+
+    // Skip seeding if the database already contains data
+    const databaseIsEmpty = await isDatabaseEmpty();
+    if (!databaseIsEmpty) {
+      console.log('ℹ️ Database already has data. Skipping seeding.');
+      return;
+    }
 
     // Clear existing data (optional - remove in production)
     try {
