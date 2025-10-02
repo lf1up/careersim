@@ -54,6 +54,7 @@ export class AIService {
   private configCacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastConfigUpdate = 0;
   private ragContextCache: Map<string, string> = new Map();
+  private ragTurnContextCache: Map<string, string> = new Map();
   
   // Static instance for cache management
   private static instance: AIService | null = null;
@@ -383,6 +384,110 @@ export class AIService {
   }
 
   /**
+   * Build a dynamic RAG query using the latest user messages
+   */
+  private buildDynamicRagQuery(context: ConversationContext, explicitUserMessage?: string): string {
+    const recentUserMessages = this.getLastUserMessages(context.conversationHistory, 3);
+    const candidateTexts: string[] = [];
+    if (explicitUserMessage && explicitUserMessage.trim().length > 0) {
+      candidateTexts.push(explicitUserMessage.trim());
+    }
+    for (const message of recentUserMessages) {
+      if (typeof message?.content === 'string' && message.content.trim().length > 0) {
+        candidateTexts.push(message.content.trim());
+      }
+    }
+    // Deduplicate while preserving recency
+    const deduped = Array.from(new Set(candidateTexts)).slice(-3);
+    const queryParts = [
+      deduped.join(' | '),
+      context.simulation?.title || '',
+      context.simulation?.scenario || '',
+    ].filter(Boolean);
+    return queryParts.join(' | ');
+  }
+
+  /**
+   * Get per-turn cache key for RAG context using session and last user seq
+   */
+  private getPerTurnRagCacheKey(context: ConversationContext, explicitUserMessage?: string): string {
+    const sessionKey = this.getSessionCacheKey(context);
+    const lastUser = this.getLastUserMessages(context.conversationHistory, 1)[0];
+    const sequence = lastUser?.sequenceNumber || 0;
+    const signatureSource = (explicitUserMessage && explicitUserMessage.length > 0)
+      ? explicitUserMessage
+      : (lastUser?.content || context.simulation?.title || context.persona?.name || '');
+    const signature = this.simpleHash(signatureSource);
+    return `${sessionKey}:turn:${sequence}:sig:${signature}`;
+  }
+
+  /**
+   * Compute or fetch RAG context for the current turn based on latest user input
+   */
+  private async getOrBuildRagContextForTurn(context: ConversationContext, explicitUserMessage?: string): Promise<string> {
+    try {
+      const available = await RAGService.isAvailable();
+      if (!available) {
+        return '';
+      }
+
+      const cacheKey = this.getPerTurnRagCacheKey(context, explicitUserMessage);
+      if (this.ragTurnContextCache.has(cacheKey)) {
+        return this.ragTurnContextCache.get(cacheKey) as string;
+      }
+
+      const query = this.buildDynamicRagQuery(context, explicitUserMessage);
+      const rawRag = await RAGService.buildRagContextForConversation({
+        persona: context.persona,
+        simulation: context.simulation,
+        query,
+      });
+
+      const ragSection = rawRag
+        ? [
+          '[Grounding knowledge]',
+          'Use the following retrieved snippets to ground your answer only if relevant. Do not invent facts not supported here.',
+          'Synthesize naturally and avoid quoting verbatim unless explicitly asked.',
+          rawRag,
+        ].join('\n')
+        : '';
+
+      this.ragTurnContextCache.set(cacheKey, ragSection);
+      return ragSection;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Utility: get the last N user messages from history
+   */
+  private getLastUserMessages(messages: SessionMessage[], maxCount: number): SessionMessage[] {
+    if (!Array.isArray(messages) || messages.length === 0) return [];
+    const userMessages = messages.filter((m) => {
+      const isUserByType = (m as any)?.type === MessageType.USER;
+      const isUserByFlag = (m as any)?.isFromUser === true;
+      return isUserByType || isUserByFlag;
+    });
+    return userMessages
+      .sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+      .slice(-Math.max(1, maxCount));
+  }
+
+  /**
+   * Utility: simple non-cryptographic hash for cache signatures
+   */
+  private simpleHash(input: string): string {
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      // hash = hash * 31 + char
+      hash = ((hash << 5) - hash) + input.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /**
    * Generate AI persona response based on conversation context
    */
   async generatePersonaResponse(
@@ -401,9 +506,8 @@ export class AIService {
 
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
 
-      // Build RAG context once per session and inject into system prompt only
-      const queryForRag = userMessage || context.simulation.title || context.simulation.scenario || context.persona.name;
-      const ragContext = await this.getOrBuildRagContextOnce(context, queryForRag);
+      // Build RAG context dynamically for this turn using latest user input
+      const ragContext = await this.getOrBuildRagContextForTurn(context, userMessage);
       const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt, ragContext);
 
       const completion = await this.openai.chat.completions.create({
@@ -504,9 +608,8 @@ export class AIService {
 
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
 
-      // Build RAG context once per session and inject into system prompt only
-      const queryForRag = lastUserMessage || context.simulation.title || context.simulation.scenario || context.persona.name;
-      const ragContext = await this.getOrBuildRagContextOnce(context, queryForRag);
+      // Build RAG context dynamically for this turn using latest user input
+      const ragContext = await this.getOrBuildRagContextForTurn(context, lastUserMessage);
       const systemPrompt = this.buildSystemPrompt(context, systemPrompts.baseSystemPrompt, ragContext);
 
       // Steering instruction for proactive message
