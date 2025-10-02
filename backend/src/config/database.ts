@@ -12,6 +12,9 @@ import { SystemConfiguration } from '@/entities/SystemConfiguration';
 
 dotenv.config();
 
+const dbSslEnv = (process.env.DB_SSL || '').toLowerCase();
+const shouldUseSSL = dbSslEnv === 'true' || dbSslEnv === 'require' || process.env.NODE_ENV === 'production';
+
 export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -35,7 +38,7 @@ export const AppDataSource = new DataSource({
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
   extra: {
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    ssl: shouldUseSSL ? { rejectUnauthorized: false } : false,
   },
 });
 
