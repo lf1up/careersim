@@ -42,7 +42,7 @@ const envSchema = Joi.object({
   // AI Services
   OPENAI_BASE_URL: Joi.string().default('https://api.openai.com/v1'),
   OPENAI_API_KEY: Joi.string().required(),
-  OPENAI_MODEL: Joi.string().default('gpt-4-turbo-preview'),
+  OPENAI_MODEL: Joi.string().default('gpt-5'),
   OPENAI_PROVIDER: Joi.string().default('openai'),
   OPENAI_MAX_TOKENS: Joi.number().default(2000),
   OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.8),

@@ -51,8 +51,8 @@ export interface RateLimitSettings {
  *           type: object
  *           properties:
  *             model:
-*               type: string
-*               example: "moonshotai/kimi-k2:free"
+ *               type: string
+ *               example: "moonshotai/kimi-k2:free"
  *             maxTokens:
  *               type: integer
  *               example: 2000
