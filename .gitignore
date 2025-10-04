@@ -161,6 +161,7 @@ chroma/
 chroma_db/
 
 # Terraform
+tfplan
 .terraform/
 .terraform.lock.hcl
 terraform.tfstate
