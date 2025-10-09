@@ -8,6 +8,11 @@ dotenv.config();
 const dbSslEnv = (process.env.DB_SSL || '').toLowerCase();
 const shouldUseSSL = dbSslEnv === 'true' || dbSslEnv === 'require' || process.env.NODE_ENV === 'production';
 
+// Determine if we're running compiled (production) or source (development)
+const isProduction = process.env.NODE_ENV === 'production';
+const srcPath = isProduction ? 'dist' : 'src';
+const fileExtension = isProduction ? 'js' : 'ts';
+
 export default new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -17,9 +22,9 @@ export default new DataSource({
   database: process.env.DB_DATABASE || 'careersim_db',
   synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
   logging: process.env.DB_LOGGING === 'true' || false,
-  entities: ['src/entities/*.ts'],
-  migrations: ['src/migrations/*.ts'],
-  subscribers: ['src/subscribers/*.ts'],
+  entities: [`${srcPath}/entities/*.${fileExtension}`],
+  migrations: [`${srcPath}/migrations/*.${fileExtension}`],
+  subscribers: [`${srcPath}/subscribers/*.${fileExtension}`],
   extra: {
     ssl: shouldUseSSL ? { rejectUnauthorized: false } : false,
   },
