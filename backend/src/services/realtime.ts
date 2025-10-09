@@ -88,16 +88,35 @@ export function startInactivityScheduler(): void {
 
           const lastUser = history.filter(m => m.type === MessageType.USER).slice(-1)[0]?.content;
           const previousAi = history.filter(m => m.type === MessageType.AI).slice(-1)[0]?.content;
+          
+          // Get recent AI messages to check for repetition against multiple messages
+          const recentAiMessages = history
+            .filter(m => m.type === MessageType.AI)
+            .slice(-3)
+            .map(m => m.content);
 
           // Generate inactivity nudge with duplicate prevention
           const similarityThreshold = 0.82;
           let nudge = await aiService.generateProactivePersonaMessage(context, { reason: 'inactivity', lastUserMessage: lastUser, previousAiMessage: previousAi });
-          if (previousAi && compositeSimilarity(previousAi, nudge.message) >= similarityThreshold) {
-            const strongerPrev = `${previousAi}\n[Note: Provide a different angle, new detail, or concrete next step. Do not repeat prior phrasing.]`;
+          
+          // Check similarity against multiple recent AI messages
+          let isTooSimilar = recentAiMessages.some(
+            recentMsg => compositeSimilarity(recentMsg, nudge.message) >= similarityThreshold,
+          );
+          
+          if (isTooSimilar && previousAi) {
+            const strongerPrev = `${previousAi}\n[CRITICAL: Your last few messages were too similar. Provide a COMPLETELY DIFFERENT angle, new detail, or concrete next step. Use different vocabulary and sentence structure.]`;
             nudge = await aiService.generateProactivePersonaMessage(context, { reason: 'inactivity', lastUserMessage: lastUser, previousAiMessage: strongerPrev });
           }
-          if (previousAi && compositeSimilarity(previousAi, nudge.message) >= similarityThreshold) {
+          
+          // Check again against recent messages
+          isTooSimilar = recentAiMessages.some(
+            recentMsg => compositeSimilarity(recentMsg, nudge.message) >= similarityThreshold,
+          );
+          
+          if (isTooSimilar) {
             // Still too similar; reschedule without sending to avoid spammy duplicates
+            console.log(`⚠️ Skipping inactivity nudge for session ${s.id} due to high similarity with recent messages`);
             const delayCfg = cs?.inactivityNudgeDelaySec || {};
             const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
             const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));

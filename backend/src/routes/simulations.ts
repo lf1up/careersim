@@ -1102,6 +1102,13 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
                 };
 
                 const previousAi = [...updatedMessages].reverse().find((m) => m.type === MessageType.AI)?.content;
+                
+                // Get recent AI messages to check for repetition against multiple messages, not just the last one
+                const recentAiMessages = [...updatedMessages]
+                  .reverse()
+                  .filter((m) => m.type === MessageType.AI)
+                  .slice(0, 3)
+                  .map(m => m.content);
 
                 // Try to generate a non-duplicative follow-up (one retry if too similar)
                 const similarityThreshold = 0.82;
@@ -1109,16 +1116,29 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
                   contextForFollowup,
                   { reason: 'followup', lastUserMessage: content, previousAiMessage: previousAi },
                 );
-                if (previousAi && compositeSimilarity(previousAi, follow.message) >= similarityThreshold) {
+                
+                // Check similarity against multiple recent AI messages to catch longer-term loops
+                const isTooSimilar = recentAiMessages.some(
+                  recentMsg => compositeSimilarity(recentMsg, follow.message) >= similarityThreshold,
+                );
+                
+                if (isTooSimilar && previousAi) {
                   // Retry once with a stronger instruction baked in via previousAiMessage
-                  const strongerPrev = `${previousAi}\n[Note: Provide a different angle, new detail, or next actionable step.]`;
+                  const strongerPrev = `${previousAi}\n[CRITICAL: Your last few messages were too similar. Provide a COMPLETELY DIFFERENT angle, new detail, or next actionable step. Use different vocabulary and sentence structure.]`;
                   follow = await aiService.generateProactivePersonaMessage(
                     contextForFollowup,
                     { reason: 'followup', lastUserMessage: content, previousAiMessage: strongerPrev },
                   );
                 }
-                if (previousAi && compositeSimilarity(previousAi, follow.message) >= similarityThreshold) {
+                
+                // Check again against recent messages
+                const stillTooSimilar = recentAiMessages.some(
+                  recentMsg => compositeSimilarity(recentMsg, follow.message) >= similarityThreshold,
+                );
+                
+                if (stillTooSimilar) {
                   // Still too similar; skip sending this follow-up
+                  console.log(`⚠️ Skipping follow-up message ${i + 1}/${extraCount} due to high similarity with recent messages`);
                   continue;
                 }
 

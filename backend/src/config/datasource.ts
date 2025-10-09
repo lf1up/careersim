@@ -1,3 +1,5 @@
+// This file is specifically for TypeORM CLI usage
+// It only exports the default DataSource as required by TypeORM CLI
 import { DataSource } from 'typeorm';
 import dotenv from 'dotenv';
 
@@ -6,7 +8,7 @@ dotenv.config();
 const dbSslEnv = (process.env.DB_SSL || '').toLowerCase();
 const shouldUseSSL = dbSslEnv === 'true' || dbSslEnv === 'require' || process.env.NODE_ENV === 'production';
 
-export const AppDataSource = new DataSource({
+export default new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
@@ -23,15 +25,3 @@ export const AppDataSource = new DataSource({
   },
 });
 
-export const connectDatabase = async (): Promise<void> => {
-  try {
-    await AppDataSource.initialize();
-    console.log('✅ Database connection established successfully');
-  } catch (error) {
-    console.error('❌ Error during database connection:', error);
-    process.exit(1);
-  }
-};
-
-// Export as default for TypeORM CLI
-export default AppDataSource; 

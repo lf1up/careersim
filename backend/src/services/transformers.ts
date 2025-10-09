@@ -126,7 +126,7 @@ export class TransformersService {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       });
 
       if (!response.ok) {
@@ -177,7 +177,7 @@ export class TransformersService {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       });
 
       if (!response.ok) {
@@ -226,7 +226,7 @@ export class TransformersService {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       });
 
       if (!response.ok) {
@@ -267,7 +267,7 @@ export class TransformersService {
           text, 
           candidate_labels: candidateLabels, 
         }),
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       });
 
       if (!response.ok) {

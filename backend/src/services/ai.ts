@@ -409,16 +409,24 @@ export class AIService {
 
   /**
    * Get per-turn cache key for RAG context using session and last user seq
+   * For proactive messages, also include the last AI sequence to avoid cache reuse during bursts
    */
   private getPerTurnRagCacheKey(context: ConversationContext, explicitUserMessage?: string): string {
     const sessionKey = this.getSessionCacheKey(context);
     const lastUser = this.getLastUserMessages(context.conversationHistory, 1)[0];
-    const sequence = lastUser?.sequenceNumber || 0;
+    const userSequence = lastUser?.sequenceNumber || 0;
+    
+    // Include last AI sequence number to break cache during AI message bursts
+    const lastAi = [...(context.conversationHistory || [])]
+      .reverse()
+      .find(m => m.type === MessageType.AI || (m as any)?.isFromAI);
+    const aiSequence = lastAi?.sequenceNumber || 0;
+    
     const signatureSource = (explicitUserMessage && explicitUserMessage.length > 0)
       ? explicitUserMessage
       : (lastUser?.content || context.simulation?.title || context.persona?.name || '');
     const signature = this.simpleHash(signatureSource);
-    return `${sessionKey}:turn:${sequence}:sig:${signature}`;
+    return `${sessionKey}:turn:u${userSequence}:a${aiSequence}:sig:${signature}`;
   }
 
   /**
@@ -605,6 +613,15 @@ export class AIService {
       ]);
 
       const genConfig = this.resolveAIProfile(aiSettings, 'generation');
+      
+      // Boost temperature and penalties for proactive messages to increase variety
+      // This helps prevent repetitive responses in burst scenarios
+      const proactiveConfig = {
+        ...genConfig,
+        temperature: Math.min(1.0, genConfig.temperature * 1.25), // Increase by 25%
+        frequencyPenalty: Math.min(2.0, genConfig.frequencyPenalty + 0.3), // Stronger penalty
+        presencePenalty: Math.min(2.0, genConfig.presencePenalty + 0.2), // Stronger penalty
+      };
 
       const conversationMessages = this.buildConversationHistory(context.conversationHistory);
 
@@ -617,40 +634,59 @@ export class AIService {
       const openingStyle = (personaHints.openingStyle || '').toString();
       const nudgeStyle = (personaHints.nudgeStyle || '').toString();
 
+      // Get recent AI messages for better repetition context
+      const recentAiMessages = [...(context.conversationHistory || [])]
+        .filter(m => m.type === MessageType.AI || (m as any)?.isFromAI)
+        .slice(-3)
+        .map(m => m.content);
+
       const steering = (() => {
         switch (reason) {
         case 'start':
-          return `Act first with a natural opening line consistent with the persona. ${openingStyle ? `Opening style hint: ${openingStyle}.` : ''} Keep it concise and engaging.`;
+          return `Act first with a natural opening line consistent with the persona. ${openingStyle ? `Opening style hint: ${openingStyle}.` : ''} Keep it concise and engaging. Introduce yourself or the topic freshly.`;
         case 'inactivity':
-          return `Send a polite, in-character nudge to re-engage after user silence. ${nudgeStyle ? `Nudge style hint: ${nudgeStyle}.` : ''} Keep it short and friendly.`;
+          return `Send a polite, in-character nudge to re-engage after user silence. ${nudgeStyle ? `Nudge style hint: ${nudgeStyle}.` : ''} Keep it short and friendly. Use a different angle than any previous nudges.`;
         case 'backchannel':
-          return 'Send a brief backchannel request for clarification or elaboration. Keep it very short.';
+          return 'Send a brief backchannel request for clarification or elaboration. Keep it very short. Ask about something specific they mentioned.';
         case 'followup':
         default:
-          return 'Add a short follow-up that advances the conversation naturally. Avoid repeating yourself.';
+          return 'Add a short follow-up that advances the conversation naturally. Introduce NEW information, ask a NEW question, or share a DIFFERENT perspective. NEVER repeat phrases or ideas from your recent messages.';
         }
       })();
+
+      const antiRepetitionGuidance = recentAiMessages.length > 0
+        ? [
+          '\n[CRITICAL: Anti-repetition rules]',
+          `You recently said: ${recentAiMessages.map((msg, i) => `(${i + 1}) "${msg.slice(0, 100)}..."`).join('; ')}`,
+          'Your new message MUST:',
+          '- Use completely different vocabulary and phrasing',
+          '- Introduce a new topic, angle, or specific detail not yet mentioned',
+          '- Never reuse sentence structures or patterns from above',
+          '- If asking a question, make it about something entirely different',
+          '- If sharing information, provide a new fact or perspective',
+        ].join('\n')
+        : '';
 
       const userInstruction = [
         '[Proactive action]',
         steering,
         lastUserMessage ? `Last user input to consider: ${lastUserMessage}` : '',
-        previousAiMessage ? `Previous AI message to build on (avoid repetition): ${previousAiMessage}` : '',
-        'Add a distinct point or next step. Do not restate prior sentences.',
+        previousAiMessage ? `Most recent AI message (DO NOT repeat any of its content): ${previousAiMessage}` : '',
+        antiRepetitionGuidance,
       ].filter(Boolean).join('\n');
 
       const completion = await this.openai.chat.completions.create({
-        model: genConfig.model,
+        model: proactiveConfig.model,
         messages: [
           { role: 'system', content: systemPrompt },
           ...conversationMessages,
           { role: 'user', content: userInstruction },
         ],
-        max_tokens: genConfig.maxTokens,
-        temperature: genConfig.temperature,
-        frequency_penalty: genConfig.frequencyPenalty,
-        presence_penalty: genConfig.presencePenalty,
-        top_p: genConfig.topP,
+        max_tokens: proactiveConfig.maxTokens,
+        temperature: proactiveConfig.temperature,
+        frequency_penalty: proactiveConfig.frequencyPenalty,
+        presence_penalty: proactiveConfig.presencePenalty,
+        top_p: proactiveConfig.topP,
       });
 
       const response = completion.choices[0]?.message?.content || '';

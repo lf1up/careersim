@@ -248,7 +248,7 @@ export class RAGService {
         method: 'POST',
         headers: this.headers,
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) {
         const text = await response.text().catch(() => '');
@@ -272,7 +272,7 @@ export class RAGService {
       const response = await fetch(`${this.baseUrl}/collections`, {
         method: 'GET',
         headers: this.headers,
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) return [];
       return await response.json() as Array<{ name: string; metadata?: any }>;
@@ -287,7 +287,7 @@ export class RAGService {
       const response = await fetch(`${this.baseUrl}/collections/${encodeURIComponent(String(name))}`, {
         method: 'DELETE',
         headers: this.headers,
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) {
         const text = await response.text().catch(() => '');

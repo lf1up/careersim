@@ -44,7 +44,7 @@ const envSchema = Joi.object({
   OPENAI_API_KEY: Joi.string().required(),
   OPENAI_MODEL: Joi.string().default('gpt-5'),
   OPENAI_PROVIDER: Joi.string().default('openai'),
-  OPENAI_MAX_TOKENS: Joi.number().default(2000),
+  OPENAI_MAX_TOKENS: Joi.number().default(200000),
   OPENAI_TEMPERATURE: Joi.number().min(0).max(2).default(0.8),
   OPENAI_TOP_P: Joi.number().min(0).max(1).default(1.0),
   OPENAI_FREQUENCY_PENALTY: Joi.number().min(-2).max(2).default(0.3),

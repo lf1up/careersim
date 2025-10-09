@@ -3094,7 +3094,7 @@ router.put('/system/config/ai', requireAdmin as any, async (req: AuthenticatedRe
     if (!model || typeof model !== 'string') {
       return res.status(400).json({ error: 'Valid model name is required' });
     }
-    if (!maxTokens || maxTokens < 100 || maxTokens > 4000) {
+    if (!maxTokens || maxTokens < 2000 || maxTokens > 400000) {
       return res.status(400).json({ error: 'Max tokens must be between 100 and 4000' });
     }
     if (temperature < 0 || temperature > 2) {

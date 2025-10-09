@@ -855,7 +855,7 @@ const seedData = async (): Promise<void> => {
     console.log(`Users: ${String(testUsers.length + 1)} (including admin)`);
     console.log(`System Configurations: ${String(configs.length)}`);
     console.log('\n🔐 Admin Login:');
-    console.log('Email: admin@careersim.com');
+    console.log('Email: admin@careersim.ai');
     console.log('Password: admin123!@#');
 
   } catch (error) {
