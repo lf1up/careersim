@@ -79,6 +79,42 @@ export function startInactivityScheduler(): void {
             .orderBy('message.sequenceNumber', 'ASC')
             .getMany();
 
+          // Check if LangGraph is enabled
+          const { config } = await import('@/config/env');
+          if (config.langgraph.useLangGraph) {
+            console.log('🔵 Using LangGraph for inactivity nudge');
+            
+            // Use LangGraph for inactivity nudge with timeout protection
+            try {
+              const { invokeConversationGraph } = await import('@/services/langgraph');
+              
+              // Create a timeout promise to prevent hanging
+              const timeoutMs = 30000; // 30 second timeout
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('LangGraph invocation timeout')), timeoutMs);
+              });
+              
+              // Race between the graph invocation and timeout
+              await Promise.race([
+                invokeConversationGraph({
+                  sessionId: s.id,
+                  userId: (s.user as any)?.id || '',
+                  proactiveTrigger: 'inactivity',
+                }),
+                timeoutPromise,
+              ]);
+              
+              // Graph handles all persistence, scheduling, and emission
+              console.log(`✅ LangGraph inactivity nudge sent for session ${s.id}`);
+              continue;
+            } catch (graphErr) {
+              console.warn('⚠️ LangGraph inactivity nudge failed:', graphErr instanceof Error ? graphErr.message : graphErr);
+              console.warn('⚠️ Falling back to legacy nudge system for this session');
+              // Fall through to legacy system
+            }
+          }
+
+          // OLD PATH: Use AIService
           const context = {
             persona,
             simulation: s.simulation as unknown as Simulation,

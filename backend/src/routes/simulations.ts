@@ -371,16 +371,35 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
       const cs: any = persona?.conversationStyle || {};
       const startsConversation = cs?.startsConversation === true || (cs?.startsConversation === 'sometimes' && randomFloat() < (cs?.initiativeProbability ?? 0.3));
       if (persona && startsConversation) {
-        const { AIService } = await import('@/services/ai');
-        const aiService = new AIService();
-        const context = {
-          persona,
-          simulation,
-          conversationHistory: [] as SessionMessage[],
-          sessionDuration: 0,
-        };
+        // Check if LangGraph is enabled
+        if (config.langgraph.useLangGraph) {
+          console.log('🔵 Using LangGraph for session start');
+          
+          // Use LangGraph for start message
+          const { invokeConversationGraph } = await import('@/services/langgraph');
+          
+          await invokeConversationGraph({
+            sessionId: session.id,
+            userId: req.user!.id,
+            proactiveTrigger: 'start',
+          });
+          
+          // Graph handles all persistence and emission
+          // Just update session flags
+          session.aiInitiated = true;
+          await sessionRepository.save(session);
+        } else {
+          // OLD PATH: Use AIService
+          const { AIService } = await import('@/services/ai');
+          const aiService = new AIService();
+          const context = {
+            persona,
+            simulation,
+            conversationHistory: [] as SessionMessage[],
+            sessionDuration: 0,
+          };
 
-        const aiResponse = await aiService.generateProactivePersonaMessage(context, { reason: 'start' });
+          const aiResponse = await aiService.generateProactivePersonaMessage(context, { reason: 'start' });
 
         // Persist AI opening message
         const messageRepository = AppDataSource.getRepository(SessionMessage);
@@ -396,48 +415,49 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
           emotionalTone: aiResponse.emotionalTone,
           sentiment: aiResponse.metadata.sentiment,
         };
-        await messageRepository.save(aiMessage);
-        session.addMessage();
-        session.turn = 'user';
-        session.aiInitiated = true;
-        session.lastAiMessageAt = new Date();
+          await messageRepository.save(aiMessage);
+          session.addMessage();
+          session.turn = 'user';
+          session.aiInitiated = true;
+          session.lastAiMessageAt = new Date();
 
-        // Set initial inactivity nudge time based on persona config (unified {min,max} with fallbacks)
-        {
-          const csStart: any = persona.conversationStyle || {};
-          const delayCfg = csStart?.inactivityNudgeDelaySec || {};
-          const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
-          const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
-          const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
-          session.inactivityNudgeAt = new Date(Date.now() + delay);
-          session.inactivityNudgeCount = 0;
-        }
-        await sessionRepository.save(session);
+          // Set initial inactivity nudge time based on persona config (unified {min,max} with fallbacks)
+          {
+            const csStart: any = persona.conversationStyle || {};
+            const delayCfg = csStart?.inactivityNudgeDelaySec || {};
+            const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
+            const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
+            const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
+            session.inactivityNudgeAt = new Date(Date.now() + delay);
+            session.inactivityNudgeCount = 0;
+          }
+          await sessionRepository.save(session);
 
-        // Emit via Socket.IO
-        try {
-          const { io } = await import('@/server');
-          io.to(`session-${session.id}`).emit('message-received', {
-            sessionId: session.id,
-            message: {
-              id: aiMessage.id,
+          // Emit via Socket.IO
+          try {
+            const { io } = await import('@/server');
+            io.to(`session-${session.id}`).emit('message-received', {
               sessionId: session.id,
-              sequenceNumber: aiMessage.sequenceNumber,
-              type: aiMessage.type,
-              content: aiMessage.content,
-              inputMethod: aiMessage.inputMethod,
-              metadata: aiMessage.metadata,
-              timestamp: aiMessage.timestamp,
-              isHighlighted: aiMessage.isHighlighted,
-              highlightReason: aiMessage.highlightReason,
-              analysisData: aiMessage.analysisData,
-              createdAt: aiMessage.createdAt,
-              isFromUser: false,
-            },
-            timestamp: new Date(),
-          });
-        } catch (emitErr) {
-          console.warn('⚠️ Failed to emit opening AI message:', emitErr);
+              message: {
+                id: aiMessage.id,
+                sessionId: session.id,
+                sequenceNumber: aiMessage.sequenceNumber,
+                type: aiMessage.type,
+                content: aiMessage.content,
+                inputMethod: aiMessage.inputMethod,
+                metadata: aiMessage.metadata,
+                timestamp: aiMessage.timestamp,
+                isHighlighted: aiMessage.isHighlighted,
+                highlightReason: aiMessage.highlightReason,
+                analysisData: aiMessage.analysisData,
+                createdAt: aiMessage.createdAt,
+                isFromUser: false,
+              },
+              timestamp: new Date(),
+            });
+          } catch (emitErr) {
+            console.warn('⚠️ Failed to emit opening AI message:', emitErr);
+          }
         }
       } else {
         // If AI does not initiate, set turn to user and schedule nudge
@@ -829,7 +849,25 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
     // If this is a user message, generate AI response
     if (type === MessageType.USER && session.simulation?.personas?.length > 0) {
       try {
-        // Import AI service dynamically to avoid circular dependencies
+        // Check if LangGraph is enabled
+        if (config.langgraph.useLangGraph) {
+          console.log('🔵 Using LangGraph for conversation');
+          
+          // Use LangGraph for conversation
+          const { invokeConversationGraph } = await import('@/services/langgraph');
+          
+          await invokeConversationGraph({
+            sessionId,
+            userId: req.user!.id,
+            userMessage: content,
+          });
+          
+          // Graph handles all persistence and emission
+          // Just return success
+          return res.status(201).json({ message: transformedMessage });
+        }
+        
+        // OLD PATH: Import AI service dynamically to avoid circular dependencies
         const { AIService } = await import('@/services/ai');
         const aiService = new AIService();
 

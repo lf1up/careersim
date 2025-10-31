@@ -18,7 +18,14 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "security": "eslint src/**/*.ts --config eslint.security.config.js",
     "security:fix": "eslint src/**/*.ts --config eslint.security.config.js --fix",
-    "test": "jest -c jest.config.ts"
+    "test": "jest -c jest.config.ts",
+    "debug:graph:validate": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/validate-structure.ts",
+    "debug:graph:compile": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/debug-compile.ts",
+    "debug:graph:invoke": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-invoke.ts",
+    "debug:graph:stream": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-stream.ts",
+    "debug:graph:proactive": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-proactive.ts",
+    "debug:graph:visualize": "ts-node -r tsconfig-paths/register src/services/langgraph/scripts/visualize-graph.ts",
+    "debug:graph:all": "bash src/services/langgraph/scripts/run-all-tests.sh"
   },
   "keywords": [
     "career",
@@ -31,6 +38,10 @@
   "author": "CareerSim Team",
   "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
+    "@langchain/community": "^0.3.17",
+    "@langchain/core": "^0.3.22",
+    "@langchain/langgraph": "^0.2.20",
+    "@langchain/openai": "^0.3.14",
     "bcryptjs": "^3.0.2",
     "compression": "^1.8.1",
     "connect-redis": "^9.0.0",
@@ -44,6 +55,7 @@
     "helmet": "^8.1.0",
     "joi": "^18.0.0",
     "jsonwebtoken": "^9.0.2",
+    "langsmith": "^0.2.9",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^6.9.7",
@@ -60,7 +72,8 @@
     "swagger-ui-express": "^5.0.0",
     "typeorm": "^0.3.17",
     "uuid": "^9.0.1",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",

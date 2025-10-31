@@ -66,6 +66,15 @@ const envSchema = Joi.object({
   RAG_API_URL: Joi.string().default('http://localhost:8002'),
   RAG_API_KEY: Joi.string().required(),
 
+  // LangGraph Configuration
+  LANGGRAPH_DEPLOYMENT_URL: Joi.string().optional(),
+  LANGGRAPH_API_KEY: Joi.string().optional(),
+  LANGCHAIN_TRACING_V2: Joi.boolean().default(false),
+  LANGCHAIN_PROJECT: Joi.string().default('careersim-dev'),
+  LANGCHAIN_API_KEY: Joi.string().optional(),
+  USE_LANGGRAPH: Joi.boolean().default(false),
+  GRAPH_ASSISTANT_ID: Joi.string().optional(),
+
   // Stripe
   STRIPE_SECRET_KEY: Joi.string().required(),
   STRIPE_WEBHOOK_SECRET: Joi.string().required(),
@@ -160,6 +169,16 @@ export const config = {
       apiUrl: envVars.RAG_API_URL,
       apiKey: envVars.RAG_API_KEY,
     },
+  },
+  
+  langgraph: {
+    deploymentUrl: envVars.LANGGRAPH_DEPLOYMENT_URL,
+    apiKey: envVars.LANGGRAPH_API_KEY,
+    tracingEnabled: envVars.LANGCHAIN_TRACING_V2,
+    project: envVars.LANGCHAIN_PROJECT,
+    langchainApiKey: envVars.LANGCHAIN_API_KEY,
+    useLangGraph: envVars.USE_LANGGRAPH,
+    assistantId: envVars.GRAPH_ASSISTANT_ID,
   },
   
   stripe: {
