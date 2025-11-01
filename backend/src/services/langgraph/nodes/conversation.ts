@@ -299,9 +299,14 @@ export async function generateAiResponseNode(
     // Add to message history
     const updatedMessages = [...state.messages, new AIMessage(aiMessageContent)];
 
-    const processingTime = Date.now() - startTime;
+    const processingTimeMs = Date.now() - startTime;
+    const processingTimeSec = processingTimeMs / 1000;
 
-    console.log(`✅ AI response generated in ${processingTime}ms`);
+    // Extract token count and model info from response
+    const tokenCount = (response as any).response_metadata?.tokenUsage?.totalTokens || 0;
+    const modelName = (response as any).response_metadata?.model || aiConfig.model;
+
+    console.log(`✅ AI response generated in ${processingTimeMs}ms (${tokenCount} tokens, model: ${modelName})`);
 
     return {
       messages: updatedMessages,
@@ -311,7 +316,9 @@ export async function generateAiResponseNode(
         ...state.metadata,
         lastAiMessageAt: new Date(),
         messageCount: (state.metadata.messageCount || 0) + 1,
-        processingTime,
+        processingTime: processingTimeSec,
+        tokenCount,
+        model: modelName,
       },
     };
   } catch (error) {

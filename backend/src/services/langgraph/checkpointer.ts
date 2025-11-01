@@ -1,5 +1,14 @@
 import { BaseCheckpointSaver, Checkpoint, CheckpointMetadata, CheckpointTuple } from '@langchain/langgraph';
-import { RunnableConfig } from '@langchain/core/runnables';
+
+// Define RunnableConfig type locally since it's not exported from @langchain/langgraph
+type RunnableConfig = {
+  configurable?: {
+    thread_id?: string;
+    checkpoint_id?: string;
+    [key: string]: any;
+  };
+  [key: string]: any;
+};
 
 // Lazy import to avoid TypeORM initialization during module load
 let AppDataSource: any;
@@ -266,6 +275,34 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
   }
 
   /**
+   * Delete all checkpoints for a thread (required by BaseCheckpointSaver)
+   */
+  async deleteThread(threadId: string): Promise<void> {
+    try {
+      const session = await this.sessionRepository.findOne({
+        where: { id: threadId },
+      });
+
+      if (!session) {
+        return;
+      }
+
+      // Delete all checkpoints for thread
+      session.sessionMetadata = {
+        ...(session.sessionMetadata || {}),
+        checkpoints: [],
+        lastCheckpointId: undefined,
+        lastCheckpointAt: undefined,
+      } as any;
+
+      await this.sessionRepository.save(session);
+    } catch (error) {
+      console.error('Error deleting thread checkpoints:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Delete a specific checkpoint (optional implementation)
    */
   async delete(threadId: string, checkpointId?: string): Promise<void> {
@@ -288,13 +325,9 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
           checkpoints: filtered,
         } as any;
       } else {
-        // Delete all checkpoints for thread
-        session.sessionMetadata = {
-          ...(session.sessionMetadata || {}),
-          checkpoints: [],
-          lastCheckpointId: undefined,
-          lastCheckpointAt: undefined,
-        } as any;
+        // Delete all checkpoints for thread (delegate to deleteThread)
+        await this.deleteThread(threadId);
+        return;
       }
 
       await this.sessionRepository.save(session);

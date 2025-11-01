@@ -88,12 +88,28 @@ export async function persistAndEmitNode(
     aiMessage.type = MessageType.AI;
     aiMessage.content = state.lastAiMessage;
     aiMessage.timestamp = new Date();
+    // Find the user message this is responding to (last human message)
+    const lastUserMessageObj = [...state.messages].reverse().find(m => {
+      // Check constructor name instead of deprecated _getType()
+      return m.constructor?.name === 'HumanMessage';
+    });
+    const responseToMessageId = (lastUserMessageObj as any)?.id;
+
     aiMessage.metadata = {
+      // Full analysis objects for programmatic access
       emotionAnalysis: state.lastEmotionAnalysis,
       sentimentAnalysis: state.lastSentimentAnalysis,
       qualityScores: state.lastQualityScores,
-      proactiveTrigger: state.proactiveTrigger,
+      // Flattened fields for frontend compatibility
+      emotionalTone: state.lastEmotionAnalysis?.emotion,
+      sentiment: state.lastSentimentAnalysis?.sentiment,
+      confidence: state.lastSentimentAnalysis?.confidence || state.lastEmotionAnalysis?.confidence,
       processingTime: state.metadata.processingTime,
+      tokenCount: state.metadata.tokenCount,
+      model: state.metadata.model,
+      proactiveTrigger: state.proactiveTrigger,
+      responseToMessageId,
+      keyPhrases: [], // TODO: Extract key phrases if needed
     };
 
     await messageRepo.save(aiMessage);

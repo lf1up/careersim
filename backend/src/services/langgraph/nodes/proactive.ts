@@ -286,16 +286,23 @@ export async function generateProactiveMessageNode(
 
     // Add to message history
     const updatedMessages = [...state.messages, new AIMessage(messageContent)];
-    const processingTime = Date.now() - startTime;
+    const processingTimeMs = Date.now() - startTime;
+    const processingTimeSec = processingTimeMs / 1000;
 
-    console.log(`✅ Proactive message generated in ${processingTime}ms`);
+    // Extract token count and model info from response
+    const tokenCount = (response as any).response_metadata?.tokenUsage?.totalTokens || 0;
+    const modelName = (response as any).response_metadata?.model || aiConfig.model;
+
+    console.log(`✅ Proactive message generated in ${processingTimeMs}ms (${tokenCount} tokens, model: ${modelName})`);
 
     // Prepare metadata updates
     const metadataUpdates: any = {
       ...state.metadata,
       lastAiMessageAt: new Date(),
       messageCount: (state.metadata.messageCount || 0) + 1,
-      processingTime,
+      processingTime: processingTimeSec,
+      tokenCount,
+      model: modelName,
     };
     
     // Increment inactivity nudge count if this is an inactivity trigger
