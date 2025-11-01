@@ -401,20 +401,20 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
 
           const aiResponse = await aiService.generateProactivePersonaMessage(context, { reason: 'start' });
 
-        // Persist AI opening message
-        const messageRepository = AppDataSource.getRepository(SessionMessage);
-        const aiMessage = new SessionMessage();
-        aiMessage.session = session;
-        aiMessage.sequenceNumber = 1;
-        aiMessage.type = MessageType.AI;
-        aiMessage.content = aiResponse.message;
-        aiMessage.timestamp = new Date();
-        aiMessage.metadata = {
-          confidence: aiResponse.confidence,
-          processingTime: aiResponse.processingTime,
-          emotionalTone: aiResponse.emotionalTone,
-          sentiment: aiResponse.metadata.sentiment,
-        };
+          // Persist AI opening message
+          const messageRepository = AppDataSource.getRepository(SessionMessage);
+          const aiMessage = new SessionMessage();
+          aiMessage.session = session;
+          aiMessage.sequenceNumber = 1;
+          aiMessage.type = MessageType.AI;
+          aiMessage.content = aiResponse.message;
+          aiMessage.timestamp = new Date();
+          aiMessage.metadata = {
+            confidence: aiResponse.confidence,
+            processingTime: aiResponse.processingTime,
+            emotionalTone: aiResponse.emotionalTone,
+            sentiment: aiResponse.metadata.sentiment,
+          };
           await messageRepository.save(aiMessage);
           session.addMessage();
           session.turn = 'user';
