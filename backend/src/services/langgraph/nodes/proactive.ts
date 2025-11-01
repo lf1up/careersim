@@ -45,20 +45,72 @@ function getMessageType(message: any): string {
 export async function checkProactiveTriggerNode(
   state: ConversationGraphState,
 ): Promise<Partial<ConversationGraphState>> {
-  console.log(`🔔 Checking proactive trigger for session ${state.sessionId}`);
+  console.log(`🔔 [${state.sessionId}] Checking proactive trigger`);
 
-  // If explicitly triggered (start, inactivity), send proactive
+  const cs: any = state.persona?.conversationStyle || {};
+
+  // If explicitly triggered (start, inactivity), validate against persona settings
   if (state.proactiveTrigger) {
-    console.log(`✅ Proactive trigger set: ${state.proactiveTrigger}`);
+    console.log(`   ✅ Proactive trigger set: ${state.proactiveTrigger}`);
+    
+    // For inactivity triggers, check max count AND inactivityProbability
+    // Inactivity nudges are SCHEDULED by the system, but personas have different likelihood of sending them
+    if (state.proactiveTrigger === 'inactivity') {
+      const maxNudges = Number(cs.inactivityNudgeMaxCount ?? 2);
+      const currentNudgeCount = state.metadata?.inactivityNudgeCount || 0;
+      
+      if (currentNudgeCount >= maxNudges) {
+        console.log(`⚠️ Max inactivity nudges reached (${currentNudgeCount}/${maxNudges})`);
+        return {
+          shouldSendProactive: false,
+        };
+      }
+      
+      // Check inactivityProbability - how likely this persona is to send nudges
+      const inactivityProbability = Math.max(0, Math.min(1, Number(cs.inactivityProbability ?? 0.5)));
+      const roll = Math.random();
+      
+      if (roll >= inactivityProbability) {
+        console.log(`❌ Persona didn't send inactivity nudge (rolled ${(roll * 100).toFixed(0)}%, needed <${(inactivityProbability * 100).toFixed(0)}%)`);
+        // Don't increment count - this wasn't sent, so we should try again later
+        return {
+          shouldSendProactive: false,
+        };
+      }
+      
+      console.log(`📊 Inactivity nudge count: ${currentNudgeCount}/${maxNudges} - sending (${(inactivityProbability * 100).toFixed(0)}% probability passed)`);
+    }
+    
     return {
       shouldSendProactive: true,
       maxProactiveMessages: state.proactiveTrigger === 'followup' ? 3 : 1,
     };
   }
 
+  // Check initiativeProbability - the "master gate" for SPONTANEOUS proactive behavior
+  // This applies to unsolicited messages like backchannels, not system-triggered nudges
+  const initiativeProbability = Math.max(0, Math.min(1, Number(cs.initiativeProbability) || 0));
+  
+  // For very low initiative personas (<15%), skip proactive checks entirely after normal responses
+  // This prevents disengaged personas from being too chatty
+  if (initiativeProbability < 0.15) {
+    console.log(`❌ Persona has low initiative (${(initiativeProbability * 100).toFixed(0)}%) - skipping proactive checks`);
+    return {
+      shouldSendProactive: false,
+    };
+  }
+  
+  if (Math.random() >= initiativeProbability) {
+    console.log(`❌ Persona didn't take initiative (${(initiativeProbability * 100).toFixed(0)}% chance)`);
+    return {
+      shouldSendProactive: false,
+    };
+  }
+  
+  console.log(`✅ Persona took initiative (${(initiativeProbability * 100).toFixed(0)}% chance passed)`);
+
   // Check for backchannel conditions (short/ambiguous user message)
   if (state.lastUserMessage) {
-    const cs: any = state.persona.conversationStyle || {};
     const backchannelProbability = Math.max(0, Math.min(1, Number(cs.backchannelProbability) || 0));
     
     const trimmed = state.lastUserMessage.trim();
@@ -67,7 +119,7 @@ export async function checkProactiveTriggerNode(
     const isAmbiguous = /^(okay|ok|sure|yes|no|maybe|idk|i don't know|not sure|hmm|uh|what\??|thanks\.?|cool\.?|great\.?|fine\.?|good\.?|yep|nah|alright)\b/i.test(trimmed) || /\?\?\?$/.test(trimmed);
 
     if ((isVeryShort || isAmbiguous) && Math.random() < backchannelProbability) {
-      console.log(`✅ Backchannel triggered (short/ambiguous message)`);
+      console.log(`✅ Backchannel triggered (short/ambiguous message, ${(backchannelProbability * 100).toFixed(0)}% chance)`);
       return {
         shouldSendProactive: true,
         proactiveTrigger: 'backchannel',
@@ -77,11 +129,10 @@ export async function checkProactiveTriggerNode(
   }
 
   // Check for follow-up conditions (persona initiates multiple messages)
-  const cs: any = state.persona.conversationStyle || {};
   const followupProbability = Math.max(0, Math.min(1, Number(cs.followupProbability) || 0));
   
   if (Math.random() < followupProbability) {
-    console.log(`✅ Follow-up triggered`);
+    console.log(`✅ Follow-up triggered (${(followupProbability * 100).toFixed(0)}% chance passed)`);
     return {
       shouldSendProactive: true,
       proactiveTrigger: 'followup',
@@ -89,7 +140,7 @@ export async function checkProactiveTriggerNode(
     };
   }
 
-  console.log(`❌ No proactive message needed`);
+  console.log(`❌ No proactive message needed (checked backchannel & followup)`);
   return {
     shouldSendProactive: false,
   };
@@ -103,10 +154,20 @@ export async function generateProactiveMessageNode(
   state: ConversationGraphState,
 ): Promise<Partial<ConversationGraphState>> {
   const trigger = state.proactiveTrigger || 'followup';
-  console.log(`💬 Generating proactive message (${trigger}) for session ${state.sessionId}`);
+  console.log(`💬 [${state.sessionId}] Generating proactive message (${trigger})`);
 
   try {
     const startTime = Date.now();
+    console.log(`   ⏱️  Start time: ${new Date(startTime).toISOString()}`);
+    
+    // Log persona settings for inactivity
+    if (trigger === 'inactivity') {
+      const cs: any = state.persona?.conversationStyle || {};
+      console.log(`📋 Persona inactivity settings:`);
+      console.log(`   - inactivityNudgeDelaySec: ${JSON.stringify(cs.inactivityNudgeDelaySec || {})}`);
+      console.log(`   - inactivityNudgeMaxCount: ${cs.inactivityNudgeMaxCount ?? 2}`);
+      console.log(`   - nudgeStyle: ${cs.nudgeStyle || 'default'}`);
+    }
 
     // Get recent AI messages for anti-repetition
     const recentAiMessages = state.messages
@@ -114,6 +175,7 @@ export async function generateProactiveMessageNode(
       .slice(-3)
       .map(m => m.content as string);
 
+    console.log(`   🔍 Building prompt...`);
     // Build prompt based on trigger type
     let promptText: string;
     switch (trigger) {
@@ -121,11 +183,15 @@ export async function generateProactiveMessageNode(
       promptText = await buildProactiveStartPrompt(state.persona, state.simulation);
       break;
     case 'inactivity':
+      console.log(`   📝 Building inactivity prompt with context`);
       promptText = await buildProactiveInactivityPrompt(
         state.persona,
+        state.simulation,
         state.lastUserMessage,
+        state.lastAiMessage,
         recentAiMessages,
       );
+      console.log(`   ✅ Prompt built (${promptText.length} chars)`);
       break;
     case 'followup':
       promptText = await buildProactiveFollowupPrompt(
@@ -148,6 +214,7 @@ export async function generateProactiveMessageNode(
     }
 
     // Initialize model with higher temperature for variety
+    console.log(`   🤖 Initializing AI model...`);
     const aiConfig = config.ai.openai;
     const model = new ChatOpenAI({
       modelName: aiConfig.model,
@@ -160,10 +227,15 @@ export async function generateProactiveMessageNode(
       configuration: {
         baseURL: aiConfig.baseUrl,
       },
+      timeout: 25000, // 25 second timeout for the AI call itself
     });
 
     // Generate message
+    console.log(`   📡 Calling AI model (timeout: 25s)...`);
+    const aiCallStart = Date.now();
     const response = await model.invoke(promptText);
+    const aiCallDuration = Date.now() - aiCallStart;
+    console.log(`   ✅ AI model responded in ${aiCallDuration}ms`);
     let messageContent = response.content as string;
 
     // Similarity check against recent messages
@@ -191,9 +263,24 @@ export async function generateProactiveMessageNode(
     // If still too similar, skip sending
     if (isTooSimilar) {
       console.log(`⚠️ Skipping proactive message due to high similarity`);
+      
+      // For inactivity nudges, still increment the count to prevent infinite retries
+      const metadataUpdates: any = {
+        ...state.metadata,
+      };
+      
+      if (trigger === 'inactivity') {
+        const currentCount = state.metadata?.inactivityNudgeCount || 0;
+        metadataUpdates.inactivityNudgeCount = currentCount + 1;
+        console.log(`📊 Incremented inactivity nudge count despite skip: ${currentCount} → ${currentCount + 1}`);
+      }
+      
       return {
         shouldSendProactive: false,
         proactiveCount: state.proactiveCount + 1, // Count the attempt
+        metadata: metadataUpdates,
+        // Set a dummy lastAiMessage so persist node can save metadata
+        lastAiMessage: '', // Empty string signals "skipped but update metadata"
       };
     }
 
@@ -203,17 +290,27 @@ export async function generateProactiveMessageNode(
 
     console.log(`✅ Proactive message generated in ${processingTime}ms`);
 
+    // Prepare metadata updates
+    const metadataUpdates: any = {
+      ...state.metadata,
+      lastAiMessageAt: new Date(),
+      messageCount: (state.metadata.messageCount || 0) + 1,
+      processingTime,
+    };
+    
+    // Increment inactivity nudge count if this is an inactivity trigger
+    if (trigger === 'inactivity') {
+      const currentCount = state.metadata?.inactivityNudgeCount || 0;
+      metadataUpdates.inactivityNudgeCount = currentCount + 1;
+      console.log(`📊 Incremented inactivity nudge count: ${currentCount} → ${currentCount + 1}`);
+    }
+
     return {
       messages: updatedMessages,
       lastAiMessage: messageContent,
       proactiveCount: state.proactiveCount + 1,
       turn: trigger === 'backchannel' ? 'user' : 'user', // All proactive messages wait for user
-      metadata: {
-        ...state.metadata,
-        lastAiMessageAt: new Date(),
-        messageCount: (state.metadata.messageCount || 0) + 1,
-        processingTime,
-      },
+      metadata: metadataUpdates,
     };
   } catch (error) {
     console.error('Error generating proactive message:', error);

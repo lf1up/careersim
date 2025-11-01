@@ -35,6 +35,9 @@ export async function emitGoalProgressUpdate(session: SimulationSession): Promis
  */
 let inactivityIntervalStarted = false;
 
+// Track sessions currently being processed to prevent concurrent processing
+const processingNudges = new Set<string>();
+
 export function startInactivityScheduler(): void {
   if (inactivityIntervalStarted) return;
   inactivityIntervalStarted = true;
@@ -52,6 +55,12 @@ export function startInactivityScheduler(): void {
         .getMany();
 
       for (const s of sessions) {
+        // Skip if already being processed (race condition protection)
+        if (processingNudges.has(s.id)) {
+          console.log(`⏭️  Session ${s.id} already processing nudge, skipping...`);
+          continue;
+        }
+        
         // Only nudge if it's user's turn
         if (s.turn !== 'user' || !s.simulation?.personas?.length) {
           continue;
@@ -59,6 +68,9 @@ export function startInactivityScheduler(): void {
         const persona = (s.simulation.personas as unknown as Persona[])[0];
 
         try {
+          // Mark session as being processed
+          processingNudges.add(s.id);
+          
           // Persona-configured limits
           const cs: any = persona?.conversationStyle || {};
           const maxNudges = Math.max(0, Number(cs?.inactivityNudgeMaxCount ?? 2));
@@ -66,8 +78,25 @@ export function startInactivityScheduler(): void {
           // Limit number of inactivity nudges per session
           if ((s.inactivityNudgeCount || 0) >= maxNudges) {
             // Disable further nudges by clearing the schedule
+            console.log(`🛑 Max inactivity nudges (${s.inactivityNudgeCount}/${maxNudges}) already reached for session ${s.id}`);
             s.inactivityNudgeAt = null as any;
             await repo.save(s);
+            processingNudges.delete(s.id);
+            continue;
+          }
+          
+          // Enforce minimum delay between nudges (30 seconds) to prevent rapid-fire
+          // This is a safety check in addition to the scheduled delays
+          const timeSinceLastAi = s.lastAiMessageAt ? Date.now() - s.lastAiMessageAt.getTime() : Infinity;
+          const minDelayMs = 30000; // 30 seconds minimum
+          
+          if (timeSinceLastAi < minDelayMs) {
+            console.log(`⏳ Too soon since last AI message (${Math.floor(timeSinceLastAi / 1000)}s < 30s), rescheduling nudge for session ${s.id}`);
+            // Reschedule for the remaining time
+            const remainingMs = minDelayMs - timeSinceLastAi;
+            s.inactivityNudgeAt = new Date(Date.now() + remainingMs + 5000); // Add 5s buffer
+            await repo.save(s);
+            processingNudges.delete(s.id);
             continue;
           }
 
@@ -82,14 +111,23 @@ export function startInactivityScheduler(): void {
           // Check if LangGraph is enabled
           const { config } = await import('@/config/env');
           if (config.langgraph.useLangGraph) {
-            console.log('🔵 Using LangGraph for inactivity nudge');
+            console.log(`🔵 Using LangGraph for inactivity nudge (count: ${s.inactivityNudgeCount || 0}/${maxNudges})`);
             
             // Use LangGraph for inactivity nudge with timeout protection
             try {
+              // Clear the nudge schedule BEFORE invoking to prevent duplicate triggers
+              // The graph will reschedule it after completing
+              s.inactivityNudgeAt = null as any;
+              await repo.save(s);
+              console.log(`⏸️  Cleared inactivity schedule for session ${s.id} to prevent duplicates`);
+              
               const { invokeConversationGraph } = await import('@/services/langgraph');
               
               // Create a timeout promise to prevent hanging
-              const timeoutMs = 30000; // 30 second timeout
+              const timeoutMs = 45000; // 45 second timeout (increased from 30s to allow for AI call + DB operations)
+              console.log(`⏱️  Starting LangGraph invocation with ${timeoutMs}ms timeout...`);
+              const graphStartTime = Date.now();
+              
               const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('LangGraph invocation timeout')), timeoutMs);
               });
@@ -104,13 +142,32 @@ export function startInactivityScheduler(): void {
                 timeoutPromise,
               ]);
               
+              const graphDuration = Date.now() - graphStartTime;
+              console.log(`✅ LangGraph invocation completed in ${graphDuration}ms`);
+              
+              // Reload session to get updated nudge count and schedule
+              const updatedSession = await repo.findOne({
+                where: { id: s.id },
+              });
+              
+              if (updatedSession) {
+                // Check if we've hit the max nudge count
+                if ((updatedSession.inactivityNudgeCount || 0) >= maxNudges) {
+                  console.log(`🛑 Max inactivity nudges (${maxNudges}) reached for session ${s.id}`);
+                  // Clear the nudge schedule to prevent further triggers
+                  updatedSession.inactivityNudgeAt = null as any;
+                  await repo.save(updatedSession);
+                }
+              }
+              
               // Graph handles all persistence, scheduling, and emission
               console.log(`✅ LangGraph inactivity nudge sent for session ${s.id}`);
+              processingNudges.delete(s.id);
               continue;
             } catch (graphErr) {
               console.warn('⚠️ LangGraph inactivity nudge failed:', graphErr instanceof Error ? graphErr.message : graphErr);
               console.warn('⚠️ Falling back to legacy nudge system for this session');
-              // Fall through to legacy system
+              // Fall through to legacy system (processing lock removed at end of try block)
             }
           }
 
@@ -214,6 +271,9 @@ export function startInactivityScheduler(): void {
           });
         } catch (err) {
           console.warn('⚠️ Failed to send inactivity nudge:', err);
+        } finally {
+          // Always remove the processing lock
+          processingNudges.delete(s.id);
         }
       }
     } catch (outerErr) {

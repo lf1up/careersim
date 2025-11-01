@@ -47,7 +47,9 @@ const StateAnnotation = Annotation.Root({
     default: () => [],
   }),
   
-  // Turn management
+  // Turn management: Indicates whose turn it is to respond NEXT
+  // 'user' = AI just spoke, waiting for user to respond
+  // 'ai' = User just spoke, AI should respond
   turn: Annotation<'user' | 'ai'>({
     reducer: (left, right) => right ?? left,
     default: () => 'ai' as const,
@@ -124,15 +126,55 @@ export const NODE_NAMES = {
 } as const;
 
 /**
+ * Conditional edge function: After processing user input, decide next step
+ */
+function afterUserInput(state: ConversationGraphState): string {
+  console.log(`🔀 [afterUserInput] Deciding next step:`);
+  console.log(`   - proactiveTrigger: ${state.proactiveTrigger}`);
+  console.log(`   - needsEvaluation: ${state.needsEvaluation}`);
+  
+  // If proactive trigger is set (inactivity, start), skip normal response generation
+  if (state.proactiveTrigger && !state.needsEvaluation) {
+    console.log(`   ✅ Skipping normal response - going to CHECK_PROACTIVE_TRIGGER`);
+    return NODE_NAMES.CHECK_PROACTIVE_TRIGGER;
+  }
+  
+  // Otherwise, generate normal AI response
+  console.log(`   ➡️  Proceeding with normal conversation flow - going to FETCH_RAG_CONTEXT`);
+  return NODE_NAMES.FETCH_RAG_CONTEXT;
+}
+
+/**
  * Conditional edge function: Determine if proactive message should be sent
+ * 
+ * NOTE: For inactivity triggers, we don't check proactiveCount because:
+ * - proactiveCount tracks consecutive proactive messages in a "burst" (followups/backchannels)
+ * - inactivity nudges use inactivityNudgeCount instead (checked in checkProactiveTriggerNode)
+ * 
+ * IMPORTANT: After normal conversation (no proactiveTrigger set), we ALWAYS go to
+ * PERSIST_AND_EMIT to save the AI's response, even if no followup/backchannel is being sent.
  */
 function shouldSendProactiveMessage(state: ConversationGraphState): string {
-  // Check if we should send a proactive message
+  // For explicit inactivity/start triggers, only check shouldSendProactive (count already checked)
+  if (state.proactiveTrigger === 'inactivity' || state.proactiveTrigger === 'start') {
+    if (state.shouldSendProactive) {
+      return NODE_NAMES.GENERATE_PROACTIVE_MESSAGE;
+    }
+    // Probability check failed, reschedule without persisting
+    console.log(`   ⏭️  ${state.proactiveTrigger} probability check failed, rescheduling without persisting`);
+    return NODE_NAMES.SCHEDULE_INACTIVITY;
+  }
+  
+  // For followup/backchannel triggers, check both shouldSendProactive AND proactiveCount
   if (state.shouldSendProactive && state.proactiveCount < (state.maxProactiveMessages || 3)) {
     return NODE_NAMES.GENERATE_PROACTIVE_MESSAGE;
   }
   
-  // Otherwise, persist and finish
+  // If we're here, either:
+  // 1. Normal conversation with no followup/backchannel → persist AI response and schedule inactivity
+  // 2. Followup trigger that hit max count → persist last message
+  // In both cases, go to persist
+  console.log(`   ⏭️  No additional proactive message, proceeding to persist`);
   return NODE_NAMES.PERSIST_AND_EMIT;
 }
 
@@ -140,36 +182,39 @@ function shouldSendProactiveMessage(state: ConversationGraphState): string {
  * Conditional edge function: After generating proactive message, decide next step
  */
 function afterProactiveMessage(state: ConversationGraphState): string {
-  // If it's a backchannel, we're done (wait for user)
-  if (state.proactiveTrigger === 'backchannel') {
-    return NODE_NAMES.PERSIST_AND_EMIT;
-  }
-  
-  // For follow-ups, check if we should send another one
+  // For follow-ups, check if we should send another one (loop back)
   if (state.proactiveTrigger === 'followup' && state.proactiveCount < (state.maxProactiveMessages || 3)) {
     // Loop back to check if we should send another
     return NODE_NAMES.CHECK_PROACTIVE_TRIGGER;
   }
   
-  // Otherwise, persist and finish
+  // For all other proactive messages (backchannel, inactivity, start, or final followup),
+  // persist and continue to scheduling
   return NODE_NAMES.PERSIST_AND_EMIT;
 }
 
 /**
- * Conditional edge function: After persisting, determine if we're done
+ * Conditional edge function: After persisting, determine if we should schedule inactivity
+ * 
+ * LOGIC: We schedule inactivity whenever the AI sends a message and we're waiting for the user.
+ * This happens in two scenarios:
+ * 1. After a normal AI response (turn === 'user' means "user's turn to respond next")
+ * 2. After a proactive message (start, inactivity, backchannel, final followup)
+ * 
+ * We skip scheduling only if:
+ * - We're in an error state (turn is undefined/null)
+ * - We've reached the max inactivity nudge count (handled by scheduleInactivityNode)
  */
 function afterPersist(state: ConversationGraphState): string {
-  // If this was a proactive message that needs scheduling (inactivity or start)
-  if (state.proactiveTrigger === 'inactivity' || state.proactiveTrigger === 'start') {
-    return NODE_NAMES.SCHEDULE_INACTIVITY;
-  }
-  
-  // If we just sent a backchannel or follow-up, schedule inactivity for next user turn
+  // If turn === 'user', it means AI just spoke and we're waiting for user response
+  // Always schedule an inactivity check in this case
   if (state.turn === 'user') {
     return NODE_NAMES.SCHEDULE_INACTIVITY;
   }
   
-  // Otherwise, we're done
+  // If turn is not 'user', something is wrong or we're in a transitional state
+  // End the graph execution
+  console.log(`⚠️ [afterPersist] Unexpected turn state: ${state.turn}, ending graph`);
   return END;
 }
 
@@ -199,8 +244,11 @@ export function buildConversationGraph() {
   graph.setEntryPoint(NODE_NAMES.PROCESS_USER_INPUT);
   
   // Define the graph flow
-  // After processing input, fetch RAG context
-  graph.addEdge(NODE_NAMES.PROCESS_USER_INPUT, NODE_NAMES.FETCH_RAG_CONTEXT);
+  // After processing input, conditionally fetch RAG context OR skip to proactive check
+  graph.addConditionalEdges(
+    NODE_NAMES.PROCESS_USER_INPUT,
+    afterUserInput,
+  );
   
   // After RAG, generate AI response
   graph.addEdge(NODE_NAMES.FETCH_RAG_CONTEXT, NODE_NAMES.GENERATE_AI_RESPONSE);

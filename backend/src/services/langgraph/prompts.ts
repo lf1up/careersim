@@ -65,11 +65,20 @@ export const PROACTIVE_START_PROMPT = ChatPromptTemplate.fromMessages([
  * Proactive message prompt for inactivity nudges
  */
 export const PROACTIVE_INACTIVITY_PROMPT = ChatPromptTemplate.fromMessages([
-  SystemMessagePromptTemplate.fromTemplate(`You are {personaName}. The user has been silent for a while.
+  SystemMessagePromptTemplate.fromTemplate(`You are {personaName}, a {personaRole}. The user has been silent for a while.
 
-**Your Goal**: Send a friendly, in-character nudge to re-engage them.
+**Your Character**:
+- Personality: {personaPersonality}
+- Primary Goal: {personaPrimaryGoal}
+- Current Context: {simulationScenario}
 
-**Last User Message**: {lastUserMessage}
+**What You Just Said**: 
+{lastAiMessage}
+
+**What User Last Said**: 
+{lastUserMessage}
+
+**Your Goal**: Send a brief, in-character nudge that DIRECTLY FOLLOWS UP on what you just said. Reference your last message and guide them forward.
 
 **Nudge Style Hint**: {nudgeStyle}
 
@@ -77,13 +86,16 @@ export const PROACTIVE_INACTIVITY_PROMPT = ChatPromptTemplate.fromMessages([
 {recentAiMessages}
 
 **Critical Guidelines**:
-- Keep it very brief (1 sentence typically)
-- Stay in character
-- Be friendly and non-pushy
-- Reference something from the conversation if possible
+- Keep it very brief (1-2 sentences max)
+- DIRECTLY reference what you just asked or said in your last message
+- Stay completely in character with your personality and role
+- Be friendly and non-pushy, but contextually relevant
+- If you asked a question, gently prompt them to answer it
+- If you gave instructions, encourage them to follow through
 - DO NOT repeat phrases or ideas from your recent messages above
-- Use completely different vocabulary and approach than previous nudges`),
-  HumanMessagePromptTemplate.fromTemplate(`Send a nudge now.`),
+- Use completely different vocabulary and approach than previous nudges
+- Make it feel like a natural continuation of YOUR LAST MESSAGE, not a random comment`),
+  HumanMessagePromptTemplate.fromTemplate(`Send a nudge now that follows up on what you just said.`),
 ]);
 
 /**
@@ -232,7 +244,9 @@ export async function buildProactiveStartPrompt(
  */
 export async function buildProactiveInactivityPrompt(
   persona: Persona,
+  simulation: Simulation,
   lastUserMessage?: string,
+  lastAiMessage?: string,
   recentAiMessages: string[] = [],
 ): Promise<string> {
   const cs: any = persona.conversationStyle || {};
@@ -240,10 +254,15 @@ export async function buildProactiveInactivityPrompt(
 
   return await PROACTIVE_INACTIVITY_PROMPT.format({
     personaName: persona.name,
+    personaRole: persona.role,
+    personaPersonality: persona.personality,
+    personaPrimaryGoal: persona.primaryGoal,
+    simulationScenario: simulation.scenario,
     lastUserMessage: lastUserMessage || '(No recent message)',
+    lastAiMessage: lastAiMessage || '(No previous message from you)',
     nudgeStyle,
     recentAiMessages: recentAiMessages.length > 0
-      ? recentAiMessages.map((msg, i) => `${i + 1}. "${msg.slice(0, 100)}..."`).join('\n')
+      ? recentAiMessages.map((msg, i) => `${i + 1}. "${msg.slice(0, 150)}..."`).join('\n')
       : '(No recent messages)',
   });
 }

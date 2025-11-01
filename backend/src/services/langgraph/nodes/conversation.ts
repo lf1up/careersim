@@ -57,7 +57,7 @@ function getMessageType(message: any): string {
 export async function processUserInputNode(
   state: ConversationGraphState | any,
 ): Promise<Partial<ConversationGraphState>> {
-  console.log(`📥 Processing user input for session ${state.sessionId}`);
+  console.log(`📥 [${state.sessionId}] Processing user input (trigger: ${state.proactiveTrigger || 'none'})`);
 
   try {
     // Load database dependencies
@@ -100,8 +100,19 @@ export async function processUserInputNode(
           startedAt: session.startedAt,
           messageCount: session.messageCount || 0,
           conversationStyle: persona.conversationStyle,
+          inactivityNudgeCount: session.inactivityNudgeCount || 0,
+          inactivityNudgeAt: session.inactivityNudgeAt,
+          lastAiMessageAt: session.lastAiMessageAt,
+          lastUserMessageAt: session.lastUserMessageAt,
         },
       };
+
+      // If this is a proactive trigger (inactivity, start), don't reset counters
+      if (state.proactiveTrigger) {
+        console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - preserving inactivity state`);
+        // Don't add user message, don't reset counters
+        return updates;
+      }
 
       // If we have a user message from the input, add it
       if (userMessage) {
@@ -110,9 +121,43 @@ export async function processUserInputNode(
         updates.lastUserMessage = userMessage;
         updates.needsEvaluation = true;
         updates.turn = 'ai';
+        
+        // Reset counters since user is active
+        updates.proactiveCount = 0; // Reset consecutive proactive message counter
+        updates.metadata.inactivityNudgeCount = 0;
+        updates.metadata.inactivityNudgeAt = null;
+        console.log(`🔄 Reset inactivity nudge count and cleared schedule (user sent message)`);
+        
+        // Immediately update the database session to prevent race conditions with scheduler
+        // This ensures the scheduler sees the cleared schedule right away
+        try {
+          const sessionRepo = AppDataSource.getRepository(SimulationSession);
+          await sessionRepo.update(
+            { id: state.sessionId },
+            { 
+              inactivityNudgeCount: 0, 
+              inactivityNudgeAt: null as any,
+              lastUserMessageAt: new Date(),
+            },
+          );
+          console.log(`💾 Immediately persisted inactivity reset to database`);
+        } catch (dbErr) {
+          console.warn(`⚠️ Failed to immediately persist inactivity reset:`, dbErr);
+          // Non-fatal, will be updated later by persistAndEmitNode
+        }
       }
 
       return updates;
+    }
+
+    // If proactive trigger is set (start, inactivity), handle that FIRST
+    // Don't reset counters - we're processing an inactivity nudge, not a user message
+    if (state.proactiveTrigger) {
+      console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - skipping normal flow`);
+      return {
+        needsEvaluation: false,
+        shouldSendProactive: false, // Will be set by check_proactive_trigger
+      };
     }
 
     // If we have a user message, add it to the message history
@@ -120,19 +165,34 @@ export async function processUserInputNode(
       const messages = [...(state.messages || [])];
       messages.push(new HumanMessage(userMessage));
 
+      // Immediately update the database to clear inactivity schedule
+      // ONLY do this for actual user messages, not inactivity triggers
+      try {
+        const sessionRepo = AppDataSource.getRepository(SimulationSession);
+        await sessionRepo.update(
+          { id: state.sessionId },
+          { 
+            inactivityNudgeCount: 0, 
+            inactivityNudgeAt: null as any,
+            lastUserMessageAt: new Date(),
+          },
+        );
+        console.log(`💾 Immediately persisted inactivity reset to database (user message received)`);
+      } catch (dbErr) {
+        console.warn(`⚠️ Failed to immediately persist inactivity reset:`, dbErr);
+      }
+
       return {
         messages,
         lastUserMessage: userMessage,
         needsEvaluation: true,
         turn: 'ai',
-      };
-    }
-
-    // If proactive trigger is set (start, inactivity), handle that
-    if (state.proactiveTrigger) {
-      return {
-        needsEvaluation: false,
-        shouldSendProactive: false, // Will be set by check_proactive_trigger
+        proactiveCount: 0, // Reset consecutive proactive message counter
+        metadata: {
+          ...state.metadata,
+          inactivityNudgeCount: 0, // Reset on user activity
+          inactivityNudgeAt: null, // Clear schedule
+        },
       };
     }
 

@@ -13,6 +13,7 @@
     "db:migrate:revert": "typeorm migration:revert -d src/config/datasource.ts",
     "db:generate": "typeorm migration:generate -d src/config/datasource.ts",
     "db:seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
+    "db:seed:force": "typeorm schema:drop -d src/config/datasource.ts && typeorm migration:run -d src/config/datasource.ts && pnpm run db:seed",
     "db:reset": "pnpm run db:migrate:revert && pnpm run db:migrate && pnpm run db:seed",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",

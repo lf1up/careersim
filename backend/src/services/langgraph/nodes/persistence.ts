@@ -26,10 +26,33 @@ function loadDatabaseDependencies() {
 export async function persistAndEmitNode(
   state: ConversationGraphState,
 ): Promise<Partial<ConversationGraphState>> {
-  console.log(`💾 Persisting message for session ${state.sessionId}`);
+  const startTime = Date.now();
+  console.log(`💾 [${state.sessionId}] Persist node started`);
 
-  if (!state.lastAiMessage) {
-    console.log(`⚠️ No AI message to persist`);
+  // Check if there's a message to persist
+  const hasMessage = state.lastAiMessage && state.lastAiMessage.trim().length > 0;
+  console.log(`   📝 Has message to persist: ${hasMessage}`);
+  
+  if (!hasMessage) {
+    console.log(`⚠️ No AI message to persist, but updating session metadata`);
+    
+    // Even without a message, we should update metadata like inactivityNudgeCount
+    try {
+      loadDatabaseDependencies();
+      const sessionRepo = AppDataSource.getRepository(SimulationSession);
+      const session = await sessionRepo.findOne({
+        where: { id: state.sessionId },
+      });
+
+      if (session && state.metadata?.inactivityNudgeCount !== undefined) {
+        session.inactivityNudgeCount = state.metadata.inactivityNudgeCount;
+        await sessionRepo.save(session);
+        console.log(`📊 Updated session inactivityNudgeCount to ${session.inactivityNudgeCount} (no message)`);
+      }
+    } catch (error) {
+      console.error('Error updating session metadata:', error);
+    }
+    
     return {};
   }
 
@@ -84,6 +107,27 @@ export async function persistAndEmitNode(
     if (state.goalProgress && state.goalProgress.length > 0) {
       session.goalProgress = state.goalProgress as any;
     }
+    
+    // Update inactivity nudge count if present in metadata
+    // This should only happen when we're actually sending a proactive inactivity message
+    if (state.metadata?.inactivityNudgeCount !== undefined) {
+      session.inactivityNudgeCount = state.metadata.inactivityNudgeCount;
+      console.log(`📊 Updated session inactivityNudgeCount to ${session.inactivityNudgeCount}`);
+    }
+    
+    // IMPORTANT: Only clear the inactivity schedule if this is NOT an inactivity trigger
+    // Inactivity triggers will reschedule in the scheduleInactivityNode
+    if (state.proactiveTrigger !== 'inactivity') {
+      // Update inactivity nudge schedule if present in metadata (including clearing it)
+      if (state.metadata?.inactivityNudgeAt !== undefined) {
+        session.inactivityNudgeAt = state.metadata.inactivityNudgeAt;
+        if (state.metadata.inactivityNudgeAt === null) {
+          console.log(`🔄 Cleared inactivity nudge schedule (user active)`);
+        }
+      }
+    } else {
+      console.log(`   ⏭️  Skipping inactivity schedule update (will be set by schedule node)`);
+    }
 
     await sessionRepo.save(session);
 
@@ -124,7 +168,8 @@ export async function persistAndEmitNode(
       // Don't fail the whole flow if emit fails
     }
 
-    console.log(`✅ Message persisted with sequence ${sequenceNumber}`);
+    const persistDuration = Date.now() - startTime;
+    console.log(`✅ [${state.sessionId}] Message persisted with sequence ${sequenceNumber} in ${persistDuration}ms`);
 
     return {
       metadata: {
@@ -162,10 +207,30 @@ export async function scheduleInactivityNode(
       throw new Error(`Session ${state.sessionId} not found`);
     }
 
-    // Get persona config for inactivity nudge timing
+    // Get persona config for inactivity nudge timing and limits
     const cs: any = state.persona.conversationStyle || {};
+    const maxNudges = Number(cs.inactivityNudgeMaxCount ?? 2);
+    const currentCount = session.inactivityNudgeCount || 0;
+    
+    console.log(`📊 Inactivity nudge status: ${currentCount}/${maxNudges} nudges sent`);
+    
+    // Check if we've already hit the max count
+    if (currentCount >= maxNudges) {
+      console.log(`🛑 Max inactivity nudges (${currentCount}/${maxNudges}) reached, NOT scheduling next nudge`);
+      // Clear any existing schedule
+      session.inactivityNudgeAt = null as any;
+      await sessionRepo.save(session);
+      
+      return {
+        metadata: {
+          ...state.metadata,
+          inactivityNudgeAt: null,
+        },
+      };
+    }
+    
     const delayCfg = cs.inactivityNudgeDelaySec || {};
-    const minSec = Math.max(5, Number(delayCfg.min ?? 60));
+    const minSec = Math.max(30, Number(delayCfg.min ?? 60)); // Enforce 30s minimum
     const maxSec = Math.max(minSec, Number(delayCfg.max ?? 180));
     const minMs = minSec * 1000;
     const maxMs = maxSec * 1000;
@@ -176,11 +241,10 @@ export async function scheduleInactivityNode(
 
     // Update session
     session.inactivityNudgeAt = nudgeAt;
-    session.inactivityNudgeCount = (session.inactivityNudgeCount || 0);
     
     await sessionRepo.save(session);
 
-    console.log(`✅ Inactivity nudge scheduled for ${nudgeAt.toISOString()}`);
+    console.log(`✅ Inactivity nudge #${currentCount + 1}/${maxNudges} scheduled for ${nudgeAt.toISOString()} (in ${Math.floor(delay / 1000)}s)`);
 
     return {
       metadata: {

@@ -74,6 +74,8 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
     metadata: CheckpointMetadata,
   ): Promise<RunnableConfig> {
     const threadId = config.configurable?.thread_id;
+    const putStartTime = Date.now();
+    console.log(`💾 [Checkpointer] PUT checkpoint for thread ${threadId}`);
     
     if (!threadId) {
       throw new Error('thread_id is required in config.configurable for checkpoint persistence');
@@ -81,9 +83,11 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
 
     try {
       // Load the session
+      console.log(`   🔍 Loading session ${threadId}...`);
       const session = await this.sessionRepository.findOne({
         where: { id: threadId },
       });
+      console.log(`   ✅ Session loaded in ${Date.now() - putStartTime}ms`);
 
       if (!session) {
         throw new Error(`Session ${threadId} not found`);
@@ -117,7 +121,12 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
         lastCheckpointAt: new Date(),
       } as any;
 
+      console.log(`   💾 Saving checkpoint to DB...`);
+      const saveStart = Date.now();
       await this.sessionRepository.save(session);
+      const saveDuration = Date.now() - saveStart;
+      const totalDuration = Date.now() - putStartTime;
+      console.log(`   ✅ Checkpoint saved in ${saveDuration}ms (total: ${totalDuration}ms)`);
 
       return {
         ...config,
@@ -136,8 +145,10 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
    * Get a checkpoint by thread ID and optional checkpoint ID
    */
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    const getTupleStart = Date.now();
     const threadId = config.configurable?.thread_id;
     const checkpointId = config.configurable?.checkpoint_id;
+    console.log(`📖 [Checkpointer] GET checkpoint for thread ${threadId}${checkpointId ? ` (checkpoint: ${checkpointId})` : ' (latest)'}`);
 
     if (!threadId) {
       return undefined;
@@ -147,6 +158,7 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
       const session = await this.sessionRepository.findOne({
         where: { id: threadId },
       });
+      console.log(`   ✅ Session loaded in ${Date.now() - getTupleStart}ms`);
 
       if (!session || !(session.sessionMetadata as any)?.checkpoints) {
         return undefined;
