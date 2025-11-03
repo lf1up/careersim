@@ -2,6 +2,20 @@
 
 This directory contains the LangGraph-based conversation agent system for CareerSim, providing a stateful, multi-node graph architecture for managing AI conversations, proactive messages, and goal evaluation.
 
+## Standalone Server for Testing
+
+Test the LangGraph system independently with the standalone server:
+
+```bash
+# Start standalone server (port 8123)
+pnpm --filter careersim-backend langgraph:server
+
+# Run automated tests
+pnpm --filter careersim-backend langgraph:test
+```
+
+**Port Configuration**: The standalone server uses port **8123** by default (configurable via `LANGGRAPH_SERVER_PORT`) to avoid conflicts with the main backend server (port 8000). See `standalone-server.ts` for API details.
+
 ## Architecture Overview
 
 The system is built as a **StateGraph** with multiple nodes handling different aspects of the conversation:

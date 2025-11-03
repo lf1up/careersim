@@ -30,7 +30,9 @@ export const AppDataSource = new DataSource({
 
 export const connectDatabase = async (): Promise<void> => {
   try {
-    await AppDataSource.initialize();
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+    }
     console.log('✅ Database connection established successfully');
   } catch (error) {
     console.error('❌ Error during database connection:', error);

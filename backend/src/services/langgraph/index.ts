@@ -85,3 +85,12 @@ export {
   scheduleInactivityNode,
 } from './nodes/persistence';
 
+// Standalone server utilities (if needed for programmatic access)
+export {
+  initializeDatabase,
+  listSimulations,
+  createSession,
+  getSessionById,
+  listSessions,
+  sessionToThreadConfig,
+} from './standalone-utils';
