@@ -35,6 +35,10 @@ export interface TestSimulation {
     personality: string;
     difficultyLevel: number;
     category: string;
+    conversationStyle?: {
+      startsConversation?: boolean | 'sometimes';
+      [key: string]: any;
+    };
   }>;
 }
 
@@ -253,9 +257,23 @@ export async function cleanupTestSession(sessionId: string): Promise<void> {
  * This wraps the standalone server API to match DeepEval's expected interface
  */
 export function createModelCallback(sessionId: string, threadId: string) {
+  let turnNumber = 0;
+  
   return async (args: { input: string; turns: Turn[]; threadId: string }): Promise<Turn> => {
     try {
-      // Use the provided threadId (sessionId)
+      turnNumber++;
+      
+      // Log the user's message in real-time
+      console.log(`\n${'┄'.repeat(80)}`);
+      console.log(`👤 USER - Turn ${turnNumber}`);
+      console.log(`${'┄'.repeat(80)}`);
+      console.log(args.input);
+      console.log('');
+      
+      // Make the API call
+      console.log('   ⏳ Waiting for AI response...');
+      const startTime = Date.now();
+      
       const response = await fetch(`${BASE_URL}/threads/${threadId}/runs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -266,6 +284,8 @@ export function createModelCallback(sessionId: string, threadId: string) {
         }),
       });
       
+      const duration = Date.now() - startTime;
+      
       if (!response.ok) {
         throw new Error(`API call failed: ${response.statusText}`);
       }
@@ -273,13 +293,20 @@ export function createModelCallback(sessionId: string, threadId: string) {
       const data = await response.json() as { output: ConversationOutput };
       const output = data.output;
       
+      // Log the AI's response in real-time
+      console.log(`${'┄'.repeat(80)}`);
+      console.log(`🤖 AI PERSONA - Turn ${turnNumber} (${duration}ms)`);
+      console.log(`${'┄'.repeat(80)}`);
+      console.log(output.lastAiMessage || 'No response generated');
+      console.log(`${'┄'.repeat(80)}\n`);
+      
       // Return the AI's response as a Turn
       return new Turn({
         role: 'assistant',
         content: output.lastAiMessage || 'No response generated',
       });
     } catch (error: any) {
-      console.error('Model callback error:', error);
+      console.error('\n❌ Model callback error:', error);
       throw new Error(`Failed to get AI response: ${error.message}`);
     }
   };

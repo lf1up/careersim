@@ -42,6 +42,8 @@ export async function listSimulations() {
     objectives: sim.objectives,
     difficulty: sim.difficulty,
     category: sim.category?.name || 'Uncategorized',
+    successCriteria: sim.successCriteria || { communication: [], problemSolving: [], emotional: [] },
+    conversationGoals: sim.conversationGoals || [],
     personas: sim.personas?.map(p => ({
       id: p.id,
       name: p.name,
@@ -49,6 +51,7 @@ export async function listSimulations() {
       personality: p.personality,
       difficultyLevel: p.difficultyLevel,
       category: p.category,
+      conversationStyle: p.conversationStyle,
     })) || [],
   }));
 }
