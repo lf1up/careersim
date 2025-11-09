@@ -320,6 +320,248 @@ This allows gradual migration with A/B testing.
 
 ## Testing
 
+### End-to-End Test Suite with DeepEval
+
+The LangGraph system includes a comprehensive end-to-end test suite using DeepEval's TypeScript SDK for automated conversation simulation and evaluation.
+
+#### Test Location
+
+```
+backend/src/services/langgraph/tests/
+├── simulation.spec.ts    # Main test suite (13 test cases)
+├── helpers.ts            # Test utilities and server management
+└── scenarios.ts          # ConversationalGolden scenario definitions
+```
+
+#### Running Tests
+
+```bash
+# Run full test suite (requires standalone server)
+pnpm --filter careersim-backend run langgraph:test:deepeval
+
+# Run specific test patterns
+pnpm --filter careersim-backend run langgraph:test:deepeval -- --testNamePattern="Basic Conversation"
+pnpm --filter careersim-backend run langgraph:test:deepeval -- --testNamePattern="DeepEval"
+
+# Run with verbose output
+pnpm --filter careersim-backend run langgraph:test:deepeval -- --verbose
+```
+
+#### Prerequisites
+
+1. **Database must be seeded:**
+   ```bash
+   pnpm --filter careersim-backend run db:seed
+   ```
+
+2. **Standalone server** (auto-started by tests or run manually):
+   ```bash
+   pnpm --filter careersim-backend langgraph:server
+   ```
+
+3. **Optional - DeepEval API key** (for 4 simulator tests):
+   ```bash
+   # Add to .env file
+   CONFIDENT_API_KEY=your-api-key-here
+   ```
+
+#### Test Coverage (13 Tests)
+
+**✅ Core Functionality Tests (9 tests - No API key needed)**
+
+1. **Basic Conversation Flow**
+   - Simple multi-turn conversations
+   - Conversation state persistence across turns
+
+2. **Proactive Message Generation**
+   - AI-initiated start messages
+   - Followup triggers and probability checks
+
+3. **Goal Tracking and Evaluation**
+   - Goal progress during conversations
+   - Confidence scoring and evidence collection
+
+4. **Turn Management**
+   - Proper alternation between user and AI
+   - Turn state tracking
+
+5. **Response Analysis**
+   - Sentiment and emotional analysis integration
+   - Metadata and quality scores
+
+6. **Error Handling**
+   - Empty message handling
+   - Graceful error recovery
+
+7. **State Persistence**
+   - Conversation state checkpointing
+   - Session data persistence
+
+**⚡ DeepEval Simulator Tests (4 tests - Requires API key)**
+
+8. **Basic Conversation Simulation**
+   - Automated multi-turn conversation generation
+   - Realistic user response simulation
+
+9. **Goal Achievement Simulation**
+   - Complex conversations progressing through milestones
+   - Extended turn sequences (8+ turns)
+
+10. **Proactive Start Scenario**
+    - AI-initiated conversation handling
+    - Continuation with simulated user responses
+
+11. **Batch Scenarios**
+    - Multiple conversation scenarios in sequence
+    - Comprehensive integration testing
+
+#### Test Configuration
+
+**Timeouts** (due to LLM response times):
+- Basic tests: 8 minutes
+- DeepEval simulator tests: 20 minutes (includes API calls for user generation)
+- Batch tests: 30 minutes (runs multiple scenarios sequentially)
+
+**Environment Variables** (loaded from `.env`):
+```env
+# Required for standalone server tests
+LANGGRAPH_SERVER_PORT=8123
+LANGGRAPH_SERVER_URL=http://localhost:8123
+
+# Optional: For DeepEval conversation simulator
+CONFIDENT_API_KEY=your-api-key-here
+```
+
+#### Expected Test Duration
+
+- **Without DeepEval** (9 tests): ~10 minutes
+- **With DeepEval** (13 tests): ~20-25 minutes
+- Individual test times:
+  - Basic conversation: ~30 seconds - 2 minutes
+  - DeepEval simulation: ~3-8 minutes per test
+
+#### Test Results
+
+```bash
+Test Suites: 1 passed, 1 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+Time:        ~1400-1500 seconds (~23-25 minutes)
+```
+
+#### What Gets Tested
+
+**Graph Execution:**
+- ✅ All node executions (process, fetch RAG, generate, analyze, evaluate)
+- ✅ Conditional routing logic
+- ✅ State transitions and persistence
+- ✅ Checkpoint creation and retrieval
+
+**Proactive Messages:**
+- ✅ Start message generation
+- ✅ Followup probability checks
+- ✅ Inactivity triggers
+- ✅ Backchannel messages
+
+**Goal Evaluation:**
+- ✅ Goal progress tracking
+- ✅ Evidence collection
+- ✅ Confidence scoring
+- ✅ Status transitions (not_started → in_progress → achieved)
+
+**Integration Points:**
+- ✅ RAG microservice integration
+- ✅ Transformers microservice integration
+- ✅ Database persistence
+- ✅ Session management
+
+#### DeepEval Features
+
+When `CONFIDENT_API_KEY` is set, tests use DeepEval's conversation simulator to:
+
+1. **Generate realistic user responses** based on scenario descriptions
+2. **Simulate full conversations** with your AI persona
+3. **Evaluate conversation quality** and goal achievement
+4. **Test edge cases** automatically
+
+Example DeepEval test:
+```typescript
+const scenario = new ConversationalGolden({
+  scenario: 'A candidate wants to demonstrate their technical skills during a job interview.',
+  expectedOutcome: 'Successful coverage of background, skills, and experience.',
+  userDescription: 'Experienced software engineer, eager to showcase accomplishments.',
+});
+
+const simulator = new ConversationSimulator({ modelCallback });
+const testCases = await simulator.simulate({
+  conversationalGoldens: [scenario],
+  maxUserSimulations: 5,
+});
+```
+
+#### Debugging Tests
+
+**View detailed logs:**
+```bash
+pnpm --filter careersim-backend run langgraph:test:deepeval -- --verbose
+```
+
+**Run single test:**
+```bash
+pnpm --filter careersim-backend run langgraph:test:deepeval -- --testNamePattern="should handle a simple multi-turn conversation"
+```
+
+**Skip DeepEval tests during development:**
+```bash
+# Remove CONFIDENT_API_KEY from .env temporarily
+# Only 9 core tests will run
+```
+
+#### Troubleshooting
+
+**Error: "No simulations available"**
+```bash
+# Solution: Seed the database
+pnpm --filter careersim-backend run db:seed
+```
+
+**Error: "Server is not healthy"**
+```bash
+# Solution: Start standalone server
+pnpm --filter careersim-backend langgraph:server
+```
+
+**Error: "Please provide a valid Confident AI API Key"**
+```bash
+# Solution: This is expected if CONFIDENT_API_KEY is not set
+# 9/13 tests will still pass
+# To enable all tests, add to .env:
+CONFIDENT_API_KEY=your-api-key-here
+```
+
+**Tests timing out:**
+- Check LLM API response times
+- Verify network connectivity
+- Consider reducing `maxUserSimulations` in tests
+
+#### CI/CD Integration
+
+```yaml
+# Example GitHub Actions workflow
+- name: Run LangGraph Tests
+  run: |
+    pnpm --filter careersim-backend run db:seed
+    pnpm --filter careersim-backend langgraph:server &
+    sleep 10
+    pnpm --filter careersim-backend run langgraph:test:deepeval
+  env:
+    CONFIDENT_API_KEY: ${{ secrets.CONFIDENT_API_KEY }}
+```
+
+#### Unit Testing Example
+
+For unit testing individual components:
+
 ```typescript
 import { buildConversationGraph } from '@/services/langgraph';
 
@@ -335,6 +577,23 @@ describe('ConversationGraph', () => {
   });
 });
 ```
+
+#### Test Scenarios
+
+The test suite includes 10 predefined conversation scenarios:
+
+1. **Basic Conversation** - Simple multi-turn dialogue
+2. **Goal Achievement** - Progressing through interview milestones
+3. **Proactive Start** - AI-initiated conversations
+4. **Followup Handling** - Handling brief user responses
+5. **Complex Multi-Goal** - Comprehensive simulation coverage
+6. **Difficult Questions** - Challenging Q&A scenarios
+7. **Emotional Intelligence** - Testing emotional dynamics
+8. **Rapport Building** - Relationship development
+9. **Uncertainty Handling** - Unknown information scenarios
+10. **Career Transition** - Complex narrative discussions
+
+See `tests/scenarios.ts` for scenario definitions and customization.
 
 ## Contributing
 

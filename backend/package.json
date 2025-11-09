@@ -23,7 +23,7 @@
     "langgraph:server": "ts-node -r tsconfig-paths/register src/services/langgraph/standalone-server.ts",
     "langgraph:dev": "nodemon --watch src/services/langgraph src/services/langgraph/standalone-server.ts",
     "langgraph:test": "ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-standalone.ts",
-    "langgraph:test:deepeval": "jest -c jest.config.ts src/services/langgraph/tests/",
+    "langgraph:test:deepeval": "jest -c jest.config.ts src/services/langgraph/tests/ --detectOpenHandles",
     "debug:graph:validate": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/validate-structure.ts",
     "debug:graph:compile": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/debug-compile.ts",
     "debug:graph:invoke": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-invoke.ts",
