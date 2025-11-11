@@ -120,8 +120,11 @@ const seedData = async (): Promise<void> => {
           // New behavior controls
           startsConversation: true,
           initiativeProbability: 0.2,
+          followupProbability: 0.15,
+          maxFollowupMessages: 2,
           inactivityNudgeDelaySec: { min: 45, max: 120 },
           inactivityNudgeMaxCount: 3,
+          inactivityProbability: 0.7, // Professional follow-up to keep interview moving
           burstiness: { min: 1, max: 3 },
           typingSpeedWpm: 110,
           backchannelProbability: 0.2,
@@ -147,8 +150,11 @@ const seedData = async (): Promise<void> => {
           // New behavior controls
           startsConversation: true,
           initiativeProbability: 0.6,
+          followupProbability: 0.5,
+          maxFollowupMessages: 3,
           inactivityNudgeDelaySec: { min: 20, max: 80 },
           inactivityNudgeMaxCount: 3,
+          inactivityProbability: 0.85, // Very eager to engage and keep conversation flowing
           burstiness: { min: 1, max: 3 },
           typingSpeedWpm: 140,
           backchannelProbability: 0.4,
@@ -175,8 +181,11 @@ const seedData = async (): Promise<void> => {
           // New behavior controls
           startsConversation: 'sometimes' as const,
           initiativeProbability: 0.1,
+          followupProbability: 0.05,
+          maxFollowupMessages: 1,
           inactivityNudgeDelaySec: { min: 60, max: 180 },
           inactivityNudgeMaxCount: 2,
+          inactivityProbability: 0.4, // Patient, analytical - not pushy about nudging
           burstiness: { min: 1, max: 1 },
           typingSpeedWpm: 120,
           backchannelProbability: 0.3,
@@ -202,8 +211,11 @@ const seedData = async (): Promise<void> => {
           // New behavior controls
           startsConversation: true,
           initiativeProbability: 0.7,
+          followupProbability: 0.4,
+          maxFollowupMessages: 2,
           inactivityNudgeDelaySec: { min: 60, max: 180 },
           inactivityNudgeMaxCount: 2,
+          inactivityProbability: 0.9, // Very anxious for response, really needs help
           burstiness: { min: 1, max: 2 },
           typingSpeedWpm: 130,
           backchannelProbability: 0.5,
@@ -230,8 +242,11 @@ const seedData = async (): Promise<void> => {
           // New behavior controls
           startsConversation: false,
           initiativeProbability: 0.1,
+          followupProbability: 0.05,
+          maxFollowupMessages: 1,
           inactivityNudgeDelaySec: { min: 60, max: 180 },
           inactivityNudgeMaxCount: 2,
+          inactivityProbability: 0.3, // Disengaged, doesn't care much about following up
           burstiness: { min: 1, max: 1 },
           typingSpeedWpm: 100,
           backchannelProbability: 0.1,
@@ -257,8 +272,11 @@ const seedData = async (): Promise<void> => {
           // New behavior controls
           startsConversation: false,
           initiativeProbability: 0.15,
+          followupProbability: 0.3,
+          maxFollowupMessages: 2,
           inactivityNudgeDelaySec: { min: 60, max: 180 },
           inactivityNudgeMaxCount: 2,
+          inactivityProbability: 0.5, // Wants to engage but nervous about being pushy
           burstiness: { min: 1, max: 2 },
           typingSpeedWpm: 135,
           backchannelProbability: 0.6,
@@ -283,8 +301,11 @@ const seedData = async (): Promise<void> => {
           commonPhrases: ['How would you validate that?', 'Can you write a query to...', 'What assumptions are you making?'],
           startsConversation: true,
           initiativeProbability: 0.5,
+          followupProbability: 0.35,
+          maxFollowupMessages: 2,
           inactivityNudgeDelaySec: { min: 30, max: 90 },
           inactivityNudgeMaxCount: 3,
+          inactivityProbability: 0.65, // Professional, wants to keep technical interview moving
           burstiness: { min: 1, max: 2 },
           typingSpeedWpm: 125,
           backchannelProbability: 0.3,

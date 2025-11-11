@@ -146,6 +146,18 @@ TRANSFORMERS_API_KEY=your-super-secret-session-key-change-in-production-32chars
 # RAG Microservice
 RAG_API_URL=http://localhost:8002
 RAG_API_KEY=your-super-secret-session-key-change-in-production-32chars
+
+# LANGCHAIN
+USE_LANGGRAPH=true               # Set true when ready
+LANGCHAIN_TRACING_V2=false       # Set true for debugging
+LANGCHAIN_PROJECT=careersim-dev
+
+# LangGraph Standalone Server (for testing)
+LANGGRAPH_SERVER_PORT=8123
+LANGGRAPH_SERVER_URL=http://localhost:8123
+
+# DeepEval / Confident AI (for conversation simulator tests - optional)
+CONFIDENT_API_KEY=your-confident-ai-api-key-here
 ```
 
 > **Note**: All these environment variables are validated by the backend on startup. Make sure to update the placeholder values with your actual API keys and credentials.

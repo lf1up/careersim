@@ -194,6 +194,30 @@ const startServer = async (): Promise<void> => {
     // Initialize RAG microservice
     await RAGService.preload();
 
+    // Initialize LangGraph if enabled
+    if (config.langgraph.useLangGraph) {
+      console.log('🔵 Initializing LangGraph conversation system...');
+      try {
+        // Wrap in a timeout to prevent hanging indefinitely
+        const timeoutMs = 30000; // 30 second timeout
+        await Promise.race([
+          (async () => {
+            const { getConversationGraph } = await import('@/services/langgraph');
+            // Pre-compile the graph to avoid lazy initialization blocking later
+            getConversationGraph();
+          })(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('LangGraph initialization timeout after 30s')), timeoutMs)
+          ),
+        ]);
+        console.log('✅ LangGraph conversation system initialized');
+      } catch (graphError) {
+        console.error('❌ Failed to initialize LangGraph:', graphError);
+        console.log('⚠️ Falling back to legacy conversation system');
+        // Don't exit - fall back to legacy system
+      }
+    }
+
     // Start server
     server.listen(config.port, () => {
       console.log(`🚀 Server running on port ${config.port}`);
