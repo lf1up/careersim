@@ -27,11 +27,16 @@ export async function persistAndEmitNode(
   state: ConversationGraphState,
 ): Promise<Partial<ConversationGraphState>> {
   const startTime = Date.now();
-  console.log(`💾 [${state.sessionId}] Persist node started`);
+  console.log(`💾 [${state.sessionId}] Persist node started (trigger: ${state.proactiveTrigger || 'none'}, count: ${state.proactiveCount || 0}/${state.maxProactiveMessages || 0})`);
 
   // Check if there's a message to persist
   const hasMessage = state.lastAiMessage && state.lastAiMessage.trim().length > 0;
   console.log(`   📝 Has message to persist: ${hasMessage}`);
+  if (state.lastAiMessage) {
+    console.log(`   📝 lastAiMessage: "${state.lastAiMessage.substring(0, 100)}..."`);
+  } else {
+    console.log(`   ⚠️  lastAiMessage is: ${typeof state.lastAiMessage} ${JSON.stringify(state.lastAiMessage)}`);
+  }
   
   if (!hasMessage) {
     console.log(`⚠️ No AI message to persist, but updating session metadata`);
@@ -112,6 +117,32 @@ export async function persistAndEmitNode(
       keyPhrases: [], // TODO: Extract key phrases if needed
     };
 
+    // Check for duplicate - don't save if this exact message was just saved
+    const recentMessage = await messageRepo
+      .createQueryBuilder('message')
+      .where('message.sessionId = :sessionId', { sessionId: state.sessionId })
+      .andWhere('message.type = :type', { type: MessageType.AI })
+      .andWhere('message.content = :content', { content: state.lastAiMessage })
+      .andWhere('message.createdAt > :recentTime', { recentTime: new Date(Date.now() - 5000) }) // Within last 5 seconds
+      .getOne();
+
+    if (recentMessage) {
+      console.log(`⚠️ Duplicate message detected, skipping persistence (seq ${recentMessage.sequenceNumber})`);
+      
+      // Duplicate detected - this means we're in a loop
+      // Always clear trigger and prevent further proactive messages
+      console.log(`   🛑 Duplicate detected - clearing trigger and stopping proactive loop`);
+      return {
+        proactiveTrigger: undefined, // Clear trigger to stop the loop
+        shouldSendProactive: false,
+        proactiveCount: state.maxProactiveMessages || 999, // Set to max to ensure no more loops
+        metadata: {
+          ...state.metadata,
+          messageCount: state.metadata.messageCount || 0,
+        },
+      };
+    }
+
     await messageRepo.save(aiMessage);
 
     // Update session
@@ -187,6 +218,8 @@ export async function persistAndEmitNode(
     const persistDuration = Date.now() - startTime;
     console.log(`✅ [${state.sessionId}] Message persisted with sequence ${sequenceNumber} in ${persistDuration}ms`);
 
+    // Don't return updates to lastAiMessage or proactiveTrigger - let the routing logic handle it
+    // Only update metadata
     return {
       metadata: {
         ...state.metadata,
@@ -225,7 +258,8 @@ export async function scheduleInactivityNode(
 
     // Get persona config for inactivity nudge timing and limits
     const cs: any = state.persona.conversationStyle || {};
-    const maxNudges = Number(cs.inactivityNudgeMaxCount ?? 2);
+    const nudges = cs.inactivityNudges;
+    const maxNudges = nudges && typeof nudges === 'object' ? Math.max(0, Number(nudges.max) || 0) : 2;
     const currentCount = session.inactivityNudgeCount || 0;
     
     console.log(`📊 Inactivity nudge status: ${currentCount}/${maxNudges} nudges sent`);

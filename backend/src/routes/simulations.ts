@@ -369,7 +369,10 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
     try {
       const persona = simulation.personas?.[0];
       const cs: any = persona?.conversationStyle || {};
-      const startsConversation = cs?.startsConversation === true || (cs?.startsConversation === 'sometimes' && randomFloat() < (cs?.initiativeProbability ?? 0.3));
+      // For 'sometimes', use burstiness as proxy: more chatty personas (higher max) are more likely to start
+      const burstMax = cs?.burstiness?.max || 1;
+      const sometimesProbability = Math.min(0.5, burstMax * 0.15); // max=3 -> 45% chance
+      const startsConversation = cs?.startsConversation === true || (cs?.startsConversation === 'sometimes' && randomFloat() < sometimesProbability);
       if (persona && startsConversation) {
         // Check if LangGraph is enabled
         if (config.langgraph.useLangGraph) {
@@ -887,18 +890,14 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           sessionDuration: Date.now() - session.createdAt.getTime(),
         };
 
-        // Backchannel: probabilistically interject on short/unclear user replies
+        // Generate main AI response
         const cs: any = activePersona.conversationStyle || {};
-        const backchannelProbability = Math.max(0, Math.min(1, Number(cs?.backchannelProbability) || 0));
-        const trimmed = (content || '').trim();
-        const wordCount = trimmed.length > 0 ? trimmed.split(/\s+/).filter(Boolean).length : 0;
-        const isVeryShort = trimmed.length < 20 || wordCount <= 4;
-        const isAmbiguous = /^(okay|ok|sure|yes|no|maybe|idk|i don't know|not sure|hmm|uh|what\??|thanks\.?|cool\.?|great\.?|fine\.?|good\.?|yep|nah|alright)\b/i.test(trimmed) || /\?\?\?$/.test(trimmed);
-
+        
         let aiResponse = null as any;
         let backchannelSent = false;
         try {
-          if ((isVeryShort || isAmbiguous) && randomFloat() < backchannelProbability) {
+          // Removed backchannel logic - burstiness handles follow-up behavior
+          if (false) {
             // Send a brief clarification/backchannel instead of a full response
             const backchannel = await aiService.generateProactivePersonaMessage(conversationContext, { reason: 'backchannel', lastUserMessage: content });
 

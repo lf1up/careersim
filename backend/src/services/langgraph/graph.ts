@@ -56,8 +56,12 @@ const StateAnnotation = Annotation.Root({
   }),
   
   // Last messages
-  lastUserMessage: Annotation<string | undefined>,
-  lastAiMessage: Annotation<string | undefined>,
+  lastUserMessage: Annotation<string | undefined>({
+    reducer: (left, right) => right !== undefined ? right : left,
+  }),
+  lastAiMessage: Annotation<string | undefined>({
+    reducer: (left, right) => right !== undefined ? right : left,
+  }),
   
   // Input field (for initial invocation)
   userMessage: Annotation<string | undefined>,
@@ -182,15 +186,12 @@ function shouldSendProactiveMessage(state: ConversationGraphState): string {
  * Conditional edge function: After generating proactive message, decide next step
  */
 function afterProactiveMessage(state: ConversationGraphState): string {
-  // For follow-ups, check if we should send another one (loop back)
-  if (state.proactiveTrigger === 'followup' && state.proactiveCount < (state.maxProactiveMessages || 3)) {
-    // Loop back to check if we should send another
-    return NODE_NAMES.CHECK_PROACTIVE_TRIGGER;
-  }
+  console.log(`🔀 [afterProactiveMessage] Deciding next step after proactive (trigger: ${state.proactiveTrigger}, count: ${state.proactiveCount}/${state.maxProactiveMessages || 0})`);
   
-  // For all other proactive messages (backchannel, inactivity, start, or final followup),
-  // persist and continue to scheduling
+  // Always persist the proactive message first
   return NODE_NAMES.PERSIST_AND_EMIT;
+  
+  // Note: After persisting, afterPersist will check if we should loop back for more follow-ups
 }
 
 /**
@@ -206,9 +207,31 @@ function afterProactiveMessage(state: ConversationGraphState): string {
  * - We've reached the max inactivity nudge count (handled by scheduleInactivityNode)
  */
 function afterPersist(state: ConversationGraphState): string {
-  // If turn === 'user', it means AI just spoke and we're waiting for user response
-  // Always schedule an inactivity check in this case
+  console.log(`🔀 [afterPersist] Deciding next step (trigger: ${state.proactiveTrigger || 'none'}, count: ${state.proactiveCount}/${state.maxProactiveMessages || 0}, turn: ${state.turn})`);
+  
+  // Safety check: if proactiveCount >= maxProactiveMessages, we're done with burst
+  // This prevents infinite loops even if trigger isn't cleared
+  if (state.proactiveCount >= (state.maxProactiveMessages || 0) && (state.maxProactiveMessages || 0) > 0) {
+    console.log(`   ✅ Burst complete (${state.proactiveCount}/${state.maxProactiveMessages}), scheduling inactivity`);
+    return NODE_NAMES.SCHEDULE_INACTIVITY;
+  }
+  
+  // After persisting, check if we need to send proactive follow-ups
+  // BUT only if this was a normal conversation response (not already a proactive message)
+  if (!state.proactiveTrigger && state.turn === 'user' && state.proactiveCount === 0) {
+    console.log(`   ➡️  Main response persisted, checking for follow-ups`);
+    return NODE_NAMES.CHECK_PROACTIVE_TRIGGER;
+  }
+  
+  // If this was a follow-up, check if we should send more
+  if (state.proactiveTrigger === 'followup' && state.proactiveCount < (state.maxProactiveMessages || 0)) {
+    console.log(`   ➡️  Follow-up ${state.proactiveCount}/${state.maxProactiveMessages} persisted, checking for more`);
+    return NODE_NAMES.CHECK_PROACTIVE_TRIGGER;
+  }
+  
+  // Default: schedule inactivity and end
   if (state.turn === 'user') {
+    console.log(`   ✅ Done with this turn, scheduling inactivity`);
     return NODE_NAMES.SCHEDULE_INACTIVITY;
   }
   
@@ -259,8 +282,11 @@ export function buildConversationGraph() {
   // After analysis, evaluate goals
   graph.addEdge(NODE_NAMES.ANALYZE_RESPONSE, NODE_NAMES.EVALUATE_GOALS);
   
-  // After evaluation, check if proactive message needed
-  graph.addEdge(NODE_NAMES.EVALUATE_GOALS, NODE_NAMES.CHECK_PROACTIVE_TRIGGER);
+  // After evaluation, persist the main AI response FIRST
+  graph.addEdge(NODE_NAMES.EVALUATE_GOALS, NODE_NAMES.PERSIST_AND_EMIT);
+  
+  // After persisting main response, check if proactive message needed
+  // This is added via conditional edges in afterPersist
   
   // Conditional: check_proactive_trigger → generate_proactive OR persist_and_emit
   graph.addConditionalEdges(

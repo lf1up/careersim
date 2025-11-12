@@ -73,7 +73,8 @@ export function startInactivityScheduler(): void {
           
           // Persona-configured limits
           const cs: any = persona?.conversationStyle || {};
-          const maxNudges = Math.max(0, Number(cs?.inactivityNudgeMaxCount ?? 2));
+          const nudges = cs?.inactivityNudges;
+          const maxNudges = nudges && typeof nudges === 'object' ? Math.max(0, Number(nudges.max) || 0) : 2;
 
           // Limit number of inactivity nudges per session
           if ((s.inactivityNudgeCount || 0) >= maxNudges) {

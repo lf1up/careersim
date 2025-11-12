@@ -119,8 +119,10 @@ export async function processUserInputNode(
         messages.push(new HumanMessage(userMessage));
         updates.messages = messages;
         updates.lastUserMessage = userMessage;
+        // Don't explicitly set lastAiMessage - let it carry from previous state
         updates.needsEvaluation = true;
         updates.turn = 'ai';
+        updates.proactiveTrigger = undefined; // Clear any proactive triggers
         
         // Reset counters since user is active
         updates.proactiveCount = 0; // Reset consecutive proactive message counter
@@ -151,13 +153,16 @@ export async function processUserInputNode(
     }
 
     // If proactive trigger is set (start, inactivity), handle that FIRST
-    // Don't reset counters - we're processing an inactivity nudge, not a user message
-    if (state.proactiveTrigger) {
+    // BUT if user sent a message, clear the trigger and process normally!
+    if (state.proactiveTrigger && !userMessage) {
       console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - skipping normal flow`);
       return {
         needsEvaluation: false,
         shouldSendProactive: false, // Will be set by check_proactive_trigger
       };
+    } else if (state.proactiveTrigger && userMessage) {
+      console.log(`   🔄 User sent message while proactive trigger active (${state.proactiveTrigger}) - clearing trigger and processing normally`);
+      // User responded, so clear any pending proactive triggers
     }
 
     // If we have a user message, add it to the message history
@@ -185,6 +190,8 @@ export async function processUserInputNode(
       return {
         messages,
         lastUserMessage: userMessage,
+        // Don't explicitly set lastAiMessage - let it carry from previous state
+        proactiveTrigger: undefined, // Clear any proactive triggers
         needsEvaluation: true,
         turn: 'ai',
         proactiveCount: 0, // Reset consecutive proactive message counter

@@ -181,13 +181,11 @@ export class Persona {
     commonPhrases: string[];
     // Extended behavior controls for more realistic conversations
     // All fields are optional to preserve backward compatibility
-    initiativeProbability?: number; // 0..1 likelihood to proactively lead
     startsConversation?: boolean | 'sometimes';
-    inactivityNudgeDelaySec?: { min: number; max: number }; // unified min/max inactivity window
-    inactivityNudgeMaxCount?: number; // max number of inactivity nudges per session
-    burstiness?: { min: number; max: number }; // how many consecutive AI messages
+    inactivityNudgeDelaySec?: { min: number; max: number }; // time window between inactivity checks (seconds)
+    inactivityNudges?: { min: number; max: number }; // how many inactivity nudges to send (0 = none)
+    burstiness?: { min: number; max: number }; // how many consecutive AI messages (1 = no follow-ups)
     typingSpeedWpm?: number; // used for client-side pacing/indicators
-    backchannelProbability?: number; // 0..1 chance to interject on short replies
     openingStyle?: string; // hint for opening message tone/content
     nudgeStyle?: string; // hint for inactivity nudges
   };
