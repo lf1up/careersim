@@ -74,12 +74,40 @@ export function startInactivityScheduler(): void {
           // Persona-configured limits
           const cs: any = persona?.conversationStyle || {};
           const nudges = cs?.inactivityNudges;
-          const maxNudges = nudges && typeof nudges === 'object' ? Math.max(0, Number(nudges.max) || 0) : 2;
+          
+          if (!nudges || typeof nudges !== 'object') {
+            console.log(`⚠️ No inactivityNudges configured for session ${s.id}, skipping`);
+            s.inactivityNudgeAt = null as any;
+            await repo.save(s);
+            processingNudges.delete(s.id);
+            continue;
+          }
+          
+          const nudgeMin = Math.max(0, Number(nudges.min) || 0);
+          const nudgeMax = Math.max(nudgeMin, Number(nudges.max) || 0);
+          
+          // Get or set target nudge count for this session (like burstiness)
+          let targetNudges = (s as any).targetInactivityNudges;
+          if (targetNudges === undefined || targetNudges === null) {
+            // First nudge - randomly pick target between min and max
+            targetNudges = Math.floor(Math.random() * (nudgeMax - nudgeMin + 1)) + nudgeMin;
+            (s as any).targetInactivityNudges = targetNudges;
+            await repo.save(s);
+            console.log(`🎲 Randomly selected ${targetNudges} inactivity nudges for session ${s.id} (range: ${nudgeMin}-${nudgeMax})`);
+          }
+          
+          // Check if target is 0 (persona doesn't nudge)
+          if (targetNudges === 0) {
+            console.log(`🛑 Persona doesn't send inactivity nudges for session ${s.id} (target: 0)`);
+            s.inactivityNudgeAt = null as any;
+            await repo.save(s);
+            processingNudges.delete(s.id);
+            continue;
+          }
 
-          // Limit number of inactivity nudges per session
-          if ((s.inactivityNudgeCount || 0) >= maxNudges) {
-            // Disable further nudges by clearing the schedule
-            console.log(`🛑 Max inactivity nudges (${s.inactivityNudgeCount}/${maxNudges}) already reached for session ${s.id}`);
+          // Check if we've reached the target
+          if ((s.inactivityNudgeCount || 0) >= targetNudges) {
+            console.log(`🛑 Target inactivity nudges (${s.inactivityNudgeCount}/${targetNudges}) reached for session ${s.id}`);
             s.inactivityNudgeAt = null as any;
             await repo.save(s);
             processingNudges.delete(s.id);
@@ -112,7 +140,7 @@ export function startInactivityScheduler(): void {
           // Check if LangGraph is enabled
           const { config } = await import('@/config/env');
           if (config.langgraph.useLangGraph) {
-            console.log(`🔵 Using LangGraph for inactivity nudge (count: ${s.inactivityNudgeCount || 0}/${maxNudges})`);
+            console.log(`🔵 Using LangGraph for inactivity nudge (count: ${s.inactivityNudgeCount || 0}/${targetNudges || nudgeMax})`);
             
             // Use LangGraph for inactivity nudge with timeout protection
             try {
@@ -153,9 +181,10 @@ export function startInactivityScheduler(): void {
               });
               
               if (updatedSession) {
-                // Check if we've hit the max nudge count
-                if ((updatedSession.inactivityNudgeCount || 0) >= maxNudges) {
-                  console.log(`🛑 Max inactivity nudges (${maxNudges}) reached for session ${s.id}`);
+                // Check if we've hit the target nudge count
+                const sessionTarget = (updatedSession as any).targetInactivityNudges || targetNudges;
+                if ((updatedSession.inactivityNudgeCount || 0) >= sessionTarget) {
+                  console.log(`🛑 Target inactivity nudges (${sessionTarget}) reached for session ${s.id}`);
                   // Clear the nudge schedule to prevent further triggers
                   updatedSession.inactivityNudgeAt = null as any;
                   await repo.save(updatedSession);
@@ -240,15 +269,24 @@ export function startInactivityScheduler(): void {
 
           s.addMessage();
           s.lastAiMessageAt = new Date();
-          // After a nudge, schedule next delay from persona config (unified {min,max} with fallbacks)
-          const delayCfg = cs?.inactivityNudgeDelaySec || {};
-          const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
-          const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
-          const minMs = minSec * 1000;
-          const maxMs = maxSec * 1000;
-          const delay = crypto.randomInt(minMs, maxMs + 1);
-          s.inactivityNudgeAt = new Date(Date.now() + delay);
           s.inactivityNudgeCount = (s.inactivityNudgeCount || 0) + 1;
+          
+          // Check if we've reached the target after incrementing
+          if (s.inactivityNudgeCount >= targetNudges) {
+            console.log(`✅ Target inactivity nudges (${s.inactivityNudgeCount}/${targetNudges}) reached, clearing schedule for session ${s.id}`);
+            s.inactivityNudgeAt = null as any;
+          } else {
+            // Schedule next nudge
+            const delayCfg = cs?.inactivityNudgeDelaySec || {};
+            const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
+            const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
+            const minMs = minSec * 1000;
+            const maxMs = maxSec * 1000;
+            const delay = crypto.randomInt(minMs, maxMs + 1);
+            s.inactivityNudgeAt = new Date(Date.now() + delay);
+            console.log(`📅 Scheduled next nudge #${s.inactivityNudgeCount + 1}/${targetNudges} for session ${s.id}`);
+          }
+          
           await repo.save(s);
 
           const { io } = await import('@/server');
