@@ -269,6 +269,9 @@ export class SimulationSession {
   @Column({ type: 'int', default: 0 })
     inactivityNudgeCount!: number;
 
+  @Column({ type: 'int', nullable: true })
+    targetInactivityNudges?: number;
+
   // Relationships
   @ManyToOne(() => User, (user) => user.simulationSessions)
   @JoinColumn()

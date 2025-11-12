@@ -434,6 +434,7 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
             const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
             session.inactivityNudgeAt = new Date(Date.now() + delay);
             session.inactivityNudgeCount = 0;
+            (session as any).targetInactivityNudges = undefined; // Clear target for new session
           }
           await sessionRepository.save(session);
 
@@ -474,6 +475,7 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
           const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
           session.inactivityNudgeAt = new Date(Date.now() + delay);
           session.inactivityNudgeCount = 0;
+          (session as any).targetInactivityNudges = undefined; // Clear target for new session
           await sessionRepository.save(session);
         }
       }
@@ -830,6 +832,14 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
     session.addMessage();
     session.lastUserMessageAt = new Date();
     session.turn = 'ai';
+    
+    // If this is a user message, clear inactivity tracking
+    if (type === MessageType.USER) {
+      session.inactivityNudgeCount = 0;
+      session.inactivityNudgeAt = null as any;
+      (session as any).targetInactivityNudges = undefined; // Clear target so it can be re-rolled
+    }
+    
     await sessionRepository.save(session);
 
     // Transform message to include isFromUser field for frontend compatibility
