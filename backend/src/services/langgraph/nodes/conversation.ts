@@ -64,7 +64,21 @@ export async function processUserInputNode(
     loadDatabaseDependencies();
     
     // Handle initial input transformation (userMessage -> lastUserMessage)
-    const userMessage = (state as any).userMessage || state.lastUserMessage;
+    // IMPORTANT: Check the INPUT for userMessage first - if present, it overrides any proactive trigger
+    const userMessage = (state as any).userMessage;
+    
+    // If user sent a message, log it and we'll clear any stale proactive triggers
+    if (userMessage) {
+      console.log(`   📝 User message received: "${userMessage.substring(0, 50)}..."`);
+      // If there was a stale proactive trigger, it will be cleared below
+      if (state.proactiveTrigger) {
+        console.log(`   🔄 Clearing stale proactive trigger: ${state.proactiveTrigger}`);
+      }
+    } else if (state.proactiveTrigger) {
+      console.log(`   🔀 Proactive trigger present (no user message): ${state.proactiveTrigger}`);
+    } else {
+      console.log(`   ⚠️  No user message and no proactive trigger`);
+    }
     
     // Load session from database if not fully populated
     if (!state.persona || !state.simulation) {
@@ -107,28 +121,24 @@ export async function processUserInputNode(
         },
       };
 
-      // If this is a proactive trigger (inactivity, start), don't reset counters
-      if (state.proactiveTrigger) {
-        console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - preserving inactivity state`);
-        // Don't add user message, don't reset counters
-        return updates;
-      }
-
-      // If we have a user message from the input, add it
+      // Priority 1: If user sent a message, ALWAYS process it (clears any stale triggers)
       if (userMessage) {
         messages.push(new HumanMessage(userMessage));
         updates.messages = messages;
         updates.lastUserMessage = userMessage;
-        // Don't explicitly set lastAiMessage - let it carry from previous state
         updates.needsEvaluation = true;
         updates.turn = 'ai';
-        updates.proactiveTrigger = undefined; // Clear any proactive triggers
+        updates.proactiveTrigger = undefined; // Clear any stale triggers
+        updates.proactiveCount = 0; // Reset burst counter
         
-        // Reset counters since user is active
-        updates.proactiveCount = 0; // Reset consecutive proactive message counter
-        updates.metadata.inactivityNudgeCount = 0;
-        updates.metadata.inactivityNudgeAt = null;
-        console.log(`🔄 Reset inactivity nudge count and cleared schedule (user sent message)`);
+        // Reset inactivity tracking since user is active
+        updates.metadata = {
+          ...updates.metadata,
+          inactivityNudgeCount: 0,
+          inactivityNudgeAt: null,
+          targetInactivityNudges: undefined, // Clear target so it can be re-rolled next time
+        };
+        console.log(`🔄 User sent message - cleared all proactive state and reset inactivity tracking`);
         
         // Immediately update the database session to prevent race conditions with scheduler
         // This ensures the scheduler sees the cleared schedule right away
@@ -147,31 +157,31 @@ export async function processUserInputNode(
           console.warn(`⚠️ Failed to immediately persist inactivity reset:`, dbErr);
           // Non-fatal, will be updated later by persistAndEmitNode
         }
+        return updates;
       }
-
+      
+      // Priority 2: No user message, but proactive trigger - handle proactive flow
+      if (state.proactiveTrigger) {
+        console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - preserving inactivity state`);
+        // Reset proactiveCount for inactivity/start triggers (they use their own counters)
+        if (state.proactiveTrigger === 'inactivity' || state.proactiveTrigger === 'start') {
+          updates.proactiveCount = 0;
+        }
+        return updates;
+      }
+      
+      // Neither user message nor proactive trigger - shouldn't happen
+      console.log(`   ⚠️  No user message and no proactive trigger - returning current state`);
       return updates;
     }
 
-    // If proactive trigger is set (start, inactivity), handle that FIRST
-    // BUT if user sent a message, clear the trigger and process normally!
-    if (state.proactiveTrigger && !userMessage) {
-      console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - skipping normal flow`);
-      return {
-        needsEvaluation: false,
-        shouldSendProactive: false, // Will be set by check_proactive_trigger
-      };
-    } else if (state.proactiveTrigger && userMessage) {
-      console.log(`   🔄 User sent message while proactive trigger active (${state.proactiveTrigger}) - clearing trigger and processing normally`);
-      // User responded, so clear any pending proactive triggers
-    }
-
-    // If we have a user message, add it to the message history
+    // Simpler branch: persona/simulation already loaded from checkpoint
+    // Priority 1: If user sent a message, ALWAYS process it (clears any stale triggers)
     if (userMessage) {
       const messages = [...(state.messages || [])];
       messages.push(new HumanMessage(userMessage));
 
       // Immediately update the database to clear inactivity schedule
-      // ONLY do this for actual user messages, not inactivity triggers
       try {
         const sessionRepo = AppDataSource.getRepository(SimulationSession);
         await sessionRepo.update(
@@ -190,17 +200,31 @@ export async function processUserInputNode(
       return {
         messages,
         lastUserMessage: userMessage,
-        // Don't explicitly set lastAiMessage - let it carry from previous state
-        proactiveTrigger: undefined, // Clear any proactive triggers
+        proactiveTrigger: undefined, // Clear any stale triggers
         needsEvaluation: true,
         turn: 'ai',
-        proactiveCount: 0, // Reset consecutive proactive message counter
+        proactiveCount: 0, // Reset burst counter
         metadata: {
           ...state.metadata,
-          inactivityNudgeCount: 0, // Reset on user activity
-          inactivityNudgeAt: null, // Clear schedule
+          inactivityNudgeCount: 0,
+          inactivityNudgeAt: null,
+          targetInactivityNudges: undefined, // Clear target for next session
         },
       };
+    }
+    
+    // Priority 2: No user message but proactive trigger - handle proactive flow
+    if (state.proactiveTrigger) {
+      console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - skipping normal flow`);
+      const updates: any = {
+        needsEvaluation: false,
+        shouldSendProactive: false, // Will be set by check_proactive_trigger
+      };
+      // Reset proactiveCount for inactivity/start triggers (they use their own counters)
+      if (state.proactiveTrigger === 'inactivity' || state.proactiveTrigger === 'start') {
+        updates.proactiveCount = 0;
+      }
+      return updates;
     }
 
     return {};

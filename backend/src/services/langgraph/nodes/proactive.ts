@@ -85,24 +85,31 @@ export async function checkProactiveTriggerNode(
         return { shouldSendProactive: false };
       }
       
-      // Check if we've reached the max
-      if (currentNudgeCount >= nudgeMax) {
-        console.log(`⚠️ Max inactivity nudges reached (${currentNudgeCount}/${nudgeMax})`);
+      // Get or determine the target nudge count for this session
+      // Similar to burstiness, we pick a random target once and stick to it
+      let targetNudgeCount = state.metadata?.targetInactivityNudges;
+      if (targetNudgeCount === undefined) {
+        // First time - randomly pick between min and max
+        targetNudgeCount = Math.floor(Math.random() * (nudgeMax - nudgeMin + 1)) + nudgeMin;
+        console.log(`🎲 Randomly selected ${targetNudgeCount} inactivity nudges for this session (range: ${nudgeMin}-${nudgeMax})`);
+      }
+      
+      // Check if we've reached the target
+      if (currentNudgeCount >= targetNudgeCount) {
+        console.log(`⚠️ Target inactivity nudges reached (${currentNudgeCount}/${targetNudgeCount})`);
         return { shouldSendProactive: false };
       }
       
-      // Calculate probability based on range (similar to burstiness)
-      // Higher max = more engaged = more likely to send nudges
-      const rangeFactor = nudgeMax > 0 ? (nudgeMax - nudgeMin) / nudgeMax : 0;
-      const nudgeProbability = 0.4 + (rangeFactor * 0.4); // 40-80% chance based on range
-      const roll = Math.random();
+      console.log(`📊 Sending inactivity nudge ${currentNudgeCount + 1}/${targetNudgeCount}`);
       
-      if (roll >= nudgeProbability) {
-        console.log(`❌ Persona didn't send inactivity nudge (rolled ${(roll * 100).toFixed(0)}%, needed <${(nudgeProbability * 100).toFixed(0)}%)`);
-        return { shouldSendProactive: false };
-      }
-      
-      console.log(`📊 Inactivity nudge ${currentNudgeCount + 1}/${nudgeMax} - sending (${(nudgeProbability * 100).toFixed(0)}% probability passed)`);
+      // Store the target in metadata for future checks
+      return {
+        shouldSendProactive: true,
+        metadata: {
+          ...state.metadata,
+          targetInactivityNudges: targetNudgeCount,
+        },
+      };
     }
     
     return {
@@ -352,16 +359,25 @@ export async function generateProactiveMessageNode(
       model: modelName,
     };
     
-    // Increment inactivity nudge count if this is an inactivity trigger
-    if (trigger === 'inactivity') {
-      const currentCount = state.metadata?.inactivityNudgeCount || 0;
-      metadataUpdates.inactivityNudgeCount = currentCount + 1;
-      console.log(`📊 Incremented inactivity nudge count: ${currentCount} → ${currentCount + 1}`);
+    // Increment counters based on trigger type
+    // IMPORTANT: inactivity/start use their own counters, NOT proactiveCount
+    // proactiveCount is ONLY for followup/backchannel bursts
+    let newProactiveCount = state.proactiveCount || 0;
+    
+    if (trigger === 'inactivity' || trigger === 'start') {
+      // Inactivity and start don't increment proactiveCount
+      if (trigger === 'inactivity') {
+        const currentCount = state.metadata?.inactivityNudgeCount || 0;
+        metadataUpdates.inactivityNudgeCount = currentCount + 1;
+        console.log(`📊 Incremented inactivity nudge count: ${currentCount} → ${currentCount + 1}`);
+      }
+      console.log(`📝 Setting lastAiMessage with ${messageContent.length} chars: "${messageContent.substring(0, 50)}..."`);
+    } else {
+      // followup/backchannel increment proactiveCount
+      newProactiveCount = (state.proactiveCount || 0) + 1;
+      console.log(`📊 Proactive count: ${state.proactiveCount || 0} → ${newProactiveCount} (max: ${state.maxProactiveMessages || 0})`);
+      console.log(`📝 Setting lastAiMessage with ${messageContent.length} chars: "${messageContent.substring(0, 50)}..."`);
     }
-
-    const newProactiveCount = (state.proactiveCount || 0) + 1;
-    console.log(`📊 Proactive count: ${state.proactiveCount || 0} → ${newProactiveCount} (max: ${state.maxProactiveMessages || 0})`);
-    console.log(`📝 Setting lastAiMessage with ${messageContent.length} chars: "${messageContent.substring(0, 50)}..."`);
     
     return {
       messages: updatedMessages,

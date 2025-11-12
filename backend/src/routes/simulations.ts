@@ -385,6 +385,7 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
             sessionId: session.id,
             userId: req.user!.id,
             proactiveTrigger: 'start',
+            userMessage: undefined, // Explicitly clear to prevent checkpoint carryover
           });
           
           // Graph handles all persistence and emission
@@ -891,7 +892,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         };
 
         // Generate main AI response
-        const cs: any = activePersona.conversationStyle || {};
+        // const cs: any = activePersona.conversationStyle || {};
         
         let aiResponse = null as any;
         let backchannelSent = false;

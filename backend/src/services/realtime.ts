@@ -139,6 +139,7 @@ export function startInactivityScheduler(): void {
                   sessionId: s.id,
                   userId: (s.user as any)?.id || '',
                   proactiveTrigger: 'inactivity',
+                  userMessage: undefined, // Explicitly clear to prevent checkpoint userMessage from carrying over
                 }),
                 timeoutPromise,
               ]);

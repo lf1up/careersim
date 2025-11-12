@@ -64,7 +64,9 @@ const StateAnnotation = Annotation.Root({
   }),
   
   // Input field (for initial invocation)
-  userMessage: Annotation<string | undefined>,
+  userMessage: Annotation<string | undefined>({
+    reducer: (left, right) => right, // Always use new value, even if undefined
+  }),
   
   // Proactive handling
   proactiveTrigger: Annotation<string | undefined>,

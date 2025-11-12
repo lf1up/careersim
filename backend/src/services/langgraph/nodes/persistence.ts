@@ -256,27 +256,31 @@ export async function scheduleInactivityNode(
       throw new Error(`Session ${state.sessionId} not found`);
     }
 
-    // Get persona config for inactivity nudge timing and limits
+    // Get persona config and target nudge count
     const cs: any = state.persona.conversationStyle || {};
-    const nudges = cs.inactivityNudges;
-    const maxNudges = nudges && typeof nudges === 'object' ? Math.max(0, Number(nudges.max) || 0) : 2;
     const currentCount = session.inactivityNudgeCount || 0;
     
-    console.log(`📊 Inactivity nudge status: ${currentCount}/${maxNudges} nudges sent`);
-    
-    // Check if we've already hit the max count
-    if (currentCount >= maxNudges) {
-      console.log(`🛑 Max inactivity nudges (${currentCount}/${maxNudges}) reached, NOT scheduling next nudge`);
-      // Clear any existing schedule
-      session.inactivityNudgeAt = null as any;
-      await sessionRepo.save(session);
+    // Use the randomly selected target from metadata, or fall back to max from config
+    const targetNudges = state.metadata?.targetInactivityNudges;
+    if (targetNudges === undefined) {
+      console.log(`⚠️ No target inactivity nudges set - will be determined on first nudge trigger`);
+    } else {
+      console.log(`📊 Inactivity nudge status: ${currentCount}/${targetNudges} nudges sent`);
       
-      return {
-        metadata: {
-          ...state.metadata,
-          inactivityNudgeAt: null,
-        },
-      };
+      // Check if we've already hit the target count
+      if (currentCount >= targetNudges) {
+        console.log(`🛑 Target inactivity nudges (${currentCount}/${targetNudges}) reached, NOT scheduling next nudge`);
+        // Clear any existing schedule
+        session.inactivityNudgeAt = null as any;
+        await sessionRepo.save(session);
+        
+        return {
+          metadata: {
+            ...state.metadata,
+            inactivityNudgeAt: null,
+          },
+        };
+      }
     }
     
     const delayCfg = cs.inactivityNudgeDelaySec || {};
@@ -294,7 +298,8 @@ export async function scheduleInactivityNode(
     
     await sessionRepo.save(session);
 
-    console.log(`✅ Inactivity nudge #${currentCount + 1}/${maxNudges} scheduled for ${nudgeAt.toISOString()} (in ${Math.floor(delay / 1000)}s)`);
+    const targetInfo = targetNudges !== undefined ? `/${targetNudges}` : '';
+    console.log(`✅ Inactivity nudge #${currentCount + 1}${targetInfo} scheduled for ${nudgeAt.toISOString()} (in ${Math.floor(delay / 1000)}s)`);
 
     return {
       metadata: {
