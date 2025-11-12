@@ -1,8 +1,5 @@
-import { ChatOpenAI } from '@langchain/openai';
-import { createReactAgent } from '@langchain/langgraph/prebuilt';
-import { ConversationGraphState, GoalProgressItem } from '../state';
-import { config } from '@/config/env';
-import { evaluationTools, executeUserBehaviorAnalysis, executeAiIndicatorsAnalysis } from '../tools/evaluation_tools';
+import { ConversationGraphState } from '../state';
+import { executeUserBehaviorAnalysis, executeAiIndicatorsAnalysis } from '../tools/evaluation_tools';
 import { emitGoalProgressUpdate } from '@/services/realtime';
 
 // Lazy imports to avoid TypeORM initialization during module load

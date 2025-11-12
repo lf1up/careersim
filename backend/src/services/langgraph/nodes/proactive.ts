@@ -1,6 +1,6 @@
 import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
-import { ConversationGraphState, ProactiveTrigger } from '../state';
+import { ConversationGraphState } from '../state';
 import { config } from '@/config/env';
 import { compositeSimilarity } from '@/utils/textSimilarity';
 import {

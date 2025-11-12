@@ -4,11 +4,10 @@ import { ConversationGraphState } from '../state';
 import { config } from '@/config/env';
 import { RAGService } from '@/services/rag';
 import { transformersService } from '@/services/transformers';
-import { buildPersonaSystemPrompt, formatRagContext } from '../prompts';
+import { buildPersonaSystemPrompt } from '../prompts';
 
 // Lazy imports to avoid TypeORM initialization during module load
 let AppDataSource: any;
-let SessionMessage: any;
 let SimulationSession: any;
 
 /**
@@ -17,7 +16,6 @@ let SimulationSession: any;
 function loadDatabaseDependencies() {
   if (!AppDataSource) {
     AppDataSource = require('@/config/database').AppDataSource;
-    SessionMessage = require('@/entities/SessionMessage').SessionMessage;
     SimulationSession = require('@/entities/SimulationSession').SimulationSession;
   }
 }
