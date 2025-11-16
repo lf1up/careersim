@@ -57,7 +57,7 @@ export function startInactivityScheduler(): void {
       for (const s of sessions) {
         // Skip if already being processed (race condition protection)
         if (processingNudges.has(s.id)) {
-          console.log(`⏭️  Session ${s.id} already processing nudge, skipping...`);
+          console.log('⏭️  Session already processing nudge, skipping...', String(s.id));
           continue;
         }
         
@@ -76,7 +76,7 @@ export function startInactivityScheduler(): void {
           const nudges = cs?.inactivityNudges;
           
           if (!nudges || typeof nudges !== 'object') {
-            console.log(`⚠️ No inactivityNudges configured for session ${s.id}, skipping`);
+            console.log('⚠️ No inactivityNudges configured for session, skipping', String(s.id));
             s.inactivityNudgeAt = null as any;
             await repo.save(s);
             processingNudges.delete(s.id);
@@ -89,8 +89,8 @@ export function startInactivityScheduler(): void {
           // Get or set target nudge count for this session (like burstiness)
           let targetNudges = (s as any).targetInactivityNudges;
           if (targetNudges === undefined || targetNudges === null) {
-            // First nudge - randomly pick target between min and max
-            targetNudges = Math.floor(Math.random() * (nudgeMax - nudgeMin + 1)) + nudgeMin;
+            // First nudge - randomly pick target between min and max using crypto.randomInt for security
+            targetNudges = crypto.randomInt(nudgeMin, nudgeMax + 1);
             (s as any).targetInactivityNudges = targetNudges;
             await repo.save(s);
             console.log(`🎲 Randomly selected ${targetNudges} inactivity nudges for session ${s.id} (range: ${nudgeMin}-${nudgeMax})`);

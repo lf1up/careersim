@@ -5,7 +5,7 @@
  * using DeepEval's conversation simulator
  */
 
-import { ConversationSimulator, ConversationalTestCase, evaluate } from 'deepeval-ts';
+import { ConversationSimulator } from 'deepeval-ts';
 import {
   startStandaloneServer,
   stopStandaloneServer,
@@ -18,13 +18,10 @@ import {
   getSessionDetails,
   isDatabaseSeeded,
   TestSession,
-  ConversationOutput,
 } from './helpers';
 import {
   createBasicConversationScenario,
   createGoalAchievementScenario,
-  createProactiveStartScenario,
-  createFollowupScenario,
   getBasicTestScenarios,
 } from './scenarios';
 

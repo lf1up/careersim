@@ -1,7 +1,6 @@
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { transformersService } from '@/services/transformers';
-import type { GoalProgressItem } from '../state';
 
 // Lazy imports to avoid TypeORM initialization during module load
 let AppDataSource: any;

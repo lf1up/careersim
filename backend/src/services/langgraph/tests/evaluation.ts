@@ -6,7 +6,6 @@
  */
 
 import { Turn } from 'deepeval-ts';
-import { ConversationOutput } from './helpers';
 
 /**
  * Success criteria from simulation definition
