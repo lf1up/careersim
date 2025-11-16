@@ -285,7 +285,7 @@ const seedData = async (): Promise<void> => {
         slug: 'behavioral-interview-brenda',
         description: 'Navigate a structured behavioral interview with a risk-averse HR manager',
         scenario: 'You\'re interviewing for a mid-level position at a well-established corporation. The HR manager, Brenda Vance, is conducting a formal behavioral interview. She seems professional but distant, and you sense she\'s being very careful about her hiring decisions.',
-        objectives: ['Demonstrate your qualifications while building rapport', 'Address any concerns about your fit for the company culture', 'Show self-awareness and professionalism'],
+        objectives: ['Demonstrate your qualifications while building rapport', 'Address any concerns about your fit for the company culture', 'Show self-awareness and professionalism', 'Stay short in each response to keep the interview moving'],
         difficulty: SimulationDifficulty.INTERMEDIATE,
         status: SimulationStatus.PUBLISHED,
         estimatedDurationMinutes: 25,
@@ -303,7 +303,6 @@ const seedData = async (): Promise<void> => {
         conversationGoals: [
           {
             goalNumber: 1,
-            isOptional: true,
             title: 'Opening and Rapport Building',
             description: 'Start the interview with a professional greeting and attempt to build initial rapport with Brenda',
             keyBehaviors: ['Professional greeting', 'Express appreciation for the opportunity', 'Show genuine interest in the company'],
@@ -311,7 +310,6 @@ const seedData = async (): Promise<void> => {
           },
           {
             goalNumber: 2,
-            isOptional: true,
             title: 'Behavioral Question Response',
             description: 'Answer Brenda\'s behavioral questions using the STAR method with relevant, specific examples',
             keyBehaviors: ['Use STAR method structure', 'Provide specific examples', 'Connect experiences to role requirements'],

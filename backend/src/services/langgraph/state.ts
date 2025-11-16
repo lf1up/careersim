@@ -69,6 +69,7 @@ export interface ConversationGraphState {
   evaluationComplete: boolean;
   
   // Analysis results (from Transformers microservice)
+  // AI message analysis
   lastEmotionAnalysis?: {
     emotion: string;
     confidence: number;
@@ -83,6 +84,22 @@ export interface ConversationGraphState {
     relevance?: number;
     completeness?: number;
     personaAlignment?: number;
+  };
+  
+  // User message analysis
+  lastUserEmotionAnalysis?: {
+    emotion: string;
+    confidence: number;
+  };
+  lastUserSentimentAnalysis?: {
+    sentiment: 'positive' | 'neutral' | 'negative';
+    confidence: number;
+  };
+  lastUserQualityScores?: {
+    overall?: number;
+    coherence?: number;
+    relevance?: number;
+    clarity?: number;
   };
   
   // Metadata for additional context

@@ -9,6 +9,8 @@ import { buildPersonaSystemPrompt } from '../prompts';
 // Lazy imports to avoid TypeORM initialization during module load
 let AppDataSource: any;
 let SimulationSession: any;
+let SessionMessage: any;
+let MessageType: any;
 
 /**
  * Lazy-load database dependencies
@@ -17,6 +19,9 @@ function loadDatabaseDependencies() {
   if (!AppDataSource) {
     AppDataSource = require('@/config/database').AppDataSource;
     SimulationSession = require('@/entities/SimulationSession').SimulationSession;
+    const SessionMessageModule = require('@/entities/SessionMessage');
+    SessionMessage = SessionMessageModule.SessionMessage;
+    MessageType = SessionMessageModule.MessageType;
   }
 }
 
@@ -360,6 +365,127 @@ export async function generateAiResponseNode(
 }
 
 /**
+ * Node: Analyze User Input
+ * Analyze the user message with Transformers microservice and persist to DB
+ */
+export async function analyzeUserInputNode(
+  state: ConversationGraphState,
+): Promise<Partial<ConversationGraphState>> {
+  console.log(`📊 Analyzing user input for session ${state.sessionId}`);
+
+  if (!state.lastUserMessage) {
+    return {};
+  }
+
+  try {
+    // Run analyses in parallel
+    const [emotionResult, sentimentResult] = await Promise.all([
+      transformersService.analyzeEmotion(state.lastUserMessage).catch(() => ({
+        emotion: 'neutral',
+        confidence: 0.5,
+        source: 'fallback' as const,
+      })),
+      transformersService.analyzeSentiment(state.lastUserMessage).catch(() => ({
+        sentiment: 'neutral' as const,
+        confidence: 0.5,
+        source: 'fallback' as const,
+      })),
+    ]);
+
+    console.log(`📊 User analysis complete: emotion=${emotionResult.emotion}, sentiment=${sentimentResult.sentiment}`);
+
+    const userAnalysis = {
+      lastUserEmotionAnalysis: {
+        emotion: emotionResult.emotion,
+        confidence: emotionResult.confidence,
+      },
+      lastUserSentimentAnalysis: {
+        sentiment: sentimentResult.sentiment,
+        confidence: sentimentResult.confidence,
+      },
+    };
+
+    // Persist user message to database with metadata
+    try {
+      loadDatabaseDependencies();
+      const messageRepo = AppDataSource.getRepository(SessionMessage);
+      const sessionRepo = AppDataSource.getRepository(SimulationSession);
+
+      // Check if this message already exists (prevent duplicates)
+      const existingMessage = await messageRepo
+        .createQueryBuilder('message')
+        .where('message.sessionId = :sessionId', { sessionId: state.sessionId })
+        .andWhere('message.type = :type', { type: MessageType.USER })
+        .andWhere('message.content = :content', { content: state.lastUserMessage })
+        .andWhere('message.createdAt > :recentTime', { recentTime: new Date(Date.now() - 5000) })
+        .getOne();
+
+      if (!existingMessage) {
+        const session = await sessionRepo.findOne({ where: { id: state.sessionId } });
+        if (!session) {
+          console.warn('Session not found for user message persistence');
+          return userAnalysis;
+        }
+
+        // Get next sequence number
+        const lastMessage = await messageRepo
+          .createQueryBuilder('message')
+          .where('message.sessionId = :sessionId', { sessionId: state.sessionId })
+          .orderBy('message.sequenceNumber', 'DESC')
+          .getOne();
+
+        const sequenceNumber = (lastMessage?.sequenceNumber || 0) + 1;
+
+        // Create user message
+        const userMessage = new SessionMessage();
+        userMessage.session = session as any;
+        userMessage.sequenceNumber = sequenceNumber;
+        userMessage.type = MessageType.USER;
+        userMessage.content = state.lastUserMessage;
+        userMessage.timestamp = new Date();
+        userMessage.metadata = {
+          // Full analysis objects for programmatic access
+          emotionAnalysis: userAnalysis.lastUserEmotionAnalysis,
+          sentimentAnalysis: userAnalysis.lastUserSentimentAnalysis,
+          // Flattened fields for frontend compatibility
+          emotionalTone: emotionResult.emotion,
+          sentiment: sentimentResult.sentiment,
+          confidence: sentimentResult.confidence || emotionResult.confidence,
+        };
+
+        await messageRepo.save(userMessage);
+        console.log(`💾 User message persisted to DB with metadata (seq: ${sequenceNumber})`);
+      } else {
+        // Message exists but might not have metadata - update it
+        console.log(`📝 User message already exists, updating with metadata`);
+        existingMessage.metadata = {
+          // Merge with existing metadata
+          ...existingMessage.metadata,
+          // Full analysis objects for programmatic access
+          emotionAnalysis: userAnalysis.lastUserEmotionAnalysis,
+          sentimentAnalysis: userAnalysis.lastUserSentimentAnalysis,
+          // Flattened fields for frontend compatibility
+          emotionalTone: emotionResult.emotion,
+          sentiment: sentimentResult.sentiment,
+          confidence: sentimentResult.confidence || emotionResult.confidence,
+        };
+        await messageRepo.save(existingMessage);
+        console.log(`✅ Updated user message metadata: emotion=${emotionResult.emotion}, sentiment=${sentimentResult.sentiment}`);
+      }
+    } catch (dbError) {
+      console.warn('Error persisting user message to DB:', dbError);
+      // Non-fatal, continue with analysis results
+    }
+
+    return userAnalysis;
+  } catch (error) {
+    console.warn('Error analyzing user input:', error);
+    // Don't fail the flow if analysis fails
+    return {};
+  }
+}
+
+/**
  * Node: Analyze Response
  * Post-process the AI response with Transformers microservice
  */
@@ -387,7 +513,7 @@ export async function analyzeResponseNode(
       })),
     ]);
 
-    console.log(`📊 Analysis complete: emotion=${emotionResult.emotion}, sentiment=${sentimentResult.sentiment}`);
+    console.log(`📊 AI analysis complete: emotion=${emotionResult.emotion}, sentiment=${sentimentResult.sentiment}`);
 
     return {
       lastEmotionAnalysis: {

@@ -7,6 +7,7 @@ import {
   processUserInputNode,
   fetchRagContextNode,
   generateAiResponseNode,
+  analyzeUserInputNode,
   analyzeResponseNode,
 } from './nodes/conversation';
 
@@ -93,10 +94,15 @@ const StateAnnotation = Annotation.Root({
     default: () => false,
   }),
   
-  // Analysis results
+  // Analysis results - AI messages
   lastEmotionAnalysis: Annotation<any>,
   lastSentimentAnalysis: Annotation<any>,
   lastQualityScores: Annotation<any>,
+  
+  // Analysis results - User messages
+  lastUserEmotionAnalysis: Annotation<any>,
+  lastUserSentimentAnalysis: Annotation<any>,
+  lastUserQualityScores: Annotation<any>,
   
   // Metadata
   metadata: Annotation<any>({
@@ -121,6 +127,7 @@ const StateAnnotation = Annotation.Root({
  */
 export const NODE_NAMES = {
   PROCESS_USER_INPUT: 'process_user_input',
+  ANALYZE_USER_INPUT: 'analyze_user_input',
   FETCH_RAG_CONTEXT: 'fetch_rag_context',
   GENERATE_AI_RESPONSE: 'generate_ai_response',
   ANALYZE_RESPONSE: 'analyze_response',
@@ -138,6 +145,13 @@ function afterUserInput(state: ConversationGraphState): string {
   console.log(`🔀 [afterUserInput] Deciding next step:`);
   console.log(`   - proactiveTrigger: ${state.proactiveTrigger}`);
   console.log(`   - needsEvaluation: ${state.needsEvaluation}`);
+  console.log(`   - lastUserMessage: ${state.lastUserMessage ? 'yes' : 'no'}`);
+  
+  // If user sent a message, analyze it first
+  if (state.lastUserMessage && state.needsEvaluation) {
+    console.log(`   ✅ User message detected - going to ANALYZE_USER_INPUT`);
+    return NODE_NAMES.ANALYZE_USER_INPUT;
+  }
   
   // If proactive trigger is set (inactivity, start), skip normal response generation
   if (state.proactiveTrigger && !state.needsEvaluation) {
@@ -147,6 +161,14 @@ function afterUserInput(state: ConversationGraphState): string {
   
   // Otherwise, generate normal AI response
   console.log(`   ➡️  Proceeding with normal conversation flow - going to FETCH_RAG_CONTEXT`);
+  return NODE_NAMES.FETCH_RAG_CONTEXT;
+}
+
+/**
+ * Conditional edge function: After analyzing user input, proceed to RAG context
+ */
+function afterUserAnalysis(state: ConversationGraphState): string {
+  console.log(`🔀 [afterUserAnalysis] Proceeding to RAG context fetch`);
   return NODE_NAMES.FETCH_RAG_CONTEXT;
 }
 
@@ -254,6 +276,7 @@ export function buildConversationGraph() {
   console.log('  📌 Adding nodes to graph...');
   // Add all nodes
   graph.addNode(NODE_NAMES.PROCESS_USER_INPUT, processUserInputNode);
+  graph.addNode(NODE_NAMES.ANALYZE_USER_INPUT, analyzeUserInputNode);
   graph.addNode(NODE_NAMES.FETCH_RAG_CONTEXT, fetchRagContextNode);
   graph.addNode(NODE_NAMES.GENERATE_AI_RESPONSE, generateAiResponseNode);
   graph.addNode(NODE_NAMES.ANALYZE_RESPONSE, analyzeResponseNode);
@@ -269,11 +292,14 @@ export function buildConversationGraph() {
   graph.setEntryPoint(NODE_NAMES.PROCESS_USER_INPUT);
   
   // Define the graph flow
-  // After processing input, conditionally fetch RAG context OR skip to proactive check
+  // After processing input, conditionally analyze user input, fetch RAG context, OR skip to proactive check
   graph.addConditionalEdges(
     NODE_NAMES.PROCESS_USER_INPUT,
     afterUserInput,
   );
+  
+  // After analyzing user input, fetch RAG context
+  graph.addEdge(NODE_NAMES.ANALYZE_USER_INPUT, NODE_NAMES.FETCH_RAG_CONTEXT);
   
   // After RAG, generate AI response
   graph.addEdge(NODE_NAMES.FETCH_RAG_CONTEXT, NODE_NAMES.GENERATE_AI_RESPONSE);

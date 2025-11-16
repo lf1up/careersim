@@ -64,6 +64,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const displayName = isUser ? userName : personaName;
   const displayTitle = isUser ? userTitle : personaRole;
   const toTitle = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '');
+  
   const sentimentToColor = (s?: string) => {
     if (!s) return 'default' as const;
     const v = s.toLowerCase();
@@ -71,6 +72,59 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (v === 'negative') return 'red' as const;
     return 'amber' as const;
   };
+
+  const emotionToEmoji = (emotion?: string) => {
+    if (!emotion) return '😐';
+    const e = emotion.toLowerCase();
+    if (e.includes('happy') || e.includes('joy')) return '😊';
+    if (e.includes('excit')) return '🤩';
+    if (e.includes('love') || e.includes('admiration')) return '❤️';
+    if (e.includes('sad') || e.includes('grief')) return '😢';
+    if (e.includes('angry') || e.includes('annoyanc')) return '😠';
+    if (e.includes('fear') || e.includes('nervou')) return '😰';
+    if (e.includes('surprise')) return '😲';
+    if (e.includes('disgust')) return '🤢';
+    if (e.includes('neutral')) return '😐';
+    if (e.includes('confus')) return '😕';
+    if (e.includes('frustrat')) return '😤';
+    if (e.includes('disappoint')) return '😞';
+    if (e.includes('grateful') || e.includes('appreciat')) return '🙏';
+    if (e.includes('proud')) return '😌';
+    if (e.includes('curious') || e.includes('interest')) return '🤔';
+    if (e.includes('friendly')) return '😊';
+    if (e.includes('encouraging')) return '💪';
+    return '😐';
+  };
+
+  const emotionToColor = (emotion?: string): 'default' | 'green' | 'red' | 'amber' | 'blue' | 'purple' => {
+    if (!emotion) return 'default';
+    const e = emotion.toLowerCase();
+    if (e.includes('happy') || e.includes('joy') || e.includes('excit') || e.includes('friendly') || e.includes('encouraging')) return 'green';
+    if (e.includes('love') || e.includes('admiration') || e.includes('grateful') || e.includes('appreciat') || e.includes('proud')) return 'purple';
+    if (e.includes('sad') || e.includes('grief') || e.includes('disappoint')) return 'blue';
+    if (e.includes('angry') || e.includes('annoyanc') || e.includes('frustrat') || e.includes('disgust')) return 'red';
+    if (e.includes('fear') || e.includes('nervou') || e.includes('confus') || e.includes('surprise')) return 'amber';
+    if (e.includes('curious') || e.includes('interest') || e.includes('neutral')) return 'default';
+    return 'default';
+  };
+
+  const sentimentToEmoji = (sentiment?: string) => {
+    if (!sentiment) return '';
+    const s = sentiment.toLowerCase();
+    if (s === 'positive') return '👍';
+    if (s === 'negative') return '👎';
+    return '➖';
+  };
+
+  const metadata = (message as any).metadata;
+  const hasMetadata = metadata && (
+    metadata.emotionalTone || 
+    metadata.sentiment || 
+    metadata.model || 
+    metadata.tokenCount ||
+    metadata.processingTime ||
+    metadata.confidence
+  );
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
@@ -84,46 +138,70 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         }`}>
           <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         </div>
-        {/* AI Response Metadata */}
-        {!isUser && message.metadata && (
+
+        {/* Message Metadata (User or AI) */}
+        {hasMetadata && (
           <div className="mt-2">
             <div className="p-2 border-2 border-black bg-white shadow-retro-2">
-              <div className="flex flex-wrap gap-2">
-                {typeof (message as any).metadata?.model === 'string' && (
-                  <RetroBadge className="text-[10px]">{(message as any).metadata.model}</RetroBadge>
-                )}
-                {typeof (message as any).metadata?.tokenCount === 'number' && (
-                  <RetroBadge color="default" className="text-[10px]">{(message as any).metadata.tokenCount} tokens</RetroBadge>
-                )}
-                {typeof (message as any).metadata?.processingTime === 'number' && (
-                  <RetroBadge color="default" className="text-[10px]">{(message as any).metadata.processingTime.toFixed(2)}s</RetroBadge>
-                )}
-                {typeof (message as any).metadata?.confidence === 'number' && (
-                  <RetroBadge color="default" className="text-[10px]">Conf {(message as any).metadata.confidence.toFixed(2)}</RetroBadge>
-                )}
-                {typeof (message as any).metadata?.sentiment === 'string' && (
-                  <RetroBadge color={sentimentToColor((message as any).metadata.sentiment)} className="text-[10px]">
-                    {toTitle((message as any).metadata.sentiment)}
-                  </RetroBadge>
-                )}
-                {typeof (message as any).metadata?.emotionalTone === 'string' && (
-                  <RetroBadge color="default" className="text-[10px]">{toTitle((message as any).metadata.emotionalTone)}</RetroBadge>
-                )}
-              </div>
-              {Array.isArray((message as any).metadata?.keyPhrases) && (message as any).metadata.keyPhrases.length > 0 && (
-                <div className="mt-2 text-[11px]">
+              {/* Primary Analysis - Emotion & Sentiment */}
+              {(metadata.emotionalTone || metadata.sentiment) && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {metadata.emotionalTone && (
+                    <RetroBadge color={emotionToColor(metadata.emotionalTone)} className="text-[10px] flex items-center gap-1">
+                      <span>{emotionToEmoji(metadata.emotionalTone)}</span>
+                      <span>Emotion: {toTitle(metadata.emotionalTone)}</span>
+                    </RetroBadge>
+                  )}
+                  {metadata.sentiment && (
+                    <RetroBadge color={sentimentToColor(metadata.sentiment)} className="text-[10px] flex items-center gap-1">
+                      <span>{sentimentToEmoji(metadata.sentiment)}</span>
+                      <span>Sentiment: {toTitle(metadata.sentiment)}</span>
+                    </RetroBadge>
+                  )}
+                  {metadata.confidence !== undefined && (
+                    <RetroBadge color="default" className="text-[10px]">
+                      Confidence: {(metadata.confidence * 100).toFixed(0)}%
+                    </RetroBadge>
+                  )}
+                </div>
+              )}
+
+              {/* AI Technical Details */}
+              {!isUser && (metadata.model || metadata.tokenCount || metadata.processingTime) && (
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-200">
+                  {metadata.model && (
+                    <RetroBadge color="blue" className="text-[10px]">
+                      {metadata.model}
+                    </RetroBadge>
+                  )}
+                  {metadata.tokenCount !== undefined && (
+                    <RetroBadge color="purple" className="text-[10px]">
+                      {metadata.tokenCount} tokens
+                    </RetroBadge>
+                  )}
+                  {metadata.processingTime !== undefined && (
+                    <RetroBadge color="amber" className="text-[10px]">
+                      {metadata.processingTime.toFixed(2)}s
+                    </RetroBadge>
+                  )}
+                </div>
+              )}
+
+              {/* Additional Details */}
+              {Array.isArray(metadata.keyPhrases) && metadata.keyPhrases.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-200 text-[11px]">
                   <span className="font-medium">Key Phrases:</span>{' '}
                   <span className="font-monoRetro">
-                    {(message as any).metadata.keyPhrases.slice(0, 5).join(', ')}
-                    {(message as any).metadata.keyPhrases.length > 5 && ` +${(message as any).metadata.keyPhrases.length - 5} more`}
+                    {metadata.keyPhrases.slice(0, 5).join(', ')}
+                    {metadata.keyPhrases.length > 5 && ` +${metadata.keyPhrases.length - 5} more`}
                   </span>
                 </div>
               )}
-              {((message as any).metadata?.qualityScores && Object.keys((message as any).metadata.qualityScores).length > 0) && (
-                <div className="mt-2 text-[11px]">
+              {metadata.qualityScores && Object.keys(metadata.qualityScores).length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-200 text-[11px]">
                   <span className="font-medium">Quality:</span>{' '}
                   <span className="font-monoRetro">
-                    {Object.entries((message as any).metadata.qualityScores)
+                    {Object.entries(metadata.qualityScores)
                       .filter(([_, v]) => typeof v === 'number')
                       .map(([k, v]) => `${k}:${(v as number).toFixed(2)}`)
                       .join(' · ')}
@@ -133,6 +211,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           </div>
         )}
+
         <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${isUser ? 'text-right' : 'text-left'}`}>
           {new Date(message.timestamp).toLocaleTimeString()}
         </div>

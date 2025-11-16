@@ -389,9 +389,15 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
           });
           
           // Graph handles all persistence and emission
-          // Just update session flags
-          session.aiInitiated = true;
-          await sessionRepository.save(session);
+          // Reload session to get updated messageCount and other fields updated by the graph
+          const updatedSession = await sessionRepository.findOne({
+            where: { id: session.id },
+          });
+          
+          if (updatedSession) {
+            updatedSession.aiInitiated = true;
+            await sessionRepository.save(updatedSession);
+          }
         } else {
           // OLD PATH: Use AIService
           const { AIService } = await import('@/services/ai');

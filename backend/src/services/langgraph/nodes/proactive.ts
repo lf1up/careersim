@@ -3,6 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { ConversationGraphState } from '../state';
 import { config } from '@/config/env';
 import { compositeSimilarity } from '@/utils/textSimilarity';
+import { transformersService } from '@/services/transformers';
 import {
   buildProactiveStartPrompt,
   buildProactiveInactivityPrompt,
@@ -343,11 +344,28 @@ export async function generateProactiveMessageNode(
     const processingTimeMs = Date.now() - startTime;
     const processingTimeSec = processingTimeMs / 1000;
 
-    // Extract token count and model info from response
+    // Extract token count and model info from response (for logging and usage tracking)
     const tokenCount = (response as any).response_metadata?.tokenUsage?.totalTokens || 0;
     const modelName = (response as any).response_metadata?.model || aiConfig.model;
 
     console.log(`✅ Proactive message generated in ${processingTimeMs}ms (${tokenCount} tokens, model: ${modelName})`);
+
+    // Analyze sentiment and emotion (same as regular AI messages)
+    console.log(`📊 Analyzing proactive message sentiment and emotion...`);
+    const [emotionResult, sentimentResult] = await Promise.all([
+      transformersService.analyzeEmotion(messageContent).catch(() => ({
+        emotion: 'neutral',
+        confidence: 0.5,
+        source: 'fallback' as const,
+      })),
+      transformersService.analyzeSentiment(messageContent).catch(() => ({
+        sentiment: 'neutral' as const,
+        confidence: 0.5,
+        source: 'fallback' as const,
+      })),
+    ]);
+
+    console.log(`📊 Proactive message analysis complete: emotion=${emotionResult.emotion}, sentiment=${sentimentResult.sentiment}`);
 
     // Prepare metadata updates
     const metadataUpdates: any = {
@@ -385,6 +403,15 @@ export async function generateProactiveMessageNode(
       proactiveCount: newProactiveCount,
       turn: 'user', // All proactive messages wait for user
       metadata: metadataUpdates,
+      // Include sentiment and emotion analysis results
+      lastEmotionAnalysis: {
+        emotion: emotionResult.emotion,
+        confidence: emotionResult.confidence,
+      },
+      lastSentimentAnalysis: {
+        sentiment: sentimentResult.sentiment,
+        confidence: sentimentResult.confidence,
+      },
     };
   } catch (error) {
     console.error('Error generating proactive message:', error);
