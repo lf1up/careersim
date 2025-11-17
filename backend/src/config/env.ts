@@ -1,8 +1,7 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import path from 'path';
+import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);

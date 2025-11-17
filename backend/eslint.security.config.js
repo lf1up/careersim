@@ -1,9 +1,10 @@
-const tseslint = require('@typescript-eslint/eslint-plugin');
-const tsparser = require('@typescript-eslint/parser');
-const security = require('eslint-plugin-security');
-const securityNode = require('eslint-plugin-security-node');
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsparser from '@typescript-eslint/parser';
+import security from 'eslint-plugin-security';
+import securityNode from 'eslint-plugin-security-node';
+import globals from 'globals/index.js';
 
-module.exports = [
+export default [
   {
     files: ['src/**/*.ts'],
     ignores: [
@@ -19,8 +20,8 @@ module.exports = [
         project: './tsconfig.json',
       },
       globals: {
-        node: true,
-        es2020: true,
+        ...globals.node,
+        ...globals.es2020,
       }
     },
     plugins: {

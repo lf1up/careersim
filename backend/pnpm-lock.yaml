@@ -183,6 +183,9 @@ importers:
       eslint-plugin-security-node:
         specifier: ^1.1.1
         version: 1.1.4
+      globals:
+        specifier: ^16.5.0
+        version: 16.5.0
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@24.2.0)(ts-node@10.9.2(@types/node@24.2.0)(typescript@5.9.3))
@@ -2361,6 +2364,10 @@ packages:
 
   globals@14.0.0:
     resolution: {integrity: sha512-oahGvuMGQlPw/ivIYBjVSrWAfWLBeku5tpPE2fOPLi+WHffIWbuh2tCjhyQhTBPMf5E9jDEH4FOmTYgYwbKwtQ==}
+    engines: {node: '>=18'}
+
+  globals@16.5.0:
+    resolution: {integrity: sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==}
     engines: {node: '>=18'}
 
   globby@11.1.0:
@@ -6242,6 +6249,8 @@ snapshots:
 
   globals@14.0.0: {}
 
+  globals@16.5.0: {}
+
   globby@11.1.0:
     dependencies:
       array-union: 2.1.0
@@ -6319,7 +6328,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.1(debug@4.4.1))
+      retry-axios: 2.6.0(axios@1.13.1)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -7407,7 +7416,7 @@ snapshots:
       onetime: 5.1.2
       signal-exit: 3.0.7
 
-  retry-axios@2.6.0(axios@1.13.1(debug@4.4.1)):
+  retry-axios@2.6.0(axios@1.13.1):
     dependencies:
       axios: 1.13.1(debug@4.4.1)
 
