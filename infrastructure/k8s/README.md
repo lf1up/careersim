@@ -73,6 +73,10 @@ kubectl apply -k infrastructure/k8s/overlays/prod
 
 ### Notes
 
+- **LangGraph**: Enabled by default (`USE_LANGGRAPH=true`). This uses the embedded LangGraph conversation system for AI simulations.
+  - Optional: Set `LANGCHAIN_TRACING_V2=true` to enable LangSmith tracing
+  - Optional: Configure `LANGGRAPH_DEPLOYMENT_URL` and `LANGGRAPH_API_KEY` to use a remote LangGraph deployment
+  - Optional: Set `LANGCHAIN_API_KEY` to enable LangSmith monitoring
 - GPU scheduling for `transformers` uses a resource limit `nvidia.com/gpu: 1`. Ensure NVIDIA device plugin is installed on nodes if needed.
 - Database creds are sourced from `Secret app-secrets`; update accordingly if using an external DB.
 - The backend expects envs aligned with Terraform vars in `infrastructure/aws/main.tf`.

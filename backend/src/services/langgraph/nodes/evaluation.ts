@@ -11,11 +11,15 @@ let MessageType: any;
 /**
  * Lazy-load database dependencies
  */
-function loadDatabaseDependencies() {
+async function loadDatabaseDependencies() {
   if (!AppDataSource) {
-    AppDataSource = require('@/config/database').AppDataSource;
-    SimulationSession = require('@/entities/SimulationSession').SimulationSession;
-    const SessionMessageModule = require('@/entities/SessionMessage');
+    const databaseModule = await import('@/config/database');
+    AppDataSource = databaseModule.AppDataSource;
+    
+    const simulationSessionModule = await import('@/entities/SimulationSession');
+    SimulationSession = simulationSessionModule.SimulationSession;
+    
+    const SessionMessageModule = await import('@/entities/SessionMessage');
     SessionMessage = SessionMessageModule.SessionMessage;
     MessageType = SessionMessageModule.MessageType;
   }
@@ -49,7 +53,7 @@ async function getRecentMessageIds(
   sessionId: string,
   limit: number = 2,
 ): Promise<{ userMessageId?: string; aiMessageId?: string }> {
-  loadDatabaseDependencies();
+  await loadDatabaseDependencies();
   
   try {
     const messageRepo = AppDataSource.getRepository(SessionMessage);
@@ -250,7 +254,7 @@ export async function evaluateGoalsNode(
     }
 
     // Load database dependencies
-    loadDatabaseDependencies();
+    await loadDatabaseDependencies();
     
     // Update session in database
     const sessionRepo = AppDataSource.getRepository(SimulationSession);

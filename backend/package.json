@@ -2,18 +2,19 @@
   "name": "careersim-backend",
   "version": "1.0.0",
   "description": "Backend API for CareerSim - AI-Powered Career Skills Simulator",
+  "type": "module",
   "main": "dist/server.js",
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "scripts": {
     "dev": "nodemon src/server.ts",
-    "build": "tsc && tsc-alias",
+    "build": "tsc && tsc-alias && node scripts/fix-esm-imports.cjs",
     "start": "node dist/server.js",
-    "db:migrate": "typeorm migration:run -d src/config/datasource.ts",
-    "db:migrate:revert": "typeorm migration:revert -d src/config/datasource.ts",
-    "db:generate": "typeorm migration:generate -d src/config/datasource.ts",
-    "db:seed": "ts-node -r tsconfig-paths/register src/scripts/seed.ts",
-    "db:seed:force": "typeorm schema:drop -d src/config/datasource.ts && typeorm migration:run -d src/config/datasource.ts && pnpm run db:seed",
+    "db:migrate": "tsx ./node_modules/typeorm/cli.js migration:run -d src/config/datasource.ts",
+    "db:migrate:revert": "tsx ./node_modules/typeorm/cli.js migration:revert -d src/config/datasource.ts",
+    "db:generate": "tsx ./node_modules/typeorm/cli.js migration:generate -d src/config/datasource.ts",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "db:seed:force": "tsx ./node_modules/typeorm/cli.js schema:drop -d src/config/datasource.ts && tsx ./node_modules/typeorm/cli.js migration:run -d src/config/datasource.ts && pnpm run db:seed",
     "db:reset": "pnpm run db:migrate:revert && pnpm run db:migrate && pnpm run db:seed",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -21,9 +22,9 @@
     "security": "eslint src/**/*.ts --config eslint.security.config.js",
     "security:fix": "eslint src/**/*.ts --config eslint.security.config.js --fix",
     "test": "jest -c jest.config.ts",
-    "langgraph:server": "ts-node -r tsconfig-paths/register src/services/langgraph/standalone-server.ts",
+    "langgraph:server": "tsx src/services/langgraph/standalone-server.ts",
     "langgraph:dev": "nodemon --watch src/services/langgraph src/services/langgraph/standalone-server.ts",
-    "langgraph:test": "ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-standalone.ts",
+    "langgraph:test": "tsx src/services/langgraph/scripts/test-standalone.ts",
     "langgraph:test:deepeval": "jest -c jest.config.ts src/services/langgraph/tests/ --detectOpenHandles",
     "test:sim:all": "jest -c jest.config.ts src/services/langgraph/tests/simulations/ --detectOpenHandles",
     "test:sim:behavioral": "jest -c jest.config.ts src/services/langgraph/tests/simulations/behavioral-interview.spec.ts --detectOpenHandles",
@@ -33,12 +34,12 @@
     "test:sim:saying-no": "jest -c jest.config.ts src/services/langgraph/tests/simulations/saying-no.spec.ts --detectOpenHandles",
     "test:sim:reengaging": "jest -c jest.config.ts src/services/langgraph/tests/simulations/reengaging-employee.spec.ts --detectOpenHandles",
     "test:sim:delegating": "jest -c jest.config.ts src/services/langgraph/tests/simulations/delegating-task.spec.ts --detectOpenHandles",
-    "debug:graph:validate": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/validate-structure.ts",
-    "debug:graph:compile": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/debug-compile.ts",
-    "debug:graph:invoke": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-invoke.ts",
-    "debug:graph:stream": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-stream.ts",
-    "debug:graph:proactive": "NODE_OPTIONS='--max-old-space-size=10240' ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-proactive.ts",
-    "debug:graph:visualize": "ts-node -r tsconfig-paths/register src/services/langgraph/scripts/visualize-graph.ts",
+    "debug:graph:validate": "NODE_OPTIONS='--max-old-space-size=10240' tsx src/services/langgraph/scripts/validate-structure.ts",
+    "debug:graph:compile": "NODE_OPTIONS='--max-old-space-size=10240' tsx src/services/langgraph/scripts/debug-compile.ts",
+    "debug:graph:invoke": "NODE_OPTIONS='--max-old-space-size=10240' tsx src/services/langgraph/scripts/test-invoke.ts",
+    "debug:graph:stream": "NODE_OPTIONS='--max-old-space-size=10240' tsx src/services/langgraph/scripts/test-stream.ts",
+    "debug:graph:proactive": "NODE_OPTIONS='--max-old-space-size=10240' tsx src/services/langgraph/scripts/test-proactive.ts",
+    "debug:graph:visualize": "tsx src/services/langgraph/scripts/visualize-graph.ts",
     "debug:graph:all": "bash src/services/langgraph/scripts/run-all-tests.sh"
   },
   "keywords": [
@@ -116,11 +117,11 @@
     "nodemon": "^3.0.1",
     "supertest": "^7.1.4",
     "ts-jest": "^29.1.1",
-    "ts-node": "^10.9.1",
     "ts-prune": "^0.10.3",
-    "tsc-alias": "^1.8.8",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.2.2"
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=22.0.0",
@@ -128,6 +129,14 @@
   },
   "tsc-alias": {
     "verbose": false,
-    "resolveFullPaths": true
+    "resolveFullPaths": true,
+    "fileExtensions": {
+      "inputGlob": "{/**/*,*}.{js,jsx,mjs}",
+      "outputCheck": [
+        ".js",
+        ".jsx",
+        ".mjs"
+      ]
+    }
   }
 }

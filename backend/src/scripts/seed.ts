@@ -7,6 +7,7 @@ import { Persona, PersonaCategory } from '@/entities/Persona';
 import { Simulation, SimulationDifficulty, SimulationStatus } from '@/entities/Simulation';
 import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { AuthUtils } from '@/utils/auth';
+import { fileURLToPath } from 'url';
 
 // Determines whether the database has any existing application data.
 // Returns true when all sentinel tables are empty or missing.
@@ -831,8 +832,11 @@ const seedData = async (): Promise<void> => {
   }
 };
 
-// Run the seed script
-if (require.main === module) {
+// Run the seed script if this file is executed directly
+// In ES modules, check if the file is the main entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   seedData();
 }
 

@@ -1,9 +1,18 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load .env file from the backend directory
-dotenv.config({ path: path.join(__dirname, '../../../.env') });
+// Skip loading .env in production when using Kubernetes ConfigMaps/Secrets
+if (process.env.NODE_ENV !== 'production' || process.env.LOAD_DOTENV === 'true') {
+  dotenv.config({ path: path.join(__dirname, '../../../.env') });
+}
 
 // Helper to coerce string env vars to boolean
 const booleanFromString = (defaultValue: boolean) =>

@@ -23,22 +23,34 @@ spec:
           ports:
             - name: http
               containerPort: 8002
+          env:
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: RAG_API_KEY
           envFrom:
             - configMapRef:
                 name: app-config
             - secretRef:
                 name: app-secrets
           readinessProbe:
-            httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 10
+            exec:
+              command:
+                - python
+                - -c
+                - 'import sys, httpx; r = httpx.get("http://localhost:8002/", timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)'
+            initialDelaySeconds: 60
             periodSeconds: 10
+            timeoutSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 20
+            exec:
+              command:
+                - python
+                - -c
+                - 'import sys, httpx; r = httpx.get("http://localhost:8002/", timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)'
+            initialDelaySeconds: 90
             periodSeconds: 20
+            timeoutSeconds: 10
 
 

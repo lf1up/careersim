@@ -9,6 +9,8 @@
  *   2. Run this script: ts-node -r tsconfig-paths/register src/services/langgraph/scripts/test-standalone.ts
  */
 
+import { fileURLToPath } from 'url';
+
 const BASE_URL = process.env.LANGGRAPH_SERVER_URL || 'http://localhost:8123';
 
 interface Simulation {
@@ -320,7 +322,10 @@ async function runTests() {
 }
 
 // Run tests if executed directly
-if (require.main === module) {
+// In ES modules, check if the file is the main entry point
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
   runTests().catch(error => {
     console.error('\n❌ Test suite failed:', error);
     process.exit(1);

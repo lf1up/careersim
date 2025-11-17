@@ -1,0 +1,49 @@
+# Environment files - use ConfigMaps/Secrets in Kubernetes
+.env
+.env.*
+!.env.example
+
+# Node modules - will be installed in container
+node_modules/
+
+# Build output - will be built in container
+dist/
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+src/tests/
+coverage/
+
+# Documentation
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploads directory content (keep the directory structure)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Misc
+.eslintcache
+

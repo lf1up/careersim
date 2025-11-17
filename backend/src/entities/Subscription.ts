@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToOne,
   JoinColumn,
+  Relation,
 } from 'typeorm';
 import { User } from './User';
 import { SubscriptionTier, SubscriptionStatus, PaymentProvider } from '../types';
@@ -92,7 +93,7 @@ export class Subscription {
   // Relationships
   @OneToOne(() => User, (user) => user.subscription)
   @JoinColumn({ name: 'userId' })
-    user!: User;
+    user!: Relation<User>;
 
   // Methods
   get isActive(): boolean {

@@ -18,11 +18,16 @@ let SessionMessage: any;
 /**
  * Lazy-load database dependencies to avoid initialization on import
  */
-function loadDatabaseDependencies() {
+async function loadDatabaseDependencies() {
   if (!AppDataSource) {
-    AppDataSource = require('@/config/database').AppDataSource;
-    SimulationSession = require('@/entities/SimulationSession').SimulationSession;
-    SessionMessage = require('@/entities/SessionMessage').SessionMessage;
+    const databaseModule = await import('@/config/database');
+    AppDataSource = databaseModule.AppDataSource;
+    
+    const simulationSessionModule = await import('@/entities/SimulationSession');
+    SimulationSession = simulationSessionModule.SimulationSession;
+    
+    const sessionMessageModule = await import('@/entities/SessionMessage');
+    SessionMessage = sessionMessageModule.SessionMessage;
   }
 }
 
@@ -44,11 +49,12 @@ interface SerializedCheckpoint {
  */
 export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
   private _sessionRepository?: any;
+  private _initialized: Promise<void>;
   
   constructor() {
     super();
     // Load database dependencies when checkpointer is instantiated
-    loadDatabaseDependencies();
+    this._initialized = loadDatabaseDependencies();
   }
 
   /**
@@ -82,6 +88,8 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
     checkpoint: Checkpoint,
     metadata: CheckpointMetadata,
   ): Promise<RunnableConfig> {
+    await this._initialized;
+    
     const threadId = config.configurable?.thread_id;
     const putStartTime = Date.now();
     console.log(`💾 [Checkpointer] PUT checkpoint for thread ${threadId}`);
@@ -154,6 +162,8 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
    * Get a checkpoint by thread ID and optional checkpoint ID
    */
   async getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined> {
+    await this._initialized;
+    
     const getTupleStart = Date.now();
     const threadId = config.configurable?.thread_id;
     const checkpointId = config.configurable?.checkpoint_id;
@@ -163,7 +173,7 @@ export class DatabaseCheckpointSaver extends BaseCheckpointSaver {
       return undefined;
     }
 
-    try {
+    try{
       const session = await this.sessionRepository.findOne({
         where: { id: threadId },
       });

@@ -14,6 +14,7 @@ configMapGenerator:
     literals:
       - NODE_ENV=production
       - DB_LOGGING=false
+      - USE_LANGGRAPH=true
 
 secretGenerator:
   - name: app-secrets
@@ -24,12 +25,18 @@ secretGenerator:
       - JWT_SECRET=
       - JWT_REFRESH_SECRET=
       - SESSION_SECRET=
+      - SMTP_USER=
+      - SMTP_PASS=
       - OPENAI_API_KEY=
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=
       - RAG_API_KEY=
       - TRANSFORMERS_API_KEY=
+      - LANGGRAPH_DEPLOYMENT_URL=
+      - LANGGRAPH_API_KEY=
+      - LANGCHAIN_API_KEY=
+      - GRAPH_ASSISTANT_ID=
 
 images:
   - name: backend

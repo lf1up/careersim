@@ -14,8 +14,14 @@ configMapGenerator:
     behavior: merge
     literals:
       - NODE_ENV=development
+      - DB_HOST=dev-postgres
       - DB_LOGGING=true
+      - REDIS_HOST=dev-redis
+      - TRANSFORMERS_API_URL=http://dev-transformers:8001
+      - RAG_API_URL=http://dev-rag:8002
       - ALLOWED_ORIGINS=http://localhost:3000
+      - LANGCHAIN_PROJECT=careersim-dev
+      - USE_LANGGRAPH=true
 
 secretGenerator:
   - name: app-secrets
@@ -23,15 +29,21 @@ secretGenerator:
     literals:
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
-      - JWT_SECRET=dev-secret
-      - JWT_REFRESH_SECRET=dev-refresh
-      - SESSION_SECRET=dev-session
+      - JWT_SECRET=dev-secret-at-least-32-characters-long-for-validation
+      - JWT_REFRESH_SECRET=dev-refresh-secret-at-least-32-characters-long
+      - SESSION_SECRET=dev-session-secret-at-least-32-characters-long
+      - SMTP_USER=
+      - SMTP_PASS=
       - OPENAI_API_KEY=
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=
-      - RAG_API_KEY=dev-token
-      - TRANSFORMERS_API_KEY=dev-token
+      - RAG_API_KEY=dev-token-eb4b864605e-min-32-chars-required-for-security
+      - TRANSFORMERS_API_KEY=dev-token-bdd297cb5b5-min-32-chars-required-for-security
+      - LANGGRAPH_DEPLOYMENT_URL=
+      - LANGGRAPH_API_KEY=
+      - LANGCHAIN_API_KEY=
+      - GRAPH_ASSISTANT_ID=
 
 images:
   - name: backend

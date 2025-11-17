@@ -10,12 +10,17 @@ let MessageType: any;
 /**
  * Lazy-load database dependencies
  */
-function loadDatabaseDependencies() {
+async function loadDatabaseDependencies() {
   if (!AppDataSource) {
-    AppDataSource = require('@/config/database').AppDataSource;
-    SimulationSession = require('@/entities/SimulationSession').SimulationSession;
-    SessionMessage = require('@/entities/SessionMessage').SessionMessage;
-    MessageType = require('@/entities/SessionMessage').MessageType;
+    const databaseModule = await import('@/config/database');
+    AppDataSource = databaseModule.AppDataSource;
+    
+    const simulationSessionModule = await import('@/entities/SimulationSession');
+    SimulationSession = simulationSessionModule.SimulationSession;
+    
+    const sessionMessageModule = await import('@/entities/SessionMessage');
+    SessionMessage = sessionMessageModule.SessionMessage;
+    MessageType = sessionMessageModule.MessageType;
   }
 }
 
@@ -43,7 +48,7 @@ export async function persistAndEmitNode(
     
     // Even without a message, we should update metadata like inactivityNudgeCount
     try {
-      loadDatabaseDependencies();
+      await loadDatabaseDependencies();
       const sessionRepo = AppDataSource.getRepository(SimulationSession);
       const session = await sessionRepo.findOne({
         where: { id: state.sessionId },

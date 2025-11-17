@@ -15,11 +15,15 @@ let MessageType: any;
 /**
  * Lazy-load database dependencies
  */
-function loadDatabaseDependencies() {
+async function loadDatabaseDependencies() {
   if (!AppDataSource) {
-    AppDataSource = require('@/config/database').AppDataSource;
-    SimulationSession = require('@/entities/SimulationSession').SimulationSession;
-    const SessionMessageModule = require('@/entities/SessionMessage');
+    const databaseModule = await import('@/config/database');
+    AppDataSource = databaseModule.AppDataSource;
+    
+    const simulationSessionModule = await import('@/entities/SimulationSession');
+    SimulationSession = simulationSessionModule.SimulationSession;
+    
+    const SessionMessageModule = await import('@/entities/SessionMessage');
     SessionMessage = SessionMessageModule.SessionMessage;
     MessageType = SessionMessageModule.MessageType;
   }
@@ -64,7 +68,7 @@ export async function processUserInputNode(
 
   try {
     // Load database dependencies
-    loadDatabaseDependencies();
+    await loadDatabaseDependencies();
     
     // Handle initial input transformation (userMessage -> lastUserMessage)
     // IMPORTANT: Check the INPUT for userMessage first - if present, it overrides any proactive trigger
@@ -407,7 +411,7 @@ export async function analyzeUserInputNode(
 
     // Persist user message to database with metadata
     try {
-      loadDatabaseDependencies();
+      await loadDatabaseDependencies();
       const messageRepo = AppDataSource.getRepository(SessionMessage);
       const sessionRepo = AppDataSource.getRepository(SimulationSession);
 

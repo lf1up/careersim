@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { config } from '@/config/env';
 
 export interface AIModelSettings {
   model: string;
@@ -150,9 +151,6 @@ export class SystemConfiguration {
 
   // Default configurations
   static getDefaultAISettings(): AIModelSettings {
-    // Import config here to avoid circular dependencies
-    const { config } = require('@/config/env');
-    
     return {
       model: config.ai.openai.model,
       maxTokens: config.ai.openai.maxTokens,
@@ -162,7 +160,7 @@ export class SystemConfiguration {
       topP: (config.ai.openai.topP ?? 1.0),
       profiles: {
         generation: {
-          model: config.ai.openai.generationModel ?? config.ai.openai.model,
+          model: config.ai.openai.model,
           maxTokens: config.ai.openai.maxTokens,
           temperature: (config.ai.openai.temperature ?? 0.8),
           frequencyPenalty: (config.ai.openai.frequencyPenalty ?? 0.3),

@@ -1,4 +1,4 @@
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { DynamicStructuredTool, type DynamicStructuredToolInput } from '@langchain/core/tools';
 import { z } from 'zod';
 import { transformersService } from '@/services/transformers';
 
@@ -11,13 +11,17 @@ let Simulation: any;
 /**
  * Lazy-load database dependencies
  */
-function loadDatabaseDependencies() {
+async function loadDatabaseDependencies() {
   if (!AppDataSource) {
-    AppDataSource = require('@/config/database').AppDataSource;
-    const SessionMessageModule = require('@/entities/SessionMessage');
+    const databaseModule = await import('@/config/database');
+    AppDataSource = databaseModule.AppDataSource;
+    
+    const SessionMessageModule = await import('@/entities/SessionMessage');
     SessionMessage = SessionMessageModule.SessionMessage;
     MessageType = SessionMessageModule.MessageType;
-    Simulation = require('@/entities/Simulation').Simulation;
+    
+    const simulationModule = await import('@/entities/Simulation');
+    Simulation = simulationModule.Simulation;
   }
 }
 
@@ -53,7 +57,7 @@ type GetConversationWindowParams = z.infer<typeof getConversationWindowSchema>;
  * Tool: Analyze User Behavior
  * Scores a user message against key behaviors using zero-shot classification
  */
-export const analyzeUserBehaviorTool = new DynamicStructuredTool({
+export const analyzeUserBehaviorTool: DynamicStructuredTool = new DynamicStructuredTool({
   name: 'analyze_user_behavior',
   description: 'Analyze a user message to determine if it demonstrates specific key behaviors. Returns a confidence score (0-1) indicating how well the message aligns with the target behaviors.',
   schema: analyzeUserBehaviorSchema,
@@ -76,13 +80,13 @@ export const analyzeUserBehaviorTool = new DynamicStructuredTool({
       return JSON.stringify({ score: 0, error: 'Analysis failed' });
     }
   },
-} as any);
+});
 
 /**
  * Tool: Analyze AI Response Indicators
  * Scores an AI response against success indicators
  */
-export const analyzeAiIndicatorsTool = new DynamicStructuredTool({
+export const analyzeAiIndicatorsTool: DynamicStructuredTool = new DynamicStructuredTool({
   name: 'analyze_ai_indicators',
   description: 'Analyze an AI response to check if it meets success indicators. Returns a confidence score (0-1) indicating how well the response demonstrates the indicators.',
   schema: analyzeAiIndicatorsSchema,
@@ -122,13 +126,13 @@ export const analyzeAiIndicatorsTool = new DynamicStructuredTool({
       return JSON.stringify({ score: 0.5, error: 'Analysis failed' });
     }
   },
-} as any);
+});
 
 /**
  * Tool: Get Goal Context
  * Retrieves goal definitions and current progress
  */
-export const getGoalContextTool = new DynamicStructuredTool({
+export const getGoalContextTool: DynamicStructuredTool = new DynamicStructuredTool({
   name: 'get_goal_context',
   description: 'Retrieve the conversation goals, their definitions, and current progress status. Use this to understand what goals need to be evaluated.',
   schema: getGoalContextSchema,
@@ -145,20 +149,20 @@ export const getGoalContextTool = new DynamicStructuredTool({
       return JSON.stringify({ error: 'Failed to retrieve goal context' });
     }
   },
-} as any);
+});
 
 /**
  * Tool: Get Conversation Window
  * Retrieves recent messages for context
  */
-export const getConversationWindowTool = new DynamicStructuredTool({
+export const getConversationWindowTool: DynamicStructuredTool = new DynamicStructuredTool({
   name: 'get_conversation_window',
   description: 'Retrieve recent conversation messages (last N messages) for context. Useful for understanding the conversation flow.',
   schema: getConversationWindowSchema,
   func: async ({ sessionId, maxMessages = 8 }: GetConversationWindowParams): Promise<string> => {
     try {
       // Load database dependencies
-      loadDatabaseDependencies();
+      await loadDatabaseDependencies();
       
       const messageRepo = AppDataSource.getRepository(SessionMessage);
       const messages = await messageRepo
@@ -181,12 +185,12 @@ export const getConversationWindowTool = new DynamicStructuredTool({
       return JSON.stringify({ error: 'Failed to retrieve messages', messages: [] });
     }
   },
-} as any);
+});
 
 /**
  * All evaluation tools as an array
  */
-export const evaluationTools = [
+export const evaluationTools: DynamicStructuredTool[] = [
   analyzeUserBehaviorTool,
   analyzeAiIndicatorsTool,
   getGoalContextTool,

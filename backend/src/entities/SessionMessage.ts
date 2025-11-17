@@ -6,6 +6,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Relation,
 } from 'typeorm';
 import { SimulationSession } from './SimulationSession';
 
@@ -221,7 +222,7 @@ export class SessionMessage {
   // Relationships
   @ManyToOne(() => SimulationSession, (session) => session.messages)
   @JoinColumn({ name: 'sessionId' })
-    session!: SimulationSession;
+    session!: Relation<SimulationSession>;
 
   // Methods
   get isFromUser(): boolean {

@@ -8,6 +8,7 @@ import {
   OneToMany,
   OneToOne,
   JoinColumn,
+  Relation,
 } from 'typeorm';
 import { User } from './User';
 import { Simulation } from './Simulation';
@@ -275,17 +276,17 @@ export class SimulationSession {
   // Relationships
   @ManyToOne(() => User, (user) => user.simulationSessions)
   @JoinColumn()
-    user!: User;
+    user!: Relation<User>;
 
   @ManyToOne(() => Simulation, (simulation) => simulation.sessions)
   @JoinColumn()
-    simulation!: Simulation;
+    simulation!: Relation<Simulation>;
 
   @OneToMany(() => SessionMessage, (message) => message.session)
     messages!: SessionMessage[];
 
   @OneToOne(() => PerformanceAnalytics, (analytics) => analytics.session)
-    analytics?: PerformanceAnalytics;
+    analytics?: Relation<PerformanceAnalytics>;
 
   // Virtual properties and methods
   get isCompleted(): boolean {
