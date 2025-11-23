@@ -4,6 +4,17 @@ import { DataSource } from 'typeorm';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import {
+  Category,
+  PerformanceAnalytics,
+  Persona,
+  SessionMessage,
+  Simulation,
+  SimulationSession,
+  Subscription,
+  SystemConfiguration,
+  User,
+} from '@/entities';
 
 dotenv.config();
 
@@ -27,7 +38,17 @@ export default new DataSource({
   database: process.env.DB_DATABASE || 'careersim_db',
   synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
   logging: process.env.DB_LOGGING === 'true' || false,
-  entities: [`${srcPath}/entities/*.${fileExtension}`],
+  entities: [
+    Category,
+    PerformanceAnalytics,
+    Persona,
+    SessionMessage,
+    Simulation,
+    SimulationSession,
+    Subscription,
+    SystemConfiguration,
+    User,
+  ],
   migrations: [`${srcPath}/migrations/*.${fileExtension}`],
   subscribers: [`${srcPath}/subscribers/*.${fileExtension}`],
   extra: {
