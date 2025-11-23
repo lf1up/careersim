@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: rag
   namespace: careersim
@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/name: rag
     app.kubernetes.io/part-of: careersim
 spec:
+  serviceName: rag
   replicas: 1
   selector:
     matchLabels:
@@ -34,6 +35,9 @@ spec:
                 name: app-config
             - secretRef:
                 name: app-secrets
+          volumeMounts:
+            - name: rag-data
+              mountPath: /app/chroma
           readinessProbe:
             exec:
               command:
@@ -52,5 +56,12 @@ spec:
             initialDelaySeconds: 90
             periodSeconds: 20
             timeoutSeconds: 10
-
+  volumeClaimTemplates:
+    - metadata:
+        name: rag-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
 

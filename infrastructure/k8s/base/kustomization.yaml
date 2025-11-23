@@ -15,7 +15,7 @@ resources:
   - postgres-service.yaml
   - redis-statefulset.yaml
   - redis-service.yaml
-  - rag-deployment.yaml
+  - rag-statefulset.yaml
   - rag-service.yaml
   - transformers-deployment.yaml
   - transformers-service.yaml

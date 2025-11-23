@@ -4,8 +4,8 @@ This directory provides a plain Kubernetes setup using Kustomize, mirroring the 
 
 - Namespace `careersim`
 - Backend API `Deployment`/`Service`
-- Postgres and Redis `StatefulSet`/`Service`
-- RAG and Transformers `Deployment`/`Service`
+- Postgres, Redis, and RAG `StatefulSet`/`Service`
+- Transformers `Deployment`/`Service`
 - Persistent volume claim for uploads
 - Kustomize overlays for `dev` and `prod`
 
@@ -25,7 +25,7 @@ infrastructure/k8s/
     postgres-service.yaml
     redis-statefulset.yaml
     redis-service.yaml
-    rag-deployment.yaml
+    rag-statefulset.yaml
     rag-service.yaml
     transformers-deployment.yaml
     transformers-service.yaml
