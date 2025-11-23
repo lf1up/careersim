@@ -30,5 +30,13 @@ echo "📥 Installing dependencies..."
 pip install --upgrade pip
 pip install -r requirements.txt
 
-exec uvicorn main:app --host 0.0.0.0 --port ${API_PORT:-8002} --reload
+echo "🌟 Starting the service..."
+echo "📖 API Documentation will be available at: http://${API_HOST:-0.0.0.0}:${API_PORT:-8002}/docs"
+echo "🏥 Health check available at: http://${API_HOST:-0.0.0.0}:${API_PORT:-8002}/health"
+echo ""
+echo "⚠️  First startup may take several minutes to download models!"
+echo "💡 Use Ctrl+C to stop the service"
+echo ""
+
+exec uvicorn main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8002} --reload
 
