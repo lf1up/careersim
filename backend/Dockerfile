@@ -22,6 +22,7 @@ COPY . .
 ARG NODE_ENV=production
 RUN if [ "$NODE_ENV" != "development" ]; then \
       pnpm run build; \
+      pnpm run obfuscate; \
     else \
       mkdir -p dist; \
     fi

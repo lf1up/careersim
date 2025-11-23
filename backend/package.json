@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "nodemon src/server.ts",
     "build": "tsc && tsc-alias && node scripts/fix-esm-imports.cjs",
+    "obfuscate": "javascript-obfuscator dist --output dist --config obfuscator.config.json",
     "start": "node dist/server.js",
     "db:migrate": "tsx ./node_modules/typeorm/cli.js migration:run -d src/config/datasource.ts",
     "db:migrate:revert": "tsx ./node_modules/typeorm/cli.js migration:revert -d src/config/datasource.ts",
@@ -114,6 +115,7 @@
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-security-node": "^1.1.1",
     "globals": "^16.5.0",
+    "javascript-obfuscator": "^4.1.1",
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",
     "supertest": "^7.1.4",
