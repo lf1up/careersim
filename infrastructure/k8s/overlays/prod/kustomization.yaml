@@ -5,6 +5,7 @@ namespace: careersim
 
 resources:
   - ../../base
+  - ingress.yaml
 
 namePrefix: prod-
 
@@ -13,26 +14,32 @@ configMapGenerator:
     behavior: merge
     literals:
       - NODE_ENV=production
-      - DB_LOGGING=false
+      - DB_HOST=prod-postgres
+      - DB_LOGGING=true
+      - REDIS_HOST=prod-redis
+      - TRANSFORMERS_API_URL=http://prod-transformers:8001
+      - RAG_API_URL=http://prod-rag:8002
+      - ALLOWED_ORIGINS=http://localhost:3000
+      - LANGCHAIN_PROJECT=careersim-prod
       - USE_LANGGRAPH=true
 
 secretGenerator:
   - name: app-secrets
     behavior: replace
     literals:
-      - DB_USERNAME=
-      - DB_PASSWORD=
-      - JWT_SECRET=
-      - JWT_REFRESH_SECRET=
-      - SESSION_SECRET=
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=prod-secret-at-least-32-characters-long-for-validation
+      - JWT_REFRESH_SECRET=prod-refresh-secret-at-least-32-characters-long
+      - SESSION_SECRET=prod-session-secret-at-least-32-characters-long
       - SMTP_USER=
       - SMTP_PASS=
       - OPENAI_API_KEY=
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=
-      - RAG_API_KEY=
-      - TRANSFORMERS_API_KEY=
+      - RAG_API_KEY=prod-token-eb4b864605e-min-32-chars-required-for-security
+      - TRANSFORMERS_API_KEY=prod-token-bdd297cb5b5-min-32-chars-required-for-security
       - LANGGRAPH_DEPLOYMENT_URL=
       - LANGGRAPH_API_KEY=
       - LANGCHAIN_API_KEY=

@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: careersim
+  namespace: careersim
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+    - host: careersim.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-backend
+                port:
+                  number: 8000
+          - path: /rag
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-rag
+                port:
+                  number: 8002
+          - path: /transformers
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-transformers
+                port:
+                  number: 8001
+
+
