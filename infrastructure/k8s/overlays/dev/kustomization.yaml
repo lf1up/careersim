@@ -10,7 +10,30 @@ resources:
 namePrefix: dev-
 
 patches:
-  - path: image-pull-secret-patch.yaml
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+  - target:
+      kind: StatefulSet
+      name: rag
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+  - target:
+      kind: Deployment
+      name: transformers
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
 
 configMapGenerator:
   - name: app-config
@@ -18,11 +41,12 @@ configMapGenerator:
     literals:
       - NODE_ENV=development
       - DB_HOST=dev-postgres
-      - DB_LOGGING=true
+      - DB_SSL=false
+      - DB_LOGGING=false
       - REDIS_HOST=dev-redis
       - TRANSFORMERS_API_URL=http://dev-transformers:8001
       - RAG_API_URL=http://dev-rag:8002
-      - ALLOWED_ORIGINS=http://localhost:3000
+      - ALLOWED_ORIGINS=https://api.careersim.ai,https://careersim.ai
       - LANGCHAIN_PROJECT=careersim-dev
       - USE_LANGGRAPH=true
 
@@ -32,12 +56,12 @@ secretGenerator:
     literals:
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
-      - JWT_SECRET=dev-secret-at-least-32-characters-long-for-validation
-      - JWT_REFRESH_SECRET=dev-refresh-secret-at-least-32-characters-long
-      - SESSION_SECRET=dev-session-secret-at-least-32-characters-long
+      - JWT_SECRET=dev-secret-at-least-32-characters-long-for-validation-435e6670f51
+      - JWT_REFRESH_SECRET=dev-refresh-secret-at-least-32-characters-long-435e6670f51
+      - SESSION_SECRET=dev-session-secret-at-least-32-characters-long-435e6670f51
       - SMTP_USER=
       - SMTP_PASS=
-      - OPENAI_API_KEY=
+      - OPENAI_API_KEY=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
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=
@@ -51,12 +75,12 @@ secretGenerator:
 images:
   - name: backend
     newName: ghcr.io/lf1up/careersim
-    newTag: backend-dev
+    newTag: backend-v2
   - name: rag
     newName: ghcr.io/lf1up/careersim
-    newTag: rag-dev
+    newTag: rag-v2
   - name: transformers
     newName: ghcr.io/lf1up/careersim
-    newTag: transformers-dev
+    newTag: transformers-v2
 
 

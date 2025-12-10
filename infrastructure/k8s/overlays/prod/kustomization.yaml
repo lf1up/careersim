@@ -9,17 +9,44 @@ resources:
 
 namePrefix: prod-
 
+patches:
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+  - target:
+      kind: StatefulSet
+      name: rag
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+  - target:
+      kind: Deployment
+      name: transformers
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+
 configMapGenerator:
   - name: app-config
     behavior: merge
     literals:
       - NODE_ENV=production
       - DB_HOST=prod-postgres
-      - DB_LOGGING=true
+      - DB_SSL=false
+      - DB_LOGGING=false
       - REDIS_HOST=prod-redis
       - TRANSFORMERS_API_URL=http://prod-transformers:8001
       - RAG_API_URL=http://prod-rag:8002
-      - ALLOWED_ORIGINS=http://localhost:3000
+      - ALLOWED_ORIGINS=https://api.careersim.ai,https://careersim.ai
       - LANGCHAIN_PROJECT=careersim-prod
       - USE_LANGGRAPH=true
 
@@ -29,17 +56,17 @@ secretGenerator:
     literals:
       - DB_USERNAME=postgres
       - DB_PASSWORD=postgres
-      - JWT_SECRET=prod-secret-at-least-32-characters-long-for-validation
-      - JWT_REFRESH_SECRET=prod-refresh-secret-at-least-32-characters-long
-      - SESSION_SECRET=prod-session-secret-at-least-32-characters-long
+      - JWT_SECRET=fill-me-in
+      - JWT_REFRESH_SECRET=fill-me-in
+      - SESSION_SECRET=fill-me-in
       - SMTP_USER=
       - SMTP_PASS=
-      - OPENAI_API_KEY=
+      - OPENAI_API_KEY=fill-me-in
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=
-      - RAG_API_KEY=prod-token-eb4b864605e-min-32-chars-required-for-security
-      - TRANSFORMERS_API_KEY=prod-token-bdd297cb5b5-min-32-chars-required-for-security
+      - RAG_API_KEY=fill-me-in
+      - TRANSFORMERS_API_KEY=fill-me-in
       - LANGGRAPH_DEPLOYMENT_URL=
       - LANGGRAPH_API_KEY=
       - LANGCHAIN_API_KEY=

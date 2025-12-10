@@ -17,7 +17,8 @@ import {
 dotenv.config();
 
 const dbSslEnv = (process.env.DB_SSL || '').toLowerCase();
-const shouldUseSSL = dbSslEnv === 'true' || dbSslEnv === 'require' || process.env.NODE_ENV === 'production';
+// DB_SSL=false explicitly disables SSL, otherwise enable in production
+const shouldUseSSL = dbSslEnv === 'false' ? false : (dbSslEnv === 'true' || dbSslEnv === 'require' || process.env.NODE_ENV === 'production');
 
 // Determine if we're running compiled (dist) or source (src) code
 // Check if this file is in the dist directory to know we're running compiled code

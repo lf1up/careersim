@@ -4,10 +4,16 @@ metadata:
   name: careersim
   namespace: careersim
   annotations:
-    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.careersim.ai
+      secretName: api-careersim-tls
   rules:
-    - host: careersim.local
+    - host: api.careersim.ai
       http:
         paths:
           - path: /
@@ -31,5 +37,3 @@ spec:
                 name: dev-transformers
                 port:
                   number: 8001
-
-
