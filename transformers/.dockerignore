@@ -1,0 +1,11 @@
+models_cache/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.git/
+.gitignore
+*.md
+test_*.py
+node_modules/

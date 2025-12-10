@@ -9,6 +9,9 @@ resources:
 
 namePrefix: dev-
 
+patches:
+  - path: image-pull-secret-patch.yaml
+
 configMapGenerator:
   - name: app-config
     behavior: merge
@@ -47,13 +50,13 @@ secretGenerator:
 
 images:
   - name: backend
-    newName: backend
-    newTag: dev
+    newName: ghcr.io/lf1up/careersim
+    newTag: backend-dev
   - name: rag
-    newName: rag
-    newTag: dev
+    newName: ghcr.io/lf1up/careersim
+    newTag: rag-dev
   - name: transformers
-    newName: transformers
-    newTag: dev
+    newName: ghcr.io/lf1up/careersim
+    newTag: transformers-dev
 
 

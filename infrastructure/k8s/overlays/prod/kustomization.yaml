@@ -47,13 +47,13 @@ secretGenerator:
 
 images:
   - name: backend
-    newName: ghcr.io/your-org/backend
-    newTag: latest
+    newName: ghcr.io/lf1up/careersim
+    newTag: backend-latest
   - name: rag
-    newName: ghcr.io/your-org/rag
-    newTag: latest
+    newName: ghcr.io/lf1up/careersim
+    newTag: rag-latest
   - name: transformers
-    newName: ghcr.io/your-org/transformers
-    newTag: latest
+    newName: ghcr.io/lf1up/careersim
+    newTag: transformers-latest
 
 
