@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   OneToOne,
   JoinColumn,
+  Relation,
 } from 'typeorm';
 import { SimulationSession } from './SimulationSession';
 
@@ -427,7 +428,7 @@ export class PerformanceAnalytics {
   // Relationships
   @OneToOne(() => SimulationSession, (session) => session.analytics)
   @JoinColumn({ name: 'sessionId' })
-    session!: SimulationSession;
+    session!: Relation<SimulationSession>;
 
   // Methods
   get hasExcellentPerformance(): boolean {

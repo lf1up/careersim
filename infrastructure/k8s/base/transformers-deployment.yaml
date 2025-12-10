@@ -23,6 +23,12 @@ spec:
           ports:
             - name: http
               containerPort: 8001
+          env:
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: TRANSFORMERS_API_KEY
           envFrom:
             - configMapRef:
                 name: app-config
@@ -30,27 +36,33 @@ spec:
                 name: app-secrets
           resources:
             limits:
-              nvidia.com/gpu: "1"
+              # nvidia.com/gpu: "1"  # Commented out for M1 Mac testing (no NVIDIA GPU)
             requests:
               cpu: "500m"
               memory: "1Gi"
           readinessProbe:
-            httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 20
+            exec:
+              command:
+                - python
+                - -c
+                - 'import sys, httpx; r = httpx.get("http://localhost:8001/", timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)'
+            initialDelaySeconds: 60
             periodSeconds: 10
+            timeoutSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /health
-              port: http
-            initialDelaySeconds: 40
+            exec:
+              command:
+                - python
+                - -c
+                - 'import sys, httpx; r = httpx.get("http://localhost:8001/", timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)'
+            initialDelaySeconds: 90
             periodSeconds: 20
-      nodeSelector:
-        kubernetes.io/arch: amd64
-      tolerations:
-        - key: "nvidia.com/gpu"
-          operator: "Exists"
-          effect: "NoSchedule"
+            timeoutSeconds: 10
+      # nodeSelector:  # Commented out for M1 Mac testing (arm64 architecture)
+      #   kubernetes.io/arch: amd64
+      # tolerations:  # Commented out for M1 Mac testing (no NVIDIA GPU)
+      #   - key: "nvidia.com/gpu"
+      #     operator: "Exists"
+      #     effect: "NoSchedule"
 
 

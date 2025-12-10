@@ -15,9 +15,73 @@ resources:
   - postgres-service.yaml
   - redis-statefulset.yaml
   - redis-service.yaml
-  - rag-deployment.yaml
+  - rag-statefulset.yaml
   - rag-service.yaml
   - transformers-deployment.yaml
   - transformers-service.yaml
+
+configMapGenerator:
+  - name: app-config
+    literals:
+      - NODE_ENV=production
+      - PORT=8000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=careersim
+      - DB_SYNCHRONIZE=false
+      - DB_LOGGING=false
+      - JWT_EXPIRES_IN=7d
+      - JWT_REFRESH_EXPIRES_IN=30d
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SMTP_HOST=
+      - SMTP_PORT=587
+      - SMTP_SECURE=false
+      - OPENAI_BASE_URL=
+      - OPENAI_MODEL=gpt-4o-mini
+      - OPENAI_PROVIDER=openai
+      - OPENAI_MAX_TOKENS=4096
+      - OPENAI_TEMPERATURE=0.2
+      - OPENAI_TOP_P=1
+      - OPENAI_FREQUENCY_PENALTY=0
+      - OPENAI_PRESENCE_PENALTY=0
+      - OPENAI_EVAL_MODEL=gpt-4o-mini
+      - OPENAI_EVAL_PROVIDER=openai
+      - OPENAI_EVAL_MAX_TOKENS=4096
+      - OPENAI_EVAL_TEMPERATURE=0.2
+      - OPENAI_EVAL_TOP_P=1
+      - OPENAI_EVAL_FREQUENCY_PENALTY=0
+      - OPENAI_EVAL_PRESENCE_PENALTY=0
+      - TRANSFORMERS_API_URL=http://transformers:8001
+      - RAG_API_URL=http://rag:8002
+      - MAX_FILE_SIZE=52428800
+      - UPLOAD_PATH=/uploads
+      - RATE_LIMIT_WINDOW_MS=60000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - ALLOWED_ORIGINS=*
+      - USE_LANGGRAPH=true
+      - LANGCHAIN_TRACING_V2=false
+      - LANGCHAIN_PROJECT=careersim-prod
+
+secretGenerator:
+  - name: app-secrets
+    literals:
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=change-me
+      - JWT_REFRESH_SECRET=change-me-too
+      - SESSION_SECRET=change-session-secret
+      - SMTP_USER=
+      - SMTP_PASS=
+      - OPENAI_API_KEY=
+      - STRIPE_SECRET_KEY=
+      - STRIPE_WEBHOOK_SECRET=
+      - STRIPE_PUBLISHABLE_KEY=
+      - RAG_API_KEY=dev-token
+      - TRANSFORMERS_API_KEY=dev-token
+      - LANGGRAPH_DEPLOYMENT_URL=
+      - LANGGRAPH_API_KEY=
+      - LANGCHAIN_API_KEY=
+      - GRAPH_ASSISTANT_ID=
 
 

@@ -2,16 +2,32 @@
 // It only exports the default DataSource as required by TypeORM CLI
 import { DataSource } from 'typeorm';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import {
+  Category,
+  PerformanceAnalytics,
+  Persona,
+  SessionMessage,
+  Simulation,
+  SimulationSession,
+  Subscription,
+  SystemConfiguration,
+  User,
+} from '@/entities';
 
 dotenv.config();
 
 const dbSslEnv = (process.env.DB_SSL || '').toLowerCase();
 const shouldUseSSL = dbSslEnv === 'true' || dbSslEnv === 'require' || process.env.NODE_ENV === 'production';
 
-// Determine if we're running compiled (production) or source (development)
-const isProduction = process.env.NODE_ENV === 'production';
-const srcPath = isProduction ? 'dist' : 'src';
-const fileExtension = isProduction ? 'js' : 'ts';
+// Determine if we're running compiled (dist) or source (src) code
+// Check if this file is in the dist directory to know we're running compiled code
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const isCompiledCode = __dirname.includes('/dist/');
+const srcPath = isCompiledCode ? 'dist' : 'src';
+const fileExtension = isCompiledCode ? 'js' : 'ts';
 
 export default new DataSource({
   type: 'postgres',
@@ -22,7 +38,17 @@ export default new DataSource({
   database: process.env.DB_DATABASE || 'careersim_db',
   synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
   logging: process.env.DB_LOGGING === 'true' || false,
-  entities: [`${srcPath}/entities/*.${fileExtension}`],
+  entities: [
+    Category,
+    PerformanceAnalytics,
+    Persona,
+    SessionMessage,
+    Simulation,
+    SimulationSession,
+    Subscription,
+    SystemConfiguration,
+    User,
+  ],
   migrations: [`${srcPath}/migrations/*.${fileExtension}`],
   subscribers: [`${srcPath}/subscribers/*.${fileExtension}`],
   extra: {

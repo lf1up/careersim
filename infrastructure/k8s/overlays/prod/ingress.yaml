@@ -1,0 +1,39 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: careersim
+  namespace: careersim
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.careersim.ai
+      secretName: api-careersim-tls
+  rules:
+    - host: api.careersim.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-backend
+                port:
+                  number: 8000
+          - path: /rag
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-rag
+                port:
+                  number: 8002
+          - path: /transformers
+            pathType: Prefix
+            backend:
+              service:
+                name: prod-transformers
+                port:
+                  number: 8001

@@ -4,8 +4,8 @@ This directory provides a plain Kubernetes setup using Kustomize, mirroring the 
 
 - Namespace `careersim`
 - Backend API `Deployment`/`Service`
-- Postgres and Redis `StatefulSet`/`Service`
-- RAG and Transformers `Deployment`/`Service`
+- Postgres, Redis, and RAG `StatefulSet`/`Service`
+- Transformers `Deployment`/`Service`
 - Persistent volume claim for uploads
 - Kustomize overlays for `dev` and `prod`
 
@@ -25,7 +25,7 @@ infrastructure/k8s/
     postgres-service.yaml
     redis-statefulset.yaml
     redis-service.yaml
-    rag-deployment.yaml
+    rag-statefulset.yaml
     rag-service.yaml
     transformers-deployment.yaml
     transformers-service.yaml
@@ -46,19 +46,15 @@ infrastructure/k8s/
 
 ### Quick start (dev)
 
-1. Create secrets from example (edit values):
-   ```bash
-   kubectl apply -f infrastructure/k8s/base/app-secrets.example.yaml
-   ```
-2. Apply dev overlay:
+1. Apply dev overlay:
    ```bash
    kubectl apply -k infrastructure/k8s/overlays/dev
    ```
-3. Add host entry to access via ingress:
+2. Add host entry to access via ingress:
    ```bash
    echo "127.0.0.1 careersim.local" | sudo tee -a /etc/hosts
    ```
-4. Port-forward if not using ingress:
+3. Port-forward if not using ingress:
    ```bash
    kubectl -n careersim port-forward svc/dev-backend 8000:8000
    ```
@@ -73,6 +69,10 @@ kubectl apply -k infrastructure/k8s/overlays/prod
 
 ### Notes
 
+- **LangGraph**: Enabled by default (`USE_LANGGRAPH=true`). This uses the embedded LangGraph conversation system for AI simulations.
+  - Optional: Set `LANGCHAIN_TRACING_V2=true` to enable LangSmith tracing
+  - Optional: Configure `LANGGRAPH_DEPLOYMENT_URL` and `LANGGRAPH_API_KEY` to use a remote LangGraph deployment
+  - Optional: Set `LANGCHAIN_API_KEY` to enable LangSmith monitoring
 - GPU scheduling for `transformers` uses a resource limit `nvidia.com/gpu: 1`. Ensure NVIDIA device plugin is installed on nodes if needed.
 - Database creds are sourced from `Secret app-secrets`; update accordingly if using an external DB.
 - The backend expects envs aligned with Terraform vars in `infrastructure/aws/main.tf`.

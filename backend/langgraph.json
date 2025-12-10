@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "conversation": "./src/services/langgraph/standalone-server.ts:graph"
+  },
+  "env": ".env"
+}
+

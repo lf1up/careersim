@@ -8,6 +8,7 @@ import {
   OneToOne,
   JoinColumn,
   Index,
+  Relation,
 } from 'typeorm';
 import { SimulationSession } from './SimulationSession';
 import { Subscription } from './Subscription';
@@ -175,7 +176,7 @@ export class User {
 
   @OneToOne(() => Subscription, (subscription) => subscription.user)
   @JoinColumn()
-    subscription?: Subscription;
+    subscription?: Relation<Subscription>;
 
   // Methods
   get fullName(): string {

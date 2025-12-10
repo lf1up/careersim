@@ -2,7 +2,7 @@
   "watch": ["src"],
   "ext": "ts,json",
   "ignore": ["src/**/*.spec.ts", "src/**/*.test.ts"],
-  "exec": "ts-node -r tsconfig-paths/register",
+  "exec": "tsx",
   "legacyWatch": true,
   "polling": true,
   "pollingInterval": 1000,

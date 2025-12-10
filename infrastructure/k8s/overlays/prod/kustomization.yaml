@@ -5,41 +5,82 @@ namespace: careersim
 
 resources:
   - ../../base
+  - ingress.yaml
 
 namePrefix: prod-
+
+patches:
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+  - target:
+      kind: StatefulSet
+      name: rag
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
+  - target:
+      kind: Deployment
+      name: transformers
+    patch: |-
+      - op: add
+        path: /spec/template/spec/imagePullSecrets
+        value:
+          - name: ghcr-credentials
 
 configMapGenerator:
   - name: app-config
     behavior: merge
     literals:
       - NODE_ENV=production
+      - DB_HOST=prod-postgres
+      - DB_SSL=false
       - DB_LOGGING=false
+      - REDIS_HOST=prod-redis
+      - TRANSFORMERS_API_URL=http://prod-transformers:8001
+      - RAG_API_URL=http://prod-rag:8002
+      - ALLOWED_ORIGINS=https://api.careersim.ai,https://careersim.ai
+      - LANGCHAIN_PROJECT=careersim-prod
+      - USE_LANGGRAPH=true
 
 secretGenerator:
   - name: app-secrets
     behavior: replace
     literals:
-      - DB_USERNAME=
-      - DB_PASSWORD=
-      - JWT_SECRET=
-      - JWT_REFRESH_SECRET=
-      - SESSION_SECRET=
-      - OPENAI_API_KEY=
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=fill-me-in
+      - JWT_REFRESH_SECRET=fill-me-in
+      - SESSION_SECRET=fill-me-in
+      - SMTP_USER=
+      - SMTP_PASS=
+      - OPENAI_API_KEY=fill-me-in
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=
-      - RAG_API_KEY=
-      - TRANSFORMERS_API_KEY=
+      - RAG_API_KEY=fill-me-in
+      - TRANSFORMERS_API_KEY=fill-me-in
+      - LANGGRAPH_DEPLOYMENT_URL=
+      - LANGGRAPH_API_KEY=
+      - LANGCHAIN_API_KEY=
+      - GRAPH_ASSISTANT_ID=
 
 images:
   - name: backend
-    newName: ghcr.io/your-org/backend
-    newTag: latest
+    newName: ghcr.io/lf1up/careersim
+    newTag: backend-latest
   - name: rag
-    newName: ghcr.io/your-org/rag
-    newTag: latest
+    newName: ghcr.io/lf1up/careersim
+    newTag: rag-latest
   - name: transformers
-    newName: ghcr.io/your-org/transformers
-    newTag: latest
+    newName: ghcr.io/lf1up/careersim
+    newTag: transformers-latest
 
 

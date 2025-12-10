@@ -10,6 +10,7 @@ import {
   JoinTable,
   JoinColumn,
   Index,
+  Relation,
 } from 'typeorm';
 import { Category } from './Category';
 import { Persona } from './Persona';
@@ -322,7 +323,7 @@ export class Simulation {
   // Relationships
   @ManyToOne(() => Category, (category) => category.simulations)
   @JoinColumn()
-    category!: Category;
+    category!: Relation<Category>;
 
   @ManyToMany(() => Persona, (persona) => persona.simulations)
   @JoinTable({

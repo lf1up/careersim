@@ -369,75 +369,106 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
     try {
       const persona = simulation.personas?.[0];
       const cs: any = persona?.conversationStyle || {};
-      const startsConversation = cs?.startsConversation === true || (cs?.startsConversation === 'sometimes' && randomFloat() < (cs?.initiativeProbability ?? 0.3));
+      // For 'sometimes', use burstiness as proxy: more chatty personas (higher max) are more likely to start
+      const burstMax = cs?.burstiness?.max || 1;
+      const sometimesProbability = Math.min(0.5, burstMax * 0.15); // max=3 -> 45% chance
+      const startsConversation = cs?.startsConversation === true || (cs?.startsConversation === 'sometimes' && randomFloat() < sometimesProbability);
       if (persona && startsConversation) {
-        const { AIService } = await import('@/services/ai');
-        const aiService = new AIService();
-        const context = {
-          persona,
-          simulation,
-          conversationHistory: [] as SessionMessage[],
-          sessionDuration: 0,
-        };
-
-        const aiResponse = await aiService.generateProactivePersonaMessage(context, { reason: 'start' });
-
-        // Persist AI opening message
-        const messageRepository = AppDataSource.getRepository(SessionMessage);
-        const aiMessage = new SessionMessage();
-        aiMessage.session = session;
-        aiMessage.sequenceNumber = 1;
-        aiMessage.type = MessageType.AI;
-        aiMessage.content = aiResponse.message;
-        aiMessage.timestamp = new Date();
-        aiMessage.metadata = {
-          confidence: aiResponse.confidence,
-          processingTime: aiResponse.processingTime,
-          emotionalTone: aiResponse.emotionalTone,
-          sentiment: aiResponse.metadata.sentiment,
-        };
-        await messageRepository.save(aiMessage);
-        session.addMessage();
-        session.turn = 'user';
-        session.aiInitiated = true;
-        session.lastAiMessageAt = new Date();
-
-        // Set initial inactivity nudge time based on persona config (unified {min,max} with fallbacks)
-        {
-          const csStart: any = persona.conversationStyle || {};
-          const delayCfg = csStart?.inactivityNudgeDelaySec || {};
-          const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
-          const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
-          const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
-          session.inactivityNudgeAt = new Date(Date.now() + delay);
-          session.inactivityNudgeCount = 0;
-        }
-        await sessionRepository.save(session);
-
-        // Emit via Socket.IO
-        try {
-          const { io } = await import('@/server');
-          io.to(`session-${session.id}`).emit('message-received', {
+        // Check if LangGraph is enabled
+        if (config.langgraph.useLangGraph) {
+          console.log('🔵 Using LangGraph for session start');
+          
+          // Use LangGraph for start message
+          const { invokeConversationGraph } = await import('@/services/langgraph');
+          
+          await invokeConversationGraph({
             sessionId: session.id,
-            message: {
-              id: aiMessage.id,
-              sessionId: session.id,
-              sequenceNumber: aiMessage.sequenceNumber,
-              type: aiMessage.type,
-              content: aiMessage.content,
-              inputMethod: aiMessage.inputMethod,
-              metadata: aiMessage.metadata,
-              timestamp: aiMessage.timestamp,
-              isHighlighted: aiMessage.isHighlighted,
-              highlightReason: aiMessage.highlightReason,
-              analysisData: aiMessage.analysisData,
-              createdAt: aiMessage.createdAt,
-              isFromUser: false,
-            },
-            timestamp: new Date(),
+            userId: req.user!.id,
+            proactiveTrigger: 'start',
+            userMessage: undefined, // Explicitly clear to prevent checkpoint carryover
           });
-        } catch (emitErr) {
-          console.warn('⚠️ Failed to emit opening AI message:', emitErr);
+          
+          // Graph handles all persistence and emission
+          // Reload session to get updated messageCount and other fields updated by the graph
+          const updatedSession = await sessionRepository.findOne({
+            where: { id: session.id },
+          });
+          
+          if (updatedSession) {
+            updatedSession.aiInitiated = true;
+            await sessionRepository.save(updatedSession);
+          }
+        } else {
+          // OLD PATH: Use AIService
+          const { AIService } = await import('@/services/ai');
+          const aiService = new AIService();
+          const context = {
+            persona,
+            simulation,
+            conversationHistory: [] as SessionMessage[],
+            sessionDuration: 0,
+          };
+
+          const aiResponse = await aiService.generateProactivePersonaMessage(context, { reason: 'start' });
+
+          // Persist AI opening message
+          const messageRepository = AppDataSource.getRepository(SessionMessage);
+          const aiMessage = new SessionMessage();
+          aiMessage.session = session;
+          aiMessage.sequenceNumber = 1;
+          aiMessage.type = MessageType.AI;
+          aiMessage.content = aiResponse.message;
+          aiMessage.timestamp = new Date();
+          aiMessage.metadata = {
+            confidence: aiResponse.confidence,
+            processingTime: aiResponse.processingTime,
+            emotionalTone: aiResponse.emotionalTone,
+            sentiment: aiResponse.metadata.sentiment,
+          };
+          await messageRepository.save(aiMessage);
+          session.addMessage();
+          session.turn = 'user';
+          session.aiInitiated = true;
+          session.lastAiMessageAt = new Date();
+
+          // Set initial inactivity nudge time based on persona config (unified {min,max} with fallbacks)
+          {
+            const csStart: any = persona.conversationStyle || {};
+            const delayCfg = csStart?.inactivityNudgeDelaySec || {};
+            const minSec = Math.max(5, Number(delayCfg?.min ?? 60));
+            const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
+            const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
+            session.inactivityNudgeAt = new Date(Date.now() + delay);
+            session.inactivityNudgeCount = 0;
+            (session as any).targetInactivityNudges = undefined; // Clear target for new session
+          }
+          await sessionRepository.save(session);
+
+          // Emit via Socket.IO
+          try {
+            const { io } = await import('@/server');
+            io.to(`session-${session.id}`).emit('message-received', {
+              sessionId: session.id,
+              message: {
+                id: aiMessage.id,
+                sessionId: session.id,
+                sequenceNumber: aiMessage.sequenceNumber,
+                type: aiMessage.type,
+                content: aiMessage.content,
+                inputMethod: aiMessage.inputMethod,
+                metadata: aiMessage.metadata,
+                timestamp: aiMessage.timestamp,
+                isHighlighted: aiMessage.isHighlighted,
+                highlightReason: aiMessage.highlightReason,
+                analysisData: aiMessage.analysisData,
+                createdAt: aiMessage.createdAt,
+                isFromUser: false,
+              },
+              timestamp: new Date(),
+            });
+          } catch (emitErr) {
+            console.warn('⚠️ Failed to emit opening AI message:', emitErr);
+          }
         }
       } else {
         // If AI does not initiate, set turn to user and schedule nudge
@@ -450,6 +481,7 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
           const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
           session.inactivityNudgeAt = new Date(Date.now() + delay);
           session.inactivityNudgeCount = 0;
+          (session as any).targetInactivityNudges = undefined; // Clear target for new session
           await sessionRepository.save(session);
         }
       }
@@ -806,6 +838,14 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
     session.addMessage();
     session.lastUserMessageAt = new Date();
     session.turn = 'ai';
+    
+    // If this is a user message, clear inactivity tracking
+    if (type === MessageType.USER) {
+      session.inactivityNudgeCount = 0;
+      session.inactivityNudgeAt = null as any;
+      (session as any).targetInactivityNudges = undefined; // Clear target so it can be re-rolled
+    }
+    
     await sessionRepository.save(session);
 
     // Transform message to include isFromUser field for frontend compatibility
@@ -829,7 +869,25 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
     // If this is a user message, generate AI response
     if (type === MessageType.USER && session.simulation?.personas?.length > 0) {
       try {
-        // Import AI service dynamically to avoid circular dependencies
+        // Check if LangGraph is enabled
+        if (config.langgraph.useLangGraph) {
+          console.log('🔵 Using LangGraph for conversation');
+          
+          // Use LangGraph for conversation
+          const { invokeConversationGraph } = await import('@/services/langgraph');
+          
+          await invokeConversationGraph({
+            sessionId,
+            userId: req.user!.id,
+            userMessage: content,
+          });
+          
+          // Graph handles all persistence and emission
+          // Just return success
+          return res.status(201).json({ message: transformedMessage });
+        }
+        
+        // OLD PATH: Import AI service dynamically to avoid circular dependencies
         const { AIService } = await import('@/services/ai');
         const aiService = new AIService();
 
@@ -849,18 +907,14 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           sessionDuration: Date.now() - session.createdAt.getTime(),
         };
 
-        // Backchannel: probabilistically interject on short/unclear user replies
-        const cs: any = activePersona.conversationStyle || {};
-        const backchannelProbability = Math.max(0, Math.min(1, Number(cs?.backchannelProbability) || 0));
-        const trimmed = (content || '').trim();
-        const wordCount = trimmed.length > 0 ? trimmed.split(/\s+/).filter(Boolean).length : 0;
-        const isVeryShort = trimmed.length < 20 || wordCount <= 4;
-        const isAmbiguous = /^(okay|ok|sure|yes|no|maybe|idk|i don't know|not sure|hmm|uh|what\??|thanks\.?|cool\.?|great\.?|fine\.?|good\.?|yep|nah|alright)\b/i.test(trimmed) || /\?\?\?$/.test(trimmed);
-
+        // Generate main AI response
+        // const cs: any = activePersona.conversationStyle || {};
+        
         let aiResponse = null as any;
         let backchannelSent = false;
         try {
-          if ((isVeryShort || isAmbiguous) && randomFloat() < backchannelProbability) {
+          // Removed backchannel logic - burstiness handles follow-up behavior
+          if (false) {
             // Send a brief clarification/backchannel instead of a full response
             const backchannel = await aiService.generateProactivePersonaMessage(conversationContext, { reason: 'backchannel', lastUserMessage: content });
 
