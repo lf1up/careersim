@@ -46,19 +46,15 @@ infrastructure/k8s/
 
 ### Quick start (dev)
 
-1. Create secrets from example (edit values):
-   ```bash
-   kubectl apply -f infrastructure/k8s/base/app-secrets.example.yaml
-   ```
-2. Apply dev overlay:
+1. Apply dev overlay:
    ```bash
    kubectl apply -k infrastructure/k8s/overlays/dev
    ```
-3. Add host entry to access via ingress:
+2. Add host entry to access via ingress:
    ```bash
    echo "127.0.0.1 careersim.local" | sudo tee -a /etc/hosts
    ```
-4. Port-forward if not using ingress:
+3. Port-forward if not using ingress:
    ```bash
    kubectl -n careersim port-forward svc/dev-backend 8000:8000
    ```

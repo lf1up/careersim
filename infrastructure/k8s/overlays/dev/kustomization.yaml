@@ -39,7 +39,7 @@ configMapGenerator:
   - name: app-config
     behavior: merge
     literals:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - DB_HOST=dev-postgres
       - DB_SSL=false
       - DB_LOGGING=false

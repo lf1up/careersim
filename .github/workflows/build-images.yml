@@ -7,14 +7,27 @@ on:
       - v2
     paths:
       - 'backend/**'
-      - 'rag/**'
-      - 'transformers/**'
       - '.github/workflows/build-images.yml'
   pull_request:
     branches:
       - main
       - v2
-  workflow_dispatch:  # Allow manual trigger
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      build_backend:
+        description: 'Build backend image'
+        type: boolean
+        default: true
+      build_rag:
+        description: 'Build rag image'
+        type: boolean
+        default: false
+      build_transformers:
+        description: 'Build transformers image'
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -22,6 +35,7 @@ env:
 
 jobs:
   build-backend:
+    if: github.event_name != 'workflow_dispatch' || inputs.build_backend
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -57,6 +71,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   build-rag:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_rag
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -87,11 +102,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./rag
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
   build-transformers:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_transformers
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,6 +138,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./transformers
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
