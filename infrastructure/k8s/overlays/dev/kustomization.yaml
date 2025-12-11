@@ -47,6 +47,7 @@ configMapGenerator:
       - TRANSFORMERS_API_URL=http://dev-transformers:8001
       - RAG_API_URL=http://dev-rag:8002
       - ALLOWED_ORIGINS=https://api.careersim.ai,https://careersim.ai
+      - OPENAI_BASE_URL=https://openrouter.ai/api/v1
       - LANGCHAIN_PROJECT=careersim-dev
       - USE_LANGGRAPH=true
 

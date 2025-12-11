@@ -728,7 +728,7 @@ const seedData = async (): Promise<void> => {
     console.log('🎭 Created simulations:', String(createdSimulations.length));
 
     // Seed Admin User
-    const adminPassword = await AuthUtils.hashPassword('admin123!@#');
+    const adminPassword = await AuthUtils.hashPassword('admin123!@#=SHOOOTm');
     const adminUser = userRepository.create({
       firstName: 'Admin',
       lastName: 'User',
@@ -741,7 +741,7 @@ const seedData = async (): Promise<void> => {
     });
 
     await userRepository.save(adminUser);
-    console.log('👤 Created admin user: admin@careersim.ai / admin123!@#');
+    console.log('👤 Created admin user: admin@careersim.ai / admin123!@#=SHOOOTm');
 
     // Seed Test Users
     const testUsers = [
@@ -821,7 +821,7 @@ const seedData = async (): Promise<void> => {
     console.log(`System Configurations: ${String(configs.length)}`);
     console.log('\n🔐 Admin Login:');
     console.log('Email: admin@careersim.ai');
-    console.log('Password: admin123!@#');
+    console.log('Password: admin123!@#=SHOOOTm');
 
   } catch (error) {
     console.error('❌ Error seeding database:', error);
