@@ -741,7 +741,7 @@ const seedData = async (): Promise<void> => {
     });
 
     await userRepository.save(adminUser);
-    console.log('👤 Created admin user: admin@careersim.ai / admin123!@#');
+    console.log('👤 Created admin user: admin@careersim.ai / admin123!@#=SHOOOTm');
 
     // Seed Test Users
     const testUsers = [
