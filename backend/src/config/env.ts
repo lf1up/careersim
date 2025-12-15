@@ -32,7 +32,7 @@ const numberFromString = (defaultValue: number) =>
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-    PORT: numberFromString(3000),
+    PORT: numberFromString(8000),
     
     // Database
     DB_HOST: z.string().default('localhost'),
@@ -65,9 +65,9 @@ const envSchema = z
     SMTP_PASS: z.string(),
     
     // AI Services
-    OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
+    OPENAI_BASE_URL: z.string().default('https://openrouter.ai/api/v1'),
     OPENAI_API_KEY: z.string(),
-    OPENAI_MODEL: z.string().default('gpt-5'),
+    OPENAI_MODEL: z.string().default('openai/gpt-5.2'),
     OPENAI_PROVIDER: z.string().default('openai'),
     OPENAI_MAX_TOKENS: numberFromString(200000),
     OPENAI_TEMPERATURE: numberFromString(0.8).refine((val) => val >= 0 && val <= 2, {
@@ -76,15 +76,15 @@ const envSchema = z
     OPENAI_TOP_P: numberFromString(1.0).refine((val) => val >= 0 && val <= 1, {
       message: 'OPENAI_TOP_P must be between 0 and 1',
     }),
-    OPENAI_FREQUENCY_PENALTY: numberFromString(0.3).refine((val) => val >= -2 && val <= 2, {
+    OPENAI_FREQUENCY_PENALTY: numberFromString(0).refine((val) => val >= -2 && val <= 2, {
       message: 'OPENAI_FREQUENCY_PENALTY must be between -2 and 2',
     }),
-    OPENAI_PRESENCE_PENALTY: numberFromString(0.3).refine((val) => val >= -2 && val <= 2, {
+    OPENAI_PRESENCE_PENALTY: numberFromString(0).refine((val) => val >= -2 && val <= 2, {
       message: 'OPENAI_PRESENCE_PENALTY must be between -2 and 2',
     }),
     // Optional task-specific overrides
-    OPENAI_EVAL_MODEL: z.string().optional(),
-    OPENAI_EVAL_PROVIDER: z.string().optional(),
+    OPENAI_EVAL_MODEL: z.string().default('google/gemini-2.5-flash'),
+    OPENAI_EVAL_PROVIDER: z.string().default('google'),
     OPENAI_EVAL_MAX_TOKENS: z.string().optional().transform((val) => (val ? Number(val) : undefined)),
     OPENAI_EVAL_TEMPERATURE: z
       .string()
@@ -95,8 +95,12 @@ const envSchema = z
         message: 'OPENAI_EVAL_TEMPERATURE must be between 0 and 2',
       }),
     OPENAI_EVAL_TOP_P: z.string().optional().transform((val) => (val ? Number(val) : undefined)),
-    OPENAI_EVAL_FREQUENCY_PENALTY: z.string().optional().transform((val) => (val ? Number(val) : undefined)),
-    OPENAI_EVAL_PRESENCE_PENALTY: z.string().optional().transform((val) => (val ? Number(val) : undefined)),
+    OPENAI_EVAL_FREQUENCY_PENALTY: numberFromString(0.3).refine((val) => val >= -2 && val <= 2, {
+      message: 'OPENAI_EVAL_FREQUENCY_PENALTY must be between -2 and 2',
+    }),
+    OPENAI_EVAL_PRESENCE_PENALTY: numberFromString(0.3).refine((val) => val >= -2 && val <= 2, {
+      message: 'OPENAI_EVAL_PRESENCE_PENALTY must be between -2 and 2',
+    }),
     
     // Transformers Microservice
     TRANSFORMERS_API_URL: z.string().default('http://localhost:8001'),
@@ -112,7 +116,7 @@ const envSchema = z
     LANGCHAIN_TRACING_V2: booleanFromString(false),
     LANGCHAIN_PROJECT: z.string().default('careersim-dev'),
     LANGCHAIN_API_KEY: z.string().optional(),
-    USE_LANGGRAPH: booleanFromString(false),
+    USE_LANGGRAPH: booleanFromString(true),
     GRAPH_ASSISTANT_ID: z.string().optional(),
 
     // Stripe
@@ -125,8 +129,8 @@ const envSchema = z
     UPLOAD_PATH: z.string().default('./uploads'),
     
     // Rate Limiting
-    RATE_LIMIT_WINDOW_MS: numberFromString(900000), // 15 minutes
-    RATE_LIMIT_MAX_REQUESTS: numberFromString(100),
+    RATE_LIMIT_WINDOW_MS: numberFromString(600000), // 15 minutes
+    RATE_LIMIT_MAX_REQUESTS: numberFromString(200),
     
     // CORS
     ALLOWED_ORIGINS: z.string().default('http://localhost:3000,http://localhost:3001'),
@@ -286,13 +290,13 @@ export const config: {
       frequencyPenalty: envVars.OPENAI_FREQUENCY_PENALTY as number,
       presencePenalty: envVars.OPENAI_PRESENCE_PENALTY as number,
       evalProfile: {
-        model: envVars.OPENAI_EVAL_MODEL || envVars.OPENAI_MODEL,
-        provider: envVars.OPENAI_EVAL_PROVIDER || envVars.OPENAI_PROVIDER,
+        model: envVars.OPENAI_EVAL_MODEL,
+        provider: envVars.OPENAI_EVAL_PROVIDER,
         maxTokens: (envVars.OPENAI_EVAL_MAX_TOKENS as number | undefined) || (envVars.OPENAI_MAX_TOKENS as number),
-        temperature: (envVars.OPENAI_EVAL_TEMPERATURE as number) || (envVars.OPENAI_TEMPERATURE as number),
+        temperature: envVars.OPENAI_EVAL_TEMPERATURE as number,
         topP: (envVars.OPENAI_EVAL_TOP_P as number | undefined) || (envVars.OPENAI_TOP_P as number),
-        frequencyPenalty: (envVars.OPENAI_EVAL_FREQUENCY_PENALTY as number | undefined) || (envVars.OPENAI_FREQUENCY_PENALTY as number),
-        presencePenalty: (envVars.OPENAI_EVAL_PRESENCE_PENALTY as number | undefined) || (envVars.OPENAI_PRESENCE_PENALTY as number),
+        frequencyPenalty: envVars.OPENAI_EVAL_FREQUENCY_PENALTY as number,
+        presencePenalty: envVars.OPENAI_EVAL_PRESENCE_PENALTY as number,
       },
     },
     transformers: {

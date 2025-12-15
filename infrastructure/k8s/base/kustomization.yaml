@@ -23,45 +23,54 @@ resources:
 configMapGenerator:
   - name: app-config
     literals:
+      # General
       - NODE_ENV=production
       - PORT=8000
+      # Database
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_DATABASE=careersim
       - DB_SYNCHRONIZE=false
       - DB_LOGGING=false
+      # JWT
       - JWT_EXPIRES_IN=7d
       - JWT_REFRESH_EXPIRES_IN=30d
+      # Redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Email
       - SMTP_HOST=
       - SMTP_PORT=587
       - SMTP_SECURE=false
-      - OPENAI_BASE_URL=
-      - OPENAI_MODEL=gpt-4o-mini
+      # OpenAI
+      - OPENAI_BASE_URL=https://openrouter.ai/api/v1
+      - OPENAI_MODEL=openai/gpt-5.2
       - OPENAI_PROVIDER=openai
-      - OPENAI_MAX_TOKENS=4096
-      - OPENAI_TEMPERATURE=0.2
-      - OPENAI_TOP_P=1
+      - OPENAI_MAX_TOKENS=200000
+      - OPENAI_TEMPERATURE=0.8
+      - OPENAI_TOP_P=1.0
       - OPENAI_FREQUENCY_PENALTY=0
       - OPENAI_PRESENCE_PENALTY=0
-      - OPENAI_EVAL_MODEL=gpt-4o-mini
-      - OPENAI_EVAL_PROVIDER=openai
-      - OPENAI_EVAL_MAX_TOKENS=4096
-      - OPENAI_EVAL_TEMPERATURE=0.2
-      - OPENAI_EVAL_TOP_P=1
-      - OPENAI_EVAL_FREQUENCY_PENALTY=0
-      - OPENAI_EVAL_PRESENCE_PENALTY=0
+      - OPENAI_EVAL_MODEL=google/gemini-2.5-flash
+      - OPENAI_EVAL_PROVIDER=google
+      - OPENAI_EVAL_TEMPERATURE=0.3
+      - OPENAI_EVAL_FREQUENCY_PENALTY=0.3
+      - OPENAI_EVAL_PRESENCE_PENALTY=0.3
+      # Microservices
       - TRANSFORMERS_API_URL=http://transformers:8001
       - RAG_API_URL=http://rag:8002
-      - MAX_FILE_SIZE=52428800
-      - UPLOAD_PATH=/uploads
-      - RATE_LIMIT_WINDOW_MS=60000
-      - RATE_LIMIT_MAX_REQUESTS=100
-      - ALLOWED_ORIGINS=*
+      # File Upload
+      - MAX_FILE_SIZE=10485760
+      - UPLOAD_PATH=./uploads
+      # Rate Limiting
+      - RATE_LIMIT_WINDOW_MS=600000
+      - RATE_LIMIT_MAX_REQUESTS=200
+      # CORS
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+      # LangGraph
       - USE_LANGGRAPH=true
       - LANGCHAIN_TRACING_V2=false
-      - LANGCHAIN_PROJECT=careersim-prod
+      - LANGCHAIN_PROJECT=careersim-dev
 
 secretGenerator:
   - name: app-secrets
