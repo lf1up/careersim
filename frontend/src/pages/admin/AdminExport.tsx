@@ -109,13 +109,13 @@ export const AdminExport: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-retro tracking-wider2">EXPORT DATA</h1>
-          <p className="mt-1 text-sm font-monoRetro">
+          <h1 className="text-2xl font-retro tracking-wider2 dark:text-retro-ink-dark">EXPORT DATA</h1>
+          <p className="mt-1 text-sm font-monoRetro dark:text-neutral-400">
             Download platform data for analysis and reporting
           </p>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-black">
-          <DocumentArrowDownIcon className="h-4 w-4 text-black" />
+        <div className="flex items-center space-x-2 text-sm text-black dark:text-retro-ink-dark">
+          <DocumentArrowDownIcon className="h-4 w-4 text-black dark:text-retro-ink-dark" />
           <span className="font-semibold">JSON Format</span>
         </div>
       </div>

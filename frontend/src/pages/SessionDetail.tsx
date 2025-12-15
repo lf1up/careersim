@@ -129,12 +129,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className="max-w-[70%] min-w-0">
-        <div className={`text-xs mb-1 ${isUser ? 'text-right' : 'text-left'}`}>
+        <div className={`text-xs mb-1 ${isUser ? 'text-right' : 'text-left'} dark:text-retro-ink-dark`}>
           <div className="font-medium">{displayName}</div>
-          {displayTitle && <div className="font-monoRetro">{displayTitle}</div>}
+          {displayTitle && <div className="font-monoRetro text-secondary-600 dark:text-secondary-400">{displayTitle}</div>}
         </div>
-        <div className={`px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full ${
-          isUser ? 'bg-black text-white' : 'bg-white'
+        <div className={`px-4 py-2 border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 break-words max-w-full ${
+          isUser ? 'bg-black text-white dark:bg-retro-ink-dark dark:text-retro-paper-dark' : 'bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark'
         }`}>
           <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
         </div>
@@ -142,7 +142,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Message Metadata (User or AI) */}
         {hasMetadata && (
           <div className="mt-2">
-            <div className="p-2 border-2 border-black bg-white shadow-retro-2">
+            <div className="p-2 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2">
               {/* Primary Analysis - Emotion & Sentiment */}
               {(metadata.emotionalTone || metadata.sentiment) && (
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -168,7 +168,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {/* AI Technical Details */}
               {!isUser && (metadata.model || metadata.tokenCount || metadata.processingTime) && (
-                <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-200">
+                <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-200 dark:border-neutral-700">
                   {metadata.model && (
                     <RetroBadge color="blue" className="text-[10px]">
                       {metadata.model}
@@ -189,7 +189,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {/* Additional Details */}
               {Array.isArray(metadata.keyPhrases) && metadata.keyPhrases.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-200 text-[11px]">
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-neutral-700 text-[11px] dark:text-retro-ink-dark">
                   <span className="font-medium">Key Phrases:</span>{' '}
                   <span className="font-monoRetro">
                     {metadata.keyPhrases.slice(0, 5).join(', ')}
@@ -198,7 +198,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
               {metadata.qualityScores && Object.keys(metadata.qualityScores).length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-200 text-[11px]">
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-neutral-700 text-[11px] dark:text-retro-ink-dark">
                   <span className="font-medium">Quality:</span>{' '}
                   <span className="font-monoRetro">
                     {Object.entries(metadata.qualityScores)
@@ -212,7 +212,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         )}
 
-        <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${isUser ? 'text-right' : 'text-left'}`}>
+        <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${isUser ? 'text-right' : 'text-left'} dark:text-retro-ink-dark`}>
           {new Date(message.timestamp).toLocaleTimeString()}
         </div>
       </div>
@@ -292,7 +292,7 @@ export const SessionDetail: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center py-8">
-          <p className="text-red-600 mb-4">{error || 'Session not found'}</p>
+          <p className="text-red-600 dark:text-red-400 mb-4">{error || 'Session not found'}</p>
           <Button onClick={handleBackToSessions}>
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to Sessions
@@ -322,10 +322,10 @@ export const SessionDetail: React.FC = () => {
           
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-retro tracking-wider2 mb-2">
+              <h1 className="text-3xl font-retro tracking-wider2 mb-2 dark:text-retro-ink-dark">
                 {session.simulation?.title || 'Session Details'}
               </h1>
-              <p className="mb-4 font-monoRetro">
+              <p className="mb-4 font-monoRetro text-secondary-600 dark:text-secondary-400">
                 {session.simulation?.description}
               </p>
             </div>
@@ -353,58 +353,58 @@ export const SessionDetail: React.FC = () => {
         {/* Session Overview */}
         <div className="lg:col-span-1 flex flex-col min-h-0 overflow-y-auto overflow-x-visible pr-4">
           <div className="retro-card p-6">
-            <h2 className="text-lg font-semibold mb-4">Session Overview</h2>
+            <h2 className="text-lg font-semibold mb-4 dark:text-retro-ink-dark">Session Overview</h2>
             
             <div className="space-y-4">
-              <div className="flex items-center text-sm">
+              <div className="flex items-center text-sm dark:text-retro-ink-dark">
                 <CalendarIcon className="h-4 w-4 mr-3" />
                 <div>
                   <div className="font-medium">Started</div>
-                  <div className="">{formatDate(session.startedAt)}</div>
+                  <div className="text-secondary-600 dark:text-secondary-400">{formatDate(session.startedAt)}</div>
                 </div>
               </div>
               
               {session.completedAt && (
-                <div className="flex items-center text-sm">
+                <div className="flex items-center text-sm dark:text-retro-ink-dark">
                   <CheckCircleIcon className="h-4 w-4 mr-3" />
                   <div>
                     <div className="font-medium">Completed</div>
-                    <div className="">{formatDate(session.completedAt)}</div>
+                    <div className="text-secondary-600 dark:text-secondary-400">{formatDate(session.completedAt)}</div>
                   </div>
                 </div>
               )}
               
-              <div className="flex items-center text-sm">
+              <div className="flex items-center text-sm dark:text-retro-ink-dark">
                 <ClockIcon className="h-4 w-4 mr-3" />
                 <div>
                   <div className="font-medium">Duration</div>
-                  <div className="">{formatDuration(session.totalDuration || 0)}</div>
+                  <div className="text-secondary-600 dark:text-secondary-400">{formatDuration(session.totalDuration || 0)}</div>
                 </div>
               </div>
               
-              <div className="flex items-center text-sm">
+              <div className="flex items-center text-sm dark:text-retro-ink-dark">
                 <ChatBubbleLeftIcon className="h-4 w-4 mr-3" />
                 <div>
                   <div className="font-medium">Messages</div>
-                  <div className="">{session.messageCount || 0}</div>
+                  <div className="text-secondary-600 dark:text-secondary-400">{session.messageCount || 0}</div>
                 </div>
               </div>
 
               {session.userGoals && (
-                <div className="pt-4 border-t-2 border-black">
-                  <div className="font-medium text-sm mb-2">Your Goals</div>
-                  <p className="text-sm">{session.userGoals}</p>
+                <div className="pt-4 border-t-2 border-black dark:border-retro-ink-dark">
+                  <div className="font-medium text-sm mb-2 dark:text-retro-ink-dark">Your Goals</div>
+                  <p className="text-sm text-secondary-600 dark:text-secondary-400">{session.userGoals}</p>
                 </div>
               )}
             </div>
             
             {/* Progress Bar */}
             <div className="mt-6">
-              <div className="flex justify-between text-sm mb-2">
+              <div className="flex justify-between text-sm mb-2 dark:text-retro-ink-dark">
                 <span>Progress</span>
                 <span>{session.currentStep || 0}/{session.totalSteps || 0} steps</span>
               </div>
-              <div className="w-full border-2 border-black h-3 shadow-retro-2">
+              <div className="w-full border-2 border-black dark:border-retro-ink-dark h-3 shadow-retro-2 dark:shadow-retro-dark-2 bg-white dark:bg-retro-surface-dark">
                 <div
                   className="bg-primary-500 h-[10px] transition-all duration-300"
                   style={{ 
@@ -418,11 +418,11 @@ export const SessionDetail: React.FC = () => {
           {/* Simulation Info */}
           {session.simulation && (
             <div className="retro-card p-6 mt-6">
-              <h3 className="text-lg font-semibold mb-4">Simulation Info</h3>
+              <h3 className="text-lg font-semibold mb-4 dark:text-retro-ink-dark">Simulation Info</h3>
               
               <div className="space-y-4">
                 <div>
-                  <div className="text-sm font-medium mb-2">Category</div>
+                  <div className="text-sm font-medium mb-2 dark:text-retro-ink-dark">Category</div>
                   {session.simulation.category ? (
                     <RetroBadge color={categoryNameToBadgeColor(session.simulation.category.name)} className="text-xs">
                       <TagIcon className="h-3 w-3 mr-1" />
@@ -437,18 +437,18 @@ export const SessionDetail: React.FC = () => {
                 </div>
                 
                 <div>
-                  <div className="text-sm font-medium mb-2">Difficulty</div>
+                  <div className="text-sm font-medium mb-2 dark:text-retro-ink-dark">Difficulty</div>
                   <RetroBadge color={difficultyToBadgeColor(session.simulation.difficulty)} className="text-xs">
                     {getDifficultyLabel(session.simulation.difficulty)}
                   </RetroBadge>
                 </div>
                 
                 <div>
-                  <div className="text-sm font-medium">Estimated Duration</div>
-                  <div className="text-sm">{session.simulation.estimatedDurationMinutes} minutes</div>
+                  <div className="text-sm font-medium dark:text-retro-ink-dark">Estimated Duration</div>
+                  <div className="text-sm text-secondary-600 dark:text-secondary-400">{session.simulation.estimatedDurationMinutes} minutes</div>
                 </div>
                 
-                <div className="pt-3 border-t-2 border-black">
+                <div className="pt-3 border-t-2 border-black dark:border-retro-ink-dark">
                   <Link to={`/simulations/${session.simulation.id}`}>
                     <Button variant="outline" size="sm" className="w-full">
                       View Simulation Details
@@ -463,9 +463,9 @@ export const SessionDetail: React.FC = () => {
         {/* Messages */}
         <div className="lg:col-span-2 flex flex-col min-h-0">
           <div className="retro-card flex flex-col flex-1 min-h-0">
-            <div className="p-6 border-b-2 border-black">
-              <h2 className="text-lg font-semibold">Session Messages</h2>
-              <p className="text-sm font-monoRetro mt-1">
+            <div className="p-6 border-b-2 border-black dark:border-retro-ink-dark">
+              <h2 className="text-lg font-semibold dark:text-retro-ink-dark">Session Messages</h2>
+              <p className="text-sm font-monoRetro mt-1 text-secondary-600 dark:text-secondary-400">
                 Conversation history from this session
               </p>
             </div>
@@ -497,9 +497,9 @@ export const SessionDetail: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <ChatBubbleLeftIcon className="mx-auto h-12 w-12" />
-                  <h3 className="mt-2 text-sm font-medium">No messages yet</h3>
-                  <p className="mt-1 text-sm">
+                  <ChatBubbleLeftIcon className="mx-auto h-12 w-12 text-secondary-400 dark:text-secondary-500" />
+                  <h3 className="mt-2 text-sm font-medium dark:text-retro-ink-dark">No messages yet</h3>
+                  <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-400">
                     This session hasn't started or has no recorded messages.
                   </p>
                 </div>

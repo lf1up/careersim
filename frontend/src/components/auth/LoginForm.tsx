@@ -23,13 +23,13 @@ export const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-retro-paper p-4">
+    <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
       <div className="w-full max-w-md">
         <RetroCard
           title={<span className="font-retro tracking-wider2">SIGN IN</span>}
           subtitle={
-            <span>
-              Or <Link to="/register" className="underline">start your 14-day free trial</Link>
+            <span className="text-secondary-600 dark:text-secondary-400">
+              Or <Link to="/register" className="underline text-primary-600 dark:text-primary-400">start your 14-day free trial</Link>
             </span>
           }
         >
@@ -54,7 +54,7 @@ export const LoginForm: React.FC = () => {
             />
 
             <div className="flex items-center justify-between">
-              <Link to="/forgot-password" className="text-sm underline">
+              <Link to="/forgot-password" className="text-sm underline text-retro-ink dark:text-retro-ink-dark">
                 Forgot your password?
               </Link>
             </div>

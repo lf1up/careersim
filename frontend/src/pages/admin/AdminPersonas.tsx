@@ -283,15 +283,15 @@ export const AdminPersonas: React.FC = () => {
       render: (persona: Persona) => (
         <div className="flex items-center">
           {persona.avatarUrl ? (
-            <img className="h-10 w-10 mr-3 border-2 border-black shadow-retro-2 object-cover" src={persona.avatarUrl} alt={persona.name} />
+            <img className="h-10 w-10 mr-3 border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 object-cover" src={persona.avatarUrl} alt={persona.name} />
           ) : (
-            <div className="h-10 w-10 mr-3 border-2 border-black flex items-center justify-center shadow-retro-2">
-              <span className="font-bold">{persona.name?.[0]}</span>
+            <div className="h-10 w-10 mr-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark flex items-center justify-center shadow-retro-2 dark:shadow-retro-dark-2">
+              <span className="font-bold text-retro-ink dark:text-retro-ink-dark">{persona.name?.[0]}</span>
             </div>
           )}
           <div>
-            <div className="text-sm font-semibold">{persona.name}</div>
-            <div className="text-sm font-monoRetro">{persona.role}</div>
+            <div className="text-sm font-semibold text-retro-ink dark:text-retro-ink-dark">{persona.name}</div>
+            <div className="text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">{persona.role}</div>
           </div>
         </div>
       ),
@@ -329,7 +329,7 @@ export const AdminPersonas: React.FC = () => {
       className: 'text-right',
       render: (p: Persona) => (
         <div className="flex justify-end gap-2">
-          <button onClick={() => handleEdit(p)} className="retro-btn-base bg-white px-2 py-1">
+          <button onClick={() => handleEdit(p)} className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1">
             <PencilIcon className="h-4 w-4" />
           </button>
           <button
@@ -337,12 +337,12 @@ export const AdminPersonas: React.FC = () => {
               setRagPersona(p);
               setShowRagModal(true);
             }}
-            className="retro-btn-base bg-white px-2 py-1"
+            className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1"
             title="Manage RAG Docs"
           >
             <DocumentTextIcon className="h-4 w-4" />
           </button>
-          <button onClick={() => handleDelete(p)} className="retro-btn-base bg-white px-2 py-1">
+          <button onClick={() => handleDelete(p)} className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1">
             <TrashIcon className="h-4 w-4" />
           </button>
         </div>
@@ -354,10 +354,10 @@ export const AdminPersonas: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-retro tracking-wider2">PERSONA MANAGEMENT</h1>
-          <p className="mt-1 text-sm font-monoRetro">Manage AI personas for simulations</p>
+          <h1 className="text-2xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">PERSONA MANAGEMENT</h1>
+          <p className="mt-1 text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">Manage AI personas for simulations</p>
         </div>
-        <button onClick={handleCreateNew} className="retro-btn-base bg-white px-3 py-2 inline-flex items-center gap-2">
+        <button onClick={handleCreateNew} className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2 inline-flex items-center gap-2">
           <PlusIcon className="h-4 w-4" />
           Create Persona
         </button>
@@ -384,7 +384,7 @@ export const AdminPersonas: React.FC = () => {
             <option value="true">Active</option>
             <option value="false">Inactive</option>
           </RetroSelect>
-          <div className="flex items-center text-sm">
+          <div className="flex items-center text-sm text-retro-ink dark:text-retro-ink-dark">
             <FunnelIcon className="h-4 w-4 mr-2" />
             {pagination.count} total personas
           </div>
@@ -404,7 +404,7 @@ export const AdminPersonas: React.FC = () => {
           />
         ) : (
           <div className="text-center py-12">
-            <p>No personas found</p>
+            <p className="text-secondary-600 dark:text-secondary-400">No personas found</p>
           </div>
         )}
       </div>
@@ -510,7 +510,7 @@ export const AdminPersonas: React.FC = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-md font-semibold">Conversation Style</h3>
+            <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Conversation Style</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <RetroInput
                 label="Tone"
@@ -681,9 +681,9 @@ export const AdminPersonas: React.FC = () => {
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t-2 border-black">
-            <button type="button" onClick={() => setShowModal(false)} className="retro-btn-base bg-white px-3 py-2">Cancel</button>
-            <button type="submit" className="retro-btn-base bg-yellow-300 px-3 py-2">{editingPersona ? 'Update Persona' : 'Create Persona'}</button>
+          <div className="flex justify-end gap-2 pt-4 border-t-2 border-black dark:border-retro-ink-dark">
+            <button type="button" onClick={() => setShowModal(false)} className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2">Cancel</button>
+            <button type="submit" className="retro-btn-base bg-yellow-300 dark:bg-yellow-500 px-3 py-2">{editingPersona ? 'Update Persona' : 'Create Persona'}</button>
           </div>
         </form>
       </RetroDialog>
@@ -841,17 +841,17 @@ const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onCl
     <RetroDialog open={true} onClose={onClose} title={`Manage RAG Docs — ${persona.name}`} className="max-w-5xl">
       <div className="space-y-6">
         {ragAvailable === false && (
-          <div className="p-3 border-2 border-black bg-red-100 text-sm">
+          <div className="p-3 border-2 border-black dark:border-retro-ink-dark bg-red-100 dark:bg-red-900 text-sm text-red-900 dark:text-red-100">
             RAG service is unavailable. You can continue, but actions will fail until it is online.
           </div>
         )}
 
         <div className="space-y-3">
-        <h3 className="text-md font-semibold">Existing Documents</h3>
+        <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Existing Documents</h3>
         <div className="flex items-center justify-between">
-          <div className="text-sm">{loadingExisting ? 'Loading…' : `${existingDocs.length} doc(s)`}</div>
+          <div className="text-sm text-retro-ink dark:text-retro-ink-dark">{loadingExisting ? 'Loading…' : `${existingDocs.length} doc(s)`}</div>
           <div className="flex gap-2">
-            <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={async () => {
+            <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={async () => {
               setLoadingExisting(true);
               try {
                 const { results } = await apiClient.listPersonaRagDocs(persona.id, { limit: 200 });
@@ -865,24 +865,24 @@ const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onCl
         {existingDocs.length > 0 ? (
           <div className="space-y-2 max-h-[30vh] overflow-auto pr-1">
             {existingDocs.map((r) => (
-              <div key={r.id} className="p-3 border-2 border-black bg-white">
-                <div className="text-xs font-monoRetro break-all">{r.id}</div>
-                <div className="text-sm whitespace-pre-wrap mt-1">{r.text}</div>
+              <div key={r.id} className="p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark">
+                <div className="text-xs font-monoRetro break-all text-secondary-600 dark:text-secondary-400">{r.id}</div>
+                <div className="text-sm whitespace-pre-wrap mt-1 text-retro-ink dark:text-retro-ink-dark">{r.text}</div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-sm text-neutral-700">No documents yet.</div>
+          <div className="text-sm text-neutral-700 dark:text-neutral-400">No documents yet.</div>
         )}
       </div>
 
-      <div className="border-t-2 border-black" />
+      <div className="border-t-2 border-black dark:border-retro-ink-dark" />
 
       <div className="space-y-3">
-          <h3 className="text-md font-semibold">Add/Upsert Documents</h3>
+          <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Add/Upsert Documents</h3>
           <div className="space-y-3">
             {docs.map((d, index) => (
-              <div key={index} className="p-3 border-2 border-black bg-white shadow-retro-2">
+              <div key={index} className="p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <RetroInput
                     label="Document ID (optional, stable)"
@@ -904,7 +904,7 @@ const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onCl
                   </div>
                 </div>
                 <div className="flex justify-end mt-2">
-                  <button type="button" className="retro-btn-base bg-white px-2 py-1" onClick={() => handleRemoveDoc(index)} disabled={docs.length === 1}>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1" onClick={() => handleRemoveDoc(index)} disabled={docs.length === 1}>
                     Remove
                   </button>
                 </div>
@@ -912,37 +912,37 @@ const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onCl
             ))}
           </div>
           <div className="flex justify-between">
-            <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={handleAddDoc}>
+            <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2" onClick={handleAddDoc}>
               Add Another
             </button>
-            <button type="button" className="retro-btn-base bg-yellow-300 px-3 py-2" onClick={handleUpsert} disabled={loading}>
+            <button type="button" className="retro-btn-base bg-yellow-300 dark:bg-yellow-500 px-3 py-2" onClick={handleUpsert} disabled={loading}>
               {loading ? 'Saving...' : 'Upsert Documents'}
             </button>
           </div>
         </div>
 
-        <div className="border-t-2 border-black pt-4 space-y-3">
-          <h3 className="text-md font-semibold">Search and Delete</h3>
+        <div className="border-t-2 border-black dark:border-retro-ink-dark pt-4 space-y-3">
+          <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Search and Delete</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <RetroInput label="Query" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <RetroInput label="Top K" type="number" min="1" max="50" value={topK} onChange={(e) => setTopK(Number(e.target.value) || 5)} />
-            <button type="button" className="retro-btn-base bg-white px-3 py-2 inline-flex items-center justify-center" onClick={handleSearch} disabled={loading || !searchQuery.trim()}>
+            <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2 inline-flex items-center justify-center" onClick={handleSearch} disabled={loading || !searchQuery.trim()}>
               <MagnifyingGlassIcon className="h-4 w-4 mr-2" /> Search
             </button>
           </div>
           {searchResults.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-sm">{searchResults.length} result(s)</div>
+                <div className="text-sm text-retro-ink dark:text-retro-ink-dark">{searchResults.length} result(s)</div>
                 <div className="flex items-center gap-2">
-                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={() => setSelectedIds(searchResults.map(r => r.id))}>Select All</button>
-                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={() => setSelectedIds([])}>Clear</button>
-                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={handleDeleteSelected} disabled={selectedIds.length === 0}>Delete Selected</button>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={() => setSelectedIds(searchResults.map(r => r.id))}>Select All</button>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={() => setSelectedIds([])}>Clear</button>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={handleDeleteSelected} disabled={selectedIds.length === 0}>Delete Selected</button>
                 </div>
               </div>
               <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
                 {searchResults.map((r) => (
-                  <div key={r.id} className="p-3 border-2 border-black bg-white">
+                  <div key={r.id} className="p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark">
                     <div className="flex items-start justify-between">
                       <div className="mr-3">
                         <input
@@ -956,10 +956,10 @@ const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onCl
                         />
                       </div>
                       <div className="flex-1">
-                        <div className="text-xs font-monoRetro break-all">{r.id}</div>
-                        <div className="text-sm whitespace-pre-wrap mt-1">{r.text}</div>
+                        <div className="text-xs font-monoRetro break-all text-secondary-600 dark:text-secondary-400">{r.id}</div>
+                        <div className="text-sm whitespace-pre-wrap mt-1 text-retro-ink dark:text-retro-ink-dark">{r.text}</div>
                         {r.distance !== undefined && (
-                          <div className="text-xs text-neutral-600 mt-1">distance: {r.distance.toFixed(4)}</div>
+                          <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">distance: {r.distance.toFixed(4)}</div>
                         )}
                       </div>
                     </div>
@@ -967,18 +967,18 @@ const PersonaRagDocsModal: React.FC<PersonaRagDocsModalProps> = ({ persona, onCl
                 ))}
               </div>
               <div className="flex justify-end">
-                <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={handleDeleteAll}>
+                <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2" onClick={handleDeleteAll}>
                   Delete All Docs for Persona
                 </button>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-neutral-700">No results. Use search to view and manage existing docs.</div>
+            <div className="text-sm text-neutral-700 dark:text-neutral-400">No results. Use search to view and manage existing docs.</div>
           )}
         </div>
 
-        <div className="flex justify-end pt-4 border-t-2 border-black">
-          <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={onClose}>Close</button>
+        <div className="flex justify-end pt-4 border-t-2 border-black dark:border-retro-ink-dark">
+          <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2" onClick={onClose}>Close</button>
         </div>
       </div>
     </RetroDialog>

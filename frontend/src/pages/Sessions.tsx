@@ -114,8 +114,8 @@ export const Sessions: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-retro tracking-wider2">MY SESSIONS</h1>
-        <p className="mt-2 font-monoRetro">
+        <h1 className="text-3xl font-retro tracking-wider2 dark:text-retro-ink-dark">MY SESSIONS</h1>
+        <p className="mt-2 font-monoRetro text-secondary-600 dark:text-secondary-400">
           Track your simulation progress and review past sessions
         </p>
       </div>

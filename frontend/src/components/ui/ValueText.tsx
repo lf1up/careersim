@@ -13,8 +13,10 @@ function detectValueKind(value: string | number): ValueKind {
 
 export const ValueText: React.FC<{ value: string | number; className?: string }> = ({ value, className }) => {
   const kind = detectValueKind(value);
-  const colorClass = kind === 'percent' ? 'text-green-700' : kind === 'time' ? 'text-amber-700' : 'text-primary-700';
+  const colorClass = kind === 'percent' 
+    ? 'text-green-700 dark:text-green-400' 
+    : kind === 'time' 
+      ? 'text-amber-700 dark:text-amber-400' 
+      : 'text-primary-700 dark:text-primary-400';
   return <span className={`font-monoRetro ${colorClass}${className ? ` ${className}` : ''}`}>{value}</span>;
 };
-
-

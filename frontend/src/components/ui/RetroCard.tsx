@@ -23,13 +23,13 @@ export const RetroCard: React.FC<RetroCardProps> = ({
   return (
     <div className={clsx('retro-card', className)}>
       {(title || subtitle || actions) && (
-        <div className={clsx('px-6 py-4 border-b-2 border-black flex items-start justify-between', headerClassName)}>
+        <div className={clsx('px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark flex items-start justify-between', headerClassName)}>
           <div>
             {title && (
-              <h3 className="text-xl font-semibold">{title}</h3>
+              <h3 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">{title}</h3>
             )}
             {subtitle && (
-              <p className="text-sm font-monoRetro mt-1">{subtitle}</p>
+              <p className="text-sm font-monoRetro mt-1 text-secondary-600 dark:text-secondary-400">{subtitle}</p>
             )}
           </div>
           {actions && (
@@ -43,5 +43,3 @@ export const RetroCard: React.FC<RetroCardProps> = ({
 };
 
 export default RetroCard;
-
-

@@ -17,6 +17,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: theme('colors.retro.paper');
   color: theme('colors.retro.ink');
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background: theme('colors.retro.paper-dark');
+  color: theme('colors.retro.ink-dark');
 }
 
 code {
@@ -24,7 +30,7 @@ code {
     monospace;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Light mode */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -42,22 +48,51 @@ code {
   background: #94a3b8;
 }
 
+/* Custom scrollbar - Dark mode */
+.dark ::-webkit-scrollbar-track {
+  background: #262626;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #525252;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #737373;
+}
+
 /* Focus styles */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
 }
 
-/* Retro utility classes */
+.dark .focus-ring {
+  @apply focus:ring-offset-retro-paper-dark;
+}
+
+/* Retro utility classes with dark mode variants */
 .retro-card {
   @apply bg-white border-2 border-black shadow-retro-4 rounded-md;
+}
+
+.dark .retro-card {
+  @apply bg-retro-surface-dark border-retro-ink-dark shadow-retro-dark-4;
 }
 
 .retro-btn-base {
   @apply inline-flex items-center justify-center border-2 border-black shadow-retro-3 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 transition-transform;
 }
 
+.dark .retro-btn-base {
+  @apply border-retro-ink-dark shadow-retro-dark-3 active:shadow-retro-dark-1;
+}
+
 .retro-input {
   @apply border-2 border-black bg-white px-3 py-2 rounded-none focus:ring-0 focus:outline-none shadow-retro-3;
+}
+
+.dark .retro-input {
+  @apply border-retro-ink-dark bg-retro-surface-dark text-retro-ink-dark shadow-retro-dark-3;
 }
 
 /* Custom select styling with better chevron positioning */

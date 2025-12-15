@@ -51,13 +51,13 @@ export const RegisterForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-retro-paper p-4">
+    <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
       <div className="w-full max-w-md">
         <RetroCard
           title={<span className="font-retro tracking-wider2">CREATE ACCOUNT</span>}
           subtitle={
-            <span>
-              Or <Link to="/login" className="underline">sign in to your account</Link>
+            <span className="text-secondary-600 dark:text-secondary-400">
+              Or <Link to="/login" className="underline text-primary-600 dark:text-primary-400">sign in to your account</Link>
             </span>
           }
         >
