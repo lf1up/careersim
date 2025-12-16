@@ -28,19 +28,19 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, trend }) 
   <RetroCard className="h-full !rounded-none">
     <div className="flex items-start justify-between">
       <div className="flex-1">
-        <div className="text-sm text-neutral-600">{title}</div>
-        <div className="mt-1 text-3xl font-semibold">
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">{title}</div>
+        <div className="mt-1 text-3xl font-semibold text-retro-ink dark:text-retro-ink-dark">
           <ValueText value={typeof value === 'number' ? value.toLocaleString() : value} />
         </div>
         {trend && (
-          <div className={`mt-2 text-xs font-monoRetro ${trend.isPositive ? 'text-green-700' : 'text-red-700'}`}>
+          <div className={`mt-2 text-xs font-monoRetro ${trend.isPositive ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
             {trend.isPositive ? '+' : '-'}{Math.abs(trend.value)}% vs last period
           </div>
         )}
       </div>
       <div className="ml-4">
-        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-amber-200 shadow-retro-3">
-          <Icon className="h-6 w-6 text-neutral-800" />
+        <div className="h-10 w-10 border-2 border-black dark:border-retro-ink-dark rounded-full flex items-center justify-center bg-amber-200 dark:bg-amber-500 shadow-retro-3 dark:shadow-retro-dark-3">
+          <Icon className="h-6 w-6 text-neutral-800 dark:text-neutral-900" />
         </div>
       </div>
     </div>
@@ -96,8 +96,8 @@ export const AdminDashboard: React.FC = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-retro tracking-wider2">ADMIN DASHBOARD</h1>
-        <p className="mt-1 text-sm font-monoRetro">Overview of your CAREERSIM platform performance</p>
+        <h1 className="text-2xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">ADMIN DASHBOARD</h1>
+        <p className="mt-1 text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">Overview of your CAREERSIM platform performance</p>
       </div>
 
       <RetroPanel title="Overview">
@@ -127,11 +127,11 @@ export const AdminDashboard: React.FC = () => {
                 const max = Math.max(1, ...recent.map(d => d.count));
                 return recent.map((day, idx) => (
                   <div key={`${day.date}-${idx}`} className="flex items-center gap-3">
-                    <span className="w-24 text-xs font-monoRetro">{new Date(day.date).toLocaleDateString()}</span>
-                    <div className="flex-1 border border-black h-4 bg-neutral-100 shadow-retro-2">
-                      <div className="h-4 bg-green-500" style={{ width: `${(day.count / max) * 100}%` }} />
+                    <span className="w-24 text-xs font-monoRetro text-retro-ink dark:text-retro-ink-dark">{new Date(day.date).toLocaleDateString()}</span>
+                    <div className="flex-1 border border-black dark:border-retro-ink-dark h-4 bg-neutral-100 dark:bg-neutral-700 shadow-retro-2 dark:shadow-retro-dark-2">
+                      <div className="h-4 bg-green-500 dark:bg-green-400" style={{ width: `${(day.count / max) * 100}%` }} />
                     </div>
-                    <span className="w-12 text-right text-xs font-monoRetro"><ValueText value={`+${day.count}`} /></span>
+                    <span className="w-12 text-right text-xs font-monoRetro text-retro-ink dark:text-retro-ink-dark"><ValueText value={`+${day.count}`} /></span>
                   </div>
                 ));
               })()}
@@ -146,7 +146,7 @@ export const AdminDashboard: React.FC = () => {
             <RetroTable
               columns={[
                 { key: 'rank', header: 'Rank', render: (row: any) => <RetroBadge color="yellow">#{row.rank}</RetroBadge>, className: 'w-20' },
-                { key: 'title', header: 'Title', render: (row: any) => <span className="font-medium">{row.title}</span> },
+                { key: 'title', header: 'Title', render: (row: any) => <span className="font-medium text-retro-ink dark:text-retro-ink-dark">{row.title}</span> },
                 { key: 'sessions', header: 'Sessions', render: (row: any) => <ValueText value={row.sessions} /> },
                 { key: 'completed', header: 'Completed', render: (row: any) => <ValueText value={row.completed} /> },
                 { key: 'completion', header: 'Completion', render: (row: any) => <ValueText value={`${row.completion}%`} /> },
@@ -168,4 +168,4 @@ export const AdminDashboard: React.FC = () => {
       </div>
     </div>
   );
-}; 
+};

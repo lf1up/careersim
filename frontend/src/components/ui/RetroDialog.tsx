@@ -34,7 +34,7 @@ export const RetroDialog: React.FC<RetroDialogProps> = ({ open, onClose, title, 
   const titleId = title ? 'retro-dialog-title' : undefined;
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/60" onClick={onClose} aria-hidden="true" />
       <div className="absolute inset-0 flex items-center justify-center p-4" onClick={onClose}>
         <div
           className={clsx('retro-card w-full max-w-lg max-h-[90vh] overflow-y-auto', className)}
@@ -44,8 +44,8 @@ export const RetroDialog: React.FC<RetroDialogProps> = ({ open, onClose, title, 
           onClick={(e) => e.stopPropagation()}
         >
           {title && (
-            <div className="px-6 py-4 border-b-2 border-black">
-              <h3 id={titleId} className="text-xl font-semibold">{title}</h3>
+            <div className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark">
+              <h3 id={titleId} className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">{title}</h3>
             </div>
           )}
           <div className={clsx('p-6', bodyClassName)}>{children}</div>
@@ -75,14 +75,14 @@ export const RetroTabs: React.FC<RetroTabsProps> = ({ tabs, activeId, onChange, 
   };
   return (
     <div className={clsx('retro-card', className)}>
-      <div className="px-4 py-2 border-b-2 border-black flex gap-2 overflow-x-auto" role="tablist" onKeyDown={onKeyDown}>
+      <div className="px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark flex gap-2 overflow-x-auto" role="tablist" onKeyDown={onKeyDown}>
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => onChange(t.id)}
             className={clsx(
               'retro-btn-base text-sm px-3 py-1',
-              activeId === t.id ? 'bg-yellow-300' : 'bg-white'
+              activeId === t.id ? 'bg-yellow-300 dark:bg-yellow-500' : 'bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark'
             )}
             aria-selected={activeId === t.id}
             role="tab"

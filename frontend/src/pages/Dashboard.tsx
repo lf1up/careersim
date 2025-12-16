@@ -91,7 +91,7 @@ export const Dashboard: React.FC = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center py-8">
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
           <Button onClick={() => window.location.reload()}>
             Retry
           </Button>
@@ -104,10 +104,10 @@ export const Dashboard: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Welcome Section */}
       <div className="mb-8">
-        <h1 className="text-3xl font-retro tracking-wider2">
+        <h1 className="text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
           WELCOME BACK, {user?.firstName?.toUpperCase()}!
         </h1>
-        <p className="mt-2 font-monoRetro">
+        <p className="mt-2 font-monoRetro text-secondary-600 dark:text-secondary-400">
           Continue your career development journey
         </p>
       </div>
@@ -116,26 +116,26 @@ export const Dashboard: React.FC = () => {
       {analytics && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="retro-card p-6">
-            <h3 className="text-lg font-medium text-secondary-900 mb-2">
+            <h3 className="text-lg font-medium text-secondary-900 dark:text-retro-ink-dark mb-2">
               Total Sessions
             </h3>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-bold text-retro-ink dark:text-retro-ink-dark">
               <ValueText value={analytics.stats?.totalSessions || 0} />
             </p>
           </div>
           <div className="retro-card p-6">
-            <h3 className="text-lg font-medium text-secondary-900 mb-2">
+            <h3 className="text-lg font-medium text-secondary-900 dark:text-retro-ink-dark mb-2">
               Completion Rate
             </h3>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-bold text-retro-ink dark:text-retro-ink-dark">
               <ValueText value={`${Math.round(analytics.stats?.completionRate || 0)}%`} />
             </p>
           </div>
           <div className="retro-card p-6">
-            <h3 className="text-lg font-medium text-secondary-900 mb-2">
+            <h3 className="text-lg font-medium text-secondary-900 dark:text-retro-ink-dark mb-2">
               Average Score
             </h3>
-            <p className="text-3xl font-bold">
+            <p className="text-3xl font-bold text-retro-ink dark:text-retro-ink-dark">
               <ValueText value={Math.round((analytics.averageScores?.avgOverall || 0) * 10) / 10} />
             </p>
           </div>
@@ -145,9 +145,9 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Available Simulations */}
         <div className="retro-card">
-          <div className="px-6 py-4 border-b-2 border-black">
+          <div className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                 Available Simulations
               </h2>
               <Link to="/simulations">
@@ -163,12 +163,12 @@ export const Dashboard: React.FC = () => {
                 {simulations.slice(0, 3).map((simulation) => (
                   <div
                     key={simulation.id}
-                    className="border-2 border-black p-4 shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
+                    className="border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark p-4 shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 transition-transform"
                   >
-                    <h3 className="font-semibold mb-2">
+                    <h3 className="font-semibold mb-2 text-retro-ink dark:text-retro-ink-dark">
                       {simulation.title}
                     </h3>
-                    <p className="text-sm mb-3">
+                    <p className="text-sm mb-3 text-secondary-600 dark:text-secondary-400">
                       {simulation.description}
                     </p>
 
@@ -186,7 +186,7 @@ export const Dashboard: React.FC = () => {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <div className="flex items-center text-sm">
+                      <div className="flex items-center text-sm text-secondary-600 dark:text-secondary-400">
                         <ClockIcon className="h-4 w-4 mr-1" />
                         {simulation.estimatedDurationMinutes} min
                       </div>
@@ -201,16 +201,16 @@ export const Dashboard: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <p>No simulations available</p>
+              <p className="text-secondary-600 dark:text-secondary-400">No simulations available</p>
             )}
           </div>
         </div>
 
         {/* Recent Sessions */}
         <div className="retro-card">
-          <div className="px-6 py-4 border-b-2 border-black">
+          <div className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                 Recent Sessions
               </h2>
               <Link to="/sessions">
@@ -226,9 +226,9 @@ export const Dashboard: React.FC = () => {
                 {recentSessions.map((session) => (
                   <div
                     key={session.id}
-                    className="border-2 border-black p-4 shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
+                    className="border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark p-4 shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 transition-transform"
                   >
-                    <h3 className="font-semibold">
+                    <h3 className="font-semibold text-retro-ink dark:text-retro-ink-dark">
                       {session.simulation?.title || 'Unknown Simulation'}
                     </h3>
                     <div className="flex justify-between items-center mt-2">
@@ -260,7 +260,7 @@ export const Dashboard: React.FC = () => {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="mb-4">
+                <p className="mb-4 text-secondary-600 dark:text-secondary-400">
                   You haven't started any sessions yet
                 </p>
                 <Link to="/simulations">

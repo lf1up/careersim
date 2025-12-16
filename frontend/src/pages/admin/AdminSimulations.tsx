@@ -41,7 +41,7 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
       header: 'Simulation',
       render: (simulation: Simulation) => (
         <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10 border-2 border-black">
+          <div className="flex-shrink-0 h-10 w-10 border-2 border-black dark:border-retro-ink-dark">
             {simulation.thumbnailUrl ? (
               <img
                 className="h-full w-full object-cover"
@@ -49,16 +49,16 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
                 alt={simulation.title}
               />
             ) : (
-              <div className="h-full w-full bg-primary-100 flex items-center justify-center">
-                <BeakerIcon className="h-6 w-6 text-black" />
+              <div className="h-full w-full bg-primary-100 dark:bg-primary-800 flex items-center justify-center">
+                <BeakerIcon className="h-6 w-6 text-black dark:text-retro-ink-dark" />
               </div>
             )}
           </div>
           <div className="ml-4">
-            <div className="text-sm font-semibold">
+            <div className="text-sm font-semibold text-retro-ink dark:text-retro-ink-dark">
               {simulation.title}
             </div>
-            <div className="text-sm text-neutral-600 max-w-xs truncate">
+            <div className="text-sm text-neutral-600 dark:text-neutral-400 max-w-xs truncate">
               {simulation.description}
             </div>
           </div>
@@ -110,17 +110,17 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
           <div className="text-sm">
             {simulation.personas && simulation.personas.length > 0 ? (
               <div className="flex items-center whitespace-nowrap">
-                <span className="text-sm">
+                <span className="text-sm text-retro-ink dark:text-retro-ink-dark">
                   {simulation.personas.length} persona{simulation.personas.length !== 1 ? 's' : ''}
                 </span>
               </div>
             ) : (
-              <span className="text-sm text-neutral-700">No personas</span>
+              <span className="text-sm text-neutral-700 dark:text-neutral-400">No personas</span>
             )}
           </div>
           <button
             onClick={() => onEditPersonas(simulation)}
-            className="retro-btn-base bg-white px-2 py-1"
+            className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1"
             title="Edit Personas"
           >
             <PencilIcon className="h-4 w-4" />
@@ -132,21 +132,21 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
       key: 'stats',
       header: 'Stats',
       render: (simulation: Simulation) => (
-        <div className="text-sm text-neutral-700 whitespace-nowrap">
+        <div className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
           <div className="flex items-center">
             <EyeIcon className="h-4 w-4 mr-1" />
             {simulation.viewCount} views
           </div>
-          <div className="text-xs text-neutral-500 whitespace-nowrap mt-1">
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap mt-1">
             {simulation.completionCount} completions
           </div>
           {Array.isArray(simulation.conversationGoals) && simulation.conversationGoals.length > 0 && (
-            <div className="text-xs text-neutral-500 whitespace-nowrap">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
               {simulation.conversationGoals.length} goal{simulation.conversationGoals.length !== 1 ? 's' : ''}
             </div>
           )}
           {simulation.averageRating > 0 && (
-            <div className="text-xs text-neutral-500 whitespace-nowrap">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">
               ⭐ {simulation.averageRating.toFixed(1)}
             </div>
           )}
@@ -157,7 +157,7 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
       key: 'created',
       header: 'Created',
       render: (simulation: Simulation) => (
-        <span className="text-sm text-neutral-700">{new Date(simulation.createdAt).toLocaleDateString()}</span>
+        <span className="text-sm text-neutral-700 dark:text-neutral-300">{new Date(simulation.createdAt).toLocaleDateString()}</span>
       ),
     },
     {
@@ -168,20 +168,20 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
         <div className="flex justify-end space-x-2">
           <button
             onClick={() => onEdit(simulation)}
-            className="retro-btn-base bg-white px-2 py-1 text-sm"
+            className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1 text-sm"
           >
             Edit
           </button>
           <button
             onClick={() => onManageRag(simulation)}
-            className="retro-btn-base bg-white px-2 py-1 text-sm"
+            className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1 text-sm"
             title="Manage RAG Docs"
           >
             <DocumentTextIcon className="h-4 w-4" />
           </button>
           <button
             onClick={() => onDelete(simulation)}
-            className="retro-btn-base bg-white px-2 py-1 text-sm"
+            className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1 text-sm"
           >
             Delete
           </button>
@@ -338,7 +338,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
             {/* Conversation Goals */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-md font-medium text-secondary-900">Conversation Goals</h3>
+                <h3 className="text-md font-medium text-secondary-900 dark:text-retro-ink-dark">Conversation Goals</h3>
                 <Button
                   type="button"
                   onClick={() => {
@@ -363,14 +363,14 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
               </div>
 
               {goals.length === 0 ? (
-                <p className="text-sm text-secondary-500">No goals defined. Add goals to structure the conversation and enable progress tracking.</p>
+                <p className="text-sm text-secondary-500 dark:text-secondary-400">No goals defined. Add goals to structure the conversation and enable progress tracking.</p>
               ) : (
                 <div className="space-y-4">
                   {goals.map((goal, index) => (
-                    <div key={index} className="border border-secondary-200 rounded-md p-4">
+                    <div key={index} className="border border-secondary-200 dark:border-secondary-600 rounded-md p-4 bg-white dark:bg-retro-surface-dark">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-3">
-                          <span className="text-sm font-medium text-secondary-700">Goal {goal.goalNumber}</span>
+                          <span className="text-sm font-medium text-secondary-700 dark:text-secondary-300">Goal {goal.goalNumber}</span>
                           <RetroCheckbox
                             label="Optional"
                             checked={!!goal.isOptional}
@@ -482,7 +482,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
             />
 
             {/* Form Actions */}
-            <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black">
+            <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black dark:border-retro-ink-dark">
               <Button
                 type="button"
                 variant="secondary"
@@ -564,14 +564,14 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
     >
       <div className="space-y-6">
         <div>
-          <h3 className="text-md font-medium text-secondary-900 mb-4">
+          <h3 className="text-md font-medium text-secondary-900 dark:text-retro-ink-dark mb-4">
             Select Personas <span className="font-monoRetro text-sm">({selectedPersonaIds.length} selected)</span>
           </h3>
           {availablePersonas.length === 0 ? (
             <div className="text-center py-8">
               <UserGroupIcon className="mx-auto h-12 w-12 text-neutral-400" />
-              <h3 className="mt-2 text-sm font-medium">No personas available</h3>
-              <p className="mt-1 text-sm text-neutral-600">
+              <h3 className="mt-2 text-sm font-medium text-retro-ink dark:text-retro-ink-dark">No personas available</h3>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                 Create personas first to attach them to simulations.
               </p>
             </div>
@@ -582,8 +582,8 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
                 return (
                   <div
                     key={persona.id}
-                    className={`p-4 border-2 border-black shadow-retro-2 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-yellow-100' : 'bg-white hover:bg-neutral-50'
+                    className={`p-4 border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-yellow-100 dark:bg-yellow-700' : 'bg-white dark:bg-retro-surface-dark hover:bg-neutral-50 dark:hover:bg-neutral-700'
                     }`}
                     onClick={(e) => {
                       const target = e.target as HTMLElement;
@@ -603,15 +603,15 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
                       />
                       <div className="flex-1">
                         <div className="flex items-center">
-                          <h4 className="text-sm font-semibold text-secondary-900">
+                          <h4 className="text-sm font-semibold text-secondary-900 dark:text-retro-ink-dark">
                             {persona.name}
                           </h4>
-                          <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs border-2 border-black bg-white shadow-retro-2">
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 text-xs border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2">
                             {persona.difficultyText}
                           </span>
                         </div>
-                        <p className="text-sm text-neutral-700 mt-1">{persona.role}</p>
-                        <p className="text-xs text-neutral-600 mt-1 line-clamp-2">
+                        <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">{persona.role}</p>
+                        <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2">
                           {persona.personality}
                         </p>
                       </div>
@@ -624,7 +624,7 @@ const PersonaManagementModal: React.FC<PersonaManagementModalProps> = ({ simulat
         </div>
 
         {/* Form Actions */}
-        <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black">
+        <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black dark:border-retro-ink-dark">
           <Button
             type="button"
             variant="secondary"
@@ -798,7 +798,7 @@ const CreateSimulationModal: React.FC<CreateSimulationModalProps> = ({ onClose, 
           onChange={(e) => setFormData(prev => ({ ...prev, isPublic: (e.target as HTMLInputElement).checked }))}
         />
 
-        <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black">
+        <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black dark:border-retro-ink-dark">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
@@ -944,12 +944,12 @@ export const AdminSimulations: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-retro tracking-wider2">SIMULATION MANAGEMENT</h1>
-          <p className="mt-1 text-sm font-monoRetro">
+          <h1 className="text-2xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">SIMULATION MANAGEMENT</h1>
+          <p className="mt-1 text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">
             Manage simulations, content, and publishing status
           </p>
         </div>
-        <button className="retro-btn-base bg-white px-4 py-2 gap-2" onClick={() => setShowCreateModal(true)}>
+        <button className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-4 py-2 gap-2" onClick={() => setShowCreateModal(true)}>
           <PlusIcon className="h-4 w-4" />
           Create Simulation
         </button>
@@ -961,14 +961,14 @@ export const AdminSimulations: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <BeakerIcon className="h-6 w-6 text-black" />
+                <BeakerIcon className="h-6 w-6 text-black dark:text-retro-ink-dark" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-semibold truncate">
+                  <dt className="text-sm font-semibold truncate text-secondary-600 dark:text-secondary-400">
                     Total Simulations
                   </dt>
-                  <dd className="text-2xl font-semibold">
+                  <dd className="text-2xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                     <ValueText value={pagination.count} />
                   </dd>
                 </dl>
@@ -980,14 +980,14 @@ export const AdminSimulations: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TagIcon className="h-6 w-6" />
+                <TagIcon className="h-6 w-6 text-black dark:text-retro-ink-dark" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-semibold truncate">
+                  <dt className="text-sm font-semibold truncate text-secondary-600 dark:text-secondary-400">
                     Published
                   </dt>
-                  <dd className="text-2xl font-semibold">
+                  <dd className="text-2xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                     <ValueText value={simulations.filter(s => s.status === SimulationStatus.PUBLISHED).length} />
                   </dd>
                 </dl>
@@ -999,14 +999,14 @@ export const AdminSimulations: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <EyeIcon className="h-6 w-6" />
+                <EyeIcon className="h-6 w-6 text-black dark:text-retro-ink-dark" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-semibold truncate">
+                  <dt className="text-sm font-semibold truncate text-secondary-600 dark:text-secondary-400">
                     Total Views
                   </dt>
-                  <dd className="text-2xl font-semibold">
+                  <dd className="text-2xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                     <ValueText value={simulations.reduce((sum, s) => sum + s.viewCount, 0).toLocaleString()} />
                   </dd>
                 </dl>
@@ -1018,14 +1018,14 @@ export const AdminSimulations: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <TagIcon className="h-6 w-6" />
+                <TagIcon className="h-6 w-6 text-black dark:text-retro-ink-dark" />
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-semibold truncate">
+                  <dt className="text-sm font-semibold truncate text-secondary-600 dark:text-secondary-400">
                     Completions
                   </dt>
-                  <dd className="text-2xl font-semibold">
+                  <dd className="text-2xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                     <ValueText value={simulations.reduce((sum, s) => sum + s.completionCount, 0).toLocaleString()} />
                   </dd>
                 </dl>
@@ -1056,8 +1056,8 @@ export const AdminSimulations: React.FC = () => {
             <option value="">All Categories</option>
             {/* Categories would be loaded from API */}
           </select>
-          <div className="flex items-center text-sm">
-            <FunnelIcon className="h-4 w-4 mr-2 text-black" />
+          <div className="flex items-center text-sm text-retro-ink dark:text-retro-ink-dark">
+            <FunnelIcon className="h-4 w-4 mr-2" />
             {pagination.count} total simulations
           </div>
         </div>
@@ -1080,14 +1080,14 @@ export const AdminSimulations: React.FC = () => {
           />
         ) : (
           <div className="text-center py-12">
-            <BeakerIcon className="mx-auto h-12 w-12 text-black" />
-            <h3 className="mt-2 text-sm font-medium">No simulations</h3>
-            <p className="mt-1 text-sm">
+            <BeakerIcon className="mx-auto h-12 w-12 text-black dark:text-retro-ink-dark" />
+            <h3 className="mt-2 text-sm font-medium text-retro-ink dark:text-retro-ink-dark">No simulations</h3>
+            <p className="mt-1 text-sm text-secondary-600 dark:text-secondary-400">
               Get started by creating a new simulation.
             </p>
             <div className="mt-6">
-              <button className="retro-btn-base bg-white px-4 py-2 inline-flex items-center text-sm" onClick={() => setShowCreateModal(true)}>
-                <BeakerIcon className="-ml-1 mr-2 h-5 w-5 text-black" />
+              <button className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-4 py-2 inline-flex items-center text-sm" onClick={() => setShowCreateModal(true)}>
+                <BeakerIcon className="-ml-1 mr-2 h-5 w-5" />
                 New Simulation
               </button>
             </div>
@@ -1099,7 +1099,7 @@ export const AdminSimulations: React.FC = () => {
       {/* Pagination */}
       {pagination.total > 1 && (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-secondary-700 dark:text-secondary-300">
             Showing <ValueText value={((pagination.current - 1) * pagination.limit) + 1} /> to{' '}
             <ValueText value={Math.min(pagination.current * pagination.limit, pagination.count)} /> of{' '}
             <ValueText value={pagination.count} /> results
@@ -1108,14 +1108,14 @@ export const AdminSimulations: React.FC = () => {
             <button
               onClick={() => handlePageChange(pagination.current - 1)}
               disabled={pagination.current === 1}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
             <button
               onClick={() => handlePageChange(pagination.current + 1)}
               disabled={pagination.current === pagination.total}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>
@@ -1313,17 +1313,17 @@ const SimulationRagDocsModal: React.FC<SimulationRagDocsModalProps> = ({ simulat
     <RetroDialog open={true} onClose={onClose} title={`Manage RAG Docs — ${simulation.title}`} className="max-w-5xl">
       <div className="space-y-6">
         {ragAvailable === false && (
-          <div className="p-3 border-2 border-black bg-red-100 text-sm">
+          <div className="p-3 border-2 border-black dark:border-retro-ink-dark bg-red-100 dark:bg-red-900 text-sm text-red-900 dark:text-red-100">
             RAG service is unavailable. You can continue, but actions will fail until it is online.
           </div>
         )}
 
         <div className="space-y-3">
-          <h3 className="text-md font-semibold">Existing Documents</h3>
+          <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Existing Documents</h3>
           <div className="flex items-center justify-between">
-            <div className="text-sm">{loadingExisting ? 'Loading…' : `${existingDocs.length} doc(s)`}</div>
+            <div className="text-sm text-retro-ink dark:text-retro-ink-dark">{loadingExisting ? 'Loading…' : `${existingDocs.length} doc(s)`}</div>
             <div className="flex gap-2">
-              <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={async () => {
+              <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={async () => {
                 setLoadingExisting(true);
                 try {
                   const { results } = await apiClient.listSimulationRagDocs(simulation.id, { limit: 200 });
@@ -1337,24 +1337,24 @@ const SimulationRagDocsModal: React.FC<SimulationRagDocsModalProps> = ({ simulat
           {existingDocs.length > 0 ? (
             <div className="space-y-2 max-h-[30vh] overflow-auto pr-1">
               {existingDocs.map((r) => (
-                <div key={r.id} className="p-3 border-2 border-black bg-white">
-                  <div className="text-xs font-monoRetro break-all">{r.id}</div>
-                  <div className="text-sm whitespace-pre-wrap mt-1">{r.text}</div>
+                <div key={r.id} className="p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark">
+                  <div className="text-xs font-monoRetro break-all text-secondary-600 dark:text-secondary-400">{r.id}</div>
+                  <div className="text-sm whitespace-pre-wrap mt-1 text-retro-ink dark:text-retro-ink-dark">{r.text}</div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-neutral-700">No documents yet.</div>
+            <div className="text-sm text-neutral-700 dark:text-neutral-400">No documents yet.</div>
           )}
         </div>
 
-        <div className="border-t-2 border-black" />
+        <div className="border-t-2 border-black dark:border-retro-ink-dark" />
 
         <div className="space-y-3">
-          <h3 className="text-md font-semibold">Add/Upsert Documents</h3>
+          <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Add/Upsert Documents</h3>
           <div className="space-y-3">
             {docs.map((d, index) => (
-              <div key={index} className="p-3 border-2 border-black bg-white shadow-retro-2">
+              <div key={index} className="p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <RetroInput
                     label="Document ID (optional, stable)"
@@ -1376,7 +1376,7 @@ const SimulationRagDocsModal: React.FC<SimulationRagDocsModalProps> = ({ simulat
                   </div>
                 </div>
                 <div className="flex justify-end mt-2">
-                  <button type="button" className="retro-btn-base bg-white px-2 py-1" onClick={() => handleRemoveDoc(index)} disabled={docs.length === 1}>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-2 py-1" onClick={() => handleRemoveDoc(index)} disabled={docs.length === 1}>
                     Remove
                   </button>
                 </div>
@@ -1384,37 +1384,37 @@ const SimulationRagDocsModal: React.FC<SimulationRagDocsModalProps> = ({ simulat
             ))}
           </div>
           <div className="flex justify-between">
-            <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={handleAddDoc}>
+            <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2" onClick={handleAddDoc}>
               Add Another
             </button>
-            <button type="button" className="retro-btn-base bg-yellow-300 px-3 py-2" onClick={handleUpsert} disabled={loading}>
+            <button type="button" className="retro-btn-base bg-yellow-300 dark:bg-yellow-500 px-3 py-2" onClick={handleUpsert} disabled={loading}>
               {loading ? 'Saving...' : 'Upsert Documents'}
             </button>
           </div>
         </div>
 
-        <div className="border-t-2 border-black pt-4 space-y-3">
-          <h3 className="text-md font-semibold">Search and Delete</h3>
+        <div className="border-t-2 border-black dark:border-retro-ink-dark pt-4 space-y-3">
+          <h3 className="text-md font-semibold text-retro-ink dark:text-retro-ink-dark">Search and Delete</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <RetroInput label="Query" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <RetroInput label="Top K" type="number" min="1" max="50" value={topK} onChange={(e) => setTopK(Number(e.target.value) || 5)} />
-            <button type="button" className="retro-btn-base bg-white px-3 py-2 inline-flex items-center justify-center" onClick={handleSearch} disabled={loading || !searchQuery.trim()}>
+            <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2 inline-flex items-center justify-center" onClick={handleSearch} disabled={loading || !searchQuery.trim()}>
               <MagnifyingGlassIcon className="h-4 w-4 mr-2" /> Search
             </button>
           </div>
           {searchResults.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-sm">{searchResults.length} result(s)</div>
+                <div className="text-sm text-retro-ink dark:text-retro-ink-dark">{searchResults.length} result(s)</div>
                 <div className="flex items-center gap-2">
-                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={() => setSelectedIds(searchResults.map(r => r.id))}>Select All</button>
-                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={() => setSelectedIds([])}>Clear</button>
-                  <button type="button" className="retro-btn-base bg-white px-3 py-1" onClick={handleDeleteSelected} disabled={selectedIds.length === 0}>Delete Selected</button>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={() => setSelectedIds(searchResults.map(r => r.id))}>Select All</button>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={() => setSelectedIds([])}>Clear</button>
+                  <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-1" onClick={handleDeleteSelected} disabled={selectedIds.length === 0}>Delete Selected</button>
                 </div>
               </div>
               <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
                 {searchResults.map((r) => (
-                  <div key={r.id} className="p-3 border-2 border-black bg-white">
+                  <div key={r.id} className="p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark">
                     <div className="flex items-start justify-between">
                       <div className="mr-3">
                         <input
@@ -1428,10 +1428,10 @@ const SimulationRagDocsModal: React.FC<SimulationRagDocsModalProps> = ({ simulat
                         />
                       </div>
                       <div className="flex-1">
-                        <div className="text-xs font-monoRetro break-all">{r.id}</div>
-                        <div className="text-sm whitespace-pre-wrap mt-1">{r.text}</div>
+                        <div className="text-xs font-monoRetro break-all text-secondary-600 dark:text-secondary-400">{r.id}</div>
+                        <div className="text-sm whitespace-pre-wrap mt-1 text-retro-ink dark:text-retro-ink-dark">{r.text}</div>
                         {r.distance !== undefined && (
-                          <div className="text-xs text-neutral-600 mt-1">distance: {r.distance.toFixed(4)}</div>
+                          <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">distance: {r.distance.toFixed(4)}</div>
                         )}
                       </div>
                     </div>
@@ -1439,18 +1439,18 @@ const SimulationRagDocsModal: React.FC<SimulationRagDocsModalProps> = ({ simulat
                 ))}
               </div>
               <div className="flex justify-end">
-                <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={handleDeleteAll}>
+                <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2" onClick={handleDeleteAll}>
                   Delete All Docs for Simulation
                 </button>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-neutral-700">No results. Use search to view and manage existing docs.</div>
+            <div className="text-sm text-neutral-700 dark:text-neutral-400">No results. Use search to view and manage existing docs.</div>
           )}
         </div>
 
-        <div className="flex justify-end pt-4 border-t-2 border-black">
-          <button type="button" className="retro-btn-base bg-white px-3 py-2" onClick={onClose}>Close</button>
+        <div className="flex justify-end pt-4 border-t-2 border-black dark:border-retro-ink-dark">
+          <button type="button" className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-3 py-2" onClick={onClose}>Close</button>
         </div>
       </div>
     </RetroDialog>

@@ -18,14 +18,14 @@ export const Button: React.FC<ButtonProps> = ({
   children,
   ...props
 }) => {
-  const baseClasses = 'retro-btn-base font-semibold disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2';
+  const baseClasses = 'retro-btn-base font-semibold disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2';
 
   const variantClasses = {
-    primary: 'bg-black text-white hover:opacity-90',
-    secondary: 'bg-retro.accent text-black hover:brightness-95',
-    outline: 'bg-white text-black',
-    ghost: 'bg-transparent text-black shadow-none border-transparent',
-    danger: 'bg-red-600 text-white hover:opacity-90',
+    primary: 'bg-black dark:bg-retro-ink-dark text-white dark:text-retro-paper-dark hover:opacity-90',
+    secondary: 'bg-retro-accent dark:bg-retro-accent-dark text-black hover:brightness-95',
+    outline: 'bg-white dark:bg-retro-surface-dark text-black dark:text-retro-ink-dark',
+    ghost: 'bg-transparent text-black dark:text-retro-ink-dark shadow-none border-transparent',
+    danger: 'bg-red-600 dark:bg-red-500 text-white hover:opacity-90',
   } as const;
 
   const sizeClasses = {

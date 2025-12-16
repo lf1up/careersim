@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -33,12 +34,20 @@ export default {
         },
         // Retro-themed tokens
         retro: {
+          // Light mode
           paper: '#fffdf5',
           surface: '#ffffff',
           ink: '#111827',
           muted: '#e5e7eb',
           accent: '#fbbf24', // amber-400
           accent2: '#22d3ee', // cyan-400
+          // Dark mode variants
+          'paper-dark': '#1a1a1a',
+          'surface-dark': '#262626',
+          'ink-dark': '#f5f5f5',
+          'muted-dark': '#404040',
+          'accent-dark': '#f59e0b', // amber-500
+          'accent2-dark': '#06b6d4', // cyan-500
         },
       },
       fontFamily: {
@@ -50,12 +59,20 @@ export default {
         wider2: '0.08em',
       },
       boxShadow: ({ theme }) => ({
+        // Light mode shadows
         'retro-1': `1px 1px 0 ${theme('colors.retro.ink')}`,
         'retro-2': `2px 2px 0 ${theme('colors.retro.ink')}`,
         'retro-3': `3px 3px 0 ${theme('colors.retro.ink')}`,
         'retro-4': `4px 4px 0 ${theme('colors.retro.ink')}`,
         'retro-y-4': `0 4px 0 ${theme('colors.retro.ink')}`,
         'retro-x-4': `4px 0 0 ${theme('colors.retro.ink')}`,
+        // Dark mode shadows (inverted - light on dark)
+        'retro-dark-1': `1px 1px 0 ${theme('colors.retro.ink-dark')}`,
+        'retro-dark-2': `2px 2px 0 ${theme('colors.retro.ink-dark')}`,
+        'retro-dark-3': `3px 3px 0 ${theme('colors.retro.ink-dark')}`,
+        'retro-dark-4': `4px 4px 0 ${theme('colors.retro.ink-dark')}`,
+        'retro-dark-y-4': `0 4px 0 ${theme('colors.retro.ink-dark')}`,
+        'retro-dark-x-4': `4px 0 0 ${theme('colors.retro.ink-dark')}`,
       }),
     },
   },

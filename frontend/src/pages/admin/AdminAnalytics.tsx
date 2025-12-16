@@ -21,12 +21,12 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, value, icon: Icon,
   <RetroCard className="h-full !rounded-none">
     <div className="flex items-start justify-between">
       <div className="flex-1">
-        <div className="text-sm text-neutral-600">{title}</div>
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">{title}</div>
         <div className="mt-1 text-3xl font-semibold">
           <ValueText value={typeof value === 'number' ? value.toLocaleString() : value} />
         </div>
         {subtitle && (
-          <div className="text-sm text-neutral-600 mt-2">
+          <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
             {(() => {
               const match = subtitle.match(/^([+-]?[\d.,]+%?)(.*)$/);
               if (match) {
@@ -42,8 +42,8 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, value, icon: Icon,
         )}
       </div>
       <div className="ml-4">
-        <div className="h-10 w-10 border-2 border-black rounded-full flex items-center justify-center bg-yellow-200 shadow-retro-3">
-          <Icon className="h-6 w-6 text-neutral-800" />
+        <div className="h-10 w-10 border-2 border-black dark:border-retro-ink-dark rounded-full flex items-center justify-center bg-yellow-200 dark:bg-yellow-500 shadow-retro-3 dark:shadow-retro-dark-3">
+          <Icon className="h-6 w-6 text-neutral-800 dark:text-retro-ink-dark" />
         </div>
       </div>
     </div>
@@ -87,7 +87,7 @@ export const AdminAnalytics: React.FC = () => {
         <RetroAlert title="Failed to load analytics" tone="error" className="mb-4">
           Please try refreshing the page. If the problem persists, check the server logs.
         </RetroAlert>
-        <button onClick={() => window.location.reload()} className="retro-btn-base bg-white px-4 py-2">
+        <button onClick={() => window.location.reload()} className="retro-btn-base bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark px-4 py-2">
           Retry
         </button>
       </div>
@@ -101,8 +101,8 @@ export const AdminAnalytics: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-retro tracking-wider2">ANALYTICS & INSIGHTS</h1>
-          <p className="mt-1 text-sm font-monoRetro">
+          <h1 className="text-2xl font-retro tracking-wider2 dark:text-retro-ink-dark">ANALYTICS & INSIGHTS</h1>
+          <p className="mt-1 text-sm font-monoRetro dark:text-neutral-400">
           Comprehensive analytics about platform usage and performance
           </p>
         </div>
@@ -150,7 +150,7 @@ export const AdminAnalytics: React.FC = () => {
           <RetroTable
             columns={[
               { key: 'rank', header: 'Rank', render: (row: any) => <RetroBadge color="yellow">#{row.rank}</RetroBadge>, className: 'w-20' },
-              { key: 'title', header: 'Title', render: (row: any) => <span className="font-medium">{row.title}</span> },
+              { key: 'title', header: 'Title', render: (row: any) => <span className="font-medium dark:text-retro-ink-dark">{row.title}</span> },
               { key: 'sessionCount', header: 'Sessions', render: (row: any) => <ValueText value={row.sessionCount} /> },
               { key: 'avgScore', header: 'Avg Score', render: (row: any) => <ValueText value={`${(typeof row.avgScore === 'number' && isFinite(row.avgScore) ? row.avgScore : 0).toFixed(1)}%`} /> },
             ]}
@@ -168,48 +168,48 @@ export const AdminAnalytics: React.FC = () => {
 
       <RetroPanel title="Performance Insights">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <RetroCard title={<span className="text-base">User Engagement</span>} bodyClassName="space-y-4" className="!rounded-none">
+          <RetroCard title={<span className="text-base dark:text-retro-ink-dark">User Engagement</span>} bodyClassName="space-y-4" className="!rounded-none">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-neutral-600">Active Users</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Active Users</span>
               <span className="text-sm font-medium">
                 <ValueText value={userStats.totalUsers > 0 ? `${Math.round((userStats.activeUsers / userStats.totalUsers) * 100)}%` : '0%'} />
               </span>
             </div>
-            <div className="w-full bg-neutral-200 h-2 border border-black shadow-retro-2">
+            <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-2 border border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2">
               <div
-                className="bg-green-500 h-2"
+                className="bg-green-500 dark:bg-green-400 h-2"
                 style={{ width: `${userStats.totalUsers > 0 ? (userStats.activeUsers / userStats.totalUsers) * 100 : 0}%` }}
               />
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-neutral-600">Session Completion</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Session Completion</span>
               <span className="text-sm font-medium">
                 <ValueText value={sessionStats.totalSessions > 0 ? `${Math.round((sessionStats.completedSessions / sessionStats.totalSessions) * 100)}%` : '0%'} />
               </span>
             </div>
-            <div className="w-full bg-neutral-200 h-2 border border-black shadow-retro-2">
+            <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-2 border border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2">
               <div
-                className="bg-blue-500 h-2"
+                className="bg-blue-500 dark:bg-blue-400 h-2"
                 style={{ width: `${sessionStats.totalSessions > 0 ? (sessionStats.completedSessions / sessionStats.totalSessions) * 100 : 0}%` }}
               />
             </div>
           </RetroCard>
 
-          <RetroCard title={<span className="text-base">Performance Metrics</span>} bodyClassName="space-y-4" className="!rounded-none">
+          <RetroCard title={<span className="text-base dark:text-retro-ink-dark">Performance Metrics</span>} bodyClassName="space-y-4" className="!rounded-none">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-neutral-600">Average Session Duration</span>
-              <span className="text-sm font-medium">
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Average Session Duration</span>
+              <span className="text-sm font-medium dark:text-retro-ink-dark">
                 <ValueText value={`${Math.round((typeof sessionStats.avgDuration === 'number' && isFinite(sessionStats.avgDuration) ? sessionStats.avgDuration : 0) / 60)}m`} /> minutes
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-neutral-600">Average Score</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Average Score</span>
               <span className="text-sm font-medium">
                 <ValueText value={`${(typeof sessionStats.avgScore === 'number' && isFinite(sessionStats.avgScore) ? sessionStats.avgScore : 0).toFixed(1)}%`} />
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-neutral-600">Simulations per User</span>
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Simulations per User</span>
               <span className="text-sm font-medium">
                 <ValueText value={(typeof userStats.avgSimulationsPerUser === 'number' && isFinite(userStats.avgSimulationsPerUser) ? userStats.avgSimulationsPerUser : 0).toFixed(1)} />
               </span>

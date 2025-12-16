@@ -94,12 +94,12 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
       <table className="min-w-full border-separate border-spacing-0">
         <thead>
           <tr>
-            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">User</th>
-            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Role</th>
-            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Subscription</th>
-            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Status</th>
-            <th className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Joined</th>
-            <th className="text-right px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">Actions</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">User</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">Role</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">Subscription</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">Status</th>
+            <th className="text-left px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">Joined</th>
+            <th className="text-right px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -107,27 +107,27 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
             const isEditing = editingUser?.id === user.id;
             
             return (
-              <tr key={user.id} className="odd:bg-white even:bg-neutral-50">
-                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
+              <tr key={user.id} className="odd:bg-white dark:odd:bg-retro-surface-dark even:bg-neutral-50 dark:even:bg-neutral-800">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300 dark:border-neutral-600">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10">
-                      <div className="h-10 w-10 border-2 border-black flex items-center justify-center shadow-retro-2">
-                        <span className="font-bold">
+                      <div className="h-10 w-10 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark flex items-center justify-center shadow-retro-2 dark:shadow-retro-dark-2">
+                        <span className="font-bold text-retro-ink dark:text-retro-ink-dark">
                           {user.firstName?.[0]}{user.lastName?.[0]}
                         </span>
                       </div>
                     </div>
                     <div className="ml-4">
-                      <div className="text-sm font-semibold">
+                      <div className="text-sm font-semibold text-retro-ink dark:text-retro-ink-dark">
                         {user.firstName} {user.lastName}
                       </div>
-                      <div className="text-sm font-monoRetro">
+                      <div className="text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">
                         {user.email}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300 dark:border-neutral-600">
                   {isEditing ? (
                     <select
                       value={editingUser.role}
@@ -146,7 +146,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                     </RetroBadge>
                   )}
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300 dark:border-neutral-600">
                   {isEditing ? (
                     <select
                       value={editingUser.subscriptionTier}
@@ -166,7 +166,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                     </RetroBadge>
                   )}
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300">
+                <td className="px-4 py-2 whitespace-nowrap border-b border-neutral-300 dark:border-neutral-600">
                   {isEditing ? (
                     <select
                       value={editingUser.isActive ? 'active' : 'inactive'}
@@ -185,16 +185,16 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                     </RetroBadge>
                   )}
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm font-monoRetro border-b border-neutral-300">
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-monoRetro border-b border-neutral-300 dark:border-neutral-600 text-retro-ink dark:text-retro-ink-dark">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium border-b border-neutral-300">
+                <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium border-b border-neutral-300 dark:border-neutral-600">
                   {isEditing ? (
                     <div className="flex justify-end space-x-2">
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="retro-btn-base bg-white px-2 py-1 disabled:opacity-50"
+                        className="retro-btn-base bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark px-2 py-1 disabled:opacity-50"
                       >
                         {saving ? (
                           <LoadingSpinner size="sm" />
@@ -205,7 +205,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                       <button
                         onClick={handleCancel}
                         disabled={saving}
-                        className="retro-btn-base bg-white px-2 py-1 disabled:opacity-50"
+                        className="retro-btn-base bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark px-2 py-1 disabled:opacity-50"
                       >
                         <XMarkIcon className="h-4 w-4" />
                       </button>
@@ -213,7 +213,7 @@ const UsersTable: React.FC<UsersTableProps> = ({ users, onUserUpdate }) => {
                   ) : (
                     <button
                       onClick={() => handleEdit(user)}
-                      className="retro-btn-base bg-white px-2 py-1"
+                      className="retro-btn-base bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark px-2 py-1"
                     >
                       <PencilIcon className="h-4 w-4" />
                     </button>
@@ -293,8 +293,8 @@ export const AdminUsers: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-retro tracking-wider2">USER MANAGEMENT</h1>
-          <p className="mt-1 text-sm font-monoRetro">
+          <h1 className="text-2xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">USER MANAGEMENT</h1>
+          <p className="mt-1 text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">
             Manage user accounts, roles, and subscriptions
           </p>
         </div>
@@ -304,7 +304,7 @@ export const AdminUsers: React.FC = () => {
       <div className="retro-card p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-500 dark:text-secondary-400" />
             <input
               type="text"
               placeholder="Search users..."
@@ -333,7 +333,7 @@ export const AdminUsers: React.FC = () => {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          <div className="flex items-center text-sm">
+          <div className="flex items-center text-sm text-retro-ink dark:text-retro-ink-dark">
             <FunnelIcon className="h-4 w-4 mr-2" />
             {pagination.count} total users
           </div>
@@ -350,7 +350,7 @@ export const AdminUsers: React.FC = () => {
           <UsersTable users={users} onUserUpdate={handleUserUpdate} />
         ) : (
           <div className="text-center py-12">
-            <p>No users found</p>
+            <p className="text-secondary-600 dark:text-secondary-400">No users found</p>
           </div>
         )}
       </div>
@@ -367,4 +367,4 @@ export const AdminUsers: React.FC = () => {
       )}
     </div>
   );
-}; 
+};

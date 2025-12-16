@@ -196,8 +196,8 @@ export const AdminSystem: React.FC = () => {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-retro tracking-wider2">SYSTEM CONFIGURATION</h1>
-        <p className="mt-1 text-sm font-monoRetro">
+        <h1 className="text-2xl font-retro tracking-wider2 dark:text-retro-ink-dark">SYSTEM CONFIGURATION</h1>
+        <p className="mt-1 text-sm font-monoRetro dark:text-neutral-400">
           AI settings, internal prompts, and system configuration
         </p>
       </div>
@@ -487,24 +487,24 @@ export const AdminSystem: React.FC = () => {
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-green-400 rounded-full"></div>
               <div>
-                <div className="text-sm font-medium text-gray-900">AI Service</div>
-                <div className="text-xs text-gray-500">Operational</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-retro-ink-dark">AI Service</div>
+                <div className="text-xs text-gray-500 dark:text-neutral-400">Operational</div>
               </div>
             </div>
             
             <div className="flex items-center space-x-3">
               <div className="w-3 h-3 bg-green-400 rounded-full"></div>
               <div>
-                <div className="text-sm font-medium text-gray-900">Database</div>
-                <div className="text-xs text-gray-500">Connected</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-retro-ink-dark">Database</div>
+                <div className="text-xs text-gray-500 dark:text-neutral-400">Connected</div>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
               <div className={`w-3 h-3 rounded-full ${config.rateLimitSettings.enabled ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
               <div>
-                <div className="text-sm font-medium text-gray-900">Rate Limiting</div>
-                <div className="text-xs text-gray-500">
+                <div className="text-sm font-medium text-gray-900 dark:text-retro-ink-dark">Rate Limiting</div>
+                <div className="text-xs text-gray-500 dark:text-neutral-400">
                   {config.rateLimitSettings.enabled 
                     ? 'Enabled' 
                     : config.rateLimitSettings.isDevelopmentOverride
@@ -598,10 +598,10 @@ export const AdminSystem: React.FC = () => {
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-retro-ink-dark">
                       Base System Prompt
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-neutral-400">
                       Core prompt template used for all persona interactions
                     </p>
                   </div>
@@ -658,10 +658,10 @@ export const AdminSystem: React.FC = () => {
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-retro-ink-dark">
                       Performance Analysis Prompt
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-neutral-400">
                       Prompt used to generate user performance feedback
                     </p>
                   </div>
@@ -718,10 +718,10 @@ export const AdminSystem: React.FC = () => {
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-retro-ink-dark">
                       Style Guidelines
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-neutral-400">
                       Global output rules applied to persona responses
                     </p>
                   </div>
@@ -780,56 +780,56 @@ export const AdminSystem: React.FC = () => {
 
       {/* Environment Variables */}
       <div className="retro-card">
-        <div className="px-6 py-4 border-b-2 border-black">
+        <div className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark">
           <div className="flex items-center">
-            <AdjustmentsHorizontalIcon className="h-6 w-6 text-black mr-3" />
-            <h2 className="text-lg font-medium text-gray-900">Environment Configuration</h2>
+            <AdjustmentsHorizontalIcon className="h-6 w-6 text-black dark:text-retro-ink-dark mr-3" />
+            <h2 className="text-lg font-medium text-gray-900 dark:text-retro-ink-dark">Environment Configuration</h2>
           </div>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Development Settings</h4>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-retro-ink-dark mb-3">Development Settings</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Environment:</span>
-                  <span className="font-medium">Development</span>
+                  <span className="text-gray-600 dark:text-neutral-400">Environment:</span>
+                  <span className="font-medium dark:text-retro-ink-dark">Development</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">API Documentation:</span>
-                  <span className="font-medium text-green-600">Enabled</span>
+                  <span className="text-gray-600 dark:text-neutral-400">API Documentation:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">Enabled</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Rate Limiting:</span>
-                  <span className={`font-medium ${config.rateLimitSettings.enabled ? 'text-green-600' : 'text-yellow-600'}`}>
+                  <span className="text-gray-600 dark:text-neutral-400">Rate Limiting:</span>
+                  <span className={`font-medium ${config.rateLimitSettings.enabled ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
                     {config.rateLimitSettings.enabled ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Debug Logging:</span>
-                  <span className="font-medium text-green-600">Enabled</span>
+                  <span className="text-gray-600 dark:text-neutral-400">Debug Logging:</span>
+                  <span className="font-medium text-green-600 dark:text-green-400">Enabled</span>
                 </div>
               </div>
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Performance Limits</h4>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-retro-ink-dark mb-3">Performance Limits</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Rate Limit Window:</span>
-                  <span className="font-medium">{Math.round(config.rateLimitSettings.windowMs / 60000)} minutes</span>
+                  <span className="text-gray-600 dark:text-neutral-400">Rate Limit Window:</span>
+                  <span className="font-medium dark:text-retro-ink-dark">{Math.round(config.rateLimitSettings.windowMs / 60000)} minutes</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Max Requests:</span>
-                  <span className="font-medium">{config.rateLimitSettings.maxRequests} per window</span>
+                  <span className="text-gray-600 dark:text-neutral-400">Max Requests:</span>
+                  <span className="font-medium dark:text-retro-ink-dark">{config.rateLimitSettings.maxRequests} per window</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Max File Size:</span>
-                  <span className="font-medium">10 MB</span>
+                  <span className="text-gray-600 dark:text-neutral-400">Max File Size:</span>
+                  <span className="font-medium dark:text-retro-ink-dark">10 MB</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Session Timeout:</span>
-                  <span className="font-medium">7 days</span>
+                  <span className="text-gray-600 dark:text-neutral-400">Session Timeout:</span>
+                  <span className="font-medium dark:text-retro-ink-dark">7 days</span>
                 </div>
               </div>
             </div>

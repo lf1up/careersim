@@ -476,8 +476,8 @@ export const SimulationDetail: React.FC = () => {
         <div className="retro-card mb-4 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-semibold">{simulation.title}</h1>
-              <p className="text-sm font-monoRetro">Session in progress</p>
+              <h1 className="text-xl font-semibold dark:text-retro-ink-dark">{simulation.title}</h1>
+              <p className="text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">Session in progress</p>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -494,8 +494,8 @@ export const SimulationDetail: React.FC = () => {
         {/* Chat interface with goals sidebar */}
         <div className="retro-card flex-1 flex flex-row min-h-0">
           {/* Left goals sidebar */}
-          <div className="relative w-64 border-r-2 border-black p-4 overflow-y-auto hidden md:block">
-            <h3 className="text-sm font-semibold mb-3">Conversation Goals</h3>
+          <div className="relative w-64 border-r-2 border-black dark:border-retro-ink-dark p-4 overflow-y-auto hidden md:block">
+            <h3 className="text-sm font-semibold mb-3 dark:text-retro-ink-dark">Conversation Goals</h3>
             {simulation.conversationGoals && simulation.conversationGoals.length > 0 ? (
               <ul className="space-y-2">
                 {simulation.conversationGoals
@@ -510,25 +510,25 @@ export const SimulationDetail: React.FC = () => {
                     return (
                       <li
                         key={goal.goalNumber}
-                        className={`relative border-2 px-3 py-2 shadow-retro-2 ${isAchieved ? 'bg-green-100 border-green-500' : isInProgress ? 'bg-yellow-100 border-yellow-500' : 'bg-white border-black'}`}
+                        className={`relative border-2 px-3 py-2 shadow-retro-2 dark:shadow-retro-dark-2 ${isAchieved ? 'bg-green-100 border-green-500 dark:bg-green-900 dark:border-green-400' : isInProgress ? 'bg-yellow-100 border-yellow-500 dark:bg-yellow-900 dark:border-yellow-400' : 'bg-white border-black dark:bg-retro-surface-dark dark:border-retro-ink-dark'}`}
                         onMouseEnter={(e) => showGoalTooltip(goal, e.currentTarget as unknown as HTMLElement)}
                         onMouseLeave={hideGoalTooltip}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold">{goal.title}</span>
+                          <span className="text-sm font-semibold dark:text-retro-ink-dark">{goal.title}</span>
                           {goal.isOptional && (
-                            <span className="ml-2 text-[10px] uppercase tracking-wider2">Optional</span>
+                            <span className="ml-2 text-[10px] uppercase tracking-wider2 dark:text-neutral-400">Optional</span>
                           )}
                         </div>
                         <div className="mt-1">
-                          <span className={`text-xs ${isAchieved ? 'text-green-700' : isInProgress ? 'text-yellow-700' : ''}`}>{isAchieved ? 'Achieved' : isInProgress ? 'In progress' : 'Not started'}</span>
+                          <span className={`text-xs ${isAchieved ? 'text-green-700 dark:text-green-400' : isInProgress ? 'text-yellow-700 dark:text-yellow-400' : 'dark:text-neutral-400'}`}>{isAchieved ? 'Achieved' : isInProgress ? 'In progress' : 'Not started'}</span>
                         </div>
                       </li>
                     );
                   })}
               </ul>
             ) : (
-              <p className="text-sm text-secondary-500">No goals defined.</p>
+              <p className="text-sm text-secondary-500 dark:text-secondary-400">No goals defined.</p>
             )}
           </div>
 
@@ -547,16 +547,16 @@ export const SimulationDetail: React.FC = () => {
                 return (
                   <div key={message.id || index} className={`flex ${message.isFromUser ? 'justify-end' : 'justify-start'} mb-4`}>
                     <div className="max-w-[70%] min-w-0">
-                      <div className={`text-xs mb-1 ${message.isFromUser ? 'text-right' : 'text-left'}`}>
+                      <div className={`text-xs mb-1 ${message.isFromUser ? 'text-right' : 'text-left'} dark:text-retro-ink-dark`}>
                         <div className="font-medium">{message.isFromUser ? userName : personaName}</div>
                         {(message.isFromUser ? userTitle : personaRole) && (
-                          <div className="font-monoRetro">{message.isFromUser ? userTitle : personaRole}</div>
+                          <div className="font-monoRetro text-secondary-600 dark:text-secondary-400">{message.isFromUser ? userTitle : personaRole}</div>
                         )}
                       </div>
-                      <div className={`px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full ${message.isFromUser ? 'bg-black text-white' : 'bg-white'}`}>
+                      <div className={`px-4 py-2 border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 break-words max-w-full ${message.isFromUser ? 'bg-black text-white dark:bg-retro-ink-dark dark:text-retro-paper-dark' : 'bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark'}`}>
                         <MarkdownMessage content={message.content} />
                       </div>
-                      <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${message.isFromUser ? 'text-right' : 'text-left'}`}>
+                      <div className={`mt-1 text-[10px] opacity-75 font-monoRetro ${message.isFromUser ? 'text-right' : 'text-left'} dark:text-retro-ink-dark`}>
                         {new Date(message.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
@@ -565,22 +565,22 @@ export const SimulationDetail: React.FC = () => {
               })
             ) : (
               <div className="text-center py-8">
-                <p>Start the conversation! Send your first message below.</p>
+                <p className="dark:text-retro-ink-dark">Start the conversation! Send your first message below.</p>
               </div>
             )}
             {/* Typing indicator */}
             {isAwaitingAIResponse && (
               <div className="flex justify-start mb-4">
                 <div className="max-w-[70%] min-w-0">
-                  <div className="text-xs mb-1 text-left">
+                  <div className="text-xs mb-1 text-left dark:text-retro-ink-dark">
                     <div className="font-medium">{simulation.personas && simulation.personas[0]?.name ? simulation.personas[0].name : 'Assistant'}</div>
                     {simulation.personas && simulation.personas[0]?.role && (
-                      <div className="font-monoRetro">{simulation.personas[0].role}</div>
+                      <div className="font-monoRetro text-secondary-600 dark:text-secondary-400">{simulation.personas[0].role}</div>
                     )}
                   </div>
-                  <div className="px-4 py-2 border-2 border-black shadow-retro-2 break-words max-w-full bg-white">
+                  <div className="px-4 py-2 border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 break-words max-w-full bg-white dark:bg-retro-surface-dark">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm">is typing</span>
+                      <span className="text-sm dark:text-retro-ink-dark">is typing</span>
                       <div className="flex gap-1">
                         <span className="h-2 w-2 bg-secondary-400 inline-block animate-bounce" style={{ animationDelay: '0ms' }}></span>
                         <span className="h-2 w-2 bg-secondary-400 inline-block animate-bounce" style={{ animationDelay: '100ms' }}></span>
@@ -595,7 +595,7 @@ export const SimulationDetail: React.FC = () => {
             </div>
 
             {/* Message input */}
-            <div className="border-t-2 border-black p-4">
+            <div className="border-t-2 border-black dark:border-retro-ink-dark p-4">
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
@@ -634,16 +634,16 @@ export const SimulationDetail: React.FC = () => {
             className="fixed z-[2147483647] pointer-events-none"
             style={{ top: goalTooltip.top, left: goalTooltip.left }}
           >
-            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal border-2 border-black bg-white text-xs shadow-retro-4">
+            <div ref={goalTooltipRef} className="w-72 max-w-[18rem] max-h-[70vh] overflow-auto whitespace-normal border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-xs shadow-retro-4 dark:shadow-retro-dark-4">
               <div className="p-3">
-                <div className="font-semibold mb-1">{goalTooltip.goal.title}</div>
+                <div className="font-semibold mb-1 dark:text-retro-ink-dark">{goalTooltip.goal.title}</div>
                 {goalTooltip.goal.description && (
-                  <p className="leading-snug">{goalTooltip.goal.description}</p>
+                  <p className="leading-snug dark:text-retro-ink-dark">{goalTooltip.goal.description}</p>
                 )}
                 {(goalTooltip.goal.keyBehaviors && goalTooltip.goal.keyBehaviors.length > 0) && (
                   <div className="mt-2">
-                    <div className="font-medium mb-1">Key behaviors</div>
-                    <ul className="list-disc list-inside space-y-0.5">
+                    <div className="font-medium mb-1 dark:text-retro-ink-dark">Key behaviors</div>
+                    <ul className="list-disc list-inside space-y-0.5 dark:text-retro-ink-dark">
                       {goalTooltip.goal.keyBehaviors.map((b, i) => (
                         <li key={i}>{b}</li>
                       ))}
@@ -652,8 +652,8 @@ export const SimulationDetail: React.FC = () => {
                 )}
                 {(goalTooltip.goal.successIndicators && goalTooltip.goal.successIndicators.length > 0) && (
                   <div className="mt-2">
-                    <div className="font-medium mb-1">Success indicators</div>
-                    <ul className="list-disc list-inside space-y-0.5">
+                    <div className="font-medium mb-1 dark:text-retro-ink-dark">Success indicators</div>
+                    <ul className="list-disc list-inside space-y-0.5 dark:text-retro-ink-dark">
                       {goalTooltip.goal.successIndicators.map((s, i) => (
                         <li key={i}>{s}</li>
                       ))}

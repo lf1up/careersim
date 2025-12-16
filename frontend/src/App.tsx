@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import { SocketProvider } from './contexts/SocketContext.tsx';
+import { ThemeProvider } from './contexts/ThemeContext.tsx';
 import { Navbar } from './components/layout/Navbar.tsx';
 import { AdminRoute } from './components/auth/AdminRoute.tsx';
 import { AdminLayout } from './components/layout/AdminLayout.tsx';
@@ -66,7 +67,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 // App Layout component
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-retro-paper">
+    <div className="min-h-screen bg-retro-paper dark:bg-retro-paper-dark transition-colors">
       <Navbar />
       <main className="p-4 sm:p-6 lg:p-8">{children}</main>
     </div>
@@ -257,11 +258,11 @@ const AppContent: React.FC = () => {
         <Route 
           path="*" 
           element={
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark">
               <div className="text-center">
-                <h1 className="text-4xl font-bold text-secondary-900 mb-4">404</h1>
-                <p className="text-secondary-600 mb-8">Page not found</p>
-                <a href="/dashboard" className="text-primary-600 hover:text-primary-500">
+                <h1 className="text-4xl font-bold text-secondary-900 dark:text-retro-ink-dark mb-4">404</h1>
+                <p className="text-secondary-600 dark:text-secondary-400 mb-8">Page not found</p>
+                <a href="/dashboard" className="text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">
                   Go back to dashboard
                 </a>
               </div>
@@ -276,33 +277,35 @@ const AppContent: React.FC = () => {
 // Root App component with providers
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <AppContent />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
-              duration: 3000,
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <AppContent />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
               style: {
-                background: '#059669',
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              duration: 5000,
-              style: {
-                background: '#dc2626',
+              success: {
+                duration: 3000,
+                style: {
+                  background: '#059669',
+                },
               },
-            },
-          }}
-        />
-      </SocketProvider>
-    </AuthProvider>
+              error: {
+                duration: 5000,
+                style: {
+                  background: '#dc2626',
+                },
+              },
+            }}
+          />
+        </SocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

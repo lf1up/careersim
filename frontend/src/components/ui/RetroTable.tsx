@@ -16,7 +16,7 @@ export function RetroTable<T>({ columns, data, keyExtractor, className, tableCla
         <thead>
           <tr>
             {columns.map((col, idx) => (
-              <th key={idx} className="text-left px-4 py-2 border-b-2 border-black bg-yellow-200 font-semibold">
+              <th key={idx} className="text-left px-4 py-2 border-b-2 border-black dark:border-retro-ink-dark bg-yellow-200 dark:bg-yellow-600 font-semibold text-retro-ink dark:text-retro-ink-dark">
                 {col.header}
               </th>
             ))}
@@ -24,9 +24,9 @@ export function RetroTable<T>({ columns, data, keyExtractor, className, tableCla
         </thead>
         <tbody>
           {data.map((row, rIdx) => (
-            <tr key={keyExtractor(row, rIdx)} className="odd:bg-white even:bg-neutral-50">
+            <tr key={keyExtractor(row, rIdx)} className="odd:bg-white dark:odd:bg-retro-surface-dark even:bg-neutral-50 dark:even:bg-neutral-800">
               {columns.map((col, cIdx) => (
-                <td key={cIdx} className={clsx('px-4 py-2 border-b border-neutral-300', col.className)}>
+                <td key={cIdx} className={clsx('px-4 py-2 border-b border-neutral-300 dark:border-neutral-600 text-retro-ink dark:text-retro-ink-dark', col.className)}>
                   {col.render ? col.render(row) : ((row as any)[col.key as any] as React.ReactNode)}
                 </td>
               ))}
@@ -51,15 +51,15 @@ export const RetroPagination: React.FC<RetroPaginationProps> = ({ page, pageCoun
   return (
     <div className={clsx('flex items-center justify-between mt-3', className)}>
       <button
-        className={clsx('retro-btn-base px-3 py-1 text-sm', canPrev ? 'bg-white' : 'bg-neutral-200 opacity-60 cursor-not-allowed')}
+        className={clsx('retro-btn-base px-3 py-1 text-sm', canPrev ? 'bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark' : 'bg-neutral-200 dark:bg-neutral-700 opacity-60 cursor-not-allowed')}
         onClick={() => canPrev && onPageChange(page - 1)}
         disabled={!canPrev}
       >
         Prev
       </button>
-      <span className="text-sm font-monoRetro">Page {page} of {pageCount}</span>
+      <span className="text-sm font-monoRetro text-retro-ink dark:text-retro-ink-dark">Page {page} of {pageCount}</span>
       <button
-        className={clsx('retro-btn-base px-3 py-1 text-sm', canNext ? 'bg-white' : 'bg-neutral-200 opacity-60 cursor-not-allowed')}
+        className={clsx('retro-btn-base px-3 py-1 text-sm', canNext ? 'bg-white dark:bg-retro-surface-dark dark:text-retro-ink-dark' : 'bg-neutral-200 dark:bg-neutral-700 opacity-60 cursor-not-allowed')}
         onClick={() => canNext && onPageChange(page + 1)}
         disabled={!canNext}
       >

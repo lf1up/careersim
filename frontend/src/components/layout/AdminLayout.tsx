@@ -13,6 +13,7 @@ import {
   CpuChipIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { ThemeToggle } from '../ui/ThemeToggle.tsx';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -41,12 +42,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-retro-paper flex">
+    <div className="min-h-screen bg-retro-paper dark:bg-retro-paper-dark flex transition-colors">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="fixed inset-0 bg-gray-600 bg-opacity-75"
+            className="fixed inset-0 bg-gray-600 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-80"
             onClick={() => setSidebarOpen(false)}
           />
         </div>
@@ -54,18 +55,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       {/* Sidebar */}
       <div
-        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-retro-paper border-r-2 border-black shadow-retro-x-4 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
+        className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-retro-paper dark:bg-retro-paper-dark border-r-2 border-black dark:border-retro-ink-dark shadow-retro-x-4 dark:shadow-retro-dark-x-4 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}
       >
-        <div className="flex items-center justify-between h-16 px-4 border-b-2 border-black">
+        <div className="flex items-center justify-between h-16 px-4 border-b-2 border-black dark:border-retro-ink-dark">
           <div className="flex items-center">
-            <BeakerIcon className="h-8 w-8 text-black" />
-            <span className="ml-2 text-xl font-bold font-retro tracking-wider2">ADMIN PANEL</span>
+            <BeakerIcon className="h-8 w-8 text-black dark:text-retro-ink-dark" />
+            <span className="ml-2 text-xl font-bold font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">ADMIN PANEL</span>
           </div>
           <button
             className="lg:hidden"
             onClick={() => setSidebarOpen(false)}
           >
-            <XMarkIcon className="h-6 w-6 text-gray-500" />
+            <XMarkIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
@@ -75,7 +76,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`${isActive(item.href) ? 'bg-yellow-300 text-black border-2 border-black shadow-retro-2' : 'text-black border-2 border-black shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1'} group flex items-center px-3 py-2 text-sm font-semibold transition-transform`}
+                className={`${isActive(item.href) ? 'bg-yellow-300 dark:bg-yellow-500 text-black dark:text-black border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2' : 'text-black dark:text-retro-ink-dark bg-white dark:bg-retro-surface-dark border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1'} group flex items-center px-3 py-2 text-sm font-semibold transition-transform`}
                 onClick={() => setSidebarOpen(false)}
               >
                 <item.icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5`} />
@@ -84,10 +85,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             ))}
           </div>
 
-          <div className="mt-8 pt-6 border-t-2 border-black">
+          <div className="mt-8 pt-6 border-t-2 border-black dark:border-retro-ink-dark">
             <Link
               to="/dashboard"
-              className="group flex items-center px-3 py-2 text-sm font-semibold border-2 border-black shadow-retro-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 transition-transform"
+              className="group flex items-center px-3 py-2 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-black dark:text-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 transition-transform"
             >
               <HomeIcon className="flex-shrink-0 -ml-1 mr-3 h-5 w-5" />
               Back to App
@@ -96,26 +97,26 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </nav>
 
         {/* User info at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t-2 border-black">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t-2 border-black dark:border-retro-ink-dark">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-yellow-300 border-2 border-black flex items-center justify-center">
+                <div className="h-8 w-8 bg-yellow-300 dark:bg-yellow-500 border-2 border-black dark:border-retro-ink-dark flex items-center justify-center">
                   <span className="text-black text-sm font-bold">
                     {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </span>
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-semibold">
+                <p className="text-sm font-semibold text-retro-ink dark:text-retro-ink-dark">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs">Admin</p>
+                <p className="text-xs text-secondary-600 dark:text-secondary-400">Admin</p>
               </div>
             </div>
             <button
               onClick={logout}
-              className="text-sm border-2 border-black px-2 py-1 shadow-retro-2 active:translate-x-[1px] active:translate-y-[1px]"
+              className="text-sm border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark px-2 py-1 shadow-retro-2 dark:shadow-retro-dark-2 active:translate-x-[1px] active:translate-y-[1px]"
             >
               Logout
             </button>
@@ -126,19 +127,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Main content */}
       <div className="flex-1 lg:pl-0 min-w-0">
         {/* Mobile header */}
-        <div className="lg:hidden bg-retro-paper border-b-2 border-black shadow-retro-y-4">
+        <div className="lg:hidden bg-retro-paper dark:bg-retro-paper-dark border-b-2 border-black dark:border-retro-ink-dark shadow-retro-y-4 dark:shadow-retro-dark-y-4">
           <div className="flex items-center justify-between h-16 px-4">
             <button
-              className="border-2 border-black px-2 py-1 shadow-retro-2 active:translate-x-[1px] active:translate-y-[1px]"
+              className="border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark px-2 py-1 shadow-retro-2 dark:shadow-retro-dark-2 active:translate-x-[1px] active:translate-y-[1px]"
               onClick={() => setSidebarOpen(true)}
             >
-              <Bars3Icon className="h-6 w-6" />
+              <Bars3Icon className="h-6 w-6 text-retro-ink dark:text-retro-ink-dark" />
             </button>
             <div className="flex items-center">
-              <BeakerIcon className="h-8 w-8 text-black" />
-              <span className="ml-2 text-xl font-bold font-retro tracking-wider2">ADMIN</span>
+              <BeakerIcon className="h-8 w-8 text-black dark:text-retro-ink-dark" />
+              <span className="ml-2 text-xl font-bold font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">ADMIN</span>
             </div>
-            <div className="w-6" /> {/* Spacer */}
+            <ThemeToggle />
           </div>
         </div>
 
@@ -149,4 +150,4 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </div>
     </div>
   );
-}; 
+};

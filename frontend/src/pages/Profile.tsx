@@ -58,7 +58,7 @@ export const Profile: React.FC = () => {
         {/* Header */}
         <div className="px-6 py-4 border-b-2 border-black">
           <h1 className="text-2xl font-retro tracking-wider2">PROFILE SETTINGS</h1>
-          <p className="font-monoRetro mt-1">
+          <p className="font-monoRetro mt-1 text-secondary-600 dark:text-secondary-400">
             Update your profile information and preferences
           </p>
         </div>
@@ -67,7 +67,7 @@ export const Profile: React.FC = () => {
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Basic Information */}
           <div>
-            <h2 className="text-lg font-medium text-secondary-900 mb-4">Basic Information</h2>
+            <h2 className="text-lg font-medium text-secondary-900 dark:text-retro-ink-dark mb-4">Basic Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-semibold mb-1">
@@ -102,7 +102,7 @@ export const Profile: React.FC = () => {
 
           {/* Professional Information */}
           <div>
-            <h2 className="text-lg font-medium text-secondary-900 mb-4">Professional Information</h2>
+            <h2 className="text-lg font-medium text-secondary-900 dark:text-retro-ink-dark mb-4">Professional Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="jobTitle" className="block text-sm font-semibold mb-1">
