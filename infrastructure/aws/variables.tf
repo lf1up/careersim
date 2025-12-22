@@ -309,7 +309,7 @@ variable "max_file_size" {
 variable "openai_eval_model" {
   description = "Optional eval model override"
   type        = string
-  default     = "google/gemini-2.5-pro"
+  default     = "google/gemini-2.5-flash"
 }
 
 variable "openai_eval_provider" {

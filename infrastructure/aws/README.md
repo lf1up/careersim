@@ -142,7 +142,7 @@ allowed_origins = "https://yourapp.vercel.app,https://*.vercel.app"
 # db_instance_class       = "db.t4g.medium"
 # db_allocated_storage    = 20
 # openai_model            = "openai/gpt-5"
-# openai_eval_model       = "google/gemini-2.5-pro"
+# openai_eval_model       = "google/gemini-2.5-flash"
 ```
 
 > Tip: Add `terraform.tfvars` to your global/local gitignore to avoid committing secrets.

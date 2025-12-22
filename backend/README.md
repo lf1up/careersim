@@ -115,7 +115,7 @@ OPENAI_MODEL=gpt-4o-mini
 OPENAI_PROVIDER=openai
 OPENAI_MAX_TOKENS=2000
 # Optional parameters (AI response evaluations)
-OPENAI_EVAL_MODEL=google/gemini-2.5-pro
+OPENAI_EVAL_MODEL=google/gemini-2.5-flash
 OPENAI_EVAL_PROVIDER=google
 OPENAI_EVAL_MAX_TOKENS=2000
 OPENAI_EVAL_TEMPERATURE=0.3
