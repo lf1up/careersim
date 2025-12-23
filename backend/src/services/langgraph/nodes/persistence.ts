@@ -68,7 +68,7 @@ export async function persistAndEmitNode(
 
   try {
     // Load database dependencies
-    loadDatabaseDependencies();
+    await loadDatabaseDependencies();
     
     const sessionRepo = AppDataSource.getRepository(SimulationSession);
     const messageRepo = AppDataSource.getRepository(SessionMessage);
@@ -250,7 +250,7 @@ export async function scheduleInactivityNode(
 
   try {
     // Load database dependencies
-    loadDatabaseDependencies();
+    await loadDatabaseDependencies();
     
     const sessionRepo = AppDataSource.getRepository(SimulationSession);
     const session = await sessionRepo.findOne({

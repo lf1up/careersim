@@ -78,6 +78,64 @@ async function getRecentMessageIds(
 }
 
 /**
+ * Detect which goal the user is currently working on using enhanced labels
+ * Uses zero-shot classification with goal title + key behaviors for better accuracy
+ */
+async function detectActiveGoal(
+  userMessage: string,
+  goals: any[],
+  progress: any[],
+): Promise<any | null> {
+  try {
+    // Get unachieved goals
+    const unachieved = goals.filter((g: any) => {
+      const p = progress.find((p) => p.goalNumber === g.goalNumber);
+      return !p || p.status !== 'achieved';
+    });
+
+    if (unachieved.length === 0) return null;
+
+    // Create enhanced labels: "Goal Title: key behavior 1; key behavior 2"
+    // This provides much richer context for classification
+    const enhancedLabels = unachieved.map((g: any) => {
+      const behaviors = g.keyBehaviors?.slice(0, 2).join('; ') || '';
+      return behaviors ? `${g.title}: ${behaviors}` : g.title;
+    });
+
+    console.log(`🔍 Detecting active goal from ${unachieved.length} candidates:`, enhancedLabels);
+
+    // Use transformers service for zero-shot classification
+    const { transformersService } = await import('@/services/transformers');
+    const result = await transformersService.classifySequence(userMessage, enhancedLabels);
+    
+    const threshold = EvaluationThresholds.getBehaviorThreshold();
+    console.log(`   📊 Best match: "${result.label}" (confidence: ${result.confidence.toFixed(3)}, threshold: ${threshold})`);
+
+    // Only consider it a match if confidence is high enough
+    if (result.confidence >= threshold) {
+      // Find the goal that matches this label
+      const matchedGoal = unachieved.find((g: any) => {
+        const behaviors = g.keyBehaviors?.slice(0, 2).join('; ') || '';
+        const label = behaviors ? `${g.title}: ${behaviors}` : g.title;
+        return label === result.label;
+      });
+      
+      if (matchedGoal) {
+        console.log(`   ✅ Active goal detected: #${matchedGoal.goalNumber} - ${matchedGoal.title}`);
+        return matchedGoal;
+      }
+    } else {
+      console.log(`   ⚠️  No confident match (${result.confidence.toFixed(3)} < ${threshold})`);
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('Error detecting active goal:', error);
+    return null;
+  }
+}
+
+/**
  * Node: Evaluate Goals
  * Enhanced version with parallel execution, sentiment analysis, and AI-powered goal detection
  */
@@ -118,15 +176,50 @@ export async function evaluateGoalsNode(
     // Get actual message IDs for evidence tracking (once for all goals)
     const { userMessageId, aiMessageId } = await getRecentMessageIds(state.sessionId);
 
-    // Filter goals that need evaluation (not yet achieved)
-    const goalsToEvaluate = goals.filter((g: any) => {
-      const p = progress.find((p) => p.goalNumber === g.goalNumber);
-      return !p || p.status !== 'achieved';
-    });
+    // Use step detection to identify which goal the user is working on
+    const activeGoal = state.lastUserMessage 
+      ? await detectActiveGoal(state.lastUserMessage, goals, progress)
+      : null;
 
-    console.log(`🎯 Parallel goal evaluation:`, {
+    // If we detected an active goal, only evaluate that one
+    // Otherwise, fall back to evaluating next unachieved required goal in sequence
+    let goalsToEvaluate: any[] = [];
+    
+    if (activeGoal) {
+      console.log(`🎯 Step detection: evaluating detected goal #${activeGoal.goalNumber} - ${activeGoal.title}`);
+      goalsToEvaluate = [activeGoal];
+    } else {
+      // Fall back: evaluate next unachieved required goal in sequence
+      const requiredGoals = goals.filter((g: any) => !g.isOptional)
+        .sort((a: any, b: any) => a.goalNumber - b.goalNumber);
+      
+      const nextRequired = requiredGoals.find((g: any) => {
+        const p = progress.find((p) => p.goalNumber === g.goalNumber);
+        return !p || p.status !== 'achieved';
+      });
+      
+      if (nextRequired) {
+        console.log(`🎯 No detection match: evaluating next required goal #${nextRequired.goalNumber} - ${nextRequired.title}`);
+        goalsToEvaluate = [nextRequired];
+      } else {
+        // All required goals done, check if there are any optional left
+        const optionalGoals = goals.filter((g: any) => g.isOptional);
+        const nextOptional = optionalGoals.find((g: any) => {
+          const p = progress.find((p) => p.goalNumber === g.goalNumber);
+          return !p || p.status !== 'achieved';
+        });
+        
+        if (nextOptional) {
+          console.log(`🎯 All required done: evaluating next optional goal #${nextOptional.goalNumber} - ${nextOptional.title}`);
+          goalsToEvaluate = [nextOptional];
+        }
+      }
+    }
+
+    console.log(`🎯 Goal evaluation:`, {
       totalGoals: goals.length,
       goalsToEvaluate: goalsToEvaluate.length,
+      evaluatingGoal: goalsToEvaluate[0] ? `#${goalsToEvaluate[0].goalNumber} - ${goalsToEvaluate[0].title}` : 'none',
       achievedCount: progress.filter(p => p.status === 'achieved').length,
       progressStatus: progress.map((p) => `#${p.goalNumber}: ${p.status}`).join(', '),
     });
@@ -218,12 +311,18 @@ export async function evaluateGoalsNode(
         }
       }
 
-      // Determine if goal is achieved
+      // Fix 3: Use AND logic instead of OR, and require evidence
       const behaviorMet =
-        behaviorScore >= behaviorThreshold ||
+        behaviorScore >= behaviorThreshold &&
         (targetProgress.confidence || 0) >= behaviorThreshold;
-      const successMet =
-        !hasIndicators || successScore >= successThreshold;
+      
+      // Stricter success criteria: require indicators if they exist, otherwise use higher behavior threshold
+      const successMet = hasIndicators
+        ? successScore >= successThreshold
+        : behaviorScore >= (behaviorThreshold + 0.1);
+      
+      // Require at least 2 pieces of strong evidence (score >= 0.65)
+      const hasEnoughEvidence = (targetProgress.evidence?.filter(e => e.score >= 0.65).length || 0) >= 2;
 
       // Debug logging for goal evaluation
       console.log(`📊 Goal ${targetProgress.goalNumber} evaluation:`, {
@@ -236,16 +335,23 @@ export async function evaluateGoalsNode(
         hasIndicators,
         behaviorMet,
         successMet,
+        hasEnoughEvidence,
+        evidenceCount: targetProgress.evidence?.length || 0,
+        strongEvidenceCount: targetProgress.evidence?.filter(e => e.score >= 0.65).length || 0,
         thresholds: { behavior: behaviorThreshold, success: successThreshold },
       });
 
-      if (behaviorMet && successMet && targetProgress.status !== 'achieved') {
+      if (behaviorMet && successMet && hasEnoughEvidence && targetProgress.status !== 'achieved') {
         targetProgress.status = 'achieved';
         targetProgress.achievedAt = new Date().toISOString();
         anyGoalAchieved = true;
         console.log(`✅ Goal ${targetProgress.goalNumber} achieved!`);
       } else if (targetProgress.status === 'in_progress') {
-        console.log(`🔄 Goal ${targetProgress.goalNumber} still in progress. Need: behaviorMet=${!behaviorMet ? 'FAIL' : 'OK'}, successMet=${!successMet ? 'FAIL' : 'OK'}`);
+        const reasons = [];
+        if (!behaviorMet) reasons.push('behaviorMet=FAIL');
+        if (!successMet) reasons.push('successMet=FAIL');
+        if (!hasEnoughEvidence) reasons.push('hasEnoughEvidence=FAIL');
+        console.log(`🔄 Goal ${targetProgress.goalNumber} still in progress. Need: ${reasons.join(', ')}`);
       }
     }
 

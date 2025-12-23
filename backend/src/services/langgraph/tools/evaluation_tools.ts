@@ -93,37 +93,24 @@ export const analyzeAiIndicatorsTool: DynamicStructuredTool = new DynamicStructu
   func: async ({ aiMessage, successIndicators }: AnalyzeAiIndicatorsParams): Promise<string> => {
     try {
       if (!successIndicators || successIndicators.length === 0) {
-        return JSON.stringify({ score: 1.0, message: 'No success indicators to check' });
+        // Fix 1: Return 0 instead of 1.0 - require explicit indicators
+        return JSON.stringify({ score: 0, message: 'No success indicators provided - cannot evaluate' });
       }
 
       // Use transformers service
       const result = await transformersService.classifySequence(aiMessage, successIndicators);
       
-      // Also get sentiment/emotion as bonus signals
-      const [emotion, sentiment] = await Promise.all([
-        transformersService.analyzeEmotion(aiMessage).catch(() => null),
-        transformersService.analyzeSentiment(aiMessage).catch(() => null),
-      ]);
-
-      // Boost score if positive sentiment/emotion
-      let adjustedScore = result.confidence;
-      if (sentiment && sentiment.sentiment === 'positive') {
-        adjustedScore = Math.min(1.0, adjustedScore + 0.1);
-      }
-      if (emotion && ['friendly', 'encouraging', 'neutral'].includes(emotion.emotion)) {
-        adjustedScore = Math.min(1.0, adjustedScore + 0.05);
-      }
-
+      // Fix 2: Remove sentiment/emotion boosts to prevent inflated scores
+      // Return the raw confidence score without adjustments
       return JSON.stringify({
-        score: adjustedScore,
+        score: result.confidence,
         matchedIndicator: result.label,
         confidence: result.confidence,
-        emotion: emotion?.emotion,
-        sentiment: sentiment?.sentiment,
       });
     } catch (error) {
       console.error('Error in analyzeAiIndicatorsTool:', error);
-      return JSON.stringify({ score: 0.5, error: 'Analysis failed' });
+      // Lower fallback score from 0.5 to 0 on error
+      return JSON.stringify({ score: 0, error: 'Analysis failed' });
     }
   },
 });

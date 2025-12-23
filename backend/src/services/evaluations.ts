@@ -12,9 +12,9 @@ export interface GoalEvaluationResult {
 // TODO: OPTIMIZE THIS SERVICE TO AVOID DRAMATIC SLOWDOWN DUE TO EXTERNAL NLP SERVICE CALLS
 export class EvaluationsService {
   // Thresholds can later be moved to config
-  private static readonly STEP_DETECTION_THRESHOLD = 0.6;
-  private static readonly BEHAVIOR_THRESHOLD = 0.6;
-  private static readonly SUCCESS_THRESHOLD = 0.6;
+  private static readonly STEP_DETECTION_THRESHOLD = 0.7;
+  private static readonly BEHAVIOR_THRESHOLD = 0.7;
+  private static readonly SUCCESS_THRESHOLD = 0.7;
 
   // In test mode we relax thresholds to improve determinism against non-deterministic external models
   private isTestMode(): boolean {

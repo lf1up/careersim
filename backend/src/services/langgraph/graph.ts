@@ -358,8 +358,12 @@ export function compileConversationGraph() {
     console.log('  ⚙️ Compiling graph...');
     const compiled = graph.compile({
       checkpointer,
+      // Prevent infinite loops - max 15 steps per invocation
+      // Typical flow: user input -> RAG -> AI response -> analysis -> persist -> proactive check -> (optional) proactive msg -> persist -> schedule
+      // With burst: up to ~12 steps (main + 3 follow-ups)
+      recursionLimit: 15,
     });
-    console.log('  ✅ Graph compiled');
+    console.log('  ✅ Graph compiled with recursionLimit: 15');
     
     // Restore original tracing value
     if (originalTracingValue !== undefined) {
@@ -404,7 +408,7 @@ export function resetConversationGraph() {
  */
 export async function invokeConversationGraph(
   input: ConversationInput,
-  config?: { threadId?: string; checkpointId?: string },
+  config?: { threadId?: string; checkpointId?: string; recursionLimit?: number },
 ) {
   const graph = getConversationGraph();
   
@@ -413,9 +417,21 @@ export async function invokeConversationGraph(
       thread_id: config?.threadId || input.sessionId,
       checkpoint_id: config?.checkpointId,
     },
+    // Allow per-invocation recursion limit override
+    recursionLimit: config?.recursionLimit || 15,
   };
 
-  return graph.invoke(input, runnableConfig);
+  try {
+    console.log(`🚀 Invoking graph for session ${input.sessionId} (recursionLimit: ${runnableConfig.recursionLimit})`);
+    const startTime = Date.now();
+    const result = await graph.invoke(input, runnableConfig);
+    const duration = Date.now() - startTime;
+    console.log(`✅ Graph invocation completed in ${duration}ms`);
+    return result;
+  } catch (error) {
+    console.error(`❌ Graph invocation failed for session ${input.sessionId}:`, error);
+    throw error;
+  }
 }
 
 /**

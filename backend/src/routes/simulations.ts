@@ -381,23 +381,33 @@ router.post('/:id/start-session', authenticateToken as any, async (req: Authenti
           // Use LangGraph for start message
           const { invokeConversationGraph } = await import('@/services/langgraph');
           
-          await invokeConversationGraph({
-            sessionId: session.id,
-            userId: req.user!.id,
-            proactiveTrigger: 'start',
-            userMessage: undefined, // Explicitly clear to prevent checkpoint carryover
-          });
-          
-          // Graph handles all persistence and emission
-          // Reload session to get updated messageCount and other fields updated by the graph
-          const updatedSession = await sessionRepository.findOne({
-            where: { id: session.id },
-          });
-          
-          if (updatedSession) {
-            updatedSession.aiInitiated = true;
-            await sessionRepository.save(updatedSession);
-          }
+          // 🔥 Fire graph in background for session start too
+          // This prevents blocking session creation if start message has burst
+          void (async () => {
+            try {
+              await invokeConversationGraph({
+                sessionId: session.id,
+                userId: req.user!.id,
+                proactiveTrigger: 'start',
+                userMessage: undefined, // Explicitly clear to prevent checkpoint carryover
+              });
+              
+              // Mark session as AI-initiated after graph completes
+              const sessionRepo = (await import('@/config/database')).AppDataSource.getRepository(
+                (await import('@/entities/SimulationSession')).SimulationSession
+              );
+              const updatedSession = await sessionRepo.findOne({
+                where: { id: session.id },
+              });
+              if (updatedSession) {
+                updatedSession.aiInitiated = true;
+                await sessionRepo.save(updatedSession);
+                console.log(`✅ Session ${session.id} marked as AI-initiated`);
+              }
+            } catch (graphError) {
+              console.error(`❌ Graph execution failed for session start ${session.id}:`, graphError);
+            }
+          })();
         } else {
           // OLD PATH: Use AIService
           const { AIService } = await import('@/services/ai');
@@ -876,14 +886,24 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           // Use LangGraph for conversation
           const { invokeConversationGraph } = await import('@/services/langgraph');
           
-          await invokeConversationGraph({
-            sessionId,
-            userId: req.user!.id,
-            userMessage: content,
-          });
+          // 🔥 Fire graph in background - don't await completion
+          // This allows burst messages to continue while user can already interact
+          void (async () => {
+            try {
+              await invokeConversationGraph({
+                sessionId,
+                userId: req.user!.id,
+                userMessage: content,
+              });
+              console.log(`✅ Graph completed for session ${sessionId}`);
+            } catch (graphError) {
+              console.error(`❌ Graph execution failed for session ${sessionId}:`, graphError);
+              // Error is non-fatal - Socket.IO will show what was delivered
+            }
+          })();
           
-          // Graph handles all persistence and emission
-          // Just return success
+          // Return immediately - messages will arrive via Socket.IO
+          // This unblocks the frontend to send more messages or interact
           return res.status(201).json({ message: transformedMessage });
         }
         
