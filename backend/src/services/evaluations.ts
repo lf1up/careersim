@@ -33,6 +33,10 @@ export class EvaluationsService {
     return this.isTestMode() ? 0.6 : EvaluationsService.SUCCESS_THRESHOLD;
   }
 
+  private asFiniteNumber(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  }
+
   // Transformers-based evaluation of the latest messages in conversation (might be broken, needs to be adjusted)
   public async evaluateAfterTurn(
     simulation: Simulation,
@@ -71,6 +75,15 @@ export class EvaluationsService {
       target.startedAt = new Date().toISOString();
     }
 
+    // Per-goal evaluation tuning (stored in simulation.conversationGoals JSON)
+    const cfg = (activeStep as any).evaluationConfig || {};
+    const behaviorThreshold = this.asFiniteNumber(cfg.behaviorThreshold, this.getBehaviorThreshold());
+    const successThreshold = this.asFiniteNumber(cfg.successThreshold, this.getSuccessThreshold());
+    const strongEvidenceScore = this.asFiniteNumber(cfg.strongEvidenceScore, 0.65);
+    const minEvidenceCount = Math.floor(this.asFiniteNumber(cfg.minEvidenceCount, 2));
+    const minStrongEvidenceCount = Math.floor(this.asFiniteNumber(cfg.minStrongEvidenceCount, 2));
+    const requireSuccessIndicators = cfg.requireSuccessIndicators !== undefined ? !!cfg.requireSuccessIndicators : true;
+
     // Run external calls in parallel where possible
     const behaviorPromise = this.scoreAgainstLabels(
       lastUserMessage.content,
@@ -86,28 +99,14 @@ export class EvaluationsService {
         activeStep.successIndicators || [],
       );
 
-      // Use cached metadata if available; otherwise, analyze both in parallel
-      const hasCachedEmotion = !!lastAiMessage.metadata?.emotionAnalysis;
-      const hasCachedSentiment = !!lastAiMessage.metadata?.sentimentAnalysis;
-
-      const emotionPromise = hasCachedEmotion
-        ? Promise.resolve(lastAiMessage.metadata!.emotionAnalysis)
-        : transformersService.analyzeEmotion(lastAiMessage.content);
-      const sentimentPromise = hasCachedSentiment
-        ? Promise.resolve(lastAiMessage.metadata!.sentimentAnalysis)
-        : transformersService.analyzeSentiment(lastAiMessage.content);
-
-      const [bScore, indicatorScore, emotion, sentiment] = await Promise.all([
+      const [bScore, indicatorScore] = await Promise.all([
         behaviorPromise,
         indicatorPromise,
-        emotionPromise,
-        sentimentPromise,
       ]);
 
       behaviorScore = bScore;
-
-      const toneBoost = (['friendly', 'encouraging', 'neutral'].includes(emotion.emotion) && sentiment.sentiment !== 'negative') ? 0.1 : 0;
-      successScore = Math.max(0, Math.min(1, (Number.isNaN(indicatorScore) ? 0 : indicatorScore) + toneBoost));
+      // LangGraph parity: do NOT apply sentiment/emotion boosts.
+      successScore = Number.isNaN(indicatorScore) ? 0 : indicatorScore;
 
       if (!Number.isNaN(behaviorScore)) {
         target.confidence = Math.max(target.confidence || 0, behaviorScore);
@@ -120,13 +119,15 @@ export class EvaluationsService {
         });
       }
 
-      if (!target.evidence) target.evidence = [];
-      target.evidence.push({
-        messageId: lastAiMessage.id,
-        role: 'ai',
-        label: 'success',
-        score: successScore,
-      });
+      if (successScore > 0) {
+        if (!target.evidence) target.evidence = [];
+        target.evidence.push({
+          messageId: lastAiMessage.id,
+          role: 'ai',
+          label: 'success',
+          score: successScore,
+        });
+      }
     } else {
       // No AI message; only await behavior
       behaviorScore = await behaviorPromise;
@@ -142,12 +143,22 @@ export class EvaluationsService {
       }
     }
 
-    const behaviorOk = (target.confidence || 0) >= this.getBehaviorThreshold() || (behaviorScore || 0) >= this.getBehaviorThreshold();
-    const successOk = (activeStep.successIndicators && activeStep.successIndicators.length > 0)
-      ? successScore >= this.getSuccessThreshold()
+    const behaviorOk =
+      (target.confidence || 0) >= behaviorThreshold &&
+      (behaviorScore || 0) >= behaviorThreshold;
+
+    const hasIndicators = Array.isArray(activeStep.successIndicators) && activeStep.successIndicators.length > 0;
+    const successOk = hasIndicators
+      ? (requireSuccessIndicators ? successScore >= successThreshold : (successScore >= successThreshold || behaviorOk))
       : true;
 
-    if (behaviorOk && successOk && target.status !== 'achieved') {
+    const evidenceCount = target.evidence?.length || 0;
+    const strongEvidenceCount = target.evidence?.filter((e) => (e?.score || 0) >= strongEvidenceScore).length || 0;
+    const hasEnoughEvidence =
+      evidenceCount >= minEvidenceCount &&
+      strongEvidenceCount >= minStrongEvidenceCount;
+
+    if (behaviorOk && successOk && hasEnoughEvidence && target.status !== 'achieved') {
       target.status = 'achieved';
       target.achievedAt = new Date().toISOString();
     }

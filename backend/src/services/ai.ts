@@ -39,9 +39,11 @@ export interface AIResponse {
 }
 
 export interface ConversationContext {
+  sessionId?: string;
   persona: Persona;
   simulation: Simulation;
   conversationHistory: SessionMessage[];
+  goalProgress?: SimulationSession['goalProgress'];
   userGoals?: string;
   sessionDuration: number;
 }
@@ -645,12 +647,12 @@ export class AIService {
         case 'start':
           return `Act first with a natural opening line consistent with the persona. ${openingStyle ? `Opening style hint: ${openingStyle}.` : ''} Keep it concise and engaging. Introduce yourself or the topic freshly.`;
         case 'inactivity':
-          return `Send a polite, in-character nudge to re-engage after user silence. ${nudgeStyle ? `Nudge style hint: ${nudgeStyle}.` : ''} Keep it short and friendly. Use a different angle than any previous nudges.`;
+          return `Send a polite, in-character nudge to re-engage after user silence. ${nudgeStyle ? `Nudge style hint: ${nudgeStyle}.` : ''} Keep it VERY short (1–2 sentences). Directly follow up on what you just said. Do not introduce new topics or ask new questions.`;
         case 'backchannel':
           return 'Send a brief backchannel request for clarification or elaboration. Keep it very short. Ask about something specific they mentioned.';
         case 'followup':
         default:
-          return 'Add a short follow-up that advances the conversation naturally. Introduce NEW information, ask a NEW question, or share a DIFFERENT perspective. NEVER repeat phrases or ideas from your recent messages.';
+          return 'Add a VERY SHORT follow-up that stays in the SAME context as your last message. 1–2 short sentences. DO NOT ask any new questions (no question marks). Do not introduce new topics or make radical context shifts. Make it feel like a quick addendum, not a new turn.';
         }
       })();
 
@@ -660,10 +662,9 @@ export class AIService {
           `You recently said: ${recentAiMessages.map((msg, i) => `(${i + 1}) "${msg.slice(0, 100)}..."`).join('; ')}`,
           'Your new message MUST:',
           '- Use completely different vocabulary and phrasing',
-          '- Introduce a new topic, angle, or specific detail not yet mentioned',
+          '- Add a SMALL new detail or clarification that stays within the same context',
           '- Never reuse sentence structures or patterns from above',
-          '- If asking a question, make it about something entirely different',
-          '- If sharing information, provide a new fact or perspective',
+          '- Avoid new questions; if you must guide, do it as a statement (no question marks)',
         ].join('\n')
         : '';
 
@@ -746,6 +747,46 @@ export class AIService {
     const parts: string[] = [basePrompt];
     if (styleGuidelines) parts.push(styleGuidelines);
     if (ragContext) parts.push(ragContext);
+
+    // LangGraph parity: inject staged goals + brevity rules as a hard addendum.
+    // This keeps the DB-driven prompt flexible while ensuring consistent behavior across implementations.
+    try {
+      const goals = ((simulation as any)?.conversationGoals || []).slice().sort((a: any, b: any) => a.goalNumber - b.goalNumber);
+      const progress = Array.isArray(context.goalProgress) ? context.goalProgress : [];
+
+      const statusOf = (n: number) => progress.find((p: any) => p?.goalNumber === n)?.status || 'not_started';
+      const goalList = goals.length
+        ? goals.map((g: any) => `#${g.goalNumber}${g.isOptional ? ' (optional)' : ''} [${statusOf(g.goalNumber)}] ${g.title}`).join('\n')
+        : '(No conversation goals configured)';
+
+      const nextRequired = goals.find((g: any) => !g.isOptional && statusOf(g.goalNumber) !== 'achieved');
+      const nextOptional = !nextRequired ? goals.find((g: any) => !!g.isOptional && statusOf(g.goalNumber) !== 'achieved') : null;
+      const current = nextRequired || nextOptional || null;
+
+      parts.push([
+        '**Conversation Goals (ordered stages)**:',
+        goalList,
+        '',
+        '**CURRENT STAGE (drive the conversation around this goal)**:',
+        `- Goal: ${current ? `#${current.goalNumber} — ${current.title}` : '(All goals complete)'}`,
+        `- Description: ${current?.description || '(none)'}`,
+        `- Key behaviors the user must demonstrate: ${Array.isArray(current?.keyBehaviors) ? current.keyBehaviors.join('; ') : '(none)'}`,
+        '',
+        '**Stage Rules**:',
+        '- Stay in this stage until the goal is achieved.',
+        '- Do NOT act as if later stages are happening yet.',
+        '- If the user tries to jump ahead, acknowledge briefly and steer back to the current stage.',
+        '- Ask questions / shape the interaction to elicit the key behaviors.',
+        '',
+        '**Brevity Rules**:',
+        '- Keep responses VERY conversational and short: 1–2 short sentences (~60 words max).',
+        '- Ask at most 1 question per message.',
+        '- Avoid bullet points / numbered lists unless the user explicitly asks for a detailed explanation.',
+      ].join('\n'));
+    } catch {
+      // Non-fatal: if goal injection fails, continue with base prompt.
+    }
+
     return parts.join('\n\n');
   }
 
