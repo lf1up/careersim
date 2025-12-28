@@ -76,7 +76,7 @@ secretGenerator:
 images:
   - name: backend
     newName: ghcr.io/lf1up/careersim
-    newTag: backend-v2
+    newTag: backend-main
   - name: rag
     newName: ghcr.io/lf1up/careersim
     newTag: rag-v2
