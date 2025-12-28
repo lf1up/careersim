@@ -22,6 +22,7 @@ import {
   persistAndEmitNode,
   scheduleInactivityNode,
 } from './nodes/persistence';
+import { devLogLangGraphEvent } from './devLogger';
 
 /**
  * Define state annotation for LangGraph
@@ -183,6 +184,12 @@ function afterUserAnalysis(state: ConversationGraphState): string {
  * PERSIST_AND_EMIT to save the AI's response, even if no followup/backchannel is being sent.
  */
 function shouldSendProactiveMessage(state: ConversationGraphState): string {
+  // If a new user message arrived while a proactive job was being processed, abort immediately.
+  if (state.metadata?.abortProactive) {
+    console.log(`🛑 [shouldSendProactiveMessage] Aborting proactive due to user activity`);
+    return END;
+  }
+
   // For explicit inactivity/start triggers, only check shouldSendProactive (count already checked)
   if (state.proactiveTrigger === 'inactivity' || state.proactiveTrigger === 'start') {
     if (state.shouldSendProactive) {
@@ -232,6 +239,12 @@ function afterProactiveMessage(state: ConversationGraphState): string {
  */
 function afterPersist(state: ConversationGraphState): string {
   console.log(`🔀 [afterPersist] Deciding next step (trigger: ${state.proactiveTrigger || 'none'}, count: ${state.proactiveCount}/${state.maxProactiveMessages || 0}, turn: ${state.turn})`);
+
+  // If proactive was aborted due to user activity, end without scheduling or further actions.
+  if (state.metadata?.abortProactive) {
+    console.log(`🛑 [afterPersist] Aborting after persist due to user activity`);
+    return END;
+  }
   
   // Safety check: if proactiveCount >= maxProactiveMessages, we're done with burst
   // This prevents infinite loops even if trigger isn't cleared
@@ -423,13 +436,32 @@ export async function invokeConversationGraph(
 
   try {
     console.log(`🚀 Invoking graph for session ${input.sessionId} (recursionLimit: ${runnableConfig.recursionLimit})`);
+    await devLogLangGraphEvent(input.sessionId, 'invoke:start', {
+      input,
+      runnableConfig,
+    });
     const startTime = Date.now();
     const result = await graph.invoke(input, runnableConfig);
     const duration = Date.now() - startTime;
     console.log(`✅ Graph invocation completed in ${duration}ms`);
+    await devLogLangGraphEvent(input.sessionId, 'invoke:done', {
+      durationMs: duration,
+      result: {
+        sessionId: (result as any)?.sessionId,
+        turn: (result as any)?.turn,
+        lastAiMessage: (result as any)?.lastAiMessage,
+        lastUserMessage: (result as any)?.lastUserMessage,
+        goalProgress: (result as any)?.goalProgress,
+        metadata: (result as any)?.metadata,
+        lastError: (result as any)?.lastError,
+      },
+    });
     return result;
   } catch (error) {
     console.error(`❌ Graph invocation failed for session ${input.sessionId}:`, error);
+    await devLogLangGraphEvent(input.sessionId, 'invoke:error', {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+    });
     throw error;
   }
 }

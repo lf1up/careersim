@@ -24,6 +24,20 @@ export const PERSONA_SYSTEM_PROMPT = ChatPromptTemplate.fromMessages([
 - Scenario: {simulationScenario}
 - Objectives: {simulationObjectives}
 
+**Conversation Goals (ordered stages)**:
+{goalList}
+
+**CURRENT STAGE (drive the conversation around this goal)**:
+- Goal: {currentGoalTitle}
+- Description: {currentGoalDescription}
+- Key behaviors the user must demonstrate: {currentGoalKeyBehaviors}
+
+**Stage Rules**:
+- Stay in this stage until the goal is achieved.
+- Do NOT act as if later stages are happening yet.
+- If the user tries to jump ahead (e.g., closing early), acknowledge briefly and steer back to the current stage.
+- Ask questions / shape the interaction to elicit the key behaviors.
+
 **Conversation Style**: {conversationStyle}
 
 **Style Guidelines**:
@@ -32,12 +46,48 @@ export const PERSONA_SYSTEM_PROMPT = ChatPromptTemplate.fromMessages([
 - Use appropriate vocabulary and tone for your role
 - Reference your goals and motivations subtly when relevant
 - Adapt your difficulty level to challenge the user appropriately
-- Keep responses concise and engaging (typically 2-4 sentences unless more detail is needed)
+- Keep responses VERY conversational and short:
+  - 1–3 short sentences (the less is better)
+  - Ask at most 1 question per message
+  - Avoid bullet points, numbered lists, and multi-paragraph answers unless the user explicitly asks for a detailed explanation
 
 {ragContext}
 
 **Important**: You are engaged in a realistic simulation. The user is practicing their skills. Be authentic, helpful, and true to your character.`),
 ]);
+
+type GoalProgressStatus = 'not_started' | 'in_progress' | 'achieved';
+type GoalProgressLike = { goalNumber: number; status: GoalProgressStatus } | undefined;
+
+function getGoalStatus(goalProgress: GoalProgressLike[] | undefined, goalNumber: number): GoalProgressStatus {
+  const item = goalProgress?.find((p) => p?.goalNumber === goalNumber);
+  return item?.status || 'not_started';
+}
+
+function pickCurrentGoal(simulation: Simulation, goalProgress: GoalProgressLike[] = []) {
+  const goals = (simulation as any)?.conversationGoals || [];
+  const sorted = goals.slice().sort((a: any, b: any) => a.goalNumber - b.goalNumber);
+
+  const nextRequired = sorted.find((g: any) => !g.isOptional && getGoalStatus(goalProgress, g.goalNumber) !== 'achieved');
+  if (nextRequired) return nextRequired;
+
+  const nextOptional = sorted.find((g: any) => !!g.isOptional && getGoalStatus(goalProgress, g.goalNumber) !== 'achieved');
+  return nextOptional || null;
+}
+
+function formatGoalList(simulation: Simulation, goalProgress: GoalProgressLike[] = []): string {
+  const goals = (simulation as any)?.conversationGoals || [];
+  const sorted = goals.slice().sort((a: any, b: any) => a.goalNumber - b.goalNumber);
+
+  if (!sorted.length) return '(No conversation goals configured)';
+
+  return sorted
+    .map((g: any) => {
+      const status = getGoalStatus(goalProgress, g.goalNumber);
+      return `#${g.goalNumber}${g.isOptional ? ' (optional)' : ''} [${status}] ${g.title}`;
+    })
+    .join('\n');
+}
 
 /**
  * Proactive message prompt for session start
@@ -108,7 +158,7 @@ export const PROACTIVE_FOLLOWUP_PROMPT = ChatPromptTemplate.fromMessages([
 - Last User Message: {lastUserMessage}
 - Your Last Message: {lastAiMessage}
 
-**Your Goal**: Add a follow-up that advances the conversation in a meaningful way.
+**Your Goal**: Add a VERY SHORT follow-up that stays in the SAME context as your last message.
 
 **Recent Messages to Avoid Repetition**: 
 {recentAiMessages}
@@ -117,11 +167,11 @@ export const PROACTIVE_FOLLOWUP_PROMPT = ChatPromptTemplate.fromMessages([
 {antiRepetitionGuidance}
 
 **Guidelines**:
-- Keep it concise (1-2 sentences)
-- Introduce NEW information, ask a NEW question, or share a DIFFERENT perspective
-- Build on the conversation naturally
-- Don't just repeat what you already said
-- Make it feel like a natural part of the dialogue, not forced`),
+- Keep it VERY concise (1–2 short sentences; the less is better)
+- DO NOT ask any new questions (no question marks)
+- DO NOT introduce new topics or make radical context shifts
+- Only add a small clarification, one extra detail, or a brief reassurance that directly relates to your last message
+- Make it feel like a quick addendum, not a new turn`),
   HumanMessagePromptTemplate.fromTemplate(`Add your follow-up now.`),
 ]);
 
@@ -157,10 +207,9 @@ You recently said: ${recentMessages.map((msg, i) => `(${i + 1}) "${msg.slice(0, 
 
 Your new message MUST:
 - Use completely different vocabulary and phrasing
-- Introduce a new topic, angle, or specific detail not yet mentioned
+- Add a SMALL new detail or clarification that stays within the same context
 - Never reuse sentence structures or patterns from above
-- If asking a question, make it about something entirely different
-- If sharing information, provide a new fact or perspective`;
+- Avoid new questions; if you must guide, do it as a statement (no question marks)`;
 }
 
 /**
@@ -200,10 +249,14 @@ export async function buildPersonaSystemPrompt(
   persona: Persona,
   simulation: Simulation,
   ragContext?: string,
+  goalProgress: GoalProgressLike[] = [],
 ): Promise<string> {
   const objectives = Array.isArray(simulation.objectives)
     ? simulation.objectives.join(', ')
     : String(simulation.objectives || '');
+
+  const current = pickCurrentGoal(simulation, goalProgress);
+  const goalList = formatGoalList(simulation, goalProgress);
 
   return await PERSONA_SYSTEM_PROMPT.format({
     personaName: persona.name,
@@ -215,6 +268,10 @@ export async function buildPersonaSystemPrompt(
     simulationTitle: simulation.title,
     simulationScenario: simulation.scenario,
     simulationObjectives: objectives,
+    goalList,
+    currentGoalTitle: current ? `#${current.goalNumber} — ${current.title}` : '(All goals complete)',
+    currentGoalDescription: current?.description || '(none)',
+    currentGoalKeyBehaviors: Array.isArray(current?.keyBehaviors) ? current.keyBehaviors.join('; ') : '(none)',
     conversationStyle: formatConversationStyle(persona.conversationStyle),
     ragContext: formatRagContext(ragContext),
   });
