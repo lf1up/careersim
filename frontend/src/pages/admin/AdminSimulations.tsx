@@ -200,6 +200,32 @@ const SimulationsTable: React.FC<SimulationsTableProps> = ({ simulations, onEdit
   );
 };
 
+const parseOptionalNumber = (raw: string): number | undefined => {
+  const trimmed = (raw ?? '').trim();
+  if (!trimmed) return undefined;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const parseOptionalInt = (raw: string): number | undefined => {
+  const n = parseOptionalNumber(raw);
+  if (n === undefined) return undefined;
+  return Math.floor(n);
+};
+
+const normalizeGoalEvaluationConfig = (cfg: ConversationGoal['evaluationConfig'] | undefined) => {
+  if (!cfg) return undefined;
+  const cleaned: any = {};
+  for (const [k, v] of Object.entries(cfg)) {
+    if (v !== undefined && v !== null) cleaned[k] = v;
+  }
+  const keys = Object.keys(cleaned);
+  if (keys.length === 0) return undefined;
+  // If the only override is requireSuccessIndicators=true (the default), drop it to avoid noise.
+  if (keys.length === 1 && cleaned.requireSuccessIndicators === true) return undefined;
+  return cleaned as ConversationGoal['evaluationConfig'];
+};
+
 interface EditSimulationModalProps {
   simulation: Simulation;
   onClose: () => void;
@@ -246,6 +272,7 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
           description: (g.description || '').trim(),
           keyBehaviors: Array.isArray(g.keyBehaviors) ? g.keyBehaviors.filter(Boolean) : [],
           successIndicators: Array.isArray(g.successIndicators) ? g.successIndicators.filter(Boolean) : [],
+          evaluationConfig: normalizeGoalEvaluationConfig(g.evaluationConfig),
         })),
       };
 
@@ -468,6 +495,120 @@ const EditSimulationModal: React.FC<EditSimulationModalProps> = ({ simulation, o
                           />
                         </div>
                       </div>
+
+                      {/* Optional Evaluation Overrides */}
+                      <div className="mt-4 border-t border-secondary-200 dark:border-secondary-600 pt-4">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium text-secondary-700 dark:text-secondary-300">
+                            Goal Evaluation Overrides <span className="text-xs text-secondary-500">(optional)</span>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setGoals(prev => prev.map((g, i) => i === index ? { ...g, evaluationConfig: undefined } : g))}
+                          >
+                            Clear overrides
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                          <RetroInput
+                            label="behaviorThreshold (0..1)"
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            value={goal.evaluationConfig?.behaviorThreshold ?? ''}
+                            onChange={(e) => {
+                              const v = parseOptionalNumber((e.target as HTMLInputElement).value);
+                              setGoals(prev => prev.map((g, i) => {
+                                if (i !== index) return g;
+                                const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), behaviorThreshold: v });
+                                return { ...g, evaluationConfig: nextCfg };
+                              }));
+                            }}
+                          />
+                          <RetroInput
+                            label="successThreshold (0..1)"
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            value={goal.evaluationConfig?.successThreshold ?? ''}
+                            onChange={(e) => {
+                              const v = parseOptionalNumber((e.target as HTMLInputElement).value);
+                              setGoals(prev => prev.map((g, i) => {
+                                if (i !== index) return g;
+                                const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), successThreshold: v });
+                                return { ...g, evaluationConfig: nextCfg };
+                              }));
+                            }}
+                          />
+                          <RetroInput
+                            label="strongEvidenceScore (0..1)"
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            value={goal.evaluationConfig?.strongEvidenceScore ?? ''}
+                            onChange={(e) => {
+                              const v = parseOptionalNumber((e.target as HTMLInputElement).value);
+                              setGoals(prev => prev.map((g, i) => {
+                                if (i !== index) return g;
+                                const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), strongEvidenceScore: v });
+                                return { ...g, evaluationConfig: nextCfg };
+                              }));
+                            }}
+                          />
+                          <RetroInput
+                            label="minEvidenceCount"
+                            type="number"
+                            step="1"
+                            min="0"
+                            value={goal.evaluationConfig?.minEvidenceCount ?? ''}
+                            onChange={(e) => {
+                              const v = parseOptionalInt((e.target as HTMLInputElement).value);
+                              setGoals(prev => prev.map((g, i) => {
+                                if (i !== index) return g;
+                                const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), minEvidenceCount: v });
+                                return { ...g, evaluationConfig: nextCfg };
+                              }));
+                            }}
+                          />
+                          <RetroInput
+                            label="minStrongEvidenceCount"
+                            type="number"
+                            step="1"
+                            min="0"
+                            value={goal.evaluationConfig?.minStrongEvidenceCount ?? ''}
+                            onChange={(e) => {
+                              const v = parseOptionalInt((e.target as HTMLInputElement).value);
+                              setGoals(prev => prev.map((g, i) => {
+                                if (i !== index) return g;
+                                const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), minStrongEvidenceCount: v });
+                                return { ...g, evaluationConfig: nextCfg };
+                              }));
+                            }}
+                          />
+                          <div className="flex items-center">
+                            <RetroCheckbox
+                              label="requireSuccessIndicators (default: true)"
+                              checked={goal.evaluationConfig?.requireSuccessIndicators ?? true}
+                              onChange={(e) => {
+                                const checked = (e.target as HTMLInputElement).checked;
+                                setGoals(prev => prev.map((g, i) => {
+                                  if (i !== index) return g;
+                                  const nextCfg = normalizeGoalEvaluationConfig({
+                                    ...(g.evaluationConfig || {}),
+                                    requireSuccessIndicators: checked,
+                                  });
+                                  return { ...g, evaluationConfig: nextCfg };
+                                }));
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -665,6 +806,7 @@ const CreateSimulationModal: React.FC<CreateSimulationModalProps> = ({ onClose, 
     tags: '',
     categoryId: '',
   });
+  const [goals, setGoals] = useState<ConversationGoal[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -700,6 +842,15 @@ const CreateSimulationModal: React.FC<CreateSimulationModalProps> = ({ onClose, 
           ? formData.tags.split(',').map(t => t.trim()).filter(Boolean)
           : [],
         categoryId: formData.categoryId,
+        conversationGoals: goals.map((g, idx) => ({
+          goalNumber: typeof (g as any).goalNumber === 'number' && (g as any).goalNumber > 0 ? (g as any).goalNumber : idx + 1,
+          isOptional: !!g.isOptional,
+          title: (g.title || '').trim(),
+          description: (g.description || '').trim(),
+          keyBehaviors: Array.isArray(g.keyBehaviors) ? g.keyBehaviors.filter(Boolean) : [],
+          successIndicators: Array.isArray(g.successIndicators) ? g.successIndicators.filter(Boolean) : [],
+          evaluationConfig: normalizeGoalEvaluationConfig(g.evaluationConfig),
+        })),
       };
       const created = await apiClient.createSimulation(payload as any);
       toast.success('Simulation created');
@@ -797,6 +948,256 @@ const CreateSimulationModal: React.FC<CreateSimulationModalProps> = ({ onClose, 
           checked={formData.isPublic}
           onChange={(e) => setFormData(prev => ({ ...prev, isPublic: (e.target as HTMLInputElement).checked }))}
         />
+
+        {/* Conversation Goals */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-md font-medium text-secondary-900 dark:text-retro-ink-dark">Conversation Goals</h3>
+            <Button
+              type="button"
+              onClick={() => {
+                setGoals((prev) => {
+                  const nextStep = (prev[prev.length - 1]?.goalNumber || 0) + 1;
+                  return [
+                    ...prev,
+                    {
+                      goalNumber: nextStep,
+                      isOptional: false,
+                      title: '',
+                      description: '',
+                      keyBehaviors: [],
+                      successIndicators: [],
+                    },
+                  ];
+                });
+              }}
+            >
+              Add Goal
+            </Button>
+          </div>
+
+          {goals.length === 0 ? (
+            <p className="text-sm text-secondary-500 dark:text-secondary-400">No goals defined. Add goals to structure the conversation and enable progress tracking.</p>
+          ) : (
+            <div className="space-y-4">
+              {goals.map((goal, index) => (
+                <div key={index} className="border border-secondary-200 dark:border-secondary-600 rounded-md p-4 bg-white dark:bg-retro-surface-dark">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-sm font-medium text-secondary-700 dark:text-secondary-300">Goal {goal.goalNumber}</span>
+                      <RetroCheckbox
+                        label="Optional"
+                        checked={!!goal.isOptional}
+                        onChange={(e) => {
+                          const checked = (e.target as HTMLInputElement).checked;
+                          setGoals(prev => prev.map((g, i) => i === index ? { ...g, isOptional: checked } : g));
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (index === 0) return;
+                          setGoals(prev => {
+                            const copy = prev.slice();
+                            const tmp = copy[index - 1];
+                            copy[index - 1] = copy[index];
+                            copy[index] = tmp;
+                            return copy.map((g, idx) => ({ ...g, goalNumber: idx + 1 }));
+                          });
+                        }}
+                        disabled={index === 0}
+                      >
+                        Move Up
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (index === goals.length - 1) return;
+                          setGoals(prev => {
+                            const copy = prev.slice();
+                            const tmp = copy[index + 1];
+                            copy[index + 1] = copy[index];
+                            copy[index] = tmp;
+                            return copy.map((g, idx) => ({ ...g, goalNumber: idx + 1 }));
+                          });
+                        }}
+                        disabled={index === goals.length - 1}
+                      >
+                        Move Down
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="danger"
+                        onClick={() => {
+                          setGoals(prev => prev.filter((_, i) => i !== index).map((g, idx) => ({ ...g, goalNumber: idx + 1 })));
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <RetroInput
+                        label="Title"
+                        value={goal.title || ''}
+                        onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, title: (e.target as HTMLInputElement).value } : g))}
+                      />
+                    </div>
+                    <div>
+                      <RetroInput
+                        label="Description"
+                        value={goal.description || ''}
+                        onChange={(e) => setGoals(prev => prev.map((g, i) => i === index ? { ...g, description: (e.target as HTMLInputElement).value } : g))}
+                      />
+                    </div>
+                    <div>
+                      <RetroTextArea
+                        label="Key Behaviors (one per line)"
+                        rows={3}
+                        value={(goal.keyBehaviors || []).join('\n')}
+                        onChange={(e) => {
+                          const list = (e.target as HTMLTextAreaElement).value.split('\n').map(s => s.trim()).filter(Boolean);
+                          setGoals(prev => prev.map((g, i) => i === index ? { ...g, keyBehaviors: list } : g));
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <RetroTextArea
+                        label="Success Indicators (one per line)"
+                        rows={3}
+                        value={(goal.successIndicators || []).join('\n')}
+                        onChange={(e) => {
+                          const list = (e.target as HTMLTextAreaElement).value.split('\n').map(s => s.trim()).filter(Boolean);
+                          setGoals(prev => prev.map((g, i) => i === index ? { ...g, successIndicators: list } : g));
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Optional Evaluation Overrides */}
+                  <div className="mt-4 border-t border-secondary-200 dark:border-secondary-600 pt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-secondary-700 dark:text-secondary-300">
+                        Goal Evaluation Overrides <span className="text-xs text-secondary-500">(optional)</span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGoals(prev => prev.map((g, i) => i === index ? { ...g, evaluationConfig: undefined } : g))}
+                      >
+                        Clear overrides
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                      <RetroInput
+                        label="behaviorThreshold (0..1)"
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        value={goal.evaluationConfig?.behaviorThreshold ?? ''}
+                        onChange={(e) => {
+                          const v = parseOptionalNumber((e.target as HTMLInputElement).value);
+                          setGoals(prev => prev.map((g, i) => {
+                            if (i !== index) return g;
+                            const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), behaviorThreshold: v });
+                            return { ...g, evaluationConfig: nextCfg };
+                          }));
+                        }}
+                      />
+                      <RetroInput
+                        label="successThreshold (0..1)"
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        value={goal.evaluationConfig?.successThreshold ?? ''}
+                        onChange={(e) => {
+                          const v = parseOptionalNumber((e.target as HTMLInputElement).value);
+                          setGoals(prev => prev.map((g, i) => {
+                            if (i !== index) return g;
+                            const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), successThreshold: v });
+                            return { ...g, evaluationConfig: nextCfg };
+                          }));
+                        }}
+                      />
+                      <RetroInput
+                        label="strongEvidenceScore (0..1)"
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="1"
+                        value={goal.evaluationConfig?.strongEvidenceScore ?? ''}
+                        onChange={(e) => {
+                          const v = parseOptionalNumber((e.target as HTMLInputElement).value);
+                          setGoals(prev => prev.map((g, i) => {
+                            if (i !== index) return g;
+                            const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), strongEvidenceScore: v });
+                            return { ...g, evaluationConfig: nextCfg };
+                          }));
+                        }}
+                      />
+                      <RetroInput
+                        label="minEvidenceCount"
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={goal.evaluationConfig?.minEvidenceCount ?? ''}
+                        onChange={(e) => {
+                          const v = parseOptionalInt((e.target as HTMLInputElement).value);
+                          setGoals(prev => prev.map((g, i) => {
+                            if (i !== index) return g;
+                            const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), minEvidenceCount: v });
+                            return { ...g, evaluationConfig: nextCfg };
+                          }));
+                        }}
+                      />
+                      <RetroInput
+                        label="minStrongEvidenceCount"
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={goal.evaluationConfig?.minStrongEvidenceCount ?? ''}
+                        onChange={(e) => {
+                          const v = parseOptionalInt((e.target as HTMLInputElement).value);
+                          setGoals(prev => prev.map((g, i) => {
+                            if (i !== index) return g;
+                            const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), minStrongEvidenceCount: v });
+                            return { ...g, evaluationConfig: nextCfg };
+                          }));
+                        }}
+                      />
+                      <div className="flex items-center">
+                        <RetroCheckbox
+                          label="requireSuccessIndicators (default: true)"
+                          checked={goal.evaluationConfig?.requireSuccessIndicators ?? true}
+                          onChange={(e) => {
+                            const checked = (e.target as HTMLInputElement).checked;
+                            setGoals(prev => prev.map((g, i) => {
+                              if (i !== index) return g;
+                              const nextCfg = normalizeGoalEvaluationConfig({ ...(g.evaluationConfig || {}), requireSuccessIndicators: checked });
+                              return { ...g, evaluationConfig: nextCfg };
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-end space-x-3 pt-6 border-t-2 border-black dark:border-retro-ink-dark">
           <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
