@@ -119,8 +119,8 @@ const seedData = async (): Promise<void> => {
           emotionalRange: ['cautious', 'skeptical', 'relieved'],
           commonPhrases: ['Can you walk me through...', 'How do you handle...', 'What would you do if...'],
           startsConversation: true,
-          inactivityNudgeDelaySec: { min: 45, max: 120 },
-          inactivityNudges: { min: 1, max: 3 }, // Professional follow-up to keep interview moving
+          inactivityNudgeDelaySec: { min: 180, max: 300 },
+          inactivityNudges: { min: 1, max: 2 }, // Professional follow-up to keep interview moving
           burstiness: { min: 1, max: 3 },
           typingSpeedWpm: 110,
           openingStyle: 'Formal, structured opening suitable for HR; professional and measured.',
@@ -305,16 +305,54 @@ const seedData = async (): Promise<void> => {
           {
             goalNumber: 1,
             title: 'Opening and Rapport Building',
-            description: 'Start the interview with a professional greeting and attempt to build initial rapport with Brenda',
-            keyBehaviors: ['Professional greeting', 'Express appreciation for the opportunity', 'Show genuine interest in the company'],
-            successIndicators: ['Brenda appears more relaxed', 'Professional tone is established', 'Initial nervousness decreases'],
+            description: 'Start with a clear professional greeting, set a warm tone, and get the interview moving with light rapport-building',
+            keyBehaviors: [
+              'Professional greeting (e.g., "Hi Brenda")',
+              'Thank them for their time / the opportunity',
+              'One sentence of genuine interest in the role or company',
+            ],
+            // These are evaluated against the AI (Brenda) message; keep them concrete and likely to be reflected in her reply.
+            successIndicators: [
+              'Brenda returns the greeting and acknowledges you',
+              'Brenda responds in a welcoming/professional tone',
+              'Brenda invites you to begin or asks the first interview question',
+            ],
+            // Make Goal #1 easier to achieve (opening is often brief and shouldn't require multiple strong hits).
+            evaluationConfig: {
+              behaviorThreshold: 0.6,
+              successThreshold: 0.6,
+              strongEvidenceScore: 0.55,
+              minEvidenceCount: 1,
+              minStrongEvidenceCount: 1,
+              requireSuccessIndicators: true,
+            },
           },
           {
             goalNumber: 2,
             title: 'Behavioral Question Response',
             description: 'Answer Brenda\'s behavioral questions using the STAR method with relevant, specific examples',
-            keyBehaviors: ['Use STAR method structure', 'Provide specific examples', 'Connect experiences to role requirements'],
-            successIndicators: ['Brenda takes notes and shows engagement', 'Follow-up questions indicate interest', 'Examples resonate with company needs'],
+            keyBehaviors: [
+              'Explicit STAR structure (Situation / Task / Action / Result)',
+              'Specific technical details (tools, tradeoffs, stakeholders)',
+              'Measurable outcome (numbers/impact)',
+            ],
+            // Evaluated against Brenda's reply—make these likely to be reflected in her language.
+            successIndicators: [
+              'Brenda acknowledges it is strong/clear/concrete (e.g., "strong", "helpful", "thank you")',
+              'Brenda asks a follow-up question about your example',
+              'Brenda moves to the next behavioral question',
+            ],
+            // Goal #2 needs to be achievable from realistic STAR-style answers.
+            // Make signals more literal and add per-goal evaluation tuning.
+            evaluationConfig: {
+              behaviorThreshold: 0.6,
+              successThreshold: 0.55,
+              strongEvidenceScore: 0.55,
+              // This stage should take multiple turns: require repeated evidence across several Q/A pairs.
+              minEvidenceCount: 3,
+              minStrongEvidenceCount: 2,
+              requireSuccessIndicators: true,
+            },
           },
           {
             goalNumber: 3,

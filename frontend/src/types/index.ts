@@ -227,6 +227,14 @@ export interface ConversationGoal {
   description: string;
   keyBehaviors?: string[];
   successIndicators?: string[];
+  evaluationConfig?: {
+    behaviorThreshold?: number;
+    successThreshold?: number;
+    strongEvidenceScore?: number;
+    minEvidenceCount?: number;
+    minStrongEvidenceCount?: number;
+    requireSuccessIndicators?: boolean;
+  };
 }
 
 // Analytics interfaces

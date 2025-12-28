@@ -921,9 +921,11 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
         // Build conversation context - use first persona for now
         const activePersona = session.simulation.personas[0];
         const conversationContext = {
+          sessionId: session.id,
           persona: activePersona,
           simulation: session.simulation,
           conversationHistory: allMessages.slice(0, -1), // All messages except the new one
+          goalProgress: session.goalProgress,
           sessionDuration: Date.now() - session.createdAt.getTime(),
         };
 
@@ -1035,11 +1037,15 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           session.addMessage();
           session.lastAiMessageAt = new Date();
           session.turn = 'user';
-          // Schedule inactivity nudge window for user: random 1-3 minutes
-          const minMs = 1 * 60 * 1000;
-          const maxMs = 3 * 60 * 1000;
-          const delay = randomDelayMs(minMs, maxMs);
-          session.inactivityNudgeAt = new Date(Date.now() + delay);
+          // Schedule inactivity nudge using persona config (parity with LangGraph)
+          {
+            const csDelay: any = activePersona.conversationStyle || {};
+            const delayCfg = csDelay?.inactivityNudgeDelaySec || {};
+            const minSec = Math.max(30, Number(delayCfg?.min ?? 60)); // enforce 30s minimum like LangGraph
+            const maxSec = Math.max(minSec, Number(delayCfg?.max ?? 180));
+            const delay = randomDelayMs(minSec * 1000, maxSec * 1000);
+            session.inactivityNudgeAt = new Date(Date.now() + delay);
+          }
           session.inactivityNudgeCount = session.inactivityNudgeCount || 0;
 
           // Evaluate goals based on last user and AI messages
@@ -1049,7 +1055,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           if (shouldRunEvalSync) {
           // Run evaluation synchronously (development mode and syncMode is true)
             try {
-              const evalResult = await evaluationsService.evaluateAfterTurnLLM(session.simulation, session, message, aiMessage);
+              const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
               session.goalProgress = evalResult.updatedProgress as any;
               if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
                 session.markAsCompleted();
@@ -1082,7 +1088,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
           // Run evaluation in the background
             void (async () => {
               try {
-                const evalResult = await evaluationsService.evaluateAfterTurnLLM(session.simulation, session, message, aiMessage);
+                const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, message, aiMessage);
                 session.goalProgress = evalResult.updatedProgress as any;
                 if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
                   session.markAsCompleted();
@@ -1157,7 +1163,16 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
               const burst = cs?.burstiness;
               const burstMin = Math.max(1, Number(burst?.min) || 1);
               const burstMax = Math.max(burstMin, Number(burst?.max) || 1);
-              const extraCount = Math.max(0, randomInt(burstMin, burstMax) - 1);
+              // Parity with LangGraph: probabilistic burst + pick a single burstCount for this turn.
+              let extraCount = 0;
+              if (burstMax > 1) {
+                const rangeFactor = (burstMax - burstMin) / (burstMax || 1);
+                const burstProbability = 0.3 + (rangeFactor * 0.5); // 30-80% based on range
+                if (Math.random() < burstProbability) {
+                  const burstCount = randomInt(burstMin, burstMax);
+                  extraCount = Math.max(0, burstCount - 1);
+                }
+              }
               const typingWpm = Math.max(60, Number(cs?.typingSpeedWpm) || 120);
               let nextSeq = baseAiSeq + 1;
               for (let i = 0; i < extraCount; i++) {
@@ -1169,13 +1184,31 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
                   .getMany();
 
                 const contextForFollowup = {
+                  sessionId: session.id,
                   persona: activePersona,
                   simulation: session.simulation,
                   conversationHistory: updatedMessages as SessionMessage[],
+                  goalProgress: session.goalProgress,
                   sessionDuration: Date.now() - session.createdAt.getTime(),
                 };
 
                 const previousAi = [...updatedMessages].reverse().find((m) => m.type === MessageType.AI)?.content;
+
+                // Parity with LangGraph abort: if the user spoke after the last AI message, abort the rest of the burst.
+                const latestSession = await sessionRepository.findOne({ where: { id: session.id } });
+                if (latestSession) {
+                  const lastUserAt = latestSession.lastUserMessageAt;
+                  const lastAiAt = latestSession.lastAiMessageAt;
+                  const userHasSpokenSinceLastAi = !!(lastUserAt && (!lastAiAt || lastUserAt.getTime() > lastAiAt.getTime()));
+                  if (userHasSpokenSinceLastAi) {
+                    console.log(`🛑 Aborting legacy follow-up burst due to recent user activity`, {
+                      sessionId,
+                      lastUserAt,
+                      lastAiAt,
+                    });
+                    break;
+                  }
+                }
                 
                 // Get recent AI messages to check for repetition against multiple messages, not just the last one
                 const recentAiMessages = [...updatedMessages]
@@ -1220,6 +1253,22 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
                 const words = Math.max(3, follow.message.split(/\s+/).length);
                 const millis = Math.min(4000, Math.ceil((words / typingWpm) * 60_000));
                 await new Promise(r => setTimeout(r, millis));
+
+                // Re-check abort right before persisting/emitting (race protection)
+                const latestBeforePersist = await sessionRepository.findOne({ where: { id: session.id } });
+                if (latestBeforePersist) {
+                  const lastUserAt2 = latestBeforePersist.lastUserMessageAt;
+                  const lastAiAt2 = latestBeforePersist.lastAiMessageAt;
+                  const userHasSpokenSinceLastAi2 = !!(lastUserAt2 && (!lastAiAt2 || lastUserAt2.getTime() > lastAiAt2.getTime()));
+                  if (userHasSpokenSinceLastAi2) {
+                    console.log(`🛑 Aborting legacy follow-up persist due to recent user activity`, {
+                      sessionId,
+                      lastUserAt: lastUserAt2,
+                      lastAiAt: lastAiAt2,
+                    });
+                    break;
+                  }
+                }
 
                 const followMsg = new SessionMessage();
                 followMsg.session = session;
@@ -1282,7 +1331,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
                   const latestAi = latestMessages.find((m) => m.type === MessageType.AI);
                   const lastUser = latestMessages.find((m) => m.type === MessageType.USER);
                   if (lastUser) {
-                    const evalResult = await evaluationsService.evaluateAfterTurnLLM(session.simulation, session, lastUser, latestAi);
+                    const evalResult = await evaluationsService.evaluateAfterTurn(session.simulation, session, lastUser, latestAi);
                     session.goalProgress = evalResult.updatedProgress as any;
                     if (evalResult.allRequiredAchieved && session.status !== SessionStatus.COMPLETED) {
                       session.markAsCompleted();

@@ -70,6 +70,29 @@ export function startInactivityScheduler(): void {
         try {
           // Mark session as being processed
           processingNudges.add(s.id);
+
+          // Parity with LangGraph abort: if the user spoke after the last AI message, do NOT send a proactive nudge.
+          // Also abort if inactivity schedule was cleared while we were processing.
+          const latest = await repo.findOne({ where: { id: s.id } });
+          if (!latest) {
+            processingNudges.delete(s.id);
+            continue;
+          }
+          const lastUserAt = latest.lastUserMessageAt;
+          const lastAiAt = latest.lastAiMessageAt;
+          const userHasSpokenSinceLastAi = !!(lastUserAt && (!lastAiAt || lastUserAt.getTime() > lastAiAt.getTime()));
+          const scheduleCleared = latest.inactivityNudgeAt == null;
+          if (userHasSpokenSinceLastAi || scheduleCleared) {
+            console.log(`🛑 Aborting legacy inactivity nudge due to recent user activity`, {
+              sessionId: s.id,
+              userHasSpokenSinceLastAi,
+              scheduleCleared,
+              lastUserAt,
+              lastAiAt,
+            });
+            processingNudges.delete(s.id);
+            continue;
+          }
           
           // Persona-configured limits
           const cs: any = persona?.conversationStyle || {};
@@ -204,9 +227,11 @@ export function startInactivityScheduler(): void {
 
           // OLD PATH: Use AIService
           const context = {
+            sessionId: s.id,
             persona,
             simulation: s.simulation as unknown as Simulation,
             conversationHistory: history,
+            goalProgress: s.goalProgress,
             sessionDuration: s.startedAt ? (Date.now() - s.startedAt.getTime()) : 0,
           } as const;
 
@@ -250,6 +275,28 @@ export function startInactivityScheduler(): void {
             s.inactivityNudgeAt = new Date(Date.now() + delay);
             await repo.save(s);
             continue;
+          }
+
+          // Re-check abort right before persisting/emitting (race protection)
+          {
+            const latestBeforePersist = await repo.findOne({ where: { id: s.id } });
+            if (latestBeforePersist) {
+              const lastUserAt2 = latestBeforePersist.lastUserMessageAt;
+              const lastAiAt2 = latestBeforePersist.lastAiMessageAt;
+              const userHasSpokenSinceLastAi2 = !!(lastUserAt2 && (!lastAiAt2 || lastUserAt2.getTime() > lastAiAt2.getTime()));
+              const scheduleCleared2 = latestBeforePersist.inactivityNudgeAt == null;
+              if (userHasSpokenSinceLastAi2 || scheduleCleared2) {
+                console.log(`🛑 Aborting legacy inactivity nudge persist due to recent user activity`, {
+                  sessionId: s.id,
+                  userHasSpokenSinceLastAi: userHasSpokenSinceLastAi2,
+                  scheduleCleared: scheduleCleared2,
+                  lastUserAt: lastUserAt2,
+                  lastAiAt: lastAiAt2,
+                });
+                processingNudges.delete(s.id);
+                continue;
+              }
+            }
           }
 
           const seq = (history[history.length - 1]?.sequenceNumber || 0) + 1;

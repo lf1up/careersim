@@ -1,6 +1,7 @@
 import { ConversationGraphState } from '../state';
 import { executeUserBehaviorAnalysis, executeAiIndicatorsAnalysis } from '../tools/evaluation_tools';
 import { emitGoalProgressUpdate } from '@/services/realtime';
+import { devLogLangGraphEvent } from '../devLogger';
 
 // Lazy imports to avoid TypeORM initialization during module load
 let AppDataSource: any;
@@ -44,6 +45,10 @@ class EvaluationThresholds {
   static getSuccessThreshold(): number {
     return this.isTestMode() ? 0.6 : this.SUCCESS_THRESHOLD;
   }
+}
+
+function asFiniteNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 /**
@@ -159,6 +164,19 @@ export async function evaluateGoalsNode(
   try {
     const goals = state.simulation.conversationGoals.sort((a: any, b: any) => a.goalNumber - b.goalNumber);
     let progress = state.goalProgress || [];
+    await devLogLangGraphEvent(state.sessionId, 'node:evaluate_goals:start', {
+      lastUserMessage: state.lastUserMessage,
+      lastAiMessage: state.lastAiMessage,
+      goals: goals.map((g: any) => ({
+        goalNumber: g.goalNumber,
+        title: g.title,
+        isOptional: !!g.isOptional,
+        evaluationConfig: g.evaluationConfig,
+        keyBehaviors: g.keyBehaviors,
+        successIndicators: g.successIndicators,
+      })),
+      progress,
+    });
 
     // Initialize progress if needed
     if (progress.length === 0) {
@@ -176,43 +194,37 @@ export async function evaluateGoalsNode(
     // Get actual message IDs for evidence tracking (once for all goals)
     const { userMessageId, aiMessageId } = await getRecentMessageIds(state.sessionId);
 
-    // Use step detection to identify which goal the user is working on
-    const activeGoal = state.lastUserMessage 
-      ? await detectActiveGoal(state.lastUserMessage, goals, progress)
-      : null;
-
-    // If we detected an active goal, only evaluate that one
-    // Otherwise, fall back to evaluating next unachieved required goal in sequence
+    // Stage-based evaluation:
+    // Evaluate ONLY the next unachieved required goal in sequence.
+    // This prevents "jumping" (e.g., achieving Professional Closing early) and keeps evaluation aligned with staged prompting.
     let goalsToEvaluate: any[] = [];
     
-    if (activeGoal) {
-      console.log(`🎯 Step detection: evaluating detected goal #${activeGoal.goalNumber} - ${activeGoal.title}`);
-      goalsToEvaluate = [activeGoal];
+    const requiredGoals = goals
+      .filter((g: any) => !g.isOptional)
+      .sort((a: any, b: any) => a.goalNumber - b.goalNumber);
+    
+    const nextRequired = requiredGoals.find((g: any) => {
+      const p = progress.find((p) => p.goalNumber === g.goalNumber);
+      return !p || p.status !== 'achieved';
+    });
+    
+    if (nextRequired) {
+      console.log(`🎯 Stage-based: evaluating next required goal #${nextRequired.goalNumber} - ${nextRequired.title}`);
+      goalsToEvaluate = [nextRequired];
     } else {
-      // Fall back: evaluate next unachieved required goal in sequence
-      const requiredGoals = goals.filter((g: any) => !g.isOptional)
+      // All required goals done, check if there are any optional left (in order)
+      const optionalGoals = goals
+        .filter((g: any) => !!g.isOptional)
         .sort((a: any, b: any) => a.goalNumber - b.goalNumber);
       
-      const nextRequired = requiredGoals.find((g: any) => {
+      const nextOptional = optionalGoals.find((g: any) => {
         const p = progress.find((p) => p.goalNumber === g.goalNumber);
         return !p || p.status !== 'achieved';
       });
       
-      if (nextRequired) {
-        console.log(`🎯 No detection match: evaluating next required goal #${nextRequired.goalNumber} - ${nextRequired.title}`);
-        goalsToEvaluate = [nextRequired];
-      } else {
-        // All required goals done, check if there are any optional left
-        const optionalGoals = goals.filter((g: any) => g.isOptional);
-        const nextOptional = optionalGoals.find((g: any) => {
-          const p = progress.find((p) => p.goalNumber === g.goalNumber);
-          return !p || p.status !== 'achieved';
-        });
-        
-        if (nextOptional) {
-          console.log(`🎯 All required done: evaluating next optional goal #${nextOptional.goalNumber} - ${nextOptional.title}`);
-          goalsToEvaluate = [nextOptional];
-        }
+      if (nextOptional) {
+        console.log(`🎯 Stage-based: all required achieved, evaluating next optional goal #${nextOptional.goalNumber} - ${nextOptional.title}`);
+        goalsToEvaluate = [nextOptional];
       }
     }
 
@@ -233,8 +245,11 @@ export async function evaluateGoalsNode(
     }
 
     // Evaluate all unachieved goals in parallel
-    const behaviorThreshold = EvaluationThresholds.getBehaviorThreshold();
-    const successThreshold = EvaluationThresholds.getSuccessThreshold();
+    const defaultBehaviorThreshold = EvaluationThresholds.getBehaviorThreshold();
+    const defaultSuccessThreshold = EvaluationThresholds.getSuccessThreshold();
+    const defaultStrongEvidenceScore = 0.65;
+    const defaultMinEvidenceCount = 2;
+    const defaultMinStrongEvidenceCount = 2;
 
     let anyGoalAchieved = false;
 
@@ -252,8 +267,19 @@ export async function evaluateGoalsNode(
       const hasBehaviors = goal.keyBehaviors?.length > 0;
       const hasIndicators = goal.successIndicators?.length > 0;
 
+      // Per-goal evaluation tuning (stored in simulation.conversationGoals JSON)
+      const cfg = (goal as any).evaluationConfig || {};
+      const behaviorThreshold = asFiniteNumber(cfg.behaviorThreshold, defaultBehaviorThreshold);
+      const successThreshold = asFiniteNumber(cfg.successThreshold, defaultSuccessThreshold);
+      const strongEvidenceScore = asFiniteNumber(cfg.strongEvidenceScore, defaultStrongEvidenceScore);
+      const minEvidenceCount = Math.floor(asFiniteNumber(cfg.minEvidenceCount, defaultMinEvidenceCount));
+      const minStrongEvidenceCount = Math.floor(asFiniteNumber(cfg.minStrongEvidenceCount, defaultMinStrongEvidenceCount));
+      const requireSuccessIndicators = cfg.requireSuccessIndicators !== undefined ? !!cfg.requireSuccessIndicators : true;
+
       let behaviorScore = 0;
       let successScore = 0;
+      let behaviorResult: any = undefined;
+      let indicatorResult: any = undefined;
 
       // Analyze user behavior if we have a last user message
       const behaviorPromise = hasBehaviors && state.lastUserMessage
@@ -264,13 +290,15 @@ export async function evaluateGoalsNode(
       if (state.lastAiMessage && hasIndicators) {
         // Run behavior and indicator analysis in parallel
         // Note: executeAiIndicatorsAnalysis already includes emotion/sentiment analysis and tone boost
-        const [behaviorResult, indicatorResult] = await Promise.all([
+        const [br, ir] = await Promise.all([
           behaviorPromise,
           executeAiIndicatorsAnalysis(state.lastAiMessage, goal.successIndicators),
         ]);
 
-        behaviorScore = behaviorResult.score || 0;
-        successScore = indicatorResult.score || 0; // Already includes tone boost from the tool
+        behaviorResult = br;
+        indicatorResult = ir;
+        behaviorScore = behaviorResult?.score || 0;
+        successScore = indicatorResult?.score || 0;
 
         // Record behavior evidence
         if (behaviorScore > 0) {
@@ -296,8 +324,8 @@ export async function evaluateGoalsNode(
         }
       } else {
         // No AI message or no indicators; only await behavior analysis
-        const behaviorResult = await behaviorPromise;
-        behaviorScore = behaviorResult.score || 0;
+        behaviorResult = await behaviorPromise;
+        behaviorScore = behaviorResult?.score || 0;
         
         if (behaviorScore > 0) {
           targetProgress.confidence = Math.max(targetProgress.confidence || 0, behaviorScore);
@@ -315,14 +343,20 @@ export async function evaluateGoalsNode(
       const behaviorMet =
         behaviorScore >= behaviorThreshold &&
         (targetProgress.confidence || 0) >= behaviorThreshold;
-      
-      // Stricter success criteria: require indicators if they exist, otherwise use higher behavior threshold
+
+      // Success criteria:
+      // - If indicators exist AND requireSuccessIndicators=true → require indicator match
+      // - If indicators exist AND requireSuccessIndicators=false → allow behavior-only (still prefers indicators)
+      // - If no indicators exist → require a slightly higher behavior threshold
       const successMet = hasIndicators
-        ? successScore >= successThreshold
-        : behaviorScore >= (behaviorThreshold + 0.1);
+        ? (requireSuccessIndicators ? (successScore >= successThreshold) : (successScore >= successThreshold || behaviorScore >= behaviorThreshold))
+        : (behaviorScore >= Math.min(1, behaviorThreshold + 0.1));
       
-      // Require at least 2 pieces of strong evidence (score >= 0.65)
-      const hasEnoughEvidence = (targetProgress.evidence?.filter(e => e.score >= 0.65).length || 0) >= 2;
+      const evidenceCount = targetProgress.evidence?.length || 0;
+      const strongEvidenceCount = targetProgress.evidence?.filter(e => e.score >= strongEvidenceScore).length || 0;
+      const hasEnoughEvidence =
+        evidenceCount >= minEvidenceCount &&
+        strongEvidenceCount >= minStrongEvidenceCount;
 
       // Debug logging for goal evaluation
       console.log(`📊 Goal ${targetProgress.goalNumber} evaluation:`, {
@@ -333,12 +367,53 @@ export async function evaluateGoalsNode(
         confidence: targetProgress.confidence,
         hasBehaviors,
         hasIndicators,
+        evaluationConfig: {
+          behaviorThreshold,
+          successThreshold,
+          strongEvidenceScore,
+          minEvidenceCount,
+          minStrongEvidenceCount,
+          requireSuccessIndicators,
+        },
         behaviorMet,
         successMet,
         hasEnoughEvidence,
-        evidenceCount: targetProgress.evidence?.length || 0,
-        strongEvidenceCount: targetProgress.evidence?.filter(e => e.score >= 0.65).length || 0,
-        thresholds: { behavior: behaviorThreshold, success: successThreshold },
+        evidenceCount,
+        strongEvidenceCount,
+      });
+      await devLogLangGraphEvent(state.sessionId, 'node:evaluate_goals:goal_result', {
+        goal: {
+          goalNumber: goal.goalNumber,
+          title: goal.title,
+          isOptional: !!goal.isOptional,
+        },
+        evaluationConfig: {
+          behaviorThreshold,
+          successThreshold,
+          strongEvidenceScore,
+          minEvidenceCount,
+          minStrongEvidenceCount,
+          requireSuccessIndicators,
+        },
+        inputs: {
+          lastUserMessage: state.lastUserMessage,
+          lastAiMessage: state.lastAiMessage,
+        },
+        rawToolResults: {
+          behaviorResult,
+          indicatorResult,
+        },
+        computed: {
+          behaviorScore,
+          successScore,
+          behaviorMet,
+          successMet,
+          hasEnoughEvidence,
+          evidenceCount,
+          strongEvidenceCount,
+          confidence: targetProgress.confidence,
+        },
+        progressItem: targetProgress,
       });
 
       if (behaviorMet && successMet && hasEnoughEvidence && targetProgress.status !== 'achieved') {
@@ -380,6 +455,11 @@ export async function evaluateGoalsNode(
     const achievedCount = progress.filter(p => p.status === 'achieved').length;
     const inProgressCount = progress.filter(p => p.status === 'in_progress').length;
     console.log(`📊 Evaluation complete. Achieved: ${achievedCount}/${goals.length}, In Progress: ${inProgressCount}`);
+    await devLogLangGraphEvent(state.sessionId, 'node:evaluate_goals:done', {
+      achievedCount,
+      inProgressCount,
+      progress,
+    });
 
     return {
       goalProgress: progress,
@@ -388,6 +468,9 @@ export async function evaluateGoalsNode(
     };
   } catch (error) {
     console.error('Error evaluating goals:', error);
+    await devLogLangGraphEvent(state.sessionId, 'node:evaluate_goals:error', {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+    });
     return {
       evaluationComplete: true,
       needsEvaluation: false,

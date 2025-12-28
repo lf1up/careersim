@@ -11,6 +11,20 @@ import {
   buildProactiveBackchannelPrompt,
 } from '../prompts';
 
+// Lazy imports to avoid TypeORM initialization during module load
+let AppDataSource: any;
+let SimulationSession: any;
+
+async function loadDatabaseDependencies() {
+  if (!AppDataSource) {
+    const databaseModule = await import('@/config/database');
+    AppDataSource = databaseModule.AppDataSource;
+
+    const simulationSessionModule = await import('@/entities/SimulationSession');
+    SimulationSession = simulationSessionModule.SimulationSession;
+  }
+}
+
 /**
  * Helper to get message type from both LangChain objects and deserialized plain objects
  */
@@ -47,6 +61,50 @@ export async function checkProactiveTriggerNode(
   state: ConversationGraphState,
 ): Promise<Partial<ConversationGraphState>> {
   console.log(`🔔 [${state.sessionId}] Checking proactive trigger (current: ${state.proactiveTrigger || 'none'}, count: ${state.proactiveCount || 0}/${state.maxProactiveMessages || 0})`);
+
+  // Abort proactive work if a new user message arrived after the last AI message.
+  // This prevents inactivity nudges or follow-up bursts from firing "over" a real user message.
+  try {
+    await loadDatabaseDependencies();
+    const sessionRepo = AppDataSource.getRepository(SimulationSession);
+    const session = await sessionRepo.findOne({ where: { id: state.sessionId } });
+
+    if (session) {
+      const lastUserAt: Date | undefined = session.lastUserMessageAt || undefined;
+      const lastAiAt: Date | undefined = session.lastAiMessageAt || undefined;
+
+      const userHasSpokenSinceLastAi = !!(lastUserAt && (!lastAiAt || lastUserAt.getTime() > lastAiAt.getTime()));
+      const inactivityCleared = state.proactiveTrigger === 'inactivity' && session.inactivityNudgeAt == null;
+
+      if (userHasSpokenSinceLastAi || inactivityCleared) {
+        console.log(`🛑 Aborting proactive (${state.proactiveTrigger}) due to recent user activity`, {
+          userHasSpokenSinceLastAi,
+          inactivityCleared,
+          lastUserAt,
+          lastAiAt,
+        });
+
+        return {
+          shouldSendProactive: false,
+          // Keep proactiveTrigger as-is so routing doesn't accidentally enter normal conversation flow.
+          // The graph will end early when it sees metadata.abortProactive.
+          metadata: {
+            ...state.metadata,
+            abortProactive: true,
+            lastUserMessageAt: lastUserAt,
+            lastAiMessageAt: lastAiAt,
+            inactivityNudgeAt: session.inactivityNudgeAt,
+          },
+          // Stop any follow-up burst immediately
+          proactiveCount: state.maxProactiveMessages || state.proactiveCount || 0,
+          maxProactiveMessages: state.maxProactiveMessages,
+        };
+      }
+    }
+  } catch (err) {
+    // Non-fatal: if we can't check the DB, fall back to existing behavior.
+    console.warn(`⚠️ Failed to check session timestamps for proactive abort:`, err);
+  }
 
   const cs: any = state.persona?.conversationStyle || {};
 

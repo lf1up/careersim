@@ -5,6 +5,7 @@ import { config } from '@/config/env';
 import { RAGService } from '@/services/rag';
 import { transformersService } from '@/services/transformers';
 import { buildPersonaSystemPrompt } from '../prompts';
+import { devLogLangGraphEvent } from '../devLogger';
 
 // Lazy imports to avoid TypeORM initialization during module load
 let AppDataSource: any;
@@ -58,6 +59,32 @@ function getMessageType(message: any): string {
 }
 
 /**
+ * Extract text content from a LangChain/OpenAI response.
+ * Some providers/models can return content as an array of parts or an object.
+ */
+function extractTextContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part: any) => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object') return part.text || part.content || JSON.stringify(part);
+        return String(part);
+      })
+      .join('')
+      .trim();
+  }
+
+  if (content && typeof content === 'object') {
+    const c: any = content;
+    return String(c.text || c.content || JSON.stringify(c)).trim();
+  }
+
+  return String(content ?? '').trim();
+}
+
+/**
  * Node: Process User Input
  * Entry point for the graph - loads session state and processes user message
  */
@@ -67,6 +94,15 @@ export async function processUserInputNode(
   console.log(`📥 [${state.sessionId}] Processing user input (trigger: ${state.proactiveTrigger || 'none'})`);
 
   try {
+    await devLogLangGraphEvent(state.sessionId, 'node:process_user_input:start', {
+      proactiveTrigger: state.proactiveTrigger,
+      userMessage: (state as any).userMessage,
+      lastUserMessage: state.lastUserMessage,
+      lastAiMessage: state.lastAiMessage,
+      turn: state.turn,
+      goalProgress: state.goalProgress,
+      messageCount: Array.isArray(state.messages) ? state.messages.length : undefined,
+    });
     // Load database dependencies
     await loadDatabaseDependencies();
     
@@ -146,6 +182,9 @@ export async function processUserInputNode(
           targetInactivityNudges: undefined, // Clear target so it can be re-rolled next time
         };
         console.log(`🔄 User sent message - cleared all proactive state and reset inactivity tracking`);
+        await devLogLangGraphEvent(state.sessionId, 'node:process_user_input:user_message', {
+          userMessage,
+        });
         
         // Immediately update the database session to prevent race conditions with scheduler
         // This ensures the scheduler sees the cleared schedule right away
@@ -170,6 +209,9 @@ export async function processUserInputNode(
       // Priority 2: No user message, but proactive trigger - handle proactive flow
       if (state.proactiveTrigger) {
         console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - preserving inactivity state`);
+        await devLogLangGraphEvent(state.sessionId, 'node:process_user_input:proactive_trigger', {
+          proactiveTrigger: state.proactiveTrigger,
+        });
         // Reset proactiveCount for inactivity/start triggers (they use their own counters)
         if (state.proactiveTrigger === 'inactivity' || state.proactiveTrigger === 'start') {
           updates.proactiveCount = 0;
@@ -223,6 +265,9 @@ export async function processUserInputNode(
     // Priority 2: No user message but proactive trigger - handle proactive flow
     if (state.proactiveTrigger) {
       console.log(`   🔀 Proactive trigger detected: ${state.proactiveTrigger} - skipping normal flow`);
+      await devLogLangGraphEvent(state.sessionId, 'node:process_user_input:proactive_trigger', {
+        proactiveTrigger: state.proactiveTrigger,
+      });
       const updates: any = {
         needsEvaluation: false,
         shouldSendProactive: false, // Will be set by check_proactive_trigger
@@ -237,6 +282,9 @@ export async function processUserInputNode(
     return {};
   } catch (error) {
     console.error('Error in processUserInputNode:', error);
+    await devLogLangGraphEvent(state.sessionId, 'node:process_user_input:error', {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+    });
     return {
       lastError: error instanceof Error ? error.message : 'Unknown error',
       retryCount: (state.retryCount || 0) + 1,
@@ -307,7 +355,9 @@ export async function generateAiResponseNode(
     const model = new ChatOpenAI({
       modelName: aiConfig.model,
       temperature: aiConfig.temperature,
-      maxTokens: aiConfig.maxTokens,
+      // Clamp max tokens to keep replies conversational even if OPENAI_MAX_TOKENS is very high.
+      // (The system prompt also enforces brevity; this is a hard backstop.)
+      // maxTokens: Math.min(aiConfig.maxTokens, 350),
       topP: aiConfig.topP,
       frequencyPenalty: aiConfig.frequencyPenalty,
       presencePenalty: aiConfig.presencePenalty,
@@ -322,7 +372,14 @@ export async function generateAiResponseNode(
       state.persona,
       state.simulation,
       state.ragContext,
+      state.goalProgress,
     );
+    await devLogLangGraphEvent(state.sessionId, 'node:generate_ai_response:prompt', {
+      model: aiConfig.model,
+      temperature: aiConfig.temperature,
+      maxTokens: (model as any)?.maxTokens ?? aiConfig.maxTokens,
+      prompt: systemPromptText,
+    });
 
     // Prepare messages for the model
     const messages = [
@@ -332,7 +389,25 @@ export async function generateAiResponseNode(
 
     // Generate response
     const response = await model.invoke(messages);
-    const aiMessageContent = response.content as string;
+    const aiMessageContent = extractTextContent((response as any).content);
+
+    if (!aiMessageContent || aiMessageContent.trim().length === 0) {
+      console.error('❌ Empty AI response content extracted:', {
+        rawType: typeof (response as any).content,
+        isArray: Array.isArray((response as any).content),
+        rawPreview: JSON.stringify((response as any).content)?.slice?.(0, 300),
+      });
+      throw new Error('Empty AI response content extracted from model response');
+    }
+    await devLogLangGraphEvent(state.sessionId, 'node:generate_ai_response:result', {
+      aiMessage: aiMessageContent,
+      responseMetadata: (response as any).response_metadata,
+      messages: [
+        // log full conversation window content for debugging
+        ...messages.map((m: any) => ({ type: typeof m?._getType === 'function' ? m._getType() : m.type, content: m.content })),
+        { type: 'ai', content: aiMessageContent },
+      ],
+    });
 
     // Add to message history
     const updatedMessages = [...state.messages, new AIMessage(aiMessageContent)];
@@ -361,6 +436,9 @@ export async function generateAiResponseNode(
     };
   } catch (error) {
     console.error('Error generating AI response:', error);
+    await devLogLangGraphEvent(state.sessionId, 'node:generate_ai_response:error', {
+      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+    });
     return {
       lastError: error instanceof Error ? error.message : 'Failed to generate AI response',
       retryCount: (state.retryCount || 0) + 1,

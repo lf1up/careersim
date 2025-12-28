@@ -24,6 +24,29 @@ export interface ConversationGoal {
   description: string;
   keyBehaviors?: string[];
   successIndicators?: string[];
+  /**
+   * Optional per-goal evaluation tuning.
+   * These values are used by LangGraph goal evaluation to control strictness and evidence requirements.
+   *
+   * All values are optional; evaluator falls back to global defaults when omitted.
+   */
+  evaluationConfig?: {
+    /** Threshold for matching the user's message against keyBehaviors (0..1). */
+    behaviorThreshold?: number;
+    /** Threshold for matching the AI's message against successIndicators (0..1). */
+    successThreshold?: number;
+    /** Score considered "strong evidence" (0..1). Default: 0.65 */
+    strongEvidenceScore?: number;
+    /** Minimum number of evidence items (any score) required. Default: 2 */
+    minEvidenceCount?: number;
+    /** Minimum number of strong evidence items (score >= strongEvidenceScore) required. Default: 2 */
+    minStrongEvidenceCount?: number;
+    /**
+     * Whether successIndicators must be met (when present) to achieve the goal.
+     * Default: true.
+     */
+    requireSuccessIndicators?: boolean;
+  };
 }
 
 export enum SimulationDifficulty {
