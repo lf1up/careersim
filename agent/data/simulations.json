@@ -1,0 +1,263 @@
+[
+  {
+    "slug": "behavioral-interview-brenda",
+    "title": "The Behavioral Interview",
+    "description": "Navigate a structured behavioral interview with a by-the-book HR manager",
+    "scenario": "You are in a job interview with Brenda Vance, the HR Manager at a mid-sized tech company. This is a behavioral interview round, and she will be assessing your fit for the team and company culture through structured questions.",
+    "objectives": [
+      "Answer behavioral questions using the STAR method",
+      "Build rapport while remaining professional",
+      "Address any concerns about your fit"
+    ],
+    "personaSlug": "brenda-vance-hr-manager",
+    "estimatedDurationMinutes": 25,
+    "difficulty": 3,
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Opening and Rapport Building",
+        "description": "Start with a clear professional greeting, set a warm tone, and get the interview moving with light rapport-building",
+        "keyBehaviors": [
+          "Professional greeting (e.g., 'Hi Brenda')",
+          "Thank them for their time / the opportunity",
+          "One sentence of genuine interest in the role or company"
+        ],
+        "successIndicators": [
+          "Brenda returns the greeting and acknowledges you",
+          "Brenda responds in a welcoming/professional tone",
+          "Brenda invites you to begin or asks the first interview question"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "strongEvidenceScore": 0.5,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Behavioral Question Response",
+        "description": "Answer Brenda's behavioral questions using the STAR method with relevant, specific examples",
+        "keyBehaviors": [
+          "Use STAR structure (Situation, Task, Action, Result)",
+          "Provide specific technical details",
+          "Include measurable outcomes or impact"
+        ],
+        "successIndicators": [
+          "Brenda acknowledges your answer positively",
+          "Brenda asks a follow-up question about your example",
+          "Brenda moves to the next behavioral question"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Addressing Concerns",
+        "description": "Proactively address any concerns Brenda might have about your fit or potential risks",
+        "keyBehaviors": [
+          "Show self-awareness about potential weaknesses",
+          "Address potential red flags proactively",
+          "Demonstrate cultural fit understanding"
+        ],
+        "successIndicators": [
+          "Brenda's skeptical questions decrease",
+          "Language becomes more open and collaborative",
+          "Discussion feels more like a conversation than interrogation"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 4,
+        "isOptional": true,
+        "title": "Professional Closing",
+        "description": "Close the interview professionally while reinforcing your interest",
+        "keyBehaviors": [
+          "Summarize key qualifications briefly",
+          "Express continued interest in the role",
+          "Ask about next steps in the process"
+        ],
+        "successIndicators": [
+          "Brenda provides clear timeline",
+          "Positive language and tone in closing",
+          "She expresses confidence or interest"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "tech-cultural-interview-alex",
+    "title": "The Technical & Cultural Fit Interview",
+    "description": "Impress a passionate tech lead while showing genuine enthusiasm for the role",
+    "scenario": "You're interviewing with Alex Chen, the engineering lead at a fast-growing startup. The conversation is more casual than formal, and Alex seems genuinely excited about the technology and team culture.",
+    "objectives": [
+      "Show your technical competence and cultural fit",
+      "Demonstrate resilience and a positive attitude",
+      "Express genuine enthusiasm for the role and technology"
+    ],
+    "personaSlug": "alex-chen-tech-lead",
+    "estimatedDurationMinutes": 20,
+    "difficulty": 2,
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Casual Opening and Energy Matching",
+        "description": "Match Alex's enthusiastic energy while keeping the conversation natural and genuine",
+        "keyBehaviors": [
+          "Show genuine excitement about the opportunity",
+          "Match his casual, friendly tone",
+          "Express interest in the company mission or product"
+        ],
+        "successIndicators": [
+          "Alex becomes more animated in responses",
+          "Conversation flows naturally without awkward pauses",
+          "Mutual enthusiasm builds in the exchange"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.5,
+          "successThreshold": 0.5,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Technical Discussion",
+        "description": "Engage in technical conversation that demonstrates both competence and curiosity",
+        "keyBehaviors": [
+          "Ask thoughtful technical questions",
+          "Share relevant past experiences",
+          "Show learning mindset and curiosity"
+        ],
+        "successIndicators": [
+          "Alex gets excited about technical details",
+          "Deep technical conversation emerges",
+          "He starts sharing insider perspectives"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Team Culture Exploration",
+        "description": "Explore team dynamics and show how you would contribute",
+        "keyBehaviors": [
+          "Ask about team collaboration style",
+          "Share team-oriented experiences",
+          "Demonstrate resilience in past challenges"
+        ],
+        "successIndicators": [
+          "Alex talks about team members positively",
+          "He shares challenges and growth stories",
+          "Discussion becomes very interactive"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "saying-no-sarah",
+    "title": "Saying 'No' to Extra Work",
+    "description": "Practice setting boundaries with an overwhelmed colleague trying to delegate work to you",
+    "scenario": "Sarah Jenkins, a project manager from another team, approaches you asking for help with a task she's behind on. She's clearly stressed and frames it as a small favor, but you're already at capacity.",
+    "objectives": [
+      "Decline the request firmly but kindly",
+      "Maintain a good working relationship",
+      "Show empathy for her stressful situation"
+    ],
+    "personaSlug": "sarah-jenkins-overwhelmed-pm",
+    "estimatedDurationMinutes": 15,
+    "difficulty": 2,
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Empathetic Listening",
+        "description": "Listen to Sarah's request with empathy and acknowledge her stressful situation",
+        "keyBehaviors": [
+          "Show genuine concern for her situation",
+          "Listen actively to understand the full request",
+          "Acknowledge her stress without immediately saying no"
+        ],
+        "successIndicators": [
+          "Sarah feels heard and understood",
+          "Her anxiety decreases slightly",
+          "She provides more context about her situation"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.5,
+          "successThreshold": 0.5,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Honest Assessment",
+        "description": "Honestly communicate your current capacity and commitments",
+        "keyBehaviors": [
+          "Explain your current workload clearly",
+          "Be transparent about constraints",
+          "Show you take existing commitments seriously"
+        ],
+        "successIndicators": [
+          "Sarah understands your situation",
+          "She shows disappointment but acceptance",
+          "Conversation remains professional and respectful"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 3,
+        "isOptional": true,
+        "title": "Alternative Solutions",
+        "description": "Offer alternative solutions or resources that might help Sarah",
+        "keyBehaviors": [
+          "Suggest other resources or people who might help",
+          "Offer limited assistance within your capacity",
+          "Help her think through prioritization"
+        ],
+        "successIndicators": [
+          "Sarah appreciates the suggestions",
+          "She feels supported despite the no",
+          "Relationship remains positive"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.5,
+          "successThreshold": 0.5,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  }
+]
