@@ -1,4 +1,14 @@
-"""Gradio developer console for the conversation agent."""
+"""Gradio developer console for the conversation agent.
+
+Provides both an interactive UI for development and API endpoints for
+programmatic access via gradio_client.
+
+API Endpoints (for gradio_client):
+- start_session(simulation_slug: str) -> dict
+- send_message(session_id: str, message: str) -> dict
+- trigger_proactive(session_id: str, trigger_type: str) -> dict
+- get_session_state(session_id: str) -> dict
+"""
 
 import json
 import logging
@@ -247,8 +257,225 @@ class AgentSession:
         return "\n".join(lines) if lines else "No analysis data"
 
 
-# Global session
+# =============================================================================
+# Session Manager - Manages multiple concurrent sessions for API use
+# =============================================================================
+
+class SessionManager:
+    """Manages multiple conversation sessions for API access."""
+    
+    def __init__(self):
+        self._sessions: dict[str, AgentSession] = {}
+    
+    def create_session(self, simulation_slug: str) -> tuple[str, AgentSession]:
+        """Create a new session and return its ID."""
+        session = AgentSession()
+        status = session.start_session(simulation_slug)
+        if session.state:
+            session_id = session.state.get("session_id", str(uuid.uuid4())[:8])
+            self._sessions[session_id] = session
+            return session_id, session
+        raise ValueError(status)
+    
+    def get_session(self, session_id: str) -> Optional[AgentSession]:
+        """Get a session by ID."""
+        return self._sessions.get(session_id)
+    
+    def remove_session(self, session_id: str) -> bool:
+        """Remove a session."""
+        if session_id in self._sessions:
+            del self._sessions[session_id]
+            return True
+        return False
+
+
+# Global session manager for API
+_session_manager = SessionManager()
+
+# Global session for UI
 _session = AgentSession()
+
+
+# =============================================================================
+# API Functions - Called via gradio_client
+# =============================================================================
+
+def api_start_session(simulation_slug: str) -> dict:
+    """Start a new conversation session.
+    
+    Args:
+        simulation_slug: The slug identifier for the simulation
+        
+    Returns:
+        dict with session_id, status, initial_message (if persona starts conversation),
+        goal_progress, persona_name, simulation_title
+    """
+    try:
+        session_id, session = _session_manager.create_session(simulation_slug)
+        
+        result = {
+            "session_id": session_id,
+            "status": "created",
+            "simulation_title": session.state.get("simulation", {}).get("title", ""),
+            "persona_name": session.state.get("persona", {}).get("name", ""),
+            "goal_progress": session.get_goal_progress(),
+            "messages": [],
+        }
+        
+        # Auto-trigger start if persona starts conversation
+        persona = session.state.get("persona", {})
+        conv_style = persona.get("conversationStyle", {})
+        if conv_style.get("startsConversation", True):
+            session.state["proactive_trigger"] = "start"
+            session.state["user_message"] = None
+            session.state["proactive_count"] = 0
+            session.state = session.graph.invoke(session.state)
+            result["messages"] = session._build_chat_history()
+            result["goal_progress"] = session.get_goal_progress()
+        
+        logger.info(f"API: Created session {session_id} for {simulation_slug}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"API: Failed to create session: {e}")
+        return {"error": str(e), "status": "error"}
+
+
+def api_send_message(session_id: str, message: str) -> dict:
+    """Send a message in an existing session.
+    
+    Args:
+        session_id: The session identifier
+        message: The user's message
+        
+    Returns:
+        dict with messages (chat history), goal_progress, analysis, status
+    """
+    try:
+        session = _session_manager.get_session(session_id)
+        if not session:
+            return {"error": f"Session {session_id} not found", "status": "error"}
+        
+        history, status = session.send_message(message)
+        
+        return {
+            "status": "ok",
+            "messages": history,
+            "goal_progress": session.get_goal_progress(),
+            "analysis": {
+                "user_sentiment": session.state.get("last_user_sentiment"),
+                "user_emotion": session.state.get("last_user_emotion"),
+                "ai_sentiment": session.state.get("last_ai_sentiment"),
+                "ai_emotion": session.state.get("last_ai_emotion"),
+            },
+        }
+        
+    except Exception as e:
+        logger.error(f"API: Error in send_message: {e}")
+        return {"error": str(e), "status": "error"}
+
+
+def api_trigger_proactive(session_id: str, trigger_type: str) -> dict:
+    """Trigger a proactive message (start, inactivity, followup).
+    
+    Args:
+        session_id: The session identifier
+        trigger_type: One of "start", "inactivity", "followup"
+        
+    Returns:
+        dict with messages (chat history), goal_progress, status
+    """
+    try:
+        session = _session_manager.get_session(session_id)
+        if not session:
+            return {"error": f"Session {session_id} not found", "status": "error"}
+        
+        if trigger_type not in ("start", "inactivity", "followup"):
+            return {"error": f"Invalid trigger_type: {trigger_type}", "status": "error"}
+        
+        history, status = session.trigger_proactive(trigger_type)
+        
+        return {
+            "status": "ok",
+            "trigger_type": trigger_type,
+            "messages": history,
+            "goal_progress": session.get_goal_progress(),
+        }
+        
+    except Exception as e:
+        logger.error(f"API: Error in trigger_proactive: {e}")
+        return {"error": str(e), "status": "error"}
+
+
+def api_get_session_state(session_id: str) -> dict:
+    """Get the current state of a session.
+    
+    Args:
+        session_id: The session identifier
+        
+    Returns:
+        dict with messages, goal_progress, analysis, node_trace, full_state
+    """
+    try:
+        session = _session_manager.get_session(session_id)
+        if not session:
+            return {"error": f"Session {session_id} not found", "status": "error"}
+        
+        return {
+            "status": "ok",
+            "session_id": session_id,
+            "messages": session._build_chat_history(),
+            "goal_progress": session.get_goal_progress(),
+            "analysis": session.get_analysis_summary(),
+            "node_trace": session.get_node_trace(),
+            "state_json": session.get_state_json(),
+        }
+        
+    except Exception as e:
+        logger.error(f"API: Error in get_session_state: {e}")
+        return {"error": str(e), "status": "error"}
+
+
+def api_list_simulations() -> dict:
+    """List all available simulations.
+    
+    Returns:
+        dict with simulations list containing slug, title, persona_name
+    """
+    try:
+        simulations = list_simulations()
+        return {
+            "status": "ok",
+            "simulations": [
+                {
+                    "slug": s["slug"],
+                    "title": s["title"],
+                    "persona_name": s["personaName"],
+                }
+                for s in simulations
+            ],
+        }
+    except Exception as e:
+        logger.error(f"API: Error listing simulations: {e}")
+        return {"error": str(e), "status": "error"}
+
+
+def api_end_session(session_id: str) -> dict:
+    """End and cleanup a session.
+    
+    Args:
+        session_id: The session identifier
+        
+    Returns:
+        dict with status
+    """
+    try:
+        if _session_manager.remove_session(session_id):
+            return {"status": "ok", "message": f"Session {session_id} ended"}
+        return {"error": f"Session {session_id} not found", "status": "error"}
+    except Exception as e:
+        logger.error(f"API: Error ending session: {e}")
+        return {"error": str(e), "status": "error"}
 
 
 def create_gradio_app() -> gr.Blocks:
@@ -448,5 +675,115 @@ def create_gradio_app() -> gr.Blocks:
             lambda: _session.get_state_json(),
             outputs=[state_json],
         )
+        
+        # =================================================================
+        # API Tab - Endpoints for gradio_client
+        # =================================================================
+        with gr.Tab("API"):
+            gr.Markdown("""
+            ## API Endpoints
+            
+            Use these endpoints with `gradio_client` from your backend:
+            
+            ```python
+            from gradio_client import Client
+            
+            client = Client("http://core:7860")  # or http://localhost:7860
+            
+            # List available simulations
+            result = client.predict(api_name="/api_list_simulations")
+            
+            # Start a session
+            result = client.predict(
+                simulation_slug="behavioral-interview-brenda",
+                api_name="/api_start_session"
+            )
+            session_id = result["session_id"]
+            
+            # Send a message
+            result = client.predict(
+                session_id=session_id,
+                message="Hello, I'm ready for my interview.",
+                api_name="/api_send_message"
+            )
+            
+            # Trigger proactive message
+            result = client.predict(
+                session_id=session_id,
+                trigger_type="followup",
+                api_name="/api_trigger_proactive"
+            )
+            
+            # Get session state
+            result = client.predict(
+                session_id=session_id,
+                api_name="/api_get_session_state"
+            )
+            
+            # End session
+            result = client.predict(
+                session_id=session_id,
+                api_name="/api_end_session"
+            )
+            ```
+            """)
+            
+            # API components (hidden but accessible via client)
+            gr.Interface(
+                fn=api_list_simulations,
+                inputs=[],
+                outputs=gr.JSON(label="Result"),
+                title="List Simulations",
+                api_name="api_list_simulations",
+            )
+            
+            gr.Interface(
+                fn=api_start_session,
+                inputs=[gr.Textbox(label="Simulation Slug")],
+                outputs=gr.JSON(label="Result"),
+                title="Start Session",
+                api_name="api_start_session",
+            )
+            
+            gr.Interface(
+                fn=api_send_message,
+                inputs=[
+                    gr.Textbox(label="Session ID"),
+                    gr.Textbox(label="Message"),
+                ],
+                outputs=gr.JSON(label="Result"),
+                title="Send Message",
+                api_name="api_send_message",
+            )
+            
+            gr.Interface(
+                fn=api_trigger_proactive,
+                inputs=[
+                    gr.Textbox(label="Session ID"),
+                    gr.Dropdown(
+                        choices=["start", "inactivity", "followup"],
+                        label="Trigger Type"
+                    ),
+                ],
+                outputs=gr.JSON(label="Result"),
+                title="Trigger Proactive",
+                api_name="api_trigger_proactive",
+            )
+            
+            gr.Interface(
+                fn=api_get_session_state,
+                inputs=[gr.Textbox(label="Session ID")],
+                outputs=gr.JSON(label="Result"),
+                title="Get Session State",
+                api_name="api_get_session_state",
+            )
+            
+            gr.Interface(
+                fn=api_end_session,
+                inputs=[gr.Textbox(label="Session ID")],
+                outputs=gr.JSON(label="Result"),
+                title="End Session",
+                api_name="api_end_session",
+            )
     
     return app
