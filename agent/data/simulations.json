@@ -211,7 +211,7 @@
         "evaluationConfig": {
           "behaviorThreshold": 0.6,
           "successThreshold": 0.6,
-          "minEvidenceCount": 2,
+          "minEvidenceCount": 3,
           "minStrongEvidenceCount": 2
         }
       },
@@ -251,9 +251,9 @@
           "Conversation ends confidently"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.45,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       }
@@ -295,8 +295,8 @@
           "Mutual enthusiasm builds in the exchange"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
           "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
@@ -318,7 +318,7 @@
         "evaluationConfig": {
           "behaviorThreshold": 0.6,
           "successThreshold": 0.6,
-          "minEvidenceCount": 2,
+          "minEvidenceCount": 3,
           "minStrongEvidenceCount": 2
         }
       },
@@ -339,7 +339,7 @@
         "evaluationConfig": {
           "behaviorThreshold": 0.6,
           "successThreshold": 0.6,
-          "minEvidenceCount": 2,
+          "minEvidenceCount": 3,
           "minStrongEvidenceCount": 2
         }
       },
@@ -423,8 +423,8 @@
           "He asks clarifying questions"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
           "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
@@ -446,7 +446,7 @@
         "evaluationConfig": {
           "behaviorThreshold": 0.6,
           "successThreshold": 0.6,
-          "minEvidenceCount": 2,
+          "minEvidenceCount": 3,
           "minStrongEvidenceCount": 2
         }
       },
@@ -507,8 +507,8 @@
           "Conversation ends with mutual respect"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
           "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
@@ -525,7 +525,7 @@
       "Maintain a good working relationship",
       "Show empathy for her stressful situation"
     ],
-    "personaSlug": "sarah-jenkins-overwhelmed-pm",
+    "personaSlug": "sarah-jenkins-overwhelmed-project-manager",
     "estimatedDurationMinutes": 15,
     "difficulty": 2,
     "skillsToLearn": ["Boundary setting", "Empathetic communication", "Saying no professionally", "Relationship management"],
@@ -551,9 +551,9 @@
           "She provides more context about her situation"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       },
@@ -572,10 +572,10 @@
           "Conversation remains professional and respectful"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.45,
-          "minEvidenceCount": 1,
-          "minStrongEvidenceCount": 1
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -593,10 +593,10 @@
           "Her stress level appears to decrease"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
-          "minStrongEvidenceCount": 1
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -614,10 +614,10 @@
           "Relationship remains intact"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
-          "minStrongEvidenceCount": 1
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -635,16 +635,16 @@
           "She respects your boundaries"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       }
     ]
   },
   {
-    "slug": "reengaging-michael",
+    "slug": "reengaging-disengaged-employee-michael",
     "title": "Re-engaging a Disengaged Employee",
     "description": "Conduct a challenging feedback conversation with a high-performer who has become disengaged",
     "scenario": "Michael Reyes, once your star developer, has become increasingly disengaged. His work quality remains high, but his participation in meetings and team activities has dropped significantly. You need to address this in a one-on-one meeting.",
@@ -679,9 +679,9 @@
           "His posture remains open"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       },
@@ -700,10 +700,10 @@
           "He begins to share some context"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.55,
-          "minEvidenceCount": 2,
-          "minStrongEvidenceCount": 1
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -721,10 +721,10 @@
           "The real issues begin to surface"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.55,
-          "minEvidenceCount": 2,
-          "minStrongEvidenceCount": 1
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -742,10 +742,10 @@
           "His energy level noticeably increases"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.55,
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
           "minEvidenceCount": 2,
-          "minStrongEvidenceCount": 1
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -763,9 +763,9 @@
           "Clear next steps are established"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       }
@@ -794,7 +794,6 @@
     "conversationGoals": [
       {
         "goalNumber": 1,
-        "isOptional": true,
         "title": "Opening and Context Setting",
         "description": "Start the conversation by setting a supportive tone and explaining why Chloe was chosen for this task",
         "keyBehaviors": [
@@ -808,9 +807,9 @@
           "She shows engagement and interest"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       },
@@ -829,10 +828,10 @@
           "Questions start to emerge naturally"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.55,
-          "minEvidenceCount": 2,
-          "minStrongEvidenceCount": 1
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -850,10 +849,10 @@
           "Expectations are realistic and achievable"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.55,
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
           "minEvidenceCount": 2,
-          "minStrongEvidenceCount": 1
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -871,10 +870,10 @@
           "Support network is established"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.55,
-          "successThreshold": 0.55,
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
           "minEvidenceCount": 2,
-          "minStrongEvidenceCount": 1
+          "minStrongEvidenceCount": 2
         }
       },
       {
@@ -893,9 +892,9 @@
           "Communication preferences are established"
         ],
         "evaluationConfig": {
-          "behaviorThreshold": 0.5,
-          "successThreshold": 0.5,
-          "minEvidenceCount": 1,
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       },
@@ -916,7 +915,7 @@
         "evaluationConfig": {
           "behaviorThreshold": 0.55,
           "successThreshold": 0.55,
-          "minEvidenceCount": 1,
+          "minEvidenceCount": 2,
           "minStrongEvidenceCount": 1
         }
       }
