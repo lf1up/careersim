@@ -23,6 +23,8 @@ export const PERSONA_SYSTEM_PROMPT = ChatPromptTemplate.fromMessages([
 - Title: {simulationTitle}
 - Scenario: {simulationScenario}
 - Objectives: {simulationObjectives}
+{skillsToLearnSection}
+{successCriteriaSection}
 
 **Conversation Goals (ordered stages)**:
 {goalList}
@@ -243,6 +245,43 @@ ${ragContext}`;
 }
 
 /**
+ * Helper to format skills to learn for prompts
+ */
+export function formatSkillsToLearn(skills?: string[]): string {
+  if (!skills || skills.length === 0) {
+    return '';
+  }
+  return `- Skills being practiced: ${skills.join(', ')}`;
+}
+
+/**
+ * Helper to format success criteria for prompts
+ */
+export function formatSuccessCriteria(criteria?: Record<string, string[]>): string {
+  if (!criteria || Object.keys(criteria).length === 0) {
+    return '';
+  }
+
+  const sections: string[] = [];
+  
+  if (criteria.communication?.length) {
+    sections.push(`  - Communication: ${criteria.communication.join(', ')}`);
+  }
+  if (criteria.problemSolving?.length) {
+    sections.push(`  - Problem Solving: ${criteria.problemSolving.join(', ')}`);
+  }
+  if (criteria.emotional?.length) {
+    sections.push(`  - Emotional Intelligence: ${criteria.emotional.join(', ')}`);
+  }
+  
+  if (sections.length === 0) {
+    return '';
+  }
+  
+  return `- Success Criteria (what the user should demonstrate):\n${sections.join('\n')}`;
+}
+
+/**
  * Build the persona system prompt with actual values
  */
 export async function buildPersonaSystemPrompt(
@@ -257,6 +296,10 @@ export async function buildPersonaSystemPrompt(
 
   const current = pickCurrentGoal(simulation, goalProgress);
   const goalList = formatGoalList(simulation, goalProgress);
+  
+  // Format new fields
+  const skillsToLearnSection = formatSkillsToLearn(simulation.skillsToLearn);
+  const successCriteriaSection = formatSuccessCriteria(simulation.successCriteria);
 
   return await PERSONA_SYSTEM_PROMPT.format({
     personaName: persona.name,
@@ -268,6 +311,8 @@ export async function buildPersonaSystemPrompt(
     simulationTitle: simulation.title,
     simulationScenario: simulation.scenario,
     simulationObjectives: objectives,
+    skillsToLearnSection,
+    successCriteriaSection,
     goalList,
     currentGoalTitle: current ? `#${current.goalNumber} — ${current.title}` : '(All goals complete)',
     currentGoalDescription: current?.description || '(none)',

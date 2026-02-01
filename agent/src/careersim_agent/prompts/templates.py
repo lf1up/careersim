@@ -29,6 +29,32 @@ def _format_conversation_style(style: Optional[dict]) -> str:
         return str(style)
 
 
+def _format_skills_to_learn(skills: Optional[list[str]]) -> str:
+    """Format skills to learn section for prompt."""
+    if not skills:
+        return ""
+    return f"- Skills being practiced: {', '.join(skills)}"
+
+
+def _format_success_criteria(criteria: Optional[dict]) -> str:
+    """Format success criteria section for prompt."""
+    if not criteria:
+        return ""
+    
+    sections = []
+    if criteria.get("communication"):
+        sections.append(f"  - Communication: {', '.join(criteria['communication'])}")
+    if criteria.get("problemSolving"):
+        sections.append(f"  - Problem Solving: {', '.join(criteria['problemSolving'])}")
+    if criteria.get("emotional"):
+        sections.append(f"  - Emotional Intelligence: {', '.join(criteria['emotional'])}")
+    
+    if not sections:
+        return ""
+    
+    return f"- Success Criteria (what the user should demonstrate):\n" + "\n".join(sections)
+
+
 def _get_goal_status(
     goal_progress: list[dict], 
     goal_number: int
@@ -128,6 +154,17 @@ def build_persona_system_prompt(
     
     conv_style = _format_conversation_style(persona.get("conversationStyle"))
     
+    # Format new fields
+    skills_section = _format_skills_to_learn(simulation.get("skillsToLearn"))
+    criteria_section = _format_success_criteria(simulation.get("successCriteria"))
+    
+    # Build optional sections
+    extra_context = ""
+    if skills_section:
+        extra_context += f"\n{skills_section}"
+    if criteria_section:
+        extra_context += f"\n{criteria_section}"
+    
     return f"""You are {persona.get('name', 'Unknown')}, a {persona.get('role', 'professional')} with the following characteristics:
 
 **Personality**: {persona.get('personality', 'Professional and courteous')}
@@ -141,7 +178,7 @@ def build_persona_system_prompt(
 **Simulation Context**:
 - Title: {simulation.get('title', 'Conversation')}
 - Scenario: {simulation.get('scenario', 'A professional conversation')}
-- Objectives: {objectives_str}
+- Objectives: {objectives_str}{extra_context}
 
 **Conversation Goals (ordered stages)**:
 {goal_list}

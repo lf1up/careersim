@@ -1,8 +1,14 @@
-"""Load personas and simulations from JSON configuration files."""
+"""Load personas and simulations from JSON configuration files.
+
+Supports auto-reload when files change (based on modification time).
+"""
 
 import json
+import logging
 from pathlib import Path
 from typing import TypedDict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationStyle(TypedDict, total=False):
@@ -12,19 +18,21 @@ class ConversationStyle(TypedDict, total=False):
     pace: str
     emotionalRange: list[str]
     commonPhrases: list[str]
-    startsConversation: bool
+    startsConversation: bool | str  # bool or "sometimes"
     inactivityNudgeDelaySec: dict[str, int]
     inactivityNudges: dict[str, int]
     burstiness: dict[str, int]
+    typingSpeedWpm: int  # Used for client-side pacing/indicators
     openingStyle: str
     nudgeStyle: str
 
 
-class Persona(TypedDict):
+class Persona(TypedDict, total=False):
     """Persona definition."""
     slug: str
     name: str
     role: str
+    category: str  # JOB_SEEKING, WORKPLACE_COMMUNICATION, LEADERSHIP
     personality: str
     primaryGoal: str
     hiddenMotivation: str
@@ -52,7 +60,14 @@ class ConversationGoal(TypedDict, total=False):
     evaluationConfig: EvaluationConfig
 
 
-class Simulation(TypedDict):
+class SuccessCriteria(TypedDict, total=False):
+    """Simulation success criteria by category."""
+    communication: list[str]
+    problemSolving: list[str]
+    emotional: list[str]
+
+
+class Simulation(TypedDict, total=False):
     """Simulation definition."""
     slug: str
     title: str
@@ -63,9 +78,13 @@ class Simulation(TypedDict):
     estimatedDurationMinutes: int
     difficulty: int
     conversationGoals: list[ConversationGoal]
+    # New fields
+    skillsToLearn: list[str]  # Skills being practiced in this simulation
+    tags: list[str]  # Tags for categorization/search
+    successCriteria: SuccessCriteria  # High-level success criteria
 
 
-class SimulationSummary(TypedDict):
+class SimulationSummary(TypedDict, total=False):
     """Summary of a simulation for listing."""
     slug: str
     title: str
@@ -73,11 +92,32 @@ class SimulationSummary(TypedDict):
     personaName: str
     difficulty: int
     goalCount: int
+    skillsToLearn: list[str]
+    tags: list[str]
 
 
-# Cache for loaded data
+# Cache for loaded data with modification tracking
 _personas_cache: Optional[list[Persona]] = None
+_personas_mtime: Optional[float] = None
 _simulations_cache: Optional[list[Simulation]] = None
+_simulations_mtime: Optional[float] = None
+
+# Auto-reload flag (can be disabled for production)
+_auto_reload_enabled: bool = True
+
+
+def enable_auto_reload(enabled: bool = True) -> None:
+    """Enable or disable auto-reload of data files.
+    
+    When enabled, files are checked for modifications on each access.
+    When disabled, files are cached and only reloaded explicitly.
+    
+    Args:
+        enabled: Whether to enable auto-reload
+    """
+    global _auto_reload_enabled
+    _auto_reload_enabled = enabled
+    logger.info(f"Auto-reload {'enabled' if enabled else 'disabled'}")
 
 
 def _get_data_dir() -> Path:
@@ -98,32 +138,78 @@ def _get_data_dir() -> Path:
     )
 
 
+def _check_file_changed(filepath: Path, cached_mtime: Optional[float]) -> bool:
+    """Check if a file has been modified since it was cached.
+    
+    Args:
+        filepath: Path to the file
+        cached_mtime: The cached modification time, or None if not cached
+        
+    Returns:
+        True if the file has changed or wasn't cached
+    """
+    if cached_mtime is None:
+        return True
+    
+    try:
+        current_mtime = filepath.stat().st_mtime
+        return current_mtime != cached_mtime
+    except OSError:
+        return True
+
+
 def _load_personas() -> list[Persona]:
-    """Load all personas from JSON file."""
-    global _personas_cache
-    if _personas_cache is not None:
-        return _personas_cache
+    """Load all personas from JSON file.
+    
+    Auto-reloads if the file has been modified since last load.
+    """
+    global _personas_cache, _personas_mtime
     
     data_dir = _get_data_dir()
     personas_file = data_dir / "personas.json"
     
+    # Check if we need to reload
+    if _auto_reload_enabled and _check_file_changed(personas_file, _personas_mtime):
+        if _personas_cache is not None:
+            logger.info(f"Reloading personas.json (file changed)")
+        _personas_cache = None
+    
+    if _personas_cache is not None:
+        return _personas_cache
+    
     with open(personas_file, "r", encoding="utf-8") as f:
         _personas_cache = json.load(f)
+    
+    _personas_mtime = personas_file.stat().st_mtime
+    logger.debug(f"Loaded {len(_personas_cache)} personas from {personas_file}")
     
     return _personas_cache
 
 
 def _load_simulations() -> list[Simulation]:
-    """Load all simulations from JSON file."""
-    global _simulations_cache
-    if _simulations_cache is not None:
-        return _simulations_cache
+    """Load all simulations from JSON file.
+    
+    Auto-reloads if the file has been modified since last load.
+    """
+    global _simulations_cache, _simulations_mtime
     
     data_dir = _get_data_dir()
     simulations_file = data_dir / "simulations.json"
     
+    # Check if we need to reload
+    if _auto_reload_enabled and _check_file_changed(simulations_file, _simulations_mtime):
+        if _simulations_cache is not None:
+            logger.info(f"Reloading simulations.json (file changed)")
+        _simulations_cache = None
+    
+    if _simulations_cache is not None:
+        return _simulations_cache
+    
     with open(simulations_file, "r", encoding="utf-8") as f:
         _simulations_cache = json.load(f)
+    
+    _simulations_mtime = simulations_file.stat().st_mtime
+    logger.debug(f"Loaded {len(_simulations_cache)} simulations from {simulations_file}")
     
     return _simulations_cache
 
@@ -185,14 +271,22 @@ def list_simulations() -> list[SimulationSummary]:
         persona = personas.get(sim["personaSlug"])
         persona_name = persona["name"] if persona else "Unknown"
         
-        summaries.append({
+        summary: SimulationSummary = {
             "slug": sim["slug"],
             "title": sim["title"],
             "description": sim["description"],
             "personaName": persona_name,
             "difficulty": sim["difficulty"],
             "goalCount": len(sim.get("conversationGoals", [])),
-        })
+        }
+        
+        # Include new fields if present
+        if sim.get("skillsToLearn"):
+            summary["skillsToLearn"] = sim["skillsToLearn"]
+        if sim.get("tags"):
+            summary["tags"] = sim["tags"]
+        
+        summaries.append(summary)
     
     return summaries
 
@@ -201,7 +295,12 @@ def reload_data() -> None:
     """Force reload of data from JSON files.
     
     Useful during development when modifying JSON files.
+    Note: With auto-reload enabled, this is usually not needed
+    as files are automatically reloaded when modified.
     """
-    global _personas_cache, _simulations_cache
+    global _personas_cache, _simulations_cache, _personas_mtime, _simulations_mtime
     _personas_cache = None
     _simulations_cache = None
+    _personas_mtime = None
+    _simulations_mtime = None
+    logger.info("Data cache cleared, files will be reloaded on next access")
