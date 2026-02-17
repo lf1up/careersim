@@ -14,13 +14,11 @@ This directory provides a plain Kubernetes setup using Kustomize, mirroring the 
 ```
 infrastructure/k8s/
   base/
-    app-config.yaml
-    app-secrets.example.yaml
+    kustomization.yaml          # Base config: resources, configMapGenerator, secretGenerator
+    namespace.yaml
+    pvc-uploads.yaml
     backend-deployment.yaml
     backend-service.yaml
-    namespace.yaml
-    kustomization.yaml
-    pvc-uploads.yaml
     postgres-statefulset.yaml
     postgres-service.yaml
     redis-statefulset.yaml
@@ -32,9 +30,10 @@ infrastructure/k8s/
   overlays/
     dev/
       kustomization.yaml
-      ingress.yaml
+      ingress.yaml              # HTTP ingress for careersim.local
     prod/
-      kustomization.yaml
+      kustomization.yaml        # GHCR images, prod secrets, prod CORS origins
+      ingress.yaml              # TLS ingress for api.careersim.ai (cert-manager)
 ```
 
 ### Prereqs
@@ -61,7 +60,7 @@ infrastructure/k8s/
 
 ### Production overlay
 
-Before applying, set image names/tags and secrets in `overlays/prod/kustomization.yaml`.
+The prod overlay uses GHCR container images (`ghcr.io/lf1up/careersim`), TLS ingress via cert-manager for `api.careersim.ai`, and separate secret values. Before applying, update secrets and image tags in `overlays/prod/kustomization.yaml`.
 
 ```bash
 kubectl apply -k infrastructure/k8s/overlays/prod
@@ -77,4 +76,12 @@ kubectl apply -k infrastructure/k8s/overlays/prod
 - Database creds are sourced from `Secret app-secrets`; update accordingly if using an external DB.
 - The backend expects envs aligned with Terraform vars in `infrastructure/aws/main.tf`.
 
+---
 
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

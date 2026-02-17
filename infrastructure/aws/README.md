@@ -200,4 +200,12 @@ terraform destroy
 - Transformers cost: Set `transformers_use_gpu = false` to use Fargate instead of GPU EC2
 - RAG persistence: Current task definition uses container storage; add EFS if you need persistence across redeploys
 
+---
 
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

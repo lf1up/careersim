@@ -8,43 +8,68 @@ The backend is built with:
 - **Framework**: Express.js with TypeScript
 - **Database**: PostgreSQL with TypeORM
 - **Authentication**: JWT with bcrypt
-- **AI Integration**: OpenAI GPT API
+- **AI Integration**: OpenAI GPT API (via OpenRouter), LangGraph/LangChain conversation engine
 - **Real-time**: Socket.IO
+- **NLP Analysis**: Transformers microservice integration (sentiment, emotion, toxicity)
+- **Knowledge Retrieval**: RAG microservice integration (ChromaDB)
 - **Admin Panel**: Built-in REST API
 - **Caching**: Redis (optional)
 - **Payment**: Stripe integration
+- **API Documentation**: Swagger/OpenAPI
 
 ## 📁 Project Structure
 
 ```
 src/
 ├── config/
-│   ├── database.ts        # TypeORM configuration
-│   └── env.ts             # Environment validation
+│   ├── database.ts          # TypeORM configuration
+│   ├── datasource.ts        # TypeORM DataSource for migrations
+│   ├── env.ts               # Environment validation
+│   └── swagger.ts           # Swagger/OpenAPI configuration
 ├── entities/
-│   ├── User.ts           # User model with subscriptions
-│   ├── Category.ts       # Simulation categories
-│   ├── Persona.ts        # AI personas from PERSONAS.md
-│   ├── Simulation.ts     # Career simulations
-│   ├── SimulationSession.ts  # User sessions
-│   ├── SessionMessage.ts     # Conversation messages
-│   ├── PerformanceAnalytics.ts  # AI feedback
-│   └── Subscription.ts       # Payment subscriptions
+│   ├── User.ts              # User model with subscriptions
+│   ├── Category.ts          # Simulation categories
+│   ├── Persona.ts           # AI personas from PERSONAS.md
+│   ├── Simulation.ts        # Career simulations
+│   ├── SimulationSession.ts # User sessions
+│   ├── SessionMessage.ts    # Conversation messages
+│   ├── PerformanceAnalytics.ts # AI feedback
+│   ├── Subscription.ts      # Payment subscriptions
+│   ├── SystemConfiguration.ts # System-wide settings
+│   └── index.ts             # Entity exports
 ├── middleware/
-│   ├── auth.ts           # JWT authentication
-│   ├── error.ts          # Error handling
-│   └── logger.ts         # Request logging
+│   ├── auth.ts              # JWT authentication
+│   ├── error.ts             # Error handling
+│   └── logger.ts            # Request logging
 ├── routes/
-│   ├── auth.ts           # Authentication endpoints
-│   ├── admin.ts          # Admin panel API
-│   └── [other routes]    # Additional API routes
+│   ├── admin.ts             # Admin panel API
+│   ├── analytics.ts         # Performance analytics
+│   ├── auth.ts              # Authentication endpoints
+│   ├── categories.ts        # Simulation categories
+│   ├── personas.ts          # AI personas
+│   ├── sessions.ts          # User sessions
+│   ├── simulations.ts       # Simulation management
+│   ├── subscriptions.ts     # Subscription/billing
+│   └── users.ts             # User profile
 ├── services/
-│   └── ai.ts             # OpenAI integration
+│   ├── ai.ts                # OpenAI integration
+│   ├── evaluations.ts       # Performance evaluation engine
+│   ├── rag.ts               # RAG microservice client
+│   ├── realtime.ts          # Socket.IO real-time messaging
+│   ├── transformers.ts      # Transformers microservice client
+│   └── langgraph/           # LangGraph conversation engine (see langgraph/README.md)
+├── tests/
+│   ├── setupTests.ts        # Test configuration
+│   └── simulation.conversation.spec.ts # Conversation integration tests
+├── types/
+│   └── index.ts             # Shared TypeScript types
 ├── utils/
-│   └── auth.ts           # Auth utilities
+│   ├── auth.ts              # Auth utilities
+│   ├── secureRandom.ts      # Cryptographic random helpers
+│   └── textSimilarity.ts    # Text comparison utilities
 ├── scripts/
-│   └── seed.ts           # Database seeding
-└── server.ts             # Main application
+│   └── seed.ts              # Database seeding
+└── server.ts                # Main application entry point
 ```
 
 ## 🚀 Getting Started
@@ -212,7 +237,6 @@ The docker-compose setup will:
 - JWT-based authentication with refresh tokens
 - Password reset functionality
 - Role-based access control (User/Admin)
-- Subscription tier management (Freemium/Pro/Premium)
 
 ### 👥 AI Personas
 All personas from `PERSONAS.md` are implemented:
@@ -234,7 +258,6 @@ All personas from `PERSONAS.md` are implemented:
 - Difficulty levels (Beginner → Expert)
 - Real-time AI conversations via Socket.IO
 - Performance tracking and analytics
-- Usage limits for freemium users
 
 ### 🤖 AI Integration
 - OpenAI GPT integration for realistic persona conversations
@@ -250,12 +273,6 @@ All personas from `PERSONAS.md` are implemented:
 - Simulation content management
 - Performance analytics and insights
 - Data export functionality
-
-### 💳 Subscription Management
-- Three-tier system (Freemium/Pro/Premium)
-- Stripe payment integration ready
-- Usage tracking and limits
-- Subscription lifecycle management
 
 ## 🔧 API Endpoints
 
@@ -330,11 +347,6 @@ All personas from `PERSONAS.md` are implemented:
 - `GET /api/analytics/performance` - Get user's performance analytics overview
 - `GET /api/analytics/session/{sessionId}` - Get analytics for a specific session
 
-### Subscriptions (`/api/subscriptions`)
-- `GET /api/subscriptions/current` - Get current user's subscription details
-- `GET /api/subscriptions/plans` - Get available subscription plans
-- `POST /api/subscriptions/upgrade` - Upgrade subscription to a new tier
-
 ### Categories (`/api/categories`)
 - `GET /api/categories` - Get all simulation categories
 - `GET /api/categories/{id}` - Get category by ID with associated simulations
@@ -363,12 +375,7 @@ Each persona has:
 - AI-generated feedback
 - Progress tracking over time
 
-### 3. **Subscription System**
-- **Freemium**: 3 simulations/month
-- **Pro**: Unlimited simulations + advanced analytics
-- **Premium**: All features + certification paths
-
-### 4. **Admin Dashboard**
+### 3. **Admin Dashboard**
 - User growth metrics
 - Popular simulations tracking
 - Completion rate analysis
@@ -378,20 +385,54 @@ Each persona has:
 
 ```bash
 # Development
-pnpm run dev             # Start with hot reload
-pnpm run build           # Build for production
-pnpm run start           # Start production server
+pnpm run dev                  # Start with hot reload (nodemon)
+pnpm run build                # Build for production (tsc + tsc-alias)
+pnpm run build:bundle         # Bundle with esbuild (single file)
+pnpm run start                # Start production server
+pnpm run start:bundle         # Start bundled production server
 
 # Database
-pnpm run db:migrate      # Run migrations
-pnpm run db:seed         # Seed with sample data
-pnpm run db:reset        # Reset and reseed database
+pnpm run db:migrate           # Run TypeORM migrations
+pnpm run db:migrate:revert    # Revert last migration
+pnpm run db:generate          # Generate migration from entity changes
+pnpm run db:seed              # Seed with sample data
+pnpm run db:seed:force        # Drop schema, migrate, and seed
+pnpm run db:reset             # Revert, migrate, and seed
 
 # Quality
-pnpm run lint            # ESLint check
-pnpm run lint:fix        # Fix ESLint issues
-pnpm run security        # Security check
-pnpm run security:fix    # Fix security issues
+pnpm run lint                 # ESLint check
+pnpm run lint:fix             # Fix ESLint issues
+pnpm run lint:unused          # Find unused exports (ts-prune)
+pnpm run security             # Security-focused lint rules
+pnpm run security:fix         # Fix security issues
+
+# Testing
+pnpm run test                 # Run Jest test suite
+
+# LangGraph
+pnpm run langgraph:server     # Start standalone LangGraph server (:8123)
+pnpm run langgraph:dev        # Start with hot reload (nodemon)
+pnpm run langgraph:test       # Run standalone server tests
+pnpm run langgraph:test:deepeval  # Run DeepEval conversation tests
+
+# Simulation E2E Tests
+pnpm run test:sim:all         # Run all 7 simulation tests
+pnpm run test:sim:behavioral  # Behavioral Interview (Brenda Vance)
+pnpm run test:sim:data-analyst # Data Analyst Interview (Priya Patel)
+pnpm run test:sim:tech-fit    # Tech & Cultural Fit (Alex Chen)
+pnpm run test:sim:pitching    # Pitching Your Idea (David Miller)
+pnpm run test:sim:saying-no   # Saying "No" (Sarah Jenkins)
+pnpm run test:sim:reengaging  # Re-engaging Employee (Michael Reyes)
+pnpm run test:sim:delegating  # Delegating a Task (Chloe Davis)
+
+# LangGraph Debug Scripts
+pnpm run debug:graph:validate   # Validate graph structure
+pnpm run debug:graph:compile    # Verify graph compilation
+pnpm run debug:graph:invoke     # Test invocation with sample data
+pnpm run debug:graph:stream     # Test streaming execution
+pnpm run debug:graph:proactive  # Test proactive messages
+pnpm run debug:graph:visualize  # Generate graph visualization
+pnpm run debug:graph:all        # Run all debug scripts
 ```
 
 ## 🔐 Default Admin Account
@@ -402,7 +443,7 @@ After running `pnpm run db:seed`:
 
 ## 📊 Database Schema
 
-The system includes 8 main entities:
+The system includes 9 main entities:
 1. **Users** - Authentication and subscription management
 2. **Categories** - Simulation organization
 3. **Personas** - AI character definitions
@@ -411,6 +452,7 @@ The system includes 8 main entities:
 6. **SessionMessages** - Conversation history
 7. **PerformanceAnalytics** - AI-generated feedback
 8. **Subscriptions** - Payment and tier management
+9. **SystemConfiguration** - Platform-wide settings (AI models, prompts, etc.)
 
 ## 🤖 Transformers Microservice Integration
 
@@ -471,3 +513,13 @@ docker compose up rag --build
 ```
 
 The service will be available at `http://localhost:8002` with API documentation at `http://localhost:8002/docs`.
+
+---
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

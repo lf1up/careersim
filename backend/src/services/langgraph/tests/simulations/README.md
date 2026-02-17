@@ -341,10 +341,10 @@ tests/simulations/
 └── delegating-task.spec.ts            # Chloe Davis tests
 
 tests/
+├── simulation.spec.ts                 # DeepEval conversation tests (13 cases)
 ├── evaluation.ts                      # Evaluation framework
 ├── direct-conversation.ts             # Direct conversation runner with OpenAI user generation
 ├── simulation-helpers.ts              # Test utilities with logging
-├── scenarios.ts                       # Basic scenarios for legacy tests
 └── helpers.ts                         # Base test helpers
 ```
 
@@ -367,3 +367,12 @@ When adding new tests:
 - All tests run with `--detectOpenHandles` to catch async cleanup issues
 - No external dependencies (DeepEval) - just OpenAI + your LangGraph system
 
+---
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../../../../../../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

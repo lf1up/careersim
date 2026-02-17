@@ -9,11 +9,12 @@ const options: swaggerJSDoc.Options = {
       version: '1.0.0',
       description: 'Backend API for CareerSim - AI-Powered Career Skills Simulator',
       contact: {
-        name: 'CareerSim Team',
-        email: 'support@careersim.com',
+        name: 'Pavel Vdovenko',
+        email: 'reactivecake@gmail.com',
       },
       license: {
-        name: 'See LICENSE.md',
+        name: 'MIT',
+        url: 'https://opensource.org/licenses/MIT',
       },
     },
     servers: [

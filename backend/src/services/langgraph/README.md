@@ -226,6 +226,9 @@ backend/src/services/langgraph/
 ├── checkpointer.ts             # PostgreSQL checkpointer
 ├── prompts.ts                  # Prompt templates
 ├── index.ts                    # Main exports
+├── devLogger.ts                # Development logging utilities
+├── standalone-server.ts        # Standalone HTTP server for testing (:8123)
+├── standalone-utils.ts         # Standalone server database utilities
 ├── nodes/
 │   ├── conversation.ts         # Core conversation nodes
 │   ├── proactive.ts            # Proactive message nodes
@@ -233,13 +236,31 @@ backend/src/services/langgraph/
 │   └── persistence.ts          # DB persistence nodes
 ├── tools/
 │   └── evaluation_tools.ts     # LangChain tools for evaluation
-├── scripts/                    # Debug and testing scripts
+├── scripts/
 │   ├── debug-compile.ts        # Compile verification script
 │   ├── test-invoke.ts          # Basic invocation test
 │   ├── test-stream.ts          # Streaming test
 │   ├── test-proactive.ts       # Proactive messages test
-│   ├── visualize-graph.ts      # Graph visualization
+│   ├── test-standalone.ts      # Standalone server integration test
+│   ├── validate-structure.ts   # Graph structure validation
+│   ├── visualize-graph.ts      # Graph visualization (text + Mermaid)
+│   ├── run-all-tests.sh        # Run all debug scripts
 │   └── README.md               # Scripts documentation
+├── tests/
+│   ├── simulation.spec.ts      # DeepEval conversation tests (13 cases)
+│   ├── helpers.ts              # Test utilities and server management
+│   ├── simulation-helpers.ts   # Simulation test helpers with logging
+│   ├── direct-conversation.ts  # Direct conversation runner (OpenAI user gen)
+│   ├── evaluation.ts           # Evaluation framework
+│   └── simulations/            # Per-simulation E2E tests (7 simulations)
+│       ├── behavioral-interview.spec.ts
+│       ├── data-analyst-interview.spec.ts
+│       ├── tech-cultural-fit.spec.ts
+│       ├── pitching-idea.spec.ts
+│       ├── saying-no.spec.ts
+│       ├── reengaging-employee.spec.ts
+│       ├── delegating-task.spec.ts
+│       └── README.md
 └── README.md                   # This file
 ```
 
@@ -312,6 +333,7 @@ export class AIService {
 This allows gradual migration with A/B testing.
 
 ## Performance Considerations
+
 
 - **Checkpointing**: Adds ~50-100ms per save (async)
 - **Tool Calls**: Transformers tools add ~200-500ms
@@ -611,3 +633,12 @@ For issues or questions:
 - Review checkpoint history for state issues
 - Enable verbose logging with `NODE_ENV=development`
 
+---
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../../../../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

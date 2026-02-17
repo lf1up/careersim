@@ -9,11 +9,13 @@ This directory contains standalone debugging and testing scripts for the LangGra
 cd backend
 
 # Run any debug script
+pnpm debug:graph:validate
 pnpm debug:graph:compile
 pnpm debug:graph:invoke
 pnpm debug:graph:stream
 pnpm debug:graph:proactive
 pnpm debug:graph:visualize
+pnpm debug:graph:all          # Run all scripts
 ```
 
 ## 📋 Available Scripts
@@ -216,6 +218,49 @@ graph TD
 
 ---
 
+### 6. `validate-structure.ts` - Validate Graph Structure
+
+Validates the LangGraph structure without requiring database or external dependencies.
+
+**Usage:**
+```bash
+pnpm debug:graph:validate
+```
+
+**What it does:**
+- Checks graph node definitions and edges
+- Validates conditional routing logic
+- Reports structural issues without needing a running database
+
+---
+
+### 7. `test-standalone.ts` - Test Standalone Server
+
+Tests the standalone LangGraph server end-to-end.
+
+**Usage:**
+```bash
+pnpm langgraph:test
+```
+
+**What it does:**
+- Starts the standalone server on port 8123
+- Tests health endpoint, session creation, conversation flow
+- Validates the full request/response cycle
+
+---
+
+### 8. `run-all-tests.sh` - Run All Debug Scripts
+
+Bash script that runs all debug scripts in sequence.
+
+**Usage:**
+```bash
+pnpm debug:graph:all
+```
+
+---
+
 ## 🔧 Prerequisites
 
 Before running these scripts, ensure:
@@ -384,5 +429,14 @@ If you encounter issues:
 
 ---
 
-Happy debugging! 🐛✨
+Happy debugging!
 
+---
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../../../../../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

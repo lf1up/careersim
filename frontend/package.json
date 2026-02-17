@@ -59,5 +59,7 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "author": "Pavel Vdovenko <reactivecake@gmail.com>",
+  "license": "MIT"
 }

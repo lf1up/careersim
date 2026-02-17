@@ -183,3 +183,13 @@ curl -X POST "http://localhost:8001/sequence" \
 - BART-Large fine-tuned on MNLI
 - No training required for new labels
 - Flexible for various classification tasks
+
+---
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

@@ -19,7 +19,11 @@ A FastAPI-based microservice that serves a local ChromaDB vector store for text 
    - Retrieve most similar documents by cosine similarity
    - Optional `where` filters on metadata
 
-4. **Delete Documents** (`/delete`)
+4. **List Documents** (`/list`)
+   - List documents in a collection with optional `where` filters
+   - Pagination via `limit` and `offset`
+
+5. **Delete Documents** (`/delete`)
    - Delete by IDs or metadata filter
 
 ## 📋 Requirements
@@ -142,6 +146,19 @@ curl -X POST "http://localhost:8002/query" \
   }'
 ```
 
+#### List Documents
+```bash
+curl -X POST "http://localhost:8002/list" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "collection": "my_collection",
+    "where": {"title": "Chroma"},
+    "limit": 10,
+    "offset": 0
+  }'
+```
+
 #### Delete Documents
 ```bash
 curl -X POST "http://localhost:8002/delete" \
@@ -177,6 +194,21 @@ curl -X POST "http://localhost:8002/delete" \
 }
 ```
 
+### List Result
+```json
+{
+  "ids": ["doc_1", "doc_2"],
+  "documents": [
+    "FastAPI is a modern, fast web framework for building APIs with Python.",
+    "Chroma is a database for storing and querying text embeddings."
+  ],
+  "metadatas": [
+    {"title": "FastAPI"},
+    {"title": "Chroma"}
+  ]
+}
+```
+
 ### Collections List
 ```json
 [
@@ -190,3 +222,13 @@ curl -X POST "http://localhost:8002/delete" \
 - **Subsequent Requests**: Much faster as the model is cached in memory
 - **Memory Usage**: Depends on embedding model; default is lightweight
 - **Tips**: Batch upserts and use `where` filters for larger datasets
+
+---
+
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

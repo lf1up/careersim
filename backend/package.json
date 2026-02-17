@@ -54,8 +54,8 @@
     "training",
     "professional-development"
   ],
-  "author": "CareerSim Team",
-  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Pavel Vdovenko <reactivecake@gmail.com>",
+  "license": "MIT",
   "dependencies": {
     "@langchain/community": "^1.0.0",
     "@langchain/core": "^1.1.8",

@@ -59,4 +59,12 @@ terraform apply -auto-approve \
 - Container port is 8001; health check path is `/health`.
  - Fargate-only for simplicity; GPU support is not included in this module.
 
+---
 
+## License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../../LICENSE.md) file for details.
+
+## Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))
