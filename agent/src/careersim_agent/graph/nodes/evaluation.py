@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, Optional
 
-from ..state import ConversationState, NodeTraceEntry, GoalProgressItem, EvidenceItem
+from ..state import ConversationState, NodeTraceEntry, GoalProgressItem, EvidenceItem, get_current_goal
 from ...services import get_transformers_service
 
 logger = logging.getLogger(__name__)
@@ -37,33 +37,6 @@ def _add_trace(
         output_summary=output_summary,
     ))
     return trace
-
-
-def _get_current_goal(
-    goals: list[dict], 
-    progress: list[GoalProgressItem]
-) -> Optional[dict]:
-    """Get the current goal to evaluate (first unachieved in order)."""
-    progress_map = {p["goalNumber"]: p for p in progress}
-    sorted_goals = sorted(goals, key=lambda g: g.get("goalNumber", 0))
-    
-    # Find first unachieved required goal
-    for goal in sorted_goals:
-        if goal.get("isOptional"):
-            continue
-        p = progress_map.get(goal.get("goalNumber", 0), {})
-        if p.get("status") != "achieved":
-            return goal
-    
-    # All required done, find first unachieved optional
-    for goal in sorted_goals:
-        if not goal.get("isOptional"):
-            continue
-        p = progress_map.get(goal.get("goalNumber", 0), {})
-        if p.get("status") != "achieved":
-            return goal
-    
-    return None
 
 
 def _evaluate_behaviors(
@@ -167,7 +140,10 @@ def evaluate_goals(state: ConversationState) -> dict[str, Any]:
         ]
     
     # Get current goal to evaluate
-    current_goal = _get_current_goal(goals, progress)
+    # Update state with current progress for get_current_goal
+    state_with_progress = state.copy()
+    state_with_progress["goal_progress"] = progress
+    current_goal = get_current_goal(state_with_progress)
     
     if not current_goal:
         logger.info(f"[{session_id}] All goals achieved!")

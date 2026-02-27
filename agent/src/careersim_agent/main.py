@@ -39,7 +39,7 @@ def validate_config():
     
     settings = get_settings()
     
-    if not settings.openai_api_key or settings.openai_api_key.startswith("sk-your"):
+    if not settings.openai_api_key or settings.openai_api_key.startswith("sk-your") or settings.openai_api_key.startswith("your-"):
         print("\n" + "=" * 60)
         print("WARNING: OpenAI API key not configured!")
         print("=" * 60)

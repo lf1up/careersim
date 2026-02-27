@@ -5,6 +5,15 @@ Ported from backend/src/services/langgraph/prompts.ts
 
 from typing import Any, Optional
 import json
+import sys
+from pathlib import Path
+
+# Ensure we can import from graph.state
+project_root = Path(__file__).parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from careersim_agent.graph.state import get_current_goal, ConversationState
 
 
 def _format_conversation_style(style: Optional[dict]) -> str:
@@ -88,33 +97,6 @@ def _format_goal_list(
     return "\n".join(lines)
 
 
-def _pick_current_goal(
-    simulation: dict, 
-    goal_progress: list[dict]
-) -> Optional[dict]:
-    """Pick the current goal to focus on."""
-    goals = simulation.get("conversationGoals", [])
-    sorted_goals = sorted(goals, key=lambda g: g.get("goalNumber", 0))
-    
-    # Find first unachieved required goal
-    for goal in sorted_goals:
-        if goal.get("isOptional"):
-            continue
-        status = _get_goal_status(goal_progress, goal.get("goalNumber", 0))
-        if status != "achieved":
-            return goal
-    
-    # All required done, find first unachieved optional
-    for goal in sorted_goals:
-        if not goal.get("isOptional"):
-            continue
-        status = _get_goal_status(goal_progress, goal.get("goalNumber", 0))
-        if status != "achieved":
-            return goal
-    
-    return None
-
-
 def build_persona_system_prompt(
     persona: dict[str, Any],
     simulation: dict[str, Any],
@@ -138,7 +120,11 @@ def build_persona_system_prompt(
     objectives_str = ", ".join(objectives) if isinstance(objectives, list) else str(objectives)
     
     # Get current goal
-    current_goal = _pick_current_goal(simulation, goal_progress)
+    temp_state = ConversationState(
+        simulation=simulation,
+        goal_progress=goal_progress,
+    )
+    current_goal = get_current_goal(temp_state)
     goal_list = _format_goal_list(simulation, goal_progress)
     
     # Format current goal details
