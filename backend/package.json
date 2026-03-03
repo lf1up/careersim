@@ -75,7 +75,7 @@
     "jsonwebtoken": "^9.0.2",
     "langsmith": "^0.3.77",
     "morgan": "^1.10.1",
-    "multer": "^2.0.2",
+    "multer": "^2.1.0",
     "nodemailer": "^7.0.11",
     "openai": "^4.20.1",
     "passport": "^0.7.0",
