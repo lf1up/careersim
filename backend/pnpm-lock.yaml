@@ -58,7 +58,7 @@ importers:
         version: 9.0.2
       langsmith:
         specifier: ^0.5.18
-        version: 0.5.18(openai@4.104.0(ws@8.20.0)(zod@4.1.12))(ws@8.20.0)
+        version: 0.5.19(openai@4.104.0(ws@8.20.0)(zod@4.1.12))(ws@8.20.0)
       morgan:
         specifier: ^1.10.1
         version: 1.10.1
@@ -2519,6 +2519,15 @@ packages:
       debug:
         optional: true
 
+  follow-redirects@1.16.0:
+    resolution: {integrity: sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==}
+    engines: {node: '>=4.0'}
+    peerDependencies:
+      debug: '*'
+    peerDependenciesMeta:
+      debug:
+        optional: true
+
   for-each@0.3.5:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
@@ -3103,8 +3112,8 @@ packages:
       openai:
         optional: true
 
-  langsmith@0.5.18:
-    resolution: {integrity: sha512-3zuZUWffTHQ+73EAwnodADtf534VNEZUpXr9jC12qyG8/IQuJET7PRsCpTb9wX2lmBspakwLUpqpj3tNm/0bVA==}
+  langsmith@0.5.19:
+    resolution: {integrity: sha512-5tFoETuFMvGkbPGsINNlIE4Ab86CsPhdPOQZCGwNt/NX0h5NDKQLKOWS/G2XcRUBOQl4mCNbrayUvUTWaIRsCg==}
     peerDependencies:
       '@opentelemetry/api': '*'
       '@opentelemetry/exporter-trace-otlp-proto': '*'
@@ -5313,7 +5322,7 @@ snapshots:
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.5.18(openai@4.104.0(ws@8.20.0)(zod@4.1.12))(ws@8.20.0)
+      langsmith: 0.5.19(openai@4.104.0(ws@8.20.0)(zod@4.1.12))(ws@8.20.0)
       mustache: 4.2.0
       p-queue: 6.6.2
       uuid: 10.0.0
@@ -5852,7 +5861,7 @@ snapshots:
 
   axios@1.13.1:
     dependencies:
-      follow-redirects: 1.15.11(debug@4.4.3)
+      follow-redirects: 1.15.11
       form-data: 4.0.4
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -5860,7 +5869,7 @@ snapshots:
 
   axios@1.15.0(debug@4.4.3):
     dependencies:
-      follow-redirects: 1.15.11(debug@4.4.3)
+      follow-redirects: 1.16.0(debug@4.4.3)
       form-data: 4.0.5
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
@@ -6722,7 +6731,9 @@ snapshots:
 
   fn.name@1.1.0: {}
 
-  follow-redirects@1.15.11(debug@4.4.3):
+  follow-redirects@1.15.11: {}
+
+  follow-redirects@1.16.0(debug@4.4.3):
     optionalDependencies:
       debug: 4.4.3
 
@@ -7532,7 +7543,7 @@ snapshots:
       openai: 4.104.0(ws@8.20.0)(zod@4.1.12)
     optional: true
 
-  langsmith@0.5.18(openai@4.104.0(ws@8.20.0)(zod@4.1.12))(ws@8.20.0):
+  langsmith@0.5.19(openai@4.104.0(ws@8.20.0)(zod@4.1.12))(ws@8.20.0):
     dependencies:
       p-queue: 6.6.2
       uuid: 10.0.0
