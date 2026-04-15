@@ -15,7 +15,7 @@ from ...prompts import (
     build_proactive_inactivity_prompt,
     build_proactive_followup_prompt,
 )
-from ...services import get_transformers_service
+from ...services import get_eval_service
 
 logger = logging.getLogger(__name__)
 
@@ -280,16 +280,15 @@ def generate_proactive_message(state: ConversationState) -> dict[str, Any]:
         updated_messages = list(state.get("messages", []))
         updated_messages.append(AIMessage(content=ai_content))
         
-        # Analyze the proactive message
         try:
-            service = get_transformers_service()
-            sentiment = service.analyze_sentiment(ai_content)
-            emotion = service.analyze_emotion(ai_content)
+            analysis = get_eval_service().analyze_text(ai_content)
         except Exception:
-            sentiment = {"sentiment": "neutral", "confidence": 0.5, "source": "fallback"}
-            emotion = {"emotion": "neutral", "confidence": 0.5, "source": "fallback"}
+            analysis = {
+                "sentiment": "neutral", "sentiment_confidence": 0.5,
+                "emotion": "neutral", "emotion_confidence": 0.5,
+                "source": "fallback",
+            }
         
-        # Update proactive count
         new_count = state.get("proactive_count", 0) + 1
         
         trace = _add_trace(
@@ -305,14 +304,14 @@ def generate_proactive_message(state: ConversationState) -> dict[str, Any]:
             "proactive_count": new_count,
             "message_count": state.get("message_count", 0) + 1,
             "last_ai_sentiment": AnalysisResult(
-                label=sentiment["sentiment"],
-                confidence=sentiment["confidence"],
-                source=sentiment.get("source", "local"),
+                label=analysis["sentiment"],
+                confidence=analysis["sentiment_confidence"],
+                source=analysis.get("source", "eval"),
             ),
             "last_ai_emotion": AnalysisResult(
-                label=emotion["emotion"],
-                confidence=emotion["confidence"],
-                source=emotion.get("source", "local"),
+                label=analysis["emotion"],
+                confidence=analysis["emotion_confidence"],
+                source=analysis.get("source", "eval"),
             ),
             "node_trace": trace,
         }

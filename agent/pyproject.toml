@@ -9,11 +9,9 @@ dependencies = [
     "langchain>=0.3.0",
     "langchain-openai>=0.2.0",
     "gradio>=5.0.0",
-    "transformers>=4.40.0",
-    "torch>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
-    "httpx>=0.27.0",  # For healthchecks and HTTP client
+    "httpx>=0.27.0",
 ]
 
 [project.optional-dependencies]

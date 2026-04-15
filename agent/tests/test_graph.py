@@ -1,5 +1,7 @@
 """Basic tests for the conversation graph."""
 
+import os
+
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -83,23 +85,19 @@ def test_prompts():
 
 
 @pytest.mark.skipif(
-    not pytest.importorskip("torch", reason="torch not installed"),
-    reason="torch not available"
+    not os.environ.get("OPENAI_API_KEY"),
+    reason="OPENAI_API_KEY not set"
 )
-def test_transformers_service():
-    """Test transformers service (requires torch)."""
-    from careersim_agent.services import get_transformers_service
-    
-    service = get_transformers_service()
-    
-    # Test sentiment
-    result = service.analyze_sentiment("I'm very happy today!")
-    assert "sentiment" in result
+def test_eval_service():
+    """Test eval service (requires API key)."""
+    from careersim_agent.services import get_eval_service
+
+    service = get_eval_service()
+
+    result = service.analyze_text("I'm very happy today!")
     assert result["sentiment"] in ("positive", "neutral", "negative")
-    
-    # Test emotion
-    result = service.analyze_emotion("I'm very happy today!")
     assert "emotion" in result
+    assert result["source"] == "eval"
 
 
 if __name__ == "__main__":

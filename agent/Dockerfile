@@ -35,11 +35,6 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies (for torch/transformers)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser
 
@@ -50,10 +45,6 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-
-# HuggingFace cache directory (will be mounted as volume)
-ENV HF_HOME=/app/.cache/huggingface
-ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 
 # Gradio configuration for API access
 ENV GRADIO_SERVER_NAME=0.0.0.0
@@ -67,8 +58,6 @@ COPY --chown=appuser:appuser pyproject.toml ./
 # Install package in editable mode
 RUN pip install --no-cache-dir -e .
 
-# Create cache directory with correct permissions
-RUN mkdir -p /app/.cache/huggingface && chown -R appuser:appuser /app/.cache
 RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
 
 # Switch to non-root user
@@ -78,7 +67,7 @@ USER appuser
 EXPOSE 7860
 
 # Health check - Gradio provides a /info endpoint
-HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=120s \
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=30s \
     CMD python -c "import httpx; r = httpx.get('http://localhost:7860/', timeout=5.0); exit(0 if r.status_code == 200 else 1)"
 
 # Default command - run the agent

@@ -5,8 +5,8 @@ A standalone Python LangGraph agent with a Gradio developer UI for career simula
 ## Features
 
 - **LangGraph-based conversation flow** with persona-driven AI responses
-- **Local HuggingFace transformers** for sentiment and emotion analysis
-- **Goal evaluation** using zero-shot classification
+- **LLM-based evaluation** for sentiment, emotion, and goal progress (via OPENAI_EVAL_MODEL)
+- **Language-agnostic** analysis with no local GPU requirement
 - **Gradio developer console** with:
   - Real-time state inspection
   - Node execution tracing
@@ -40,8 +40,6 @@ python -m careersim_agent.main
 ```
 
 The Gradio UI will open at http://localhost:7860
-
-> **Note**: First run will download HuggingFace models (~500MB). Set `SKIP_PRELOAD=1` to defer this.
 
 ### Docker (as Core Microservice)
 
@@ -137,7 +135,7 @@ agent/
 │   │   ├── builder.py      # Graph construction
 │   │   └── nodes/          # Node implementations
 │   ├── prompts/            # Prompt templates
-│   ├── services/           # Data loader, transformers
+│   ├── services/           # Data loader, eval service
 │   └── ui/                 # Gradio interface
 └── tests/
 ```
@@ -155,4 +153,3 @@ Key simplifications vs production:
 - JSON files instead of database
 - In-memory state (no checkpointing)
 - Manual triggers instead of background schedulers
-- Local transformers instead of external service

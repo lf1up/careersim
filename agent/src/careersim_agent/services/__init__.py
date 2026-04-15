@@ -1,4 +1,4 @@
-"""Services for data loading and NLP analysis."""
+"""Services for data loading and LLM-based evaluation."""
 
 from .data_loader import (
     load_simulation,
@@ -7,7 +7,7 @@ from .data_loader import (
     reload_data,
     enable_auto_reload,
 )
-from .transformers import TransformersService, get_transformers_service
+from .eval_service import EvalService, get_eval_service
 
 __all__ = [
     "load_simulation",
@@ -15,6 +15,6 @@ __all__ = [
     "load_persona",
     "reload_data",
     "enable_auto_reload",
-    "TransformersService",
-    "get_transformers_service",
+    "EvalService",
+    "get_eval_service",
 ]
