@@ -114,11 +114,12 @@ def generate_ai_response(state: ConversationState) -> dict[str, Any]:
     try:
         settings = get_settings()
         
-        # Build system prompt
+        # Build system prompt (with RAG context if available)
         system_prompt = build_persona_system_prompt(
             persona=state.get("persona", {}),
             simulation=state.get("simulation", {}),
             goal_progress=state.get("goal_progress", []),
+            retrieved_context=state.get("retrieved_context"),
         )
         
         # Initialize model with full config

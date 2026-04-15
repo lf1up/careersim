@@ -159,6 +159,7 @@ __pycache__/
 # ChromaDB
 chroma/
 chroma_db/
+.chroma_db/
 
 # Terraform
 tfplan

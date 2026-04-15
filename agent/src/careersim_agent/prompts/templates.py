@@ -119,6 +119,7 @@ def build_persona_system_prompt(
     persona: dict[str, Any],
     simulation: dict[str, Any],
     goal_progress: list[dict] = None,
+    retrieved_context: Optional[str] = None,
 ) -> str:
     """Build the main system prompt for persona conversation.
     
@@ -126,6 +127,7 @@ def build_persona_system_prompt(
         persona: Persona configuration
         simulation: Simulation configuration
         goal_progress: Current goal progress state
+        retrieved_context: RAG-retrieved reference material
         
     Returns:
         Formatted system prompt
@@ -165,6 +167,15 @@ def build_persona_system_prompt(
     if criteria_section:
         extra_context += f"\n{criteria_section}"
     
+    # RAG reference materials
+    rag_section = ""
+    if retrieved_context:
+        rag_section = f"""
+
+**Reference Materials** (use these to inform your responses — do not quote them directly):
+{retrieved_context}
+"""
+    
     return f"""You are {persona.get('name', 'Unknown')}, a {persona.get('role', 'professional')} with the following characteristics:
 
 **Personality**: {persona.get('personality', 'Professional and courteous')}
@@ -195,7 +206,7 @@ def build_persona_system_prompt(
 - Ask questions / shape the interaction to elicit the key behaviors.
 
 **Conversation Style**: {conv_style}
-
+{rag_section}
 **Style Guidelines**:
 - Stay completely in character at all times
 - Respond naturally and authentically to the user's messages

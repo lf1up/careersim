@@ -14,6 +14,7 @@ from .nodes import (
     evaluate_goals,
     check_proactive_trigger,
     generate_proactive_message,
+    retrieve_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Node names
 PROCESS_INPUT = "process_input"
 ANALYZE_INPUT = "analyze_input"
+RETRIEVE_CONTEXT = "retrieve_context"
 GENERATE_RESPONSE = "generate_response"
 ANALYZE_RESPONSE = "analyze_response"
 EVALUATE_GOALS = "evaluate_goals"
@@ -103,12 +105,13 @@ def build_graph() -> StateGraph:
     
     Flow:
     1. process_input -> [analyze_input | check_proactive]
-    2. analyze_input -> generate_response
-    3. generate_response -> analyze_response
-    4. analyze_response -> evaluate_goals
-    5. evaluate_goals -> check_proactive
-    6. check_proactive -> [generate_proactive | END]
-    7. generate_proactive -> [check_proactive | END]
+    2. analyze_input -> retrieve_context
+    3. retrieve_context -> generate_response
+    4. generate_response -> analyze_response
+    5. analyze_response -> evaluate_goals
+    6. evaluate_goals -> check_proactive
+    7. check_proactive -> [generate_proactive | END]
+    8. generate_proactive -> [check_proactive | END]
     """
     logger.info("Building conversation graph...")
     
@@ -118,6 +121,7 @@ def build_graph() -> StateGraph:
     # Add nodes
     graph.add_node(PROCESS_INPUT, process_user_input)
     graph.add_node(ANALYZE_INPUT, analyze_user_input)
+    graph.add_node(RETRIEVE_CONTEXT, retrieve_context)
     graph.add_node(GENERATE_RESPONSE, generate_ai_response)
     graph.add_node(ANALYZE_RESPONSE, analyze_ai_response)
     graph.add_node(EVALUATE_GOALS, evaluate_goals)
@@ -138,8 +142,9 @@ def build_graph() -> StateGraph:
         }
     )
     
-    # Linear flow through conversation pipeline
-    graph.add_edge(ANALYZE_INPUT, GENERATE_RESPONSE)
+    # Linear flow: analyze -> retrieve RAG context -> generate response
+    graph.add_edge(ANALYZE_INPUT, RETRIEVE_CONTEXT)
+    graph.add_edge(RETRIEVE_CONTEXT, GENERATE_RESPONSE)
     graph.add_edge(GENERATE_RESPONSE, ANALYZE_RESPONSE)
     graph.add_edge(ANALYZE_RESPONSE, EVALUATE_GOALS)
     

@@ -58,7 +58,7 @@ COPY --chown=appuser:appuser pyproject.toml ./
 # Install package in editable mode
 RUN pip install --no-cache-dir -e .
 
-RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
+RUN mkdir -p /app/logs /app/.chroma_db && chown -R appuser:appuser /app/logs /app/.chroma_db
 
 # Switch to non-root user
 USER appuser

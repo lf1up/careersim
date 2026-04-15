@@ -93,6 +93,9 @@ class ConversationState(TypedDict, total=False):
     message_count: int
     started_at: Optional[str]
     
+    # RAG retrieved context
+    retrieved_context: Optional[str]
+    
     # Error handling
     last_error: Optional[str]
     
@@ -149,6 +152,7 @@ def create_initial_state(
         last_user_sentiment=None,
         last_ai_emotion=None,
         last_ai_sentiment=None,
+        retrieved_context=None,
         needs_evaluation=False,
         evaluation_complete=False,
         message_count=0,

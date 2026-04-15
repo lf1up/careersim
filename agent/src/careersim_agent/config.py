@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     openai_eval_frequency_penalty: Optional[float] = None
     openai_eval_presence_penalty: Optional[float] = None
 
+    # RAG Configuration
+    rag_enabled: bool = True
+    rag_embedding_model: str = "text-embedding-3-small"
+    rag_chunk_size: int = 800
+    rag_chunk_overlap: int = 100
+    rag_top_k: int = 4
+    rag_chroma_persist_dir: str = ".chroma_db"
+
     # Gradio Configuration
     gradio_server_port: int = 7860
     gradio_share: bool = False

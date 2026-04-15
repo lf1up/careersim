@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import gradio as gr
 
+from ..config import get_settings
 from ..graph import get_graph
 from ..graph.state import ConversationState, create_initial_state
 from ..services import list_simulations, load_simulation
@@ -46,6 +47,19 @@ class AgentSession:
             )
             self.simulation_slug = simulation_slug
             self.graph = get_graph()
+            
+            # Pre-index RAG documents for this simulation/persona
+            settings = get_settings()
+            if settings.rag_enabled:
+                try:
+                    from ..services.retrieval_service import get_retrieval_service
+                    rag = get_retrieval_service()
+                    rag.index_for_session(
+                        simulation_slug=simulation_slug,
+                        persona_slug=persona["slug"],
+                    )
+                except Exception as e:
+                    logger.warning(f"RAG indexing failed (non-fatal): {e}")
             
             logger.info(f"Started session {session_id} with simulation: {simulation['title']}")
             return f"Session started: {simulation['title']} with {persona['name']}"
