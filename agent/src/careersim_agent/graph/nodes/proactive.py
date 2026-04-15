@@ -88,25 +88,23 @@ def check_proactive_trigger(state: ConversationState) -> dict[str, Any]:
                 burst_prob = 0.3 + (range_factor * 0.4)  # 30-70% chance
                 
                 if random.random() < burst_prob:
-                    # Determine burst count
-                    burst_count = random.randint(burst_min, burst_max)
-                    additional = max(0, burst_count - 1)
+                    # At least 1 followup; roll for more
+                    additional = random.randint(1, max(1, burst_max - 1))
                     
-                    if additional > 0:
-                        logger.info(f"[{session_id}] Followup triggered (burst: {additional} additional)")
-                        
-                        trace = _add_trace(
-                            state, "check_proactive_trigger", start_time,
-                            "burstiness check",
-                            f"followup triggered, max={additional}"
-                        )
-                        
-                        return {
-                            "should_send_proactive": True,
-                            "proactive_trigger": "followup",
-                            "max_proactive_messages": additional,
-                            "node_trace": trace,
-                        }
+                    logger.info(f"[{session_id}] Followup triggered (burst: {additional} additional)")
+                    
+                    trace = _add_trace(
+                        state, "check_proactive_trigger", start_time,
+                        "burstiness check",
+                        f"followup triggered, max={additional}"
+                    )
+                    
+                    return {
+                        "should_send_proactive": True,
+                        "proactive_trigger": "followup",
+                        "max_proactive_messages": additional,
+                        "node_trace": trace,
+                    }
         
         # No followup needed
         trace = _add_trace(

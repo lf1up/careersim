@@ -31,7 +31,7 @@ def test_state_creation():
     sims_list = [
         {"slug": "behavioral-interview-brenda"},
         {"slug": "tech-cultural-interview-alex"},
-        {"slug": "saying-no-sarah"},
+        {"slug": "saying-no-to-extra-work-sarah"},
     ]
     
     for sim_info in sims_list:

@@ -1,4 +1,4 @@
-"""Services for data loading, LLM-based evaluation, and RAG retrieval."""
+"""Services for data loading, LLM-based evaluation, RAG retrieval, and conversation."""
 
 from .data_loader import (
     load_simulation,
@@ -13,6 +13,14 @@ from .retrieval_service import (
     get_retrieval_service,
     reset_retrieval_service,
 )
+from .conversation_service import (
+    ConversationService,
+    MessageEvent,
+    get_conversation_service,
+    serialize_state,
+    deserialize_state,
+    compute_typing_delay,
+)
 
 __all__ = [
     "load_simulation",
@@ -25,4 +33,10 @@ __all__ = [
     "RetrievalService",
     "get_retrieval_service",
     "reset_retrieval_service",
+    "ConversationService",
+    "MessageEvent",
+    "get_conversation_service",
+    "serialize_state",
+    "deserialize_state",
+    "compute_typing_delay",
 ]
