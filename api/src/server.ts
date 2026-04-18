@@ -21,6 +21,7 @@ import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import { authRoutes } from './modules/auth/auth.route.js';
 import { healthRoutes } from './modules/health/health.route.js';
+import { personasRoutes } from './modules/personas/personas.route.js';
 import { sessionsRoutes } from './modules/sessions/sessions.route.js';
 import { simulationsRoutes } from './modules/simulations/simulations.route.js';
 
@@ -116,6 +117,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(healthRoutes, { db: opts.db, agent: opts.agent });
   await app.register(authRoutes, { db: opts.db });
   await app.register(simulationsRoutes, { agent: opts.agent });
+  await app.register(personasRoutes, { agent: opts.agent });
   await app.register(sessionsRoutes, {
     db: opts.db,
     agent: opts.agent,

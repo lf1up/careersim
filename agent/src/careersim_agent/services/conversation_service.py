@@ -22,7 +22,7 @@ from langgraph.graph.message import add_messages
 from ..config import get_settings
 from ..graph import get_graph
 from ..graph.state import ConversationState, GoalProgressItem, create_initial_state
-from .data_loader import list_simulations, load_simulation
+from .data_loader import list_personas, list_simulations, load_simulation
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +290,24 @@ class ConversationService:
                 "persona_name": s["personaName"],
             }
             for s in list_simulations()
+        ]
+
+    def list_personas(self) -> list[dict[str, Any]]:
+        """Return public-safe persona summaries.
+
+        Sensitive roleplay fields (``personality``, ``primaryGoal``,
+        ``hiddenMotivation``, ``conversationStyle``) are stripped at the
+        data-loader layer so they never reach HTTP.
+        """
+        return [
+            {
+                "slug": p["slug"],
+                "name": p["name"],
+                "role": p["role"],
+                "category": p["category"],
+                "difficulty_level": p["difficultyLevel"],
+            }
+            for p in list_personas()
         ]
 
 

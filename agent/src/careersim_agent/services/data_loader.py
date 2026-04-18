@@ -96,6 +96,20 @@ class SimulationSummary(TypedDict, total=False):
     tags: list[str]
 
 
+class PersonaSummary(TypedDict, total=False):
+    """Public-safe summary of a persona for listing.
+
+    Deliberately excludes fields that drive the roleplay from behind the scenes
+    (``personality``, ``primaryGoal``, ``hiddenMotivation``, ``conversationStyle``)
+    so they cannot leak through the HTTP API.
+    """
+    slug: str
+    name: str
+    role: str
+    category: str
+    difficultyLevel: int
+
+
 # Cache for loaded data with modification tracking
 _personas_cache: Optional[list[Persona]] = None
 _personas_mtime: Optional[float] = None
@@ -288,6 +302,29 @@ def list_simulations() -> list[SimulationSummary]:
         
         summaries.append(summary)
     
+    return summaries
+
+
+def list_personas() -> list[PersonaSummary]:
+    """List all personas with non-sensitive summary info.
+
+    Strips internal fields (``personality``, ``primaryGoal``,
+    ``hiddenMotivation``, ``conversationStyle``) that power the agent's
+    roleplay and should never leak to HTTP clients.
+    """
+    personas = _load_personas()
+
+    summaries: list[PersonaSummary] = []
+    for p in personas:
+        summary: PersonaSummary = {
+            "slug": p["slug"],
+            "name": p["name"],
+            "role": p["role"],
+            "category": p["category"],
+            "difficultyLevel": p["difficultyLevel"],
+        }
+        summaries.append(summary)
+
     return summaries
 
 

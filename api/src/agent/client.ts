@@ -3,6 +3,7 @@ import { createParser, type EventSourceMessage } from 'eventsource-parser';
 
 import type {
   AgentConversationResponse,
+  AgentPersonasResponse,
   AgentSimulationsResponse,
   AgentStreamEvent,
   AgentWireState,
@@ -12,6 +13,7 @@ import type {
 export interface AgentClient {
   health(): Promise<{ status: string }>;
   listSimulations(): Promise<AgentSimulationsResponse>;
+  listPersonas(): Promise<AgentPersonasResponse>;
   initConversation(args: {
     simulationSlug: string;
     sessionId?: string;
@@ -94,6 +96,10 @@ export class HttpAgentClient implements AgentClient {
 
   listSimulations(): Promise<AgentSimulationsResponse> {
     return this.getJson('/simulations');
+  }
+
+  listPersonas(): Promise<AgentPersonasResponse> {
+    return this.getJson('/personas');
   }
 
   initConversation(args: {

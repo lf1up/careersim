@@ -68,6 +68,19 @@ class SimulationsResponse(BaseModel):
     simulations: list[SimulationItem]
 
 
+class PersonaItem(BaseModel):
+    """Public-safe persona summary (no internal roleplay fields)."""
+    slug: str
+    name: str
+    role: str
+    category: str
+    difficulty_level: int
+
+
+class PersonasResponse(BaseModel):
+    personas: list[PersonaItem]
+
+
 # -- Helpers ------------------------------------------------------------------
 
 def _build_response(svc_state: dict) -> ConversationResponse:
@@ -140,6 +153,13 @@ def create_api_app() -> FastAPI:
         svc = get_conversation_service()
         return SimulationsResponse(
             simulations=[SimulationItem(**s) for s in svc.list_simulations()],
+        )
+
+    @app.get("/personas", response_model=PersonasResponse)
+    async def list_personas():
+        svc = get_conversation_service()
+        return PersonasResponse(
+            personas=[PersonaItem(**p) for p in svc.list_personas()],
         )
 
     # -- Batch endpoints (return full result at once) -------------------------

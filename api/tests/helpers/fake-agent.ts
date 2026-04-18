@@ -2,6 +2,8 @@ import type { AgentClient } from '../../src/agent/client.js';
 import type {
   AgentConversationResponse,
   AgentMessage,
+  AgentPersona,
+  AgentPersonasResponse,
   AgentSimulationsResponse,
   AgentStreamEvent,
   AgentWireState,
@@ -25,6 +27,10 @@ export class FakeAgent implements AgentClient {
       { slug: 'behavioral-interview-brenda', title: 'Behavioral Interview', persona_name: 'Brenda' },
       { slug: 'tech-cultural-fit', title: 'Cultural Fit Chat', persona_name: 'Alex' },
     ],
+    public personas: AgentPersona[] = [
+      { slug: 'brenda', name: 'Brenda', role: 'HR Manager', category: 'JOB_SEEKING', difficulty_level: 3 },
+      { slug: 'alex', name: 'Alex', role: 'Tech Lead', category: 'JOB_SEEKING', difficulty_level: 2 },
+    ],
   ) {}
 
   async health() {
@@ -35,6 +41,11 @@ export class FakeAgent implements AgentClient {
   async listSimulations(): Promise<AgentSimulationsResponse> {
     this.callLog.push('listSimulations');
     return { simulations: this.simulations };
+  }
+
+  async listPersonas(): Promise<AgentPersonasResponse> {
+    this.callLog.push('listPersonas');
+    return { personas: this.personas };
   }
 
   async initConversation(args: {

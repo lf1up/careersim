@@ -168,3 +168,6 @@ tfplan
 terraform.tfstate
 terraform.tfstate.backup
 terraform.tfvars
+
+# Python
+.pytest_cache/

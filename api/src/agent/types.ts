@@ -57,6 +57,23 @@ export interface AgentSimulationsResponse {
   simulations: AgentSimulation[];
 }
 
+/**
+ * Public-safe persona summary. The agent intentionally strips
+ * `personality`, `primaryGoal`, `hiddenMotivation`, and `conversationStyle`
+ * from this response so internal roleplay config never reaches clients.
+ */
+export interface AgentPersona {
+  slug: string;
+  name: string;
+  role: string;
+  category: string;
+  difficulty_level: number;
+}
+
+export interface AgentPersonasResponse {
+  personas: AgentPersona[];
+}
+
 export type ProactiveTrigger = 'start' | 'inactivity' | 'followup';
 
 /** SSE `event: message` payload emitted by the agent's streaming endpoints. */
