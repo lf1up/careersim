@@ -59,6 +59,8 @@ services:
       - ./api/.env
     environment:
       NODE_ENV: development
+      # Bind to 0.0.0.0 inside the container so Docker's port mapping to the host works.
+      # `localhost`/127.0.0.1 would only be reachable from inside the container.
       HOST: 0.0.0.0
       PORT: "8000"
       LOG_LEVEL: info
@@ -156,7 +158,8 @@ services:
       - ./agent/.env
     environment:
       PYTHONUNBUFFERED: "1"
-      # The FastAPI server listens on this port inside the container.
+      # Bind to 0.0.0.0 so cross-container requests (from `api`) can reach
+      # the FastAPI server; loopback would only work for the in-container healthcheck.
       AGENT_HOST: 0.0.0.0
       AGENT_PORT: "8001"
       # Skip model preload in dev for faster startup (models load on first use)

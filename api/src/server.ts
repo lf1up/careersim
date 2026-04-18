@@ -1,14 +1,19 @@
+import { createRequire } from 'node:module';
+
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import sensible from '@fastify/sensible';
 import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
 import {
   jsonSchemaTransform,
   serializerCompiler,
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
+import { z } from 'zod';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json') as { name: string; version: string };
 
 import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
@@ -63,12 +68,50 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     },
     transform: jsonSchemaTransform,
   });
-  await app.register(swaggerUi, { routePrefix: '/docs' });
+  // Serve the OpenAPI JSON + a Swagger UI page loaded from CDN.
+  // We do NOT use @fastify/swagger-ui: at @fastify/swagger-ui@5.2.5 +
+  // @fastify/static@9.1.1 its internal nested-prefix registration 404s on all
+  // static assets (swagger-ui.css, swagger-ui-bundle.js, favicons, logo, etc.).
+  // See the note in README.md for the minimal repro.
+  app.get('/docs/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+  app.get('/docs', { schema: { tags: ['meta'], summary: 'Swagger UI' } }, async (_req, reply) => {
+    reply.type('text/html').send(renderSwaggerUiHtml('/docs/openapi.json'));
+  });
 
   await registerAuth(app, {
     secret: opts.jwtSecret,
     expiresIn: opts.jwtExpiresIn ?? '7d',
   });
+
+  app.withTypeProvider<ZodTypeProvider>().get(
+    '/',
+    {
+      schema: {
+        tags: ['meta'],
+        summary: 'Service index',
+        description:
+          'Returns basic service metadata and pointers to the health probe and OpenAPI docs.',
+        response: {
+          200: z.object({
+            name: z.string(),
+            version: z.string(),
+            status: z.literal('ok'),
+            docs: z.string(),
+            health: z.string(),
+            uptimeSeconds: z.number().int().nonnegative(),
+          }),
+        },
+      },
+    },
+    async () => ({
+      name: pkg.name,
+      version: pkg.version,
+      status: 'ok' as const,
+      docs: '/docs',
+      health: '/health',
+      uptimeSeconds: Math.floor(process.uptime()),
+    }),
+  );
 
   await app.register(healthRoutes, { db: opts.db, agent: opts.agent });
   await app.register(authRoutes, { db: opts.db });
@@ -80,4 +123,35 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
   return app;
+}
+
+/**
+ * Minimal Swagger UI page that fetches its CSS/JS from jsDelivr. Kept as a
+ * function (rather than a static string) so `specUrl` can be parameterized
+ * and we can iterate on the CSP / pinned version in one place.
+ */
+function renderSwaggerUiHtml(specUrl: string): string {
+  const uiVersion = '5.17.14';
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CareerSim API — Swagger UI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/swagger-ui.css" />
+    <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/favicon-32x32.png" sizes="32x32" />
+    <style>body { margin: 0; }</style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/swagger-ui-bundle.js" crossorigin></script>
+    <script>
+      window.ui = SwaggerUIBundle({
+        url: ${JSON.stringify(specUrl)},
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        persistAuthorization: true,
+      });
+    </script>
+  </body>
+</html>`;
 }

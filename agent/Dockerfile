@@ -20,8 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv for faster dependency installation
 RUN pip install --no-cache-dir uv
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Copy files required to build the project wheel (pyproject declares
+# `readme = "README.md"` and the wheel target is `src/careersim_agent`).
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
 
 # Create virtual environment and install dependencies
 RUN uv venv /app/.venv
@@ -53,7 +55,7 @@ ENV GRADIO_SERVER_PORT=7860
 # Copy application code
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser data/ ./data/
-COPY --chown=appuser:appuser pyproject.toml ./
+COPY --chown=appuser:appuser pyproject.toml README.md ./
 
 # Install package in editable mode
 RUN pip install --no-cache-dir -e .
