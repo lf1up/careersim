@@ -1,39 +1,81 @@
-version: '3.8'
-
 services:
-  backend:
+  # Legacy Node.js backend (superseded by the `api` service below). Kept here as
+  # a reference while we finish the cut-over.
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       NODE_ENV: development
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - ./backend/.env
+  #   environment:
+  #     # Override Docker-specific settings that differ from local development
+  #     DB_HOST: postgres
+  #     REDIS_HOST: redis
+  #     TRANSFORMERS_API_URL: http://host.docker.internal:8001
+  #     RAG_API_URL: http://host.docker.internal:8002
+  #     # Core agent service (Gradio API) - connect via gradio_client
+  #     AGENT_API_URL: http://host.docker.internal:7860
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+  #     # agent:
+  #     #   condition: service_healthy
+  #     # transformers:
+  #     #   condition: service_healthy
+  #     # rag:
+  #     #   condition: service_healthy
+  #   volumes:
+  #     - ./backend:/app
+  #     - /app/node_modules
+  #     - backend_uploads:/app/uploads
+  #   networks:
+  #     - careersim-network
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   restart: unless-stopped
+  #   command: >
+  #     sh -c "
+  #       # TODO: (Un)comment this to seed the database or reset it to a clean state
+  #       echo 'Running database seed...' &&
+  #       pnpm run db:seed &&
+  #       echo 'Database seeding completed! Starting development server...' &&
+  #       pnpm run dev
+  #           "
+
+  api:
     build:
-      context: ./backend
+      context: ./api
       dockerfile: Dockerfile
-      args:
-        NODE_ENV: development
+      target: base
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env
+      - ./api/.env
     environment:
-      # Override Docker-specific settings that differ from local development
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      TRANSFORMERS_API_URL: http://host.docker.internal:8001
-      RAG_API_URL: http://host.docker.internal:8002
-      # Core agent service (Gradio API) - connect via gradio_client
-      AGENT_API_URL: http://host.docker.internal:7860
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: "8000"
+      LOG_LEVEL: info
+      # Override Docker-specific settings so containers can reach each other
+      # via the compose network instead of localhost.
+      DATABASE_URL: postgres://careersim:careersim_password@postgres:5432/careersim
+      AGENT_API_URL: http://agent:8001
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-      # agent:
-      #   condition: service_healthy
-      # transformers:
-      #   condition: service_healthy
-      # rag:
-      #   condition: service_healthy
+      agent:
+        condition: service_healthy
     volumes:
-      - ./backend:/app
+      - ./api:/app
       - /app/node_modules
-      - backend_uploads:/app/uploads
     networks:
       - careersim-network
     extra_hosts:
@@ -41,38 +83,38 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-        # TODO: (Un)comment this to seed the database or reset it to a clean state
-        echo 'Running database seed...' &&
-        pnpm run db:seed &&
-        echo 'Database seeding completed! Starting development server...' &&
+        pnpm install --frozen-lockfile=false &&
+        echo 'Running database migrations...' &&
+        pnpm run db:migrate &&
+        echo 'Starting development server...' &&
         pnpm run dev
             "
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: development
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./frontend/.env
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      - PNPM_YES=true
-      - CI=true
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    networks:
-      - careersim-network
-    restart: unless-stopped
-    # TODO: Remove the following two lines when the .lock file will be frozen (to fix the pnpm install issue for dev)
-    command: >
-      sh -c "pnpm install && pnpm run dev"
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     target: development
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - ./frontend/.env
+  #   environment:
+  #     - CHOKIDAR_USEPOLLING=true
+  #     - WATCHPACK_POLLING=true
+  #     - PNPM_YES=true
+  #     - CI=true
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - careersim-network
+  #   restart: unless-stopped
+  #   # TODO: Remove the following two lines when the .lock file will be frozen (to fix the pnpm install issue for dev)
+  #   command: >
+  #     sh -c "pnpm install && pnpm run dev"
 
   postgres:
     image: postgres:17-alpine
@@ -104,39 +146,40 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
 
-  # TODO: Uncomment this to obtain the dockerized agent service (GPU acceleration could not be supported on M1/M2 Macs)
-  # agent:
-  #   build:
-  #     context: ./agent
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "7860:7860"
-  #   env_file:
-  #     - ./agent/.env
-  #   environment:
-  #     - PYTHONUNBUFFERED=1
-  #     - GRADIO_SERVER_NAME=localhost
-  #     - GRADIO_SERVER_PORT=7860
-  #     # Skip model preload in dev for faster startup (models load on first use)
-  #     # - SKIP_PRELOAD=1
-  #   volumes:
-  #     # Mount source code for live reloading (optional in dev)
-  #     - ./agent/src:/app/src
-  #     - ./agent/data:/app/data
-  #     # Persistent volume for HuggingFace model cache
-  #     - agent_models_cache:/app/.cache/huggingface
-  #     # Logs directory
-  #     - ./agent/logs:/app/logs
-  #   networks:
-  #     - careersim-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "python -c \"import httpx; r = httpx.get('http://localhost:7860/', timeout=5.0); exit(0 if r.status_code == 200 else 1)\""]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
-  #     start_period: 120s
-  #   command: ["python", "-m", "careersim_agent.main"]
+  agent:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./agent/.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # The FastAPI server listens on this port inside the container.
+      AGENT_HOST: 0.0.0.0
+      AGENT_PORT: "8001"
+      # Skip model preload in dev for faster startup (models load on first use)
+      # SKIP_PRELOAD: "1"
+    volumes:
+      # Mount source + data for live reloading (optional in dev).
+      - ./agent/src:/app/src
+      - ./agent/data:/app/data
+      # Persist the Chroma DB so embeddings survive container restarts.
+      - agent_chroma_db:/app/.chroma_db
+      # Logs directory on the host for easy tailing.
+      - ./agent/logs:/app/logs
+    networks:
+      - careersim-network
+    restart: unless-stopped
+    healthcheck:
+      # `/health` is the cheapest FastAPI endpoint (see agent/src/careersim_agent/api/app.py).
+      test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8001/health', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    command: ["python", "-m", "careersim_agent.main", "--serve", "api", "--host", "0.0.0.0", "--port", "8001"]
 
   # TODO: Uncomment this to obtain the dockerized transformers service (GPU acceleration could not be supported on M1/M2 Macs)
   # transformers:
@@ -144,7 +187,7 @@ services:
   #     context: ./transformers
   #     dockerfile: Dockerfile
   #   ports:
-  #     - "8001:8001"
+  #     - "8002:8002"
   #   env_file:
   #     - ./transformers/.env
   #   environment:
@@ -158,12 +201,12 @@ services:
   #     - careersim-network
   #   restart: unless-stopped
   #   healthcheck:
-  #     test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8001/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
+  #     test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8002/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
   #     interval: 30s
   #     timeout: 10s
   #     retries: 5
   #     start_period: 60s
-  #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload", "--log-level", "info"]
+  #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload", "--log-level", "info"]
 
   # TODO: Uncomment this to obtain the dockerized rag service (GPU acceleration could not be supported on M1/M2 Macs)
   # rag:
@@ -171,7 +214,7 @@ services:
   #     context: ./rag
   #     dockerfile: Dockerfile
   #   ports:
-  #     - "8002:8002"
+  #     - "8003:8003"
   #   env_file:
   #     - ./rag/.env
   #   environment:
@@ -183,21 +226,21 @@ services:
   #     - careersim-network
   #   restart: unless-stopped
   #   healthcheck:
-  #     test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8002/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
+  #     test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8003/', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
   #     interval: 30s
   #     timeout: 10s
   #     retries: 5
   #     start_period: 30s
-  #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload", "--log-level", "info"]
+  #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload", "--log-level", "info"]
 
 volumes:
   postgres_data:
   redis_data:
-  backend_uploads:
-  # agent_models_cache:
+  agent_chroma_db:
+  # backend_uploads:
   # models_cache:
   # rag_data:
 
 networks:
   careersim-network:
-    driver: bridge 
+    driver: bridge
