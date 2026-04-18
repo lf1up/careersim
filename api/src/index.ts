@@ -13,10 +13,6 @@ async function main(): Promise<void> {
     agent,
     jwtSecret: env.JWT_SECRET,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
-    nudge: {
-      minIdleSeconds: env.NUDGE_MIN_IDLE_SECONDS,
-      maxPerSilence: env.NUDGE_MAX_PER_SILENCE,
-    },
     logger: {
       level: env.LOG_LEVEL,
       transport:

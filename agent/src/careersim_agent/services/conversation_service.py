@@ -17,7 +17,6 @@ from datetime import datetime
 from typing import Any, Literal, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from langgraph.graph.message import add_messages
 
 from ..config import get_settings
 from ..graph import get_graph
@@ -224,6 +223,15 @@ class ConversationService:
         We accumulate state across all node updates so that each yielded
         ``MessageEvent.state`` reflects the full conversation history up to
         that point, not just the latest node's partial output.
+
+        Message-producing nodes in this codebase return the *full* updated
+        message list by convention (see ``generate_ai_response`` and
+        ``generate_proactive_message``). LangGraph's ``add_messages`` reducer
+        deduplicates them on the batch path by message ID, but when we iterate
+        ``stream_mode="updates"`` we receive the raw pre-reducer list — so we
+        explicitly diff against the running snapshot and only yield the newly
+        appended tail, otherwise every streamed turn re-emits the entire
+        conversation.
         """
         wpm = get_typing_wpm(state)
         is_first_ai = True
@@ -236,19 +244,22 @@ class ConversationService:
 
         for chunk in self._graph.stream(state, stream_mode="updates"):
             for node_name, node_output in chunk.items():
+                prior_count = len(accumulated["messages"])
+
                 # Merge ALL node outputs into the running snapshot so
-                # non-message fields (goal_progress, analysis, etc.) stay current.
+                # non-message fields (goal_progress, analysis, etc.) stay
+                # current. For messages we trust the node's full list (it
+                # always ends with state.messages + any newly-appended ones).
                 for key, value in node_output.items():
                     if key == "messages":
-                        accumulated["messages"] = add_messages(accumulated["messages"], value)
+                        accumulated["messages"] = list(value)
                     else:
                         accumulated[key] = value
 
                 if node_name not in _MESSAGE_NODES:
                     continue
 
-                new_messages = node_output.get("messages", [])
-                for msg in new_messages:
+                for msg in accumulated["messages"][prior_count:]:
                     if not isinstance(msg, AIMessage):
                         continue
 

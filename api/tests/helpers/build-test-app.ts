@@ -21,7 +21,6 @@ export interface TestHarness {
 
 export interface BuildTestAppOptions {
   agent?: FakeAgent;
-  nudge?: { minIdleSeconds: number; maxPerSilence: number };
 }
 
 export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestHarness> {
@@ -36,7 +35,6 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     agent,
     jwtSecret: 'test-secret-test-secret-test-secret',
     jwtExpiresIn: '1h',
-    nudge: options?.nudge ?? { minIdleSeconds: 0, maxPerSilence: 2 },
   });
 
   return {

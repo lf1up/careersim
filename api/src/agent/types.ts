@@ -19,11 +19,17 @@ export interface AgentGoalProgress {
   [key: string]: unknown;
 }
 
+/**
+ * Loose analysis envelope. Historically these were short string labels, but
+ * `agent/src/careersim_agent/graph/nodes/evaluation.py` now emits richer
+ * objects (e.g. `{ label, confidence, source }`). Callers should treat each
+ * field as opaque JSON.
+ */
 export interface AgentAnalysis {
-  user_sentiment?: string | null;
-  user_emotion?: string | null;
-  ai_sentiment?: string | null;
-  ai_emotion?: string | null;
+  user_sentiment?: unknown;
+  user_emotion?: unknown;
+  ai_sentiment?: unknown;
+  ai_emotion?: unknown;
   [key: string]: unknown;
 }
 

@@ -31,10 +31,6 @@ export interface BuildAppOptions {
   jwtSecret: string;
   jwtExpiresIn?: string;
   logger?: boolean | Record<string, unknown>;
-  nudge?: {
-    minIdleSeconds: number;
-    maxPerSilence: number;
-  };
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
@@ -121,7 +117,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(sessionsRoutes, {
     db: opts.db,
     agent: opts.agent,
-    nudge: opts.nudge ?? { minIdleSeconds: 60, maxPerSilence: 2 },
   });
 
   return app;

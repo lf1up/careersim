@@ -107,12 +107,6 @@ def run_api(host: str = "0.0.0.0", port: int = 8000):
     print("=" * 60)
     print(f"\n  URL:  http://{host}:{port}")
     print(f"  Docs: http://{host}:{port}/docs")
-    print("\n  Endpoints:")
-    print("    GET  /health")
-    print("    GET  /simulations")
-    print("    POST /conversation/init")
-    print("    POST /conversation/turn")
-    print("    POST /conversation/proactive")
     print("\n  Press Ctrl+C to stop")
     print("=" * 60 + "\n")
 

@@ -11,6 +11,21 @@ import type {
 } from '../../src/agent/types.js';
 
 /**
+ * Conversation-style block the agent embeds in its wire state. The API uses
+ * these fields to drive `session_config` on detail responses and the
+ * persona-aware `/nudge` policy. Exposed from the test helper so individual
+ * cases can override just the fields they care about.
+ */
+export interface FakeConversationStyle {
+  startsConversation?: boolean | 'sometimes';
+  typingSpeedWpm?: number;
+  inactivityNudgeDelaySec?: { min: number; max: number };
+  inactivityNudges?: { min: number; max: number };
+  burstiness?: { min: number; max: number };
+  [key: string]: unknown;
+}
+
+/**
  * Deterministic in-process stand-in for the Python agent's HTTP contract.
  *
  * Mirrors `_FakeGraph` in agent/tests/test_api.py:155 closely enough that the
@@ -31,6 +46,20 @@ export class FakeAgent implements AgentClient {
       { slug: 'brenda', name: 'Brenda', role: 'HR Manager', category: 'JOB_SEEKING', difficulty_level: 3 },
       { slug: 'alex', name: 'Alex', role: 'Tech Lead', category: 'JOB_SEEKING', difficulty_level: 2 },
     ],
+    /**
+     * Default style declares a deterministic inactivity profile (min == max
+     * for `inactivityNudgeDelaySec`, fixed `inactivityNudges.max`) so
+     * guardrail tests can rewind the clock past a known threshold without
+     * fighting the deterministic-hash pick. Cases that want to exercise
+     * different cadences should pass their own ranges here.
+     */
+    public conversationStyle: FakeConversationStyle = {
+      startsConversation: true,
+      typingSpeedWpm: 120,
+      inactivityNudgeDelaySec: { min: 60, max: 60 },
+      inactivityNudges: { min: 0, max: 2 },
+      burstiness: { min: 1, max: 2 },
+    },
   ) {}
 
   async health() {
@@ -61,7 +90,7 @@ export class FakeAgent implements AgentClient {
     const state: AgentWireState = {
       session_id: args.sessionId,
       simulation: { slug: sim.slug, title: sim.title },
-      persona: { name: sim.persona_name, conversationStyle: { startsConversation: true } },
+      persona: { name: sim.persona_name, conversationStyle: { ...this.conversationStyle } },
       messages: [opener],
       goal_progress: [],
       last_user_sentiment: null,

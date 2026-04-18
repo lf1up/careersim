@@ -96,6 +96,38 @@ pnpm test:watch
 pnpm typecheck
 ```
 
+### Interactive end-to-end flow
+
+`pnpm e2e` runs an interactive CLI that exercises the full journey against a
+real stack (API + agent + Postgres, e.g. `docker compose -f
+docker-compose.local.yml up`): `/health` → `/auth/register` → `/auth/me` →
+`/simulations` → `/sessions` → live chat on the selected simulation.
+
+```bash
+# zero-config: random email/password, base URL = http://localhost:8000
+pnpm e2e
+
+# use an existing account + preselect a simulation
+pnpm e2e --email me@careersim.test --password hunter2hunter2 \
+         --simulation behavioral-interview-brenda
+
+# point at another environment
+BASE_URL=https://staging.api.example.com pnpm e2e
+```
+
+Inside the REPL you can send free-text messages (streamed via
+`/messages/stream`) or issue commands: `/followup` (streaming proactive
+followup), `/nudge` (guarded inactivity nudge), `/idle <sec>` (sleep then
+nudge), `/get` (reload session + persona config), `/list`, `/help`,
+`/quit`. The banner printed on session create shows the persona's
+`starts`, `typing` (wpm), `nudge_delay` (min–max sec), `max_nudges`, and
+`burstiness` ranges taken straight from `GET /sessions/:id`'s
+`session_config`. A background auto-nudger polls `/nudge` every
+`AUTO_NUDGE_SECONDS` (default `5`, set `0` to disable); the server, not
+the script, decides when to actually fire based on the persona's
+`inactivityNudgeDelaySec` window — so you observe the same behaviour as
+the Gradio dev UI.
+
 Tests cover:
 
 - Health probe (happy + degraded agent paths)
@@ -143,9 +175,27 @@ Successful calls return the updated session detail:
 { "nudged": true, "session": { "id": "...", "messages": [...], ... } }
 ```
 
-Guardrails are tuned by `NUDGE_MIN_IDLE_SECONDS` and `NUDGE_MAX_PER_SILENCE`.
-A request may pass `min_idle_seconds` to tighten (but not loosen) the
-server-side floor.
+Nudge decisions are driven entirely by the persona's
+`conversationStyle`, mirroring the Gradio dev UI. The API trusts whatever
+the agent declared — there are no env-level guardrails to tune.
+
+For each session the server reads the persona's
+`conversationStyle.inactivityNudgeDelaySec` and `inactivityNudges` from
+the state snapshot. Within the persona's `[min, max]` delay range the
+server picks a deterministic threshold per silence window — seeded by
+session id + baseline-activity timestamp + nudge count — so every poll
+inside the same silence converges on the same firing time. The baseline
+is `max(lastHumanMessageAt, lastNudgeAt)`, so after a nudge fires the
+next one has to wait another full delay window instead of chaining
+immediately.
+
+If a persona doesn't declare these fields (or sets
+`inactivityNudges.max` to `0`), the server fires **zero** inactivity
+nudges for that session and returns
+`{ nudged: false, reason: 'nudges_disabled' }` on every `/nudge` call —
+clients can stop polling. The `e2e` script uses that signal to kill its
+auto-nudger. All first-party personas in `agent/data/personas.json` do
+declare both fields, so this is strictly an opt-out / defensive path.
 
 ## Environment
 
@@ -160,8 +210,6 @@ See `.env.example` for the authoritative list. Required in production:
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
 | `LOG_LEVEL` | `info` | pino level |
-| `NUDGE_MIN_IDLE_SECONDS` | `60` | Minimum silence before `/nudge` will dispatch |
-| `NUDGE_MAX_PER_SILENCE` | `2` | Cap on nudges between two human messages |
 
 ## Docker
 

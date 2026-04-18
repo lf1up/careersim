@@ -12,17 +12,6 @@ const EnvSchema = z.object({
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
-
-  /**
-   * Minimum seconds of silence (since the last human message) before an
-   * inactivity nudge is allowed to fire. Guardrail on the /nudge endpoint.
-   */
-  NUDGE_MIN_IDLE_SECONDS: z.coerce.number().int().nonnegative().default(60),
-  /**
-   * Maximum inactivity nudges the API will dispatch between two human
-   * messages. Prevents the AI from nudging into the void.
-   */
-  NUDGE_MAX_PER_SILENCE: z.coerce.number().int().nonnegative().default(2),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -13,7 +13,6 @@ import { createSessionsService } from './sessions.service.js';
 import {
   createSessionSchema,
   followupProactiveSchema,
-  nudgeRequestSchema,
   nudgeResponseSchema,
   sendMessageSchema,
   sessionDetailSchema,
@@ -23,10 +22,6 @@ import {
 interface SessionsRouteOptions {
   db: AppDatabase;
   agent: AgentClient;
-  nudge: {
-    minIdleSeconds: number;
-    maxPerSilence: number;
-  };
 }
 
 export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async (app, opts) => {
@@ -161,27 +156,15 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       onRequest: [app.authenticate],
       schema: {
         tags: ['sessions'],
-        summary: 'Attempt an inactivity nudge (batch, rate-limited server-side)',
+        summary: 'Attempt an inactivity nudge (batch, persona-driven)',
         description:
-          'Idempotent: the server decides whether to dispatch to the agent based on `NUDGE_MIN_IDLE_SECONDS` and `NUDGE_MAX_PER_SILENCE`. Returns `{ nudged: false, reason }` if skipped.',
+          'Idempotent: the server decides whether to dispatch to the agent based on the persona\'s `conversationStyle.inactivityNudgeDelaySec` and `inactivityNudges`. Returns `{ nudged: false, reason }` if skipped.',
         security: [{ bearerAuth: [] }],
         params: z.object({ id: z.uuid() }),
-        body: nudgeRequestSchema,
         response: { 200: nudgeResponseSchema },
       },
     },
-    async (request) => {
-      const override = request.body?.min_idle_seconds;
-      const minIdleSeconds =
-        override !== undefined
-          ? Math.max(override, opts.nudge.minIdleSeconds)
-          : opts.nudge.minIdleSeconds;
-
-      return service.triggerInactivityNudge(request.user.sub, request.params.id, {
-        minIdleSeconds,
-        maxPerSilence: opts.nudge.maxPerSilence,
-      });
-    },
+    async (request) => service.triggerInactivityNudge(request.user.sub, request.params.id),
   );
 
   // ---------------------------------------------------------------------------

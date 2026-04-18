@@ -4,6 +4,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from careersim_agent.services.conversation_service import (
+    ConversationService,
     compute_typing_delay,
     deserialize_state,
     get_typing_wpm,
@@ -208,3 +209,146 @@ class TestListSimulations:
         svc = get_conversation_service()
         for s in svc.list_simulations():
             assert s["persona_name"] != "Unknown", f"Simulation {s['slug']} has Unknown persona"
+
+
+# =============================================================================
+# Streaming delta
+#
+# Regression guard for the bug where `_stream_graph` yielded one MessageEvent
+# per message in the node output (which is the *full* conversation history by
+# convention in this codebase) instead of only the newly-appended tail. That
+# caused every streamed turn to re-emit every prior AI message.
+# =============================================================================
+
+
+def _make_ai_message(content: str) -> AIMessage:
+    return AIMessage(content=content)
+
+
+class _FakeGraph:
+    """Mimics just enough of langgraph's StateGraph to drive `_stream_graph`.
+
+    Each scripted step is a pair `(node_name, updates)` where ``updates`` is
+    the dict the node returned. Matching the real nodes in this codebase, the
+    ``messages`` value is the *full* conversation list — not a delta.
+    """
+
+    def __init__(self, steps: list[tuple[str, dict]]):
+        self._steps = steps
+
+    def stream(self, state, stream_mode: str = "updates"):
+        assert stream_mode == "updates"
+        for node, updates in self._steps:
+            yield {node: updates}
+
+
+class TestStreamGraphDelta:
+    def _make_service(self, steps: list[tuple[str, dict]]) -> ConversationService:
+        svc = ConversationService.__new__(ConversationService)
+        svc._graph = _FakeGraph(steps)  # type: ignore[attr-defined]
+        return svc
+
+    def test_yields_only_newly_appended_messages(self):
+        prior = [AIMessage(content="Opening line.")]
+        state = {
+            "messages": list(prior),
+            "persona": {"conversationStyle": {"typingSpeedWpm": 120}},
+        }
+
+        new_ai = _make_ai_message("Response to user.")
+        steps = [
+            ("process_user_input", {"last_user_message": "hi"}),
+            ("analyze_user_input", {"user_intent": "greet"}),
+            ("retrieve_context", {"retrieved_context": []}),
+            (
+                "generate_response",
+                {
+                    # Full history by convention — must NOT be re-emitted.
+                    "messages": prior + [new_ai],
+                    "last_ai_message": new_ai.content,
+                },
+            ),
+        ]
+        svc = self._make_service(steps)
+
+        events = [e for e in svc._stream_graph(state) if not e.is_final]
+
+        assert len(events) == 1, f"expected 1 new message, got {[e.content for e in events]}"
+        assert events[0].content == "Response to user."
+        assert events[0].node == "generate_response"
+        assert events[0].is_followup is False
+
+    def test_yields_tail_across_response_and_followup_bursts(self):
+        prior = [AIMessage(content="Opening line.")]
+        state = {
+            "messages": list(prior),
+            "persona": {"conversationStyle": {"typingSpeedWpm": 120}},
+        }
+
+        reply = _make_ai_message("Direct reply.")
+        followup_1 = _make_ai_message("One more thought.")
+        followup_2 = _make_ai_message("And another.")
+
+        steps = [
+            ("generate_response", {"messages": prior + [reply]}),
+            ("analyze_response", {"last_ai_sentiment": "neutral"}),
+            ("evaluate_goals", {"goal_progress": []}),
+            ("check_proactive", {"should_send_proactive": True}),
+            (
+                "generate_proactive",
+                {"messages": prior + [reply, followup_1]},
+            ),
+            ("check_proactive", {"should_send_proactive": True}),
+            (
+                "generate_proactive",
+                {"messages": prior + [reply, followup_1, followup_2]},
+            ),
+        ]
+        svc = self._make_service(steps)
+
+        events = [e for e in svc._stream_graph(state) if not e.is_final]
+
+        assert [e.content for e in events] == [
+            "Direct reply.",
+            "One more thought.",
+            "And another.",
+        ]
+        assert [e.is_followup for e in events] == [False, True, True]
+        assert [e.message_index for e in events] == [0, 1, 2]
+
+    def test_first_event_has_zero_typing_delay(self):
+        new_ai = _make_ai_message("Hello there my friend how are you today.")
+        steps = [("generate_response", {"messages": [new_ai]})]
+        svc = self._make_service(steps)
+
+        events = [e for e in svc._stream_graph({"messages": []}) if not e.is_final]
+
+        assert len(events) == 1
+        assert events[0].typing_delay_sec == 0.0
+
+    def test_non_message_nodes_do_not_yield_events(self):
+        state = {"messages": [AIMessage(content="prev")]}
+        steps = [
+            ("evaluate_goals", {"goal_progress": [{"goalNumber": 1}]}),
+            ("analyze_response", {"last_ai_sentiment": "positive"}),
+        ]
+        svc = self._make_service(steps)
+
+        events = [e for e in svc._stream_graph(state) if not e.is_final]
+        assert events == []
+
+    def test_final_event_carries_latest_state_snapshot(self):
+        prior = [AIMessage(content="a")]
+        new_ai = _make_ai_message("b")
+        steps = [
+            ("generate_response", {"messages": prior + [new_ai]}),
+            ("evaluate_goals", {"goal_progress": [{"goalNumber": 3}]}),
+        ]
+        svc = self._make_service(steps)
+
+        events = list(svc._stream_graph({"messages": list(prior)}))
+
+        assert events[-1].is_final is True
+        final_state = events[-1].state
+        assert [m.content for m in final_state["messages"]] == ["a", "b"]
+        assert final_state["goal_progress"] == [{"goalNumber": 3}]
