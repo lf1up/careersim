@@ -1,0 +1,924 @@
+[
+  {
+    "slug": "behavioral-interview-brenda",
+    "title": "The Behavioral Interview",
+    "description": "Navigate a structured behavioral interview with a risk-averse HR manager",
+    "scenario": "You're interviewing for a mid-level position at a well-established corporation. The HR manager, Brenda Vance, is conducting a formal behavioral interview. She seems professional but distant, and you sense she's being very careful about her hiring decisions.",
+    "objectives": [
+      "Demonstrate your qualifications while building rapport",
+      "Address any concerns about your fit for the company culture",
+      "Show self-awareness and professionalism",
+      "Stay short in each response to keep the interview moving"
+    ],
+    "personaSlug": "brenda-vance-hr-manager",
+    "estimatedDurationMinutes": 25,
+    "difficulty": 3,
+    "skillsToLearn": ["Interview techniques", "Building rapport", "Risk mitigation", "Professional communication"],
+    "tags": ["interview", "behavioral", "hr", "corporate"],
+    "successCriteria": {
+      "communication": ["Clear and structured responses", "Professional tone", "Active listening"],
+      "problemSolving": ["STAR method usage", "Relevant examples", "Addressing concerns"],
+      "emotional": ["Confidence building", "Empathy for interviewer pressure", "Calming anxiety"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Opening and Rapport Building",
+        "description": "Start with a clear professional greeting, set a warm tone, and get the interview moving with light rapport-building",
+        "keyBehaviors": [
+          "Professional greeting (e.g., 'Hi Brenda')",
+          "Thank them for their time / the opportunity",
+          "One sentence of genuine interest in the role or company"
+        ],
+        "successIndicators": [
+          "Brenda returns the greeting and acknowledges you",
+          "Brenda responds in a welcoming/professional tone",
+          "Brenda invites you to begin or asks the first interview question"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "strongEvidenceScore": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Behavioral Question Response",
+        "description": "Answer Brenda's behavioral questions using the STAR method with relevant, specific examples",
+        "keyBehaviors": [
+          "Explicit STAR structure (Situation / Task / Action / Result)",
+          "Specific technical details (tools, tradeoffs, stakeholders)",
+          "Measurable outcome (numbers/impact)"
+        ],
+        "successIndicators": [
+          "Brenda acknowledges it is strong/clear/concrete (e.g., 'strong', 'helpful', 'thank you')",
+          "Brenda asks a follow-up question about your example",
+          "Brenda moves to the next behavioral question"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.55,
+          "strongEvidenceScore": 0.55,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Addressing Concerns",
+        "description": "Proactively address any concerns Brenda might have about your fit or potential risks",
+        "keyBehaviors": [
+          "Show self-awareness about potential weaknesses",
+          "Address potential red flags proactively",
+          "Demonstrate cultural fit understanding"
+        ],
+        "successIndicators": [
+          "Brenda's skeptical questions decrease",
+          "Language becomes more open and collaborative",
+          "Discussion feels more like a conversation than interrogation"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Thoughtful Questions",
+        "description": "Ask insightful questions that show your research and genuine interest in the role",
+        "keyBehaviors": [
+          "Ask about company culture",
+          "Inquire about role expectations",
+          "Show long-term thinking"
+        ],
+        "successIndicators": [
+          "Brenda provides detailed answers",
+          "Discussion becomes more conversational",
+          "She shares insider perspectives"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Professional Closing",
+        "description": "Close the interview professionally while reinforcing your interest and qualifications",
+        "keyBehaviors": [
+          "Summarize key qualifications briefly",
+          "Express continued interest in the role",
+          "Ask about next steps in the process"
+        ],
+        "successIndicators": [
+          "Brenda provides clear timeline",
+          "Positive language and tone in closing",
+          "She expresses confidence in your candidacy"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "data-analyst-technical-interview-priya",
+    "title": "Data Analyst Technical Interview",
+    "description": "Demonstrate SQL, statistics, and insight communication with a senior data analyst interviewer",
+    "scenario": "You are interviewing with Priya Patel, a Senior Data Analyst who values structured thinking and clarity. She presents ambiguous problems and expects you to ask clarifying questions, make reasonable assumptions, and communicate trade-offs.",
+    "objectives": [
+      "Write correct SQL for realistic scenarios",
+      "Apply sound statistical reasoning",
+      "Structure an analytics case",
+      "Communicate insights clearly"
+    ],
+    "personaSlug": "priya-patel-senior-data-analyst",
+    "estimatedDurationMinutes": 30,
+    "difficulty": 3,
+    "skillsToLearn": ["SQL querying", "Exploratory data analysis", "Experiment reasoning", "Product metrics", "Communicating insights"],
+    "tags": ["interview", "data-analyst", "sql", "statistics", "product"],
+    "successCriteria": {
+      "communication": ["Clarity explaining trade-offs", "Structured problem framing", "Stakeholder-appropriate language"],
+      "problemSolving": ["Correct SQL logic", "Hypothesis-driven approach", "Sound statistical reasoning"],
+      "emotional": ["Composure under probing questions", "Intellectual humility", "Curiosity"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Dataset Understanding and Assumptions",
+        "description": "Elicit key details about the dataset and state assumptions before solving",
+        "keyBehaviors": [
+          "Ask clarifying questions about the data",
+          "Define metrics precisely",
+          "Validate assumptions with the interviewer"
+        ],
+        "successIndicators": [
+          "Assumptions agreed upon",
+          "Scope is clear",
+          "Priya confirms understanding"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "SQL Challenge",
+        "description": "Propose and explain a correct SQL query for a realistic reporting need",
+        "keyBehaviors": [
+          "Use correct joins and filters",
+          "Explain trade-offs in approach",
+          "Consider edge cases (nulls, duplicates)"
+        ],
+        "successIndicators": [
+          "Query logic is correct",
+          "Readable structure",
+          "Handles nulls/duplication properly"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Metrics and Experiment Reasoning",
+        "description": "Discuss key product metrics, experiment design, and interpretation pitfalls",
+        "keyBehaviors": [
+          "Define metrics precisely",
+          "Consider bias and confounders",
+          "Interpret results carefully"
+        ],
+        "successIndicators": [
+          "Appropriate metrics chosen",
+          "Confounders addressed",
+          "Interpretation is conservative"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Insights Communication",
+        "description": "Summarize findings for a non-technical stakeholder, highlighting actions and caveats",
+        "keyBehaviors": [
+          "Use simple language",
+          "State limitations",
+          "Propose next steps"
+        ],
+        "successIndicators": [
+          "Clear narrative",
+          "Actionable next steps",
+          "Trade-offs communicated"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Professional Closing",
+        "description": "Wrap up with key takeaways and confirm next steps",
+        "keyBehaviors": [
+          "Summarize concisely",
+          "Invite feedback",
+          "Confirm follow-ups"
+        ],
+        "successIndicators": [
+          "Priya acknowledges strengths",
+          "Next steps are clear",
+          "Conversation ends confidently"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "tech-cultural-interview-alex",
+    "title": "The Technical & Cultural Fit Interview",
+    "description": "Impress a passionate tech lead while showing genuine enthusiasm for the role",
+    "scenario": "You're interviewing with Alex Chen, the engineering lead at a fast-growing startup. The conversation is more casual than formal, and Alex seems genuinely excited about the technology and team culture.",
+    "objectives": [
+      "Show your technical competence and cultural fit",
+      "Demonstrate resilience and a positive attitude",
+      "Express genuine enthusiasm for the role and technology"
+    ],
+    "personaSlug": "alex-chen-tech-lead",
+    "estimatedDurationMinutes": 20,
+    "difficulty": 2,
+    "skillsToLearn": ["Cultural fit assessment", "Enthusiasm communication", "Technical discussion", "Team collaboration"],
+    "tags": ["interview", "technical", "startup", "culture"],
+    "successCriteria": {
+      "communication": ["Genuine enthusiasm", "Technical clarity", "Collaborative language"],
+      "problemSolving": ["Creative thinking", "Problem-solving approach", "Learning mindset"],
+      "emotional": ["Positive energy", "Resilience indicators", "Team-first attitude"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Casual Opening and Energy Matching",
+        "description": "Match Alex's enthusiastic energy while keeping the conversation natural and genuine",
+        "keyBehaviors": [
+          "Show genuine excitement about the opportunity",
+          "Match his casual, friendly tone",
+          "Express interest in the company mission or product"
+        ],
+        "successIndicators": [
+          "Alex becomes more animated in responses",
+          "Conversation flows naturally without awkward pauses",
+          "Mutual enthusiasm builds in the exchange"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Technical Discussion",
+        "description": "Engage in technical conversation that demonstrates both competence and curiosity",
+        "keyBehaviors": [
+          "Ask thoughtful technical questions",
+          "Share relevant past experiences",
+          "Show learning mindset and curiosity"
+        ],
+        "successIndicators": [
+          "Alex gets excited about technical details",
+          "Deep technical conversation emerges",
+          "He starts sharing insider perspectives"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Team Culture Exploration",
+        "description": "Explore the team dynamics and show how you would contribute to the collaborative culture",
+        "keyBehaviors": [
+          "Ask about team collaboration style",
+          "Share team-oriented experiences",
+          "Demonstrate resilience in past challenges"
+        ],
+        "successIndicators": [
+          "Alex talks about team members positively",
+          "He shares challenges and growth stories",
+          "Discussion becomes very interactive"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Problem-Solving Demonstration",
+        "description": "Show your approach to problem-solving and handling challenges in a startup environment",
+        "keyBehaviors": [
+          "Discuss creative solutions",
+          "Show adaptability",
+          "Demonstrate growth mindset"
+        ],
+        "successIndicators": [
+          "Alex poses hypothetical challenges or scenarios",
+          "Alex shares his own technical opinions or approaches",
+          "Alex asks follow-up questions about your solution"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Enthusiastic Wrap-up",
+        "description": "Close with genuine excitement about the opportunity and next steps",
+        "keyBehaviors": [
+          "Express authentic enthusiasm",
+          "Ask about immediate challenges",
+          "Show eagerness to contribute"
+        ],
+        "successIndicators": [
+          "Alex expresses strong interest",
+          "He talks about onboarding and team introduction",
+          "Conversation ends on a high note"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "pitching-idea-david",
+    "title": "Pitching Your Idea",
+    "description": "Convince a skeptical veteran analyst to support your new initiative",
+    "scenario": "You need to get buy-in from David Miller, a senior analyst who has been with the company for 15 years. He's known for being resistant to change and will likely challenge your proposal with tough questions.",
+    "objectives": [
+      "Present your idea convincingly with data and logic",
+      "Respect David's experience and expertise",
+      "Address his concerns and objections thoroughly"
+    ],
+    "personaSlug": "david-miller-skeptical-veteran",
+    "estimatedDurationMinutes": 30,
+    "difficulty": 4,
+    "skillsToLearn": ["Persuasion", "Stakeholder management", "Data-driven arguments", "Respect for experience"],
+    "tags": ["persuasion", "stakeholder", "data", "resistance"],
+    "successCriteria": {
+      "communication": ["Data-backed arguments", "Respectful tone", "Acknowledging expertise"],
+      "problemSolving": ["Addressing objections", "Risk mitigation", "Practical solutions"],
+      "emotional": ["Patience with resistance", "Respect for experience", "Collaborative approach"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Respectful Opening and Context Setting",
+        "description": "Start by acknowledging David's expertise and experience before presenting your idea",
+        "keyBehaviors": [
+          "Acknowledge his experience",
+          "Show respect for his expertise",
+          "Set collaborative tone"
+        ],
+        "successIndicators": [
+          "David shows initial willingness to listen",
+          "His defensive posture softens slightly",
+          "He asks clarifying questions"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Data-Driven Presentation",
+        "description": "Present your idea with solid data, research, and logical reasoning that appeals to David's analytical nature",
+        "keyBehaviors": [
+          "Present clear data",
+          "Use logical structure",
+          "Reference industry standards"
+        ],
+        "successIndicators": [
+          "David asks for more details",
+          "He challenges specific points constructively",
+          "His questions become more engaged"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Addressing Skepticism",
+        "description": "Proactively address David's concerns and objections with patience and additional evidence",
+        "keyBehaviors": [
+          "Listen to objections carefully",
+          "Provide thoughtful responses",
+          "Acknowledge valid concerns"
+        ],
+        "successIndicators": [
+          "David's objections become more specific",
+          "He starts suggesting modifications",
+          "His tone becomes less dismissive"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Incorporating His Expertise",
+        "description": "Ask for his input and show how his experience could strengthen the proposal",
+        "keyBehaviors": [
+          "Ask for his insights",
+          "Incorporate his suggestions",
+          "Value his institutional knowledge"
+        ],
+        "successIndicators": [
+          "David begins contributing ideas",
+          "He shares relevant historical context",
+          "His body language opens up"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Collaborative Next Steps",
+        "description": "Work together to define next steps and get his support for moving forward",
+        "keyBehaviors": [
+          "Propose pilot approach",
+          "Ask for his ongoing involvement",
+          "Define success metrics together"
+        ],
+        "successIndicators": [
+          "David agrees to support or trial",
+          "He offers to help with implementation",
+          "Conversation ends with mutual respect"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "saying-no-to-extra-work-sarah",
+    "title": "Saying 'No' to Extra Work",
+    "description": "Practice setting boundaries with an overwhelmed colleague trying to delegate work to you",
+    "scenario": "Sarah Jenkins, a project manager from another team, approaches you asking for help with a task she's behind on. She's clearly stressed and frames it as a small favor, but you're already at capacity.",
+    "objectives": [
+      "Decline the request firmly but kindly",
+      "Maintain a good working relationship",
+      "Show empathy for her stressful situation"
+    ],
+    "personaSlug": "sarah-jenkins-overwhelmed-project-manager",
+    "estimatedDurationMinutes": 15,
+    "difficulty": 2,
+    "skillsToLearn": ["Boundary setting", "Empathetic communication", "Saying no professionally", "Relationship management"],
+    "tags": ["boundaries", "communication", "assertiveness", "empathy"],
+    "successCriteria": {
+      "communication": ["Clear boundaries", "Empathetic tone", "Alternative solutions"],
+      "problemSolving": ["Win-win thinking", "Resource management", "Priority setting"],
+      "emotional": ["Assertiveness", "Compassion", "Professional warmth"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Empathetic Listening",
+        "description": "Listen to Sarah's request with empathy and acknowledge her stressful situation",
+        "keyBehaviors": [
+          "Show genuine concern for her situation",
+          "Listen actively to understand the full request",
+          "Acknowledge her stress without immediately saying no"
+        ],
+        "successIndicators": [
+          "Sarah feels heard and understood",
+          "Her anxiety decreases slightly",
+          "She provides more context about her situation"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Honest Assessment",
+        "description": "Honestly assess and communicate your current capacity and commitments",
+        "keyBehaviors": [
+          "Explain your current workload clearly",
+          "Be transparent about constraints",
+          "Show you take existing commitments seriously"
+        ],
+        "successIndicators": [
+          "Sarah understands your situation",
+          "She shows some disappointment but acceptance",
+          "Conversation remains professional and respectful"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Alternative Solutions",
+        "description": "Offer alternative solutions or resources that might help Sarah without compromising your boundaries",
+        "keyBehaviors": [
+          "Suggest other resources or people who might help",
+          "Offer limited assistance within your capacity",
+          "Help her think through prioritization"
+        ],
+        "successIndicators": [
+          "Sarah considers the alternatives",
+          "She expresses gratitude for suggestions",
+          "Her stress level appears to decrease"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Future Support",
+        "description": "Discuss how you might be able to help in the future or prevent similar situations",
+        "keyBehaviors": [
+          "Offer future availability",
+          "Suggest better planning",
+          "Maintain positive relationship"
+        ],
+        "successIndicators": [
+          "Sarah feels supported long-term",
+          "She accepts the boundary gracefully",
+          "Relationship remains intact"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Professional Closure",
+        "description": "Close the conversation on a positive note while maintaining your boundary",
+        "keyBehaviors": [
+          "Reaffirm your support",
+          "Maintain professional warmth",
+          "Wish her success"
+        ],
+        "successIndicators": [
+          "Sarah leaves with understanding",
+          "Professional relationship is preserved",
+          "She respects your boundaries"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "reengaging-disengaged-employee-michael",
+    "title": "Re-engaging a Disengaged Employee",
+    "description": "Conduct a challenging feedback conversation with a high-performer who has become disengaged",
+    "scenario": "Michael Reyes, once your star developer, has become increasingly disengaged. His work quality remains high, but his participation in meetings and team activities has dropped significantly. You need to address this in a one-on-one meeting.",
+    "objectives": [
+      "Uncover the root cause of Michael's disengagement",
+      "Work together to find a path forward",
+      "Re-ignite his motivation and engagement"
+    ],
+    "personaSlug": "michael-reyes-disengaged-performer",
+    "estimatedDurationMinutes": 35,
+    "difficulty": 5,
+    "skillsToLearn": ["Performance management", "Active listening", "Employee engagement", "Career development"],
+    "tags": ["leadership", "engagement", "performance", "motivation"],
+    "successCriteria": {
+      "communication": ["Probing questions", "Non-judgmental tone", "Career-focused discussion"],
+      "problemSolving": ["Root cause analysis", "Growth opportunities", "Challenge identification"],
+      "emotional": ["Patience with silence", "Empathy for boredom", "Motivation building"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Non-Threatening Opening",
+        "description": "Start the conversation with a non-judgmental tone that makes Michael feel safe to open up",
+        "keyBehaviors": [
+          "Avoid accusatory language",
+          "Express appreciation for his work",
+          "Set collaborative tone"
+        ],
+        "successIndicators": [
+          "Michael doesn't become defensive",
+          "He maintains eye contact",
+          "His posture remains open"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Observation Without Judgment",
+        "description": "Share your observations about his decreased engagement without making it personal",
+        "keyBehaviors": [
+          "Focus on behaviors not personality",
+          "Use specific examples",
+          "Ask open-ended questions"
+        ],
+        "successIndicators": [
+          "Michael acknowledges the observations",
+          "He doesn't deny or get defensive",
+          "He begins to share some context"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Deep Listening and Probing",
+        "description": "Listen carefully and ask probing questions to understand the root cause of his disengagement",
+        "keyBehaviors": [
+          "Ask about career satisfaction",
+          "Explore his current challenges",
+          "Listen for unmet needs"
+        ],
+        "successIndicators": [
+          "Michael opens up about his feelings",
+          "He shares frustrations or concerns",
+          "The real issues begin to surface"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Exploring Growth Opportunities",
+        "description": "Discuss potential growth opportunities and new challenges that might re-engage him",
+        "keyBehaviors": [
+          "Propose new challenges",
+          "Discuss career development",
+          "Explore his interests and goals"
+        ],
+        "successIndicators": [
+          "Michael shows increased interest",
+          "He begins suggesting ideas",
+          "His energy level noticeably increases"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Action Planning and Commitment",
+        "description": "Work together to create a specific action plan for his re-engagement and growth",
+        "keyBehaviors": [
+          "Co-create development plan",
+          "Set specific goals and timelines",
+          "Get his commitment"
+        ],
+        "successIndicators": [
+          "Michael actively participates in planning",
+          "He shows enthusiasm for the plan",
+          "Clear next steps are established"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "delegating-task-chloe",
+    "title": "Delegating a Task",
+    "description": "Successfully delegate a complex task to an eager but anxious junior team member",
+    "scenario": "You need to delegate an important client presentation to Chloe Davis, a junior marketing coordinator. She's enthusiastic and hardworking but tends to struggle with confidence and may not ask questions when she should.",
+    "objectives": [
+      "Delegate the task clearly with proper expectations",
+      "Ensure Chloe understands timelines and deliverables",
+      "Make her feel comfortable asking for help when needed"
+    ],
+    "personaSlug": "chloe-davis-anxious-junior",
+    "estimatedDurationMinutes": 20,
+    "difficulty": 3,
+    "skillsToLearn": ["Delegation skills", "Clear communication", "Confidence building", "Check-in processes"],
+    "tags": ["delegation", "leadership", "confidence", "junior"],
+    "successCriteria": {
+      "communication": ["Clear instructions", "Encouraging tone", "Open-ended questions"],
+      "problemSolving": ["Detailed planning", "Resource provision", "Safety net creation"],
+      "emotional": ["Confidence building", "Psychological safety", "Support offering"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Opening and Context Setting",
+        "description": "Start the conversation by setting a supportive tone and explaining why Chloe was chosen for this task",
+        "keyBehaviors": [
+          "Acknowledge her strengths",
+          "Express confidence in her abilities",
+          "Set positive tone"
+        ],
+        "successIndicators": [
+          "Chloe feels valued and chosen for good reasons",
+          "Initial nervousness begins to subside",
+          "She shows engagement and interest"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Task Overview and Importance",
+        "description": "Clearly explain what the client presentation entails and why it's important to the team/company",
+        "keyBehaviors": [
+          "Provide clear context",
+          "Explain the task's significance",
+          "Share the bigger picture"
+        ],
+        "successIndicators": [
+          "Chloe understands the task scope",
+          "She grasps the importance without feeling overwhelmed",
+          "Questions start to emerge naturally"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 3,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Detailed Requirements and Expectations",
+        "description": "Break down the specific deliverables, timeline, and quality expectations for the presentation",
+        "keyBehaviors": [
+          "Be specific about deliverables",
+          "Set clear deadlines",
+          "Define success criteria"
+        ],
+        "successIndicators": [
+          "Chloe can repeat back key requirements",
+          "Timeline is clearly understood",
+          "Expectations are realistic and achievable"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Resource Provision and Support Structure",
+        "description": "Identify what resources, tools, and support Chloe will have access to complete the task",
+        "keyBehaviors": [
+          "List available resources",
+          "Introduce key contacts",
+          "Explain support systems"
+        ],
+        "successIndicators": [
+          "Chloe knows where to find help",
+          "Resources are clearly identified",
+          "Support network is established"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.6,
+          "successThreshold": 0.6,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 2
+        }
+      },
+      {
+        "goalNumber": 5,
+        "isOptional": true,
+        "title": "Check-in Schedule and Communication Plan",
+        "description": "Establish regular check-ins and make it safe for Chloe to ask questions or raise concerns",
+        "keyBehaviors": [
+          "Schedule specific check-ins",
+          "Encourage questions",
+          "Create psychological safety"
+        ],
+        "successIndicators": [
+          "Regular meeting times are set",
+          "Chloe feels comfortable asking questions",
+          "Communication preferences are established"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 6,
+        "title": "Confidence Building and Final Agreement",
+        "description": "Reinforce confidence in Chloe's abilities and get her explicit agreement to take on the task",
+        "keyBehaviors": [
+          "Reinforce her capabilities",
+          "Address any final concerns",
+          "Get clear commitment"
+        ],
+        "successIndicators": [
+          "Chloe expresses confidence (even if nervous)",
+          "Any final questions are addressed",
+          "Agreement is reached and Chloe accepts the task"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  }
+]
