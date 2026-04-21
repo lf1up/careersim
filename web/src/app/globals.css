@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: theme('colors.retro.paper');
+  color: theme('colors.retro.ink');
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background: theme('colors.retro.paper-dark');
+  color: theme('colors.retro.ink-dark');
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Custom scrollbar - Light mode */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Custom scrollbar - Dark mode */
+.dark ::-webkit-scrollbar-track {
+  background: #262626;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #525252;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #737373;
+}
+
+/* Focus styles */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+.dark .focus-ring {
+  @apply focus:ring-offset-retro-paper-dark;
+}
+
+/* Retro utility classes with dark mode variants */
+.retro-card {
+  @apply bg-white border-2 border-black shadow-retro-4 rounded-md;
+}
+
+.dark .retro-card {
+  @apply bg-retro-surface-dark border-retro-ink-dark shadow-retro-dark-4;
+}
+
+.retro-btn-base {
+  @apply inline-flex items-center justify-center border-2 border-black shadow-retro-3 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 transition-transform;
+}
+
+.dark .retro-btn-base {
+  @apply border-retro-ink-dark shadow-retro-dark-3 active:shadow-retro-dark-1;
+}
+
+.retro-input {
+  @apply border-2 border-black bg-white px-3 py-2 rounded-none focus:ring-0 focus:outline-none shadow-retro-3;
+}
+
+.dark .retro-input {
+  @apply border-retro-ink-dark bg-retro-surface-dark text-retro-ink-dark shadow-retro-dark-3;
+}
+
+/* Custom select styling with better chevron positioning */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+  background-size: 0.9em;
+  padding-right: 3rem !important;
+}
+
+select::-ms-expand {
+  display: none;
+}

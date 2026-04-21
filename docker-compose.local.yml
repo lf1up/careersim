@@ -1,6 +1,18 @@
 services:
-  # Legacy Node.js backend (superseded by the `api` service below). Kept here as
-  # a reference while we finish the cut-over.
+  # =====================================================================
+  # DEPRECATED SERVICES — kept commented out for reference only.
+  # ---------------------------------------------------------------------
+  # The following services are no longer part of the active runtime:
+  #   - `backend`       → superseded by `api`  (Fastify rewrite)
+  #   - `frontend`      → superseded by `web`  (Next.js 15 rewrite)
+  #   - `transformers`  → absorbed into `agent` (in-process inference)
+  #   - `rag`           → absorbed into `agent` (embedded Chroma DB)
+  #
+  # DO NOT re-enable without discussion. These directories will be removed
+  # once the migration settles; see each service's README for details.
+  # =====================================================================
+
+  # DEPRECATED: replaced by the `api` service below. See ./backend/README.md.
   # backend:
   #   build:
   #     context: ./backend
@@ -92,6 +104,48 @@ services:
         pnpm run dev
             "
 
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      target: dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./web/.env
+    environment:
+      NODE_ENV: development
+      # Poll-based watchers are more reliable across bind-mounted filesystems
+      # (especially on macOS/Windows), matching the legacy `frontend` setup.
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # NEXT_PUBLIC_* is baked into the browser bundle, so it must be the URL
+      # the user's browser can reach — i.e. the host-mapped api port, not the
+      # compose-internal `http://api:8000`.
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+    volumes:
+      - ./web:/app
+      # Keep the image's node_modules and .next inside anonymous volumes so the
+      # host's (potentially different-arch) artifacts don't leak into the
+      # container.
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - careersim-network
+    restart: unless-stopped
+    # `pnpm install` runs on boot so the anonymous node_modules volume is
+    # populated on first start and stays in sync with pnpm-lock.yaml after.
+    command: >
+      sh -c "
+        pnpm install --frozen-lockfile=false &&
+        echo 'Starting Next.js dev server...' &&
+        pnpm dev
+            "
+
+  # DEPRECATED: replaced by the `web` service above. See ./frontend/README.md.
   # frontend:
   #   build:
   #     context: ./frontend
@@ -133,7 +187,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U careersim"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
 
@@ -178,13 +232,14 @@ services:
     healthcheck:
       # `/health` is the cheapest FastAPI endpoint (see agent/src/careersim_agent/api/app.py).
       test: ["CMD-SHELL", "python -c \"import sys, httpx; r = httpx.get('http://localhost:8001/health', timeout=5.0); sys.exit(0 if r.status_code == 200 else 1)\""]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
       start_period: 120s
     command: ["python", "-m", "careersim_agent.main", "--serve", "api", "--host", "0.0.0.0", "--port", "8001"]
 
-  # TODO: Uncomment this to obtain the dockerized transformers service (GPU acceleration could not be supported on M1/M2 Macs)
+  # DEPRECATED: model inference is now handled in-process by the `agent`
+  # service. See ./transformers/README.md.
   # transformers:
   #   build:
   #     context: ./transformers
@@ -211,7 +266,8 @@ services:
   #     start_period: 60s
   #   command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload", "--log-level", "info"]
 
-  # TODO: Uncomment this to obtain the dockerized rag service (GPU acceleration could not be supported on M1/M2 Macs)
+  # DEPRECATED: retrieval is now handled in-process by the `agent` service
+  # (Chroma DB is embedded, see `agent_chroma_db` volume). See ./rag/README.md.
   # rag:
   #   build:
   #     context: ./rag

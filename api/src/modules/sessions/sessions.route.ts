@@ -226,12 +226,24 @@ async function runSseProxy(
 ): Promise<void> {
   const { session, persist } = await ctx.load();
 
-  reply.raw.writeHead(200, {
+  // We write directly to `reply.raw`, which bypasses Fastify's reply lifecycle
+  // — including the @fastify/cors hook that would otherwise add CORS headers.
+  // Echo the request origin manually so browsers don't block the SSE response
+  // once the preflight OPTIONS has already succeeded.
+  const headers: Record<string, string> = {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no',
-  });
+  };
+  const origin = request.headers.origin;
+  if (typeof origin === 'string' && origin.length > 0) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Credentials'] = 'true';
+    headers.Vary = 'Origin';
+  }
+
+  reply.raw.writeHead(200, headers);
 
   const abort = new AbortController();
   request.raw.once('close', () => abort.abort());

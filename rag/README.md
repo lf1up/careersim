@@ -1,5 +1,14 @@
 # RAG (ChromaDB) Microservice
 
+> [!WARNING]
+> **DEPRECATED — no longer maintained.**
+>
+> Retrieval now lives inside the unified [`agent/`](../agent) service (Chroma DB is mounted at `agent_chroma_db` and accessed in-process by the LangGraph agent). A separate RAG HTTP hop is no longer part of the runtime architecture.
+>
+> - **Replacement:** [`agent/`](../agent) (Chroma is embedded; no HTTP boundary)
+> - **Status:** commented out in `docker-compose.local.yml`; do not re-enable.
+> - **Do not add new code here.** Retrieval logic belongs in `agent/src/careersim_agent/`.
+
 A FastAPI-based microservice that serves a local ChromaDB vector store for text embeddings: create/list/delete collections, upsert documents with embeddings, and run semantic queries.
 
 ## 🚀 Features

@@ -1,5 +1,14 @@
 # CareerSim Backend
 
+> [!WARNING]
+> **DEPRECATED — no longer maintained.**
+>
+> This Express-based backend has been superseded by [`api/`](../api) (Fastify + Drizzle + JWT + SSE streaming). New features, bug fixes, and deployments target `api/` only. This directory is kept **for reference while the cut-over finishes** and will be removed in a future clean-up.
+>
+> - **Replacement:** [`api/`](../api)
+> - **Status:** commented out in `docker-compose.local.yml`; do not re-enable.
+> - **Do not add new code here.** If you still need something from this codebase, port it into `api/`.
+
 A comprehensive Node.js backend for the CareerSim AI-powered career skills simulator platform.
 
 ## 🏗️ Architecture Overview

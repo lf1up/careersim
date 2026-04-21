@@ -1,5 +1,14 @@
 # Transformer Models Microservice
 
+> [!WARNING]
+> **DEPRECATED — no longer maintained.**
+>
+> Classification and inference concerns have been consolidated into the unified [`agent/`](../agent) service, which handles model orchestration in-process. This standalone HuggingFace HTTP shim is no longer part of the runtime architecture.
+>
+> - **Replacement:** [`agent/`](../agent)
+> - **Status:** commented out in `docker-compose.local.yml`; do not re-enable.
+> - **Do not add new models here.** Any new inference should be wired through `agent/`.
+
 A FastAPI-based microservice that serves four different Hugging Face transformer models for text classification tasks.
 
 ## 🚀 Features
