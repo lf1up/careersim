@@ -31,11 +31,13 @@ export const Button: React.FC<ButtonProps> = ({
       'bg-white dark:bg-retro-surface-dark text-black dark:text-retro-ink-dark',
     // `ghost` sits inside `retro-btn-base`, which applies a retro drop-shadow
     // + press animation to every button. For a flat text-button look we have
-    // to cancel those with `!` overrides and replace the motion with a subtle
-    // background tint so hover still feels responsive. `text-retro-ink` picks
-    // up the palette's warm slate-900 instead of pure `#000`.
+    // to cancel those with `!` overrides and replace the motion with a
+    // hover background tint. `retro.muted` (gray-200) sits clearly above the
+    // cream `retro.paper` page background; `retro.muted-dark` does the same
+    // in dark mode. `text-retro-ink` matches the palette's warm slate-900
+    // instead of pure `#000`.
     ghost:
-      'bg-transparent text-retro-ink dark:text-retro-ink-dark border-transparent !shadow-none enabled:hover:bg-retro-paper dark:enabled:hover:bg-retro-surface-dark/60 enabled:hover:!translate-x-0 enabled:hover:!translate-y-0 active:!translate-x-0 active:!translate-y-0',
+      'bg-transparent text-retro-ink dark:text-retro-ink-dark border-transparent !shadow-none enabled:hover:bg-retro-muted dark:enabled:hover:bg-retro-muted-dark enabled:hover:!translate-x-0 enabled:hover:!translate-y-0 active:!translate-x-0 active:!translate-y-0',
     danger: 'bg-red-600 dark:bg-red-500 text-white hover:opacity-90',
   } as const;
 
