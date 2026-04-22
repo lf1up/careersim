@@ -155,7 +155,7 @@ export default function SimulationDetailPage() {
     simulation.success_criteria.emotional.length > 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 retro-fade-in">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link href="/simulations">
           <Button variant="ghost" size="sm">
@@ -287,7 +287,7 @@ export default function SimulationDetailPage() {
             </span>
           }
         >
-          <ol className="space-y-4">
+          <ol className="space-y-4 retro-stagger">
             {simulation.conversation_goals.map((goal) => (
               <li
                 key={goal.goal_number}

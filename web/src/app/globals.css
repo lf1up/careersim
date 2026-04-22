@@ -79,12 +79,29 @@ code {
   @apply bg-retro-surface-dark border-retro-ink-dark shadow-retro-dark-4;
 }
 
+/*
+ * `retro-card-interactive` adds a press-down feel to clickable card surfaces
+ * (session rows, simulation cards, etc.). Pair it with a wrapping <Link> or
+ * <button> so the entire card behaves as one tap target.
+ *
+ * The progression mirrors `.retro-btn-base` so buttons inside the card don't
+ * fight the parent's animation: resting shadow-retro-4 → hover shadow-retro-2
+ * (+1px translate) → active shadow-retro-1 (+2px translate).
+ */
+.retro-card-interactive {
+  @apply cursor-pointer hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 transition-[transform,box-shadow] duration-150 ease-out;
+}
+
+.dark .retro-card-interactive {
+  @apply hover:shadow-retro-dark-2 active:shadow-retro-dark-1;
+}
+
 .retro-btn-base {
-  @apply inline-flex items-center justify-center border-2 border-black shadow-retro-3 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 transition-transform;
+  @apply inline-flex items-center justify-center border-2 border-black shadow-retro-3 enabled:hover:translate-x-[1px] enabled:hover:translate-y-[1px] enabled:hover:shadow-retro-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 transition-[transform,box-shadow] duration-150 ease-out;
 }
 
 .dark .retro-btn-base {
-  @apply border-retro-ink-dark shadow-retro-dark-3 active:shadow-retro-dark-1;
+  @apply border-retro-ink-dark shadow-retro-dark-3 enabled:hover:shadow-retro-dark-2 active:shadow-retro-dark-1;
 }
 
 .retro-input {
@@ -107,4 +124,51 @@ select {
 
 select::-ms-expand {
   display: none;
+}
+
+/*
+ * Entrance animations used on list views and cards. Keeps the site from
+ * feeling static on first paint without being flashy — a quick 220 ms rise
+ * and fade, with optional staggered delays for lists.
+ */
+@keyframes retroFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.retro-fade-in {
+  animation: retroFadeInUp 220ms ease-out both;
+}
+
+/* Stagger children by ~40 ms up to the 10th item. Beyond that the delay
+ * caps out so very long lists still finish in a timely manner. */
+.retro-stagger > * {
+  animation: retroFadeInUp 220ms ease-out both;
+}
+.retro-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.retro-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.retro-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.retro-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.retro-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.retro-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.retro-stagger > *:nth-child(7) { animation-delay: 240ms; }
+.retro-stagger > *:nth-child(8) { animation-delay: 280ms; }
+.retro-stagger > *:nth-child(9) { animation-delay: 320ms; }
+.retro-stagger > *:nth-child(n+10) { animation-delay: 360ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .retro-fade-in,
+  .retro-stagger > * {
+    animation: none;
+  }
+  .retro-btn-base,
+  .retro-card-interactive {
+    transition: none;
+  }
 }

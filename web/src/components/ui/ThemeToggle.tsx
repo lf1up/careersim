@@ -21,8 +21,10 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '' }) => {
         border-2 border-black dark:border-retro-ink-dark
         bg-white dark:bg-retro-surface-dark
         shadow-retro-2 dark:shadow-retro-dark-2
-        transition-transform
-        active:translate-x-[1px] active:translate-y-[1px]
+        transition-[transform,box-shadow] duration-150 ease-out
+        hover:translate-x-[1px] hover:translate-y-[1px]
+        hover:shadow-retro-1 dark:hover:shadow-retro-dark-1
+        active:translate-x-[2px] active:translate-y-[2px]
         active:shadow-retro-1 dark:active:shadow-retro-dark-1
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2
         ${className}

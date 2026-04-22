@@ -58,7 +58,7 @@ export default function DashboardPage() {
     .slice(0, 5);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 retro-fade-in">
       <RetroCard
         title={<span className="font-retro tracking-wider2">WELCOME BACK</span>}
         subtitle={user?.email ?? 'Loading user...'}
@@ -121,25 +121,28 @@ export default function DashboardPage() {
             .
           </p>
         ) : (
-          <ul className="divide-y-2 divide-black/10 dark:divide-retro-ink-dark/20">
+          <ul className="divide-y-2 divide-black/10 dark:divide-retro-ink-dark/20 retro-stagger">
             {recentSessions.map((s) => (
-              <li
-                key={s.id}
-                className="py-3 flex items-center justify-between gap-4"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold text-retro-ink dark:text-retro-ink-dark truncate">
-                    {s.simulation_slug}
-                  </p>
-                  <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400">
-                    {s.message_count} messages · updated{' '}
-                    {new Date(s.updated_at).toLocaleString()}
-                  </p>
-                </div>
-                <Link href={`/sessions/${s.id}`}>
-                  <Button variant="outline" size="sm">
-                    Open
-                  </Button>
+              <li key={s.id}>
+                <Link
+                  href={`/sessions/${s.id}`}
+                  className="group flex items-center justify-between gap-4 py-3 px-2 -mx-2 transition-[background-color,transform] duration-150 ease-out hover:bg-retro-paper dark:hover:bg-retro-surface-dark/40 hover:translate-x-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-retro-ink dark:text-retro-ink-dark truncate">
+                      {s.simulation_slug}
+                    </p>
+                    <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400">
+                      {s.message_count} messages · updated{' '}
+                      {new Date(s.updated_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-retro-ink dark:text-retro-ink-dark text-lg font-semibold select-none transition-transform duration-150 ease-out group-hover:translate-x-[3px]"
+                  >
+                    →
+                  </span>
                 </Link>
               </li>
             ))}

@@ -55,7 +55,7 @@ export default function SessionsPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 retro-fade-in">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
@@ -81,26 +81,33 @@ export default function SessionsPage() {
           </p>
         </RetroCard>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3 retro-stagger">
           {sorted.map((s) => (
-            <RetroCard key={s.id}>
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-0">
-                  <p className="font-semibold text-retro-ink dark:text-retro-ink-dark break-all">
-                    {s.simulation_slug}
-                  </p>
-                  <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 mt-1">
-                    {s.message_count} messages · created {formatDate(s.created_at)} ·
-                    updated {formatDate(s.updated_at)}
-                  </p>
+            <Link
+              key={s.id}
+              href={`/sessions/${s.id}`}
+              className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
+            >
+              <RetroCard className="retro-card-interactive">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-retro-ink dark:text-retro-ink-dark break-all">
+                      {s.simulation_slug}
+                    </p>
+                    <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 mt-1">
+                      {s.message_count} messages · created {formatDate(s.created_at)} ·
+                      updated {formatDate(s.updated_at)}
+                    </p>
+                  </div>
+                  <span
+                    aria-hidden
+                    className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
+                  >
+                    →
+                  </span>
                 </div>
-                <Link href={`/sessions/${s.id}`}>
-                  <Button variant="outline" size="sm">
-                    Open
-                  </Button>
-                </Link>
-              </div>
-            </RetroCard>
+              </RetroCard>
+            </Link>
           ))}
         </div>
       )}

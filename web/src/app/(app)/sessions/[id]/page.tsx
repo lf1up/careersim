@@ -272,7 +272,7 @@ export default function SessionDetailPage() {
     session.session_config.max_inactivity_nudges === null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 retro-fade-in">
       <RetroCard
         title={session.simulation_slug}
         subtitle={

@@ -9,7 +9,6 @@ import type { Simulation } from '@/lib/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge, type RetroBadgeProps } from '@/components/ui/RetroBadge';
-import { Button } from '@/components/ui/Button';
 
 function difficultyColor(level: number | null | undefined): RetroBadgeProps['color'] {
   if (level == null) return 'default';
@@ -86,7 +85,7 @@ export default function SimulationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 retro-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
@@ -121,86 +120,85 @@ export default function SimulationsPage() {
           </p>
         </RetroCard>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 retro-stagger">
           {filtered.map((sim) => (
-            <RetroCard
+            <Link
               key={sim.slug}
-              className="flex flex-col"
-              bodyClassName="flex-1 flex flex-col"
-              title={sim.title}
-              subtitle={
-                <span className="font-monoRetro">{sim.slug}</span>
-              }
+              href={`/simulations/${encodeURIComponent(sim.slug)}`}
+              className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
             >
-              <div className="flex-1 space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <RetroBadge color="cyan">{sim.persona_name}</RetroBadge>
-                  <RetroBadge color={difficultyColor(sim.difficulty)}>
-                    {difficultyLabel(sim.difficulty)}
-                  </RetroBadge>
-                  {typeof sim.estimated_duration_minutes === 'number' && (
-                    <RetroBadge color="default">
-                      ~{sim.estimated_duration_minutes} min
+              <RetroCard
+                className="flex flex-col h-full retro-card-interactive"
+                bodyClassName="flex-1 flex flex-col"
+                title={sim.title}
+                subtitle={
+                  <span className="font-monoRetro">{sim.slug}</span>
+                }
+              >
+                <div className="flex-1 space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <RetroBadge color="cyan">{sim.persona_name}</RetroBadge>
+                    <RetroBadge color={difficultyColor(sim.difficulty)}>
+                      {difficultyLabel(sim.difficulty)}
                     </RetroBadge>
+                    {typeof sim.estimated_duration_minutes === 'number' && (
+                      <RetroBadge color="default">
+                        ~{sim.estimated_duration_minutes} min
+                      </RetroBadge>
+                    )}
+                    {typeof sim.goal_count === 'number' && sim.goal_count > 0 && (
+                      <RetroBadge color="purple">
+                        {sim.goal_count} goal{sim.goal_count === 1 ? '' : 's'}
+                      </RetroBadge>
+                    )}
+                  </div>
+
+                  {sim.description && (
+                    <p className="text-sm text-retro-ink dark:text-retro-ink-dark">
+                      {sim.description}
+                    </p>
                   )}
-                  {typeof sim.goal_count === 'number' && sim.goal_count > 0 && (
-                    <RetroBadge color="purple">
-                      {sim.goal_count} goal{sim.goal_count === 1 ? '' : 's'}
-                    </RetroBadge>
+
+                  {sim.skills_to_learn && sim.skills_to_learn.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-semibold tracking-wider2 text-secondary-600 dark:text-secondary-400 mb-1.5">
+                        SKILLS
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {sim.skills_to_learn.slice(0, 5).map((skill) => (
+                          <RetroBadge key={skill} color="teal">
+                            {skill}
+                          </RetroBadge>
+                        ))}
+                        {sim.skills_to_learn.length > 5 && (
+                          <RetroBadge color="default">
+                            +{sim.skills_to_learn.length - 5}
+                          </RetroBadge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {sim.tags && sim.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {sim.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[11px] font-monoRetro text-secondary-600 dark:text-secondary-400"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                {sim.description && (
-                  <p className="text-sm text-retro-ink dark:text-retro-ink-dark">
-                    {sim.description}
-                  </p>
-                )}
-
-                {sim.skills_to_learn && sim.skills_to_learn.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-semibold tracking-wider2 text-secondary-600 dark:text-secondary-400 mb-1.5">
-                      SKILLS
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {sim.skills_to_learn.slice(0, 5).map((skill) => (
-                        <RetroBadge key={skill} color="teal">
-                          {skill}
-                        </RetroBadge>
-                      ))}
-                      {sim.skills_to_learn.length > 5 && (
-                        <RetroBadge color="default">
-                          +{sim.skills_to_learn.length - 5}
-                        </RetroBadge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {sim.tags && sim.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {sim.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[11px] font-monoRetro text-secondary-600 dark:text-secondary-400"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-5 flex gap-2">
-                <Link
-                  href={`/simulations/${encodeURIComponent(sim.slug)}`}
-                  className="flex-1"
-                >
-                  <Button className="w-full" variant="primary">
-                    View details
-                  </Button>
-                </Link>
-              </div>
-            </RetroCard>
+                <div className="mt-5 flex items-center justify-between text-xs font-semibold tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
+                  <span>VIEW DETAILS</span>
+                  <span aria-hidden className="text-base">→</span>
+                </div>
+              </RetroCard>
+            </Link>
           ))}
         </div>
       )}
