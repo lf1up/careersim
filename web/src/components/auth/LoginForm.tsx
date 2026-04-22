@@ -2,25 +2,31 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
+import { safeNextPath } from '@/lib/safe-next-path';
 
 export const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login, isLoading, error } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Honor a `next=` query param so guests deep-linking from a public
+  // page (e.g. `/simulations/[slug]`) land back on that page after auth.
+  const nextPath = safeNextPath(searchParams.get('next'), '/dashboard');
+  const registerHref = `/register?next=${encodeURIComponent(nextPath)}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await login(email, password);
-      router.push('/dashboard');
+      router.push(nextPath);
     } catch {
       // surfaced via AuthContext.error
     }
@@ -35,7 +41,7 @@ export const LoginForm: React.FC = () => {
             <span className="text-secondary-600 dark:text-secondary-400">
               New to careersim.ai?{' '}
               <Link
-                href="/register"
+                href={registerHref}
                 className="underline text-primary-600 dark:text-primary-400"
               >
                 create an account

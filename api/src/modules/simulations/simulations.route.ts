@@ -66,14 +66,15 @@ export const simulationsRoutes: FastifyPluginAsyncZod<SimulationsRouteOptions> =
   app,
   opts,
 ) => {
+  // Simulation catalogue endpoints are PUBLIC: guests can browse the list
+  // and detail pages before signing up. All write endpoints (sessions,
+  // messages, nudges) still require `app.authenticate`.
   app.get(
     '/simulations',
     {
-      onRequest: [app.authenticate],
       schema: {
         tags: ['simulations'],
         summary: 'List available simulations (proxied from the agent)',
-        security: [{ bearerAuth: [] }],
         response: { 200: simulationsResponseSchema },
       },
     },
@@ -85,11 +86,9 @@ export const simulationsRoutes: FastifyPluginAsyncZod<SimulationsRouteOptions> =
   app.get(
     '/simulations/:slug',
     {
-      onRequest: [app.authenticate],
       schema: {
         tags: ['simulations'],
         summary: 'Fetch full detail for a single simulation (proxied from the agent)',
-        security: [{ bearerAuth: [] }],
         params: z.object({ slug: z.string().min(1) }),
         response: {
           200: simulationDetailSchema,

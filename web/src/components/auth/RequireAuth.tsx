@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -9,12 +9,22 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace('/login');
+      // Preserve where the user was heading so they get bounced back
+      // there after signing in (see `LoginForm` / `RegisterForm`).
+      const qs = searchParams.toString();
+      const next = qs ? `${pathname}?${qs}` : pathname;
+      const target =
+        next && next !== '/'
+          ? `/login?next=${encodeURIComponent(next)}`
+          : '/login';
+      router.replace(target);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, pathname, searchParams]);
 
   if (isLoading || !isAuthenticated) {
     return (

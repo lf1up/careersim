@@ -7,31 +7,12 @@ import toast from 'react-hot-toast';
 
 import { apiClient, ApiError } from '@/lib/api';
 import type { SimulationDetail } from '@/lib/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
-import { RetroBadge, RetroAlert, type RetroBadgeProps } from '@/components/ui/RetroBadge';
+import { RetroBadge, RetroAlert } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
-
-function difficultyColor(level: number | null | undefined): RetroBadgeProps['color'] {
-  if (level == null) return 'default';
-  if (level <= 1) return 'lime';
-  if (level === 2) return 'green';
-  if (level === 3) return 'amber';
-  if (level === 4) return 'orange';
-  return 'red';
-}
-
-function difficultyLabel(level: number | null | undefined): string {
-  if (level == null) return '—';
-  const labels: Record<number, string> = {
-    1: 'Beginner',
-    2: 'Easy',
-    3: 'Moderate',
-    4: 'Challenging',
-    5: 'Expert',
-  };
-  return labels[level] ?? `Level ${level}`;
-}
 
 function humanizeCategory(category: string | null | undefined): string | null {
   if (!category) return null;
@@ -73,6 +54,7 @@ export default function SimulationDetailPage() {
   const params = useParams<{ slug: string }>();
   const slug = decodeURIComponent(params.slug);
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [simulation, setSimulation] = useState<SimulationDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +90,14 @@ export default function SimulationDetailPage() {
   }, [slug]);
 
   const handleStart = async () => {
+    // Guests are bounced through register; the `next` param brings them
+    // straight back to this simulation page after they sign up, where they
+    // can hit "Start session" again with an authenticated session.
+    if (!authLoading && !isAuthenticated) {
+      const next = `/simulations/${encodeURIComponent(slug)}`;
+      router.push(`/register?next=${encodeURIComponent(next)}`);
+      return;
+    }
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
@@ -228,7 +218,9 @@ export default function SimulationDetailPage() {
               isLoading={starting}
               onClick={handleStart}
             >
-              Start session
+              {!authLoading && !isAuthenticated
+                ? 'Sign up to start'
+                : 'Start session'}
             </Button>
             <Link href="/simulations">
               <Button variant="outline" disabled={starting}>

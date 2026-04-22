@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
+import { safeNextPath } from '@/lib/safe-next-path';
 
 export const RegisterForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,6 +19,9 @@ export const RegisterForm: React.FC = () => {
 
   const { register, isLoading, error } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNextPath(searchParams.get('next'), '/dashboard');
+  const loginHref = `/login?next=${encodeURIComponent(nextPath)}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +39,7 @@ export const RegisterForm: React.FC = () => {
 
     try {
       await register(email, password);
-      router.push('/dashboard');
+      router.push(nextPath);
     } catch {
       // surfaced via AuthContext.error
     }
@@ -49,7 +53,7 @@ export const RegisterForm: React.FC = () => {
           subtitle={
             <span className="text-secondary-600 dark:text-secondary-400">
               Already a member?{' '}
-              <Link href="/login" className="underline text-primary-600 dark:text-primary-400">
+              <Link href={loginHref} className="underline text-primary-600 dark:text-primary-400">
                 sign in
               </Link>
             </span>

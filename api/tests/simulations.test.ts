@@ -15,9 +15,12 @@ describe('GET /simulations', () => {
     await h.close();
   });
 
-  it('requires auth', async () => {
+  it('is publicly accessible (guests can browse the catalogue)', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/simulations' });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(Array.isArray(body.simulations)).toBe(true);
+    expect(h.agent.callLog).toContain('listSimulations');
   });
 
   it('proxies the agent response with summary metadata', async () => {
@@ -54,12 +57,16 @@ describe('GET /simulations/:slug', () => {
     await h.close();
   });
 
-  it('requires auth', async () => {
+  it('is publicly accessible (guests can preview a simulation)', async () => {
     const res = await h.app.inject({
       method: 'GET',
       url: '/simulations/behavioral-interview-brenda',
     });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      slug: 'behavioral-interview-brenda',
+      title: expect.any(String),
+    });
   });
 
   it('returns full detail when the simulation exists', async () => {
@@ -101,11 +108,9 @@ describe('GET /simulations/:slug', () => {
   });
 
   it('returns 404 when the agent reports the simulation is missing', async () => {
-    const { authHeader } = await registerAndAuth(h.app);
     const res = await h.app.inject({
       method: 'GET',
       url: '/simulations/does-not-exist',
-      headers: authHeader,
     });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({
