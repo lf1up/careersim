@@ -6,30 +6,10 @@ import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
 import type { Simulation } from '@/lib/types';
+import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
-import { RetroBadge, type RetroBadgeProps } from '@/components/ui/RetroBadge';
-
-function difficultyColor(level: number | null | undefined): RetroBadgeProps['color'] {
-  if (level == null) return 'default';
-  if (level <= 1) return 'lime';
-  if (level === 2) return 'green';
-  if (level === 3) return 'amber';
-  if (level === 4) return 'orange';
-  return 'red';
-}
-
-function difficultyLabel(level: number | null | undefined): string {
-  if (level == null) return '—';
-  const labels: Record<number, string> = {
-    1: 'Beginner',
-    2: 'Easy',
-    3: 'Moderate',
-    4: 'Challenging',
-    5: 'Expert',
-  };
-  return labels[level] ?? `Level ${level}`;
-}
+import { RetroBadge } from '@/components/ui/RetroBadge';
 
 export default function SimulationsPage() {
   const [simulations, setSimulations] = useState<Simulation[]>([]);
@@ -85,7 +65,7 @@ export default function SimulationsPage() {
   }
 
   return (
-    <div className="space-y-6 retro-fade-in">
+    <div className="space-y-6 pb-12 sm:pb-16 retro-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">

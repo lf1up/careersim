@@ -1,13 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
-import type { SessionSummary } from '@/lib/types';
+import type { SessionSummary, Simulation } from '@/lib/types';
+import {
+  difficultyColor,
+  difficultyLabel,
+  indexSimulations,
+} from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
+import { RetroBadge } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
 
 function formatDate(iso: string): string {
@@ -20,14 +26,24 @@ function formatDate(iso: string): string {
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const rows = await apiClient.listSessions();
-        if (!cancelled) setSessions(rows);
+        // Sessions only carry `simulation_slug`; fetch the catalogue in
+        // parallel so we can surface the title, difficulty, goal count,
+        // and persona name inline on each row.
+        const [rows, sims] = await Promise.all([
+          apiClient.listSessions(),
+          apiClient.listSimulations(),
+        ]);
+        if (!cancelled) {
+          setSessions(rows);
+          setSimulations(sims);
+        }
       } catch (err) {
         if (!cancelled) {
           toast.error(err instanceof Error ? err.message : 'Failed to load sessions');
@@ -42,6 +58,11 @@ export default function SessionsPage() {
     };
   }, []);
 
+  const simulationBySlug = useMemo(
+    () => indexSimulations(simulations),
+    [simulations],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -55,7 +76,7 @@ export default function SessionsPage() {
   );
 
   return (
-    <div className="space-y-6 retro-fade-in">
+    <div className="space-y-6 pb-12 sm:pb-16 retro-fade-in">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
@@ -82,33 +103,55 @@ export default function SessionsPage() {
         </RetroCard>
       ) : (
         <div className="space-y-3 retro-stagger">
-          {sorted.map((s) => (
-            <Link
-              key={s.id}
-              href={`/sessions/${s.id}`}
-              className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
-            >
-              <RetroCard className="retro-card-interactive">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-retro-ink dark:text-retro-ink-dark break-all">
-                      {s.simulation_slug}
-                    </p>
-                    <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 mt-1">
-                      {s.message_count} messages · created {formatDate(s.created_at)} ·
-                      updated {formatDate(s.updated_at)}
-                    </p>
+          {sorted.map((s) => {
+            const sim = simulationBySlug[s.simulation_slug];
+            const title = sim?.title ?? s.simulation_slug;
+            return (
+              <Link
+                key={s.id}
+                href={`/sessions/${s.id}`}
+                className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
+              >
+                <RetroCard className="retro-card-interactive">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <p className="font-semibold text-retro-ink dark:text-retro-ink-dark break-words">
+                        {title}
+                      </p>
+                      {/* Meta pills: hidden if the simulation couldn't be
+                          resolved from the catalogue (e.g. it was deleted). */}
+                      {sim && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {sim.persona_name && (
+                            <RetroBadge color="cyan">{sim.persona_name}</RetroBadge>
+                          )}
+                          <RetroBadge color={difficultyColor(sim.difficulty)}>
+                            {difficultyLabel(sim.difficulty)}
+                          </RetroBadge>
+                          {typeof sim.goal_count === 'number' && sim.goal_count > 0 && (
+                            <RetroBadge color="purple">
+                              {sim.goal_count} goal
+                              {sim.goal_count === 1 ? '' : 's'}
+                            </RetroBadge>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400">
+                        {s.message_count} messages · created {formatDate(s.created_at)} · updated{' '}
+                        {formatDate(s.updated_at)}
+                      </p>
+                    </div>
+                    <span
+                      aria-hidden
+                      className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
+                    >
+                      →
+                    </span>
                   </div>
-                  <span
-                    aria-hidden
-                    className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
-                  >
-                    →
-                  </span>
-                </div>
-              </RetroCard>
-            </Link>
-          ))}
+                </RetroCard>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
