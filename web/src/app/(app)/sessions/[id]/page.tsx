@@ -14,7 +14,10 @@ import { RetroPanel } from '@/components/ui/RetroPanel';
 import { RetroAlert, RetroBadge } from '@/components/ui/RetroBadge';
 import { ChatTranscript } from '@/components/chat/ChatTranscript';
 import { ChatComposer } from '@/components/chat/ChatComposer';
-import { GoalProgressTracker } from '@/components/chat/GoalProgressTracker';
+import {
+  GoalProgressChips,
+  GoalProgressSummary,
+} from '@/components/chat/GoalProgressTracker';
 
 // Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
 // the persona's typing pause between burst messages without leaving a dead
@@ -335,15 +338,25 @@ export default function SessionDetailPage() {
             {session.messages.length} messages
           </span>
         }
+        actions={
+          // Right-aligned compact progress bar in the header. Using the
+          // card's `actions` slot means it sits flush with the title and
+          // gets the free right-alignment we need, while the wider chips
+          // list stays in the card body below.
+          <GoalProgressSummary
+            className="self-center"
+            progress={session.goal_progress}
+            goals={simulation?.conversation_goals}
+          />
+        }
       >
-        <GoalProgressTracker
+        <GoalProgressChips
           progress={session.goal_progress}
           goals={simulation?.conversation_goals}
         />
       </RetroCard>
 
       <RetroPanel
-        title="Transcript"
         className="flex-1 min-h-0 flex flex-col"
         bodyClassName="flex-1 min-h-0 flex flex-col"
       >

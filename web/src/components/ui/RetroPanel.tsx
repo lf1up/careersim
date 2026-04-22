@@ -2,7 +2,12 @@ import React from 'react';
 import clsx from 'clsx';
 
 interface RetroPanelProps {
-  title: React.ReactNode;
+  /**
+   * Optional panel header. When omitted the title bar is suppressed
+   * entirely so the body sits flush against the top border — useful for
+   * space-constrained areas like the chat transcript.
+   */
+  title?: React.ReactNode;
   right?: React.ReactNode;
   className?: string;
   /** Extra classes applied to the panel body wrapper (e.g. `flex-1 min-h-0`). */
@@ -17,14 +22,21 @@ export const RetroPanel: React.FC<RetroPanelProps> = ({
   bodyClassName,
   children,
 }) => {
+  const showHeader = title != null || right != null;
   return (
     <section className={clsx('retro-card', className)}>
-      <header className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
-          {title}
-        </h2>
-        {right}
-      </header>
+      {showHeader && (
+        <header className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark flex items-center justify-between">
+          {title != null ? (
+            <h2 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
+              {title}
+            </h2>
+          ) : (
+            <span />
+          )}
+          {right}
+        </header>
+      )}
       <div className={clsx('p-6', bodyClassName)}>{children}</div>
     </section>
   );
