@@ -435,6 +435,27 @@ describe('POST /sessions/:id/nudge', () => {
       burstiness: { min: 1, max: 3 },
     });
   });
+
+  it('surfaces "sometimes" startsConversation verbatim so the UI can badge it', async () => {
+    // When a persona uses the tri-state `"sometimes"` (~50% chance of opening),
+    // the API must pass that string through unchanged rather than collapsing
+    // it to `null` — otherwise the frontend can't distinguish "sometimes"
+    // from "field not declared".
+    const agent = new FakeAgent(undefined, undefined, {
+      startsConversation: 'sometimes',
+    });
+    h = await buildTestApp({ agent });
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const detail = await h.app.inject({
+      method: 'GET',
+      url: `/sessions/${session.id}`,
+      headers: authHeader,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().session_config.starts_conversation).toBe('sometimes');
+  });
 });
 
 // ---------------------------------------------------------------------------

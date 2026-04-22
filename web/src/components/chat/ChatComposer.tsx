@@ -6,13 +6,12 @@ import { Button } from '@/components/ui/Button';
 import { RetroTextArea } from '@/components/ui/RetroInput';
 
 interface ChatComposerProps {
-  disabled?: boolean;
+  /** Disables sending a new message (e.g. while a previous send is in flight). */
   sending?: boolean;
   onSend: (content: string) => Promise<void> | void;
 }
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
-  disabled,
   sending,
   onSend,
 }) => {
@@ -20,6 +19,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
   const submit = async () => {
     const trimmed = value.trim();
+    // Typing is always allowed; only submission is gated while a previous
+    // message is still streaming. Enter-key presses during that window are
+    // swallowed so the user's draft stays in the textarea for retry.
     if (!trimmed || sending) return;
     setValue('');
     try {
@@ -51,12 +53,11 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               void submit();
             }
           }}
-          disabled={disabled || sending}
         />
       </div>
       <Button
         type="submit"
-        disabled={disabled || !value.trim()}
+        disabled={sending || !value.trim()}
         isLoading={sending}
       >
         Send

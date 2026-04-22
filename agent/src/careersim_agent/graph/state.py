@@ -1,8 +1,40 @@
 """State schema for the conversation graph."""
 
+import random
 from typing import TypedDict, Literal, Optional, Annotated, Any
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
+
+
+def resolve_starts_conversation(
+    value: Any,
+    *,
+    probability: float = 0.5,
+    rng: Optional[random.Random] = None,
+) -> bool:
+    """Resolve a raw ``conversationStyle.startsConversation`` setting to a
+    single boolean for this session.
+
+    The persona schema allows three shapes:
+
+    - ``True`` / ``False`` — the persona always / never opens the
+      conversation.
+    - ``"sometimes"`` (case-insensitive) — the persona opens the
+      conversation with probability ``probability`` (default 50/50).
+      A fresh draw is made **once per session** at init time, so the
+      decision stays stable for the rest of the session's lifetime.
+    - Missing / any other value — defaults to ``True`` to preserve the
+      historical behaviour where an unset field meant "yes, the AI opens".
+
+    ``rng`` exists for deterministic tests; production passes ``None``
+    and falls back to the module-level ``random`` generator.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() == "sometimes":
+        r = rng if rng is not None else random
+        return r.random() < probability
+    return True
 
 
 class EvidenceItem(TypedDict, total=False):
@@ -133,7 +165,15 @@ def create_initial_state(
         )
         for goal in goals
     ]
-    
+
+    # Resolve `startsConversation` once per session. This is the single
+    # source of truth: later API layers should read `state.proactive_trigger`
+    # instead of re-evaluating the raw persona field (which would otherwise
+    # re-roll the "sometimes" coin flip every call).
+    starts = resolve_starts_conversation(
+        persona.get("conversationStyle", {}).get("startsConversation"),
+    )
+
     return ConversationState(
         session_id=session_id,
         messages=[],
@@ -144,7 +184,7 @@ def create_initial_state(
         last_user_message=None,
         last_ai_message=None,
         user_message=None,
-        proactive_trigger="start" if persona.get("conversationStyle", {}).get("startsConversation") else None,
+        proactive_trigger="start" if starts else None,
         should_send_proactive=False,
         proactive_count=0,
         max_proactive_messages=2,

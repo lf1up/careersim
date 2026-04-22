@@ -231,8 +231,9 @@ def create_api_app() -> FastAPI:
                 simulation_slug=req.simulation_slug,
                 session_id=req.session_id,
             )
-            persona = state.get("persona", {})
-            if persona.get("conversationStyle", {}).get("startsConversation", True):
+            # `create_initial_state` already resolved "sometimes" into a
+            # concrete start decision and stored it on the state.
+            if state.get("proactive_trigger") == "start":
                 state = svc.invoke_proactive(state, "start")
             return _build_response(state)
         except Exception as e:
@@ -274,8 +275,9 @@ def create_api_app() -> FastAPI:
                 simulation_slug=req.simulation_slug,
                 session_id=req.session_id,
             )
-            persona = state.get("persona", {})
-            starts = persona.get("conversationStyle", {}).get("startsConversation", True)
+            # See `create_initial_state`: "sometimes" is resolved once at
+            # init and surfaced as `proactive_trigger == "start"`.
+            starts = state.get("proactive_trigger") == "start"
 
             def generate():
                 nonlocal state

@@ -5,6 +5,8 @@ interface RetroPanelProps {
   title: React.ReactNode;
   right?: React.ReactNode;
   className?: string;
+  /** Extra classes applied to the panel body wrapper (e.g. `flex-1 min-h-0`). */
+  bodyClassName?: string;
   children?: React.ReactNode;
 }
 
@@ -12,6 +14,7 @@ export const RetroPanel: React.FC<RetroPanelProps> = ({
   title,
   right,
   className,
+  bodyClassName,
   children,
 }) => {
   return (
@@ -22,7 +25,7 @@ export const RetroPanel: React.FC<RetroPanelProps> = ({
         </h2>
         {right}
       </header>
-      <div className="p-6">{children}</div>
+      <div className={clsx('p-6', bodyClassName)}>{children}</div>
     </section>
   );
 };

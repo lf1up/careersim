@@ -12,32 +12,35 @@ export const MarkdownMessage: React.FC<MarkdownMessageProps> = ({ content }) => 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code(rawProps) {
-            const { inline, className, children, ...rest } = rawProps as unknown as {
-              inline?: boolean;
-              className?: string;
-              children: React.ReactNode;
-              [key: string]: unknown;
-            };
-            const language = /language-([\w-]+)/.exec(className || '')?.[1];
-            if (inline) {
+          // react-markdown v9 removed the `inline` prop from `code`. Fenced
+          // code blocks get a `language-*` class from remark; inline code
+          // spans don't. We use that to pick styling, and let the default
+          // block rendering place the <code> inside a <pre> (handled below).
+          code({ className, children, ...rest }) {
+            const language = /language-([\w-]+)/.exec(className ?? '')?.[1];
+            if (language) {
               return (
-                <code
-                  className="px-1 py-0.5 bg-gray-100 dark:bg-neutral-700 rounded text-secondary-800 dark:text-secondary-200"
-                  {...(rest as object)}
-                >
+                <code className={`language-${language}`} {...rest}>
                   {children}
                 </code>
               );
             }
             return (
-              <pre className="bg-gray-100 dark:bg-neutral-800 overflow-x-auto p-3 my-2 rounded">
-                <code
-                  className={language ? `language-${language}` : undefined}
-                  {...(rest as object)}
-                >
-                  {children}
-                </code>
+              <code
+                className="px-1 py-0.5 bg-gray-100 dark:bg-neutral-700 rounded text-secondary-800 dark:text-secondary-200"
+                {...rest}
+              >
+                {children}
+              </code>
+            );
+          },
+          pre({ children, ...rest }) {
+            return (
+              <pre
+                className="bg-gray-100 dark:bg-neutral-800 overflow-x-auto p-3 my-2 rounded"
+                {...rest}
+              >
+                {children}
               </pre>
             );
           },

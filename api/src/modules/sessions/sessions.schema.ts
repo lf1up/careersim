@@ -92,7 +92,13 @@ const rangeSchema = z.object({
 });
 
 export const sessionConfigSchema = z.object({
-  starts_conversation: z.boolean().nullable(),
+  // `true`/`false` — persona always/never opens. `"sometimes"` — persona
+  // opens with ~50% probability (agent decides at init, but this field
+  // still reports the raw behaviour so the UI can label it). `null` —
+  // persona did not declare a value.
+  starts_conversation: z
+    .union([z.boolean(), z.literal('sometimes')])
+    .nullable(),
   typing_speed_wpm: z.number().int().nonnegative().nullable(),
   inactivity_nudge_delay_sec: rangeSchema.nullable(),
   max_inactivity_nudges: z.number().int().nonnegative().nullable(),

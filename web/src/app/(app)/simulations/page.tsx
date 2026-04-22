@@ -193,7 +193,7 @@ export default function SimulationsPage() {
                   )}
                 </div>
 
-                <div className="mt-5 flex items-center justify-between text-xs font-semibold tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
+                <div className="mt-5 flex items-center justify-end gap-2 text-xs font-semibold tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
                   <span>VIEW DETAILS</span>
                   <span aria-hidden className="text-base">→</span>
                 </div>

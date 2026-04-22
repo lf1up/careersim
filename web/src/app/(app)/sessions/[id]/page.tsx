@@ -6,14 +6,34 @@ import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
-import type { NudgeResponse, SessionDetail } from '@/lib/types';
+import type { SessionDetail } from '@/lib/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroPanel } from '@/components/ui/RetroPanel';
 import { RetroAlert, RetroBadge } from '@/components/ui/RetroBadge';
-import { Button } from '@/components/ui/Button';
 import { ChatTranscript } from '@/components/chat/ChatTranscript';
 import { ChatComposer } from '@/components/chat/ChatComposer';
+
+// Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
+// the persona's typing pause between burst messages without leaving a dead
+// timer running when the user starts another turn.
+function waitWithAbort(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 export default function SessionDetailPage() {
   const params = useParams<{ id: string }>();
@@ -23,8 +43,6 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [following, setFollowing] = useState(false);
-  const [nudging, setNudging] = useState(false);
   // Optimistic echo of the message the user just sent. Cleared when the
   // server replaces local state (via the `done` event or a refetch).
   const [pendingHuman, setPendingHuman] = useState<string | null>(null);
@@ -32,6 +50,11 @@ export default function SessionDetailPage() {
   // typing indicator.
   const [isWaiting, setIsWaiting] = useState(false);
   const [streamingAssistant, setStreamingAssistant] = useState<string | null>(null);
+  // Already-delivered AI messages from the current burst, rendered as
+  // individual bubbles between `session.messages` and the in-flight
+  // streamingAssistant bubble. We commit each prior message here as soon as
+  // the next one starts so the typing indicator can appear in the gap.
+  const [committedBurst, setCommittedBurst] = useState<string[]>([]);
   // Nudge auto-polling control:
   // - `permanentlyDisabled` flips on when the server says `nudges_disabled`
   //   (the persona opted out). Never resumes for this session.
@@ -69,9 +92,8 @@ export default function SessionDetailPage() {
   // Keep `busyRef` current so the nudge-polling interval below can read it
   // without re-subscribing on every streaming chunk.
   useEffect(() => {
-    busyRef.current =
-      sending || following || isWaiting || streamingAssistant !== null;
-  }, [sending, following, isWaiting, streamingAssistant]);
+    busyRef.current = sending || isWaiting || streamingAssistant !== null;
+  }, [sending, isWaiting, streamingAssistant]);
 
   // Inactivity-nudge auto-polling.
   //
@@ -135,29 +157,67 @@ export default function SessionDetailPage() {
   const runStream = useCallback(
     async (
       stream: AsyncGenerator<
-        | { type: 'message'; data: { role?: string; content?: string } & Record<string, unknown> }
+        | {
+            type: 'message';
+            data: {
+              role?: string;
+              content?: string;
+              typing_delay_sec?: number;
+              is_followup?: boolean;
+            } & Record<string, unknown>;
+          }
         | { type: 'done'; data: { session?: SessionDetail } & Record<string, unknown> }
         | { type: 'error'; data: { message: string } },
         void,
         void
       >,
+      signal: AbortSignal,
     ) => {
-      let aiBuffer = '';
+      // Local mirror of `committedBurst` so the paced loop has synchronous
+      // access (React state updates are async and can't be read back in
+      // the same tick).
+      const localBurst: string[] = [];
+      let currentStreaming: string | null = null;
       try {
         for await (const event of stream) {
           if (event.type === 'message') {
             const role = (event.data.role as string | undefined) ?? 'ai';
             const content = (event.data.content as string | undefined) ?? '';
-            if (role === 'ai' && content) {
-              aiBuffer = aiBuffer ? `${aiBuffer}\n\n${content}` : content;
-              // First AI chunk — swap the typing indicator for streaming text.
-              setIsWaiting(false);
-              setStreamingAssistant(aiBuffer);
+            if (role !== 'ai' || !content) continue;
+
+            // Follow-up within a burst: commit the previously-streamed
+            // message as its own bubble, then show the typing indicator for
+            // the agent-hinted `typing_delay_sec` before revealing this one.
+            if (currentStreaming !== null) {
+              localBurst.push(currentStreaming);
+              setCommittedBurst([...localBurst]);
+              currentStreaming = null;
+              setStreamingAssistant(null);
+              setIsWaiting(true);
+
+              const rawDelay =
+                typeof event.data.typing_delay_sec === 'number'
+                  ? event.data.typing_delay_sec
+                  : 0;
+              // Cap at 6s so a pathological agent config can't freeze the UI,
+              // and floor at 400ms so the indicator is visible even when the
+              // hint is ~0 (still a real person "sending" another message).
+              const delayMs = Math.min(
+                Math.max(rawDelay * 1000, 400),
+                6000,
+              );
+              await waitWithAbort(delayMs, signal);
+              if (signal.aborted) return;
             }
+
+            currentStreaming = content;
+            setIsWaiting(false);
+            setStreamingAssistant(currentStreaming);
           } else if (event.type === 'done') {
             if (event.data.session) {
               setSession(event.data.session);
             }
+            setCommittedBurst([]);
             setStreamingAssistant(null);
             setPendingHuman(null);
             setIsWaiting(false);
@@ -170,6 +230,7 @@ export default function SessionDetailPage() {
         const latest = await apiClient.getSession(sessionId);
         setSession(latest);
       } finally {
+        setCommittedBurst([]);
         setStreamingAssistant(null);
         setPendingHuman(null);
         setIsWaiting(false);
@@ -190,7 +251,7 @@ export default function SessionDetailPage() {
       abortRef.current = abort;
       try {
         const stream = apiClient.streamMessage(sessionId, content, abort.signal);
-        await runStream(stream);
+        await runStream(stream, abort.signal);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         // Drop the optimistic bubble so the composer can re-populate for retry.
@@ -206,40 +267,6 @@ export default function SessionDetailPage() {
     },
     [runStream, sessionId],
   );
-
-  const handleFollowup = useCallback(async () => {
-    setFollowing(true);
-    setIsWaiting(true);
-    abortRef.current?.abort();
-    const abort = new AbortController();
-    abortRef.current = abort;
-    try {
-      const stream = apiClient.streamFollowup(sessionId, abort.signal);
-      await runStream(stream);
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      setIsWaiting(false);
-      toast.error(err instanceof Error ? err.message : 'Follow-up failed');
-    } finally {
-      setFollowing(false);
-    }
-  }, [runStream, sessionId]);
-
-  const handleNudge = useCallback(async () => {
-    setNudging(true);
-    try {
-      const res: NudgeResponse = await apiClient.nudge(sessionId);
-      if (res.nudged) {
-        setSession(res.session);
-      } else {
-        toast(`Nudge skipped: ${res.reason}`, { icon: 'ℹ️' });
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Nudge failed');
-    } finally {
-      setNudging(false);
-    }
-  }, [sessionId]);
 
   if (loading) {
     return (
@@ -265,43 +292,15 @@ export default function SessionDetailPage() {
     );
   }
 
-  const busy =
-    sending || following || nudging || isWaiting || streamingAssistant !== null;
-  const nudgesDisabled =
-    session.session_config.max_inactivity_nudges === 0 ||
-    session.session_config.max_inactivity_nudges === null;
-
   return (
-    <div className="space-y-4 retro-fade-in">
+    <div className="h-full min-h-0 flex flex-col gap-4 retro-fade-in">
       <RetroCard
+        className="shrink-0"
         title={session.simulation_slug}
         subtitle={
           <span className="font-monoRetro">
             Session {session.id.slice(0, 8)} · {session.messages.length} messages
           </span>
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleFollowup}
-              isLoading={following}
-              disabled={busy && !following}
-            >
-              Follow up
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNudge}
-              isLoading={nudging}
-              disabled={(busy && !nudging) || nudgesDisabled}
-              title={nudgesDisabled ? 'This persona has nudges disabled' : undefined}
-            >
-              Nudge
-            </Button>
-          </div>
         }
         bodyClassName="space-y-4"
       >
@@ -311,8 +310,11 @@ export default function SessionDetailPage() {
               {session.session_config.typing_speed_wpm} wpm
             </RetroBadge>
           )}
-          {session.session_config.starts_conversation && (
+          {session.session_config.starts_conversation === true && (
             <RetroBadge color="yellow">Persona opens</RetroBadge>
+          )}
+          {session.session_config.starts_conversation === 'sometimes' && (
+            <RetroBadge color="yellow">Persona sometimes opens</RetroBadge>
           )}
           {session.session_config.max_inactivity_nudges != null &&
             session.session_config.max_inactivity_nudges > 0 && (
@@ -335,21 +337,22 @@ export default function SessionDetailPage() {
         </div>
       </RetroCard>
 
-      <RetroPanel title="Transcript">
+      <RetroPanel
+        title="Transcript"
+        className="flex-1 min-h-0 flex flex-col"
+        bodyClassName="flex-1 min-h-0 flex flex-col"
+      >
         <ChatTranscript
           messages={session.messages}
           pendingHuman={pendingHuman}
+          burstedAssistant={committedBurst}
           pendingAssistant={streamingAssistant}
           isWaiting={isWaiting}
         />
       </RetroPanel>
 
-      <RetroCard>
-        <ChatComposer
-          disabled={busy && !sending}
-          sending={sending}
-          onSend={handleSend}
-        />
+      <RetroCard className="shrink-0">
+        <ChatComposer sending={sending} onSend={handleSend} />
       </RetroCard>
     </div>
   );

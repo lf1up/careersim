@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 
 import type { Message } from '@/lib/types';
@@ -12,62 +12,51 @@ interface ChatTranscriptProps {
   messages: Message[];
   /** Optimistic user message (shown immediately after send, before `done`). */
   pendingHuman?: string | null;
-  /** Streaming AI chunks accumulated so far. */
+  /**
+   * AI messages already delivered within the current burst but not yet
+   * persisted via `done`. Each renders as its own "pending" bubble so the
+   * typing indicator can appear between them while the persona "types"
+   * the next follow-up.
+   */
+  burstedAssistant?: string[];
+  /** Currently-streaming AI message content (the in-flight bubble). */
   pendingAssistant?: string | null;
-  /** True between "message sent" and "first AI chunk arrived". */
+  /**
+   * True while waiting on the agent — either before the first chunk of a
+   * turn, or during the simulated pause between burst messages.
+   */
   isWaiting?: boolean;
 }
-
-// Distance from the bottom (in px) within which we consider the user to be
-// "pinned to the bottom" and safe to auto-scroll on new content.
-const STICKY_THRESHOLD_PX = 64;
 
 export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   messages,
   pendingHuman,
+  burstedAssistant,
   pendingAssistant,
   isWaiting,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // Track whether the user was at (or near) the bottom BEFORE the next render.
-  // We snapshot this in a layout effect so we can decide what to do after DOM
-  // updates without causing our own autoscroll to count as a user scroll.
-  const stickToBottomRef = useRef(true);
 
-  // Snapshot sticky state BEFORE new content is painted.
-  useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottomRef.current = distanceFromBottom <= STICKY_THRESHOLD_PX;
-  });
-
-  // After content updates, scroll the inner container only — never the window
-  // — and only when the user was already at the bottom.
+  // Always snap to the bottom on any content change — new human message,
+  // new AI chunk, typing indicator toggling, etc. We scroll the inner
+  // container only and never the window.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    if (!stickToBottomRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, pendingHuman, pendingAssistant, isWaiting]);
-
-  // Detect manual user scrolls so we can drop the sticky flag (and pick it
-  // back up if they scroll to the bottom again).
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottomRef.current = distanceFromBottom <= STICKY_THRESHOLD_PX;
-  };
+  }, [messages, pendingHuman, burstedAssistant, pendingAssistant, isWaiting]);
 
   const empty =
-    messages.length === 0 && !pendingHuman && !pendingAssistant && !isWaiting;
+    messages.length === 0 &&
+    !pendingHuman &&
+    !pendingAssistant &&
+    !isWaiting &&
+    (burstedAssistant?.length ?? 0) === 0;
 
   return (
     <div
       ref={containerRef}
-      onScroll={handleScroll}
-      className="space-y-3 overflow-y-auto overscroll-contain pr-2"
-      style={{ maxHeight: 'calc(100vh - 320px)' }}
+      className="flex-1 min-h-0 space-y-3 overflow-y-auto overscroll-contain pr-2"
     >
       {empty && (
         <p className="text-sm text-secondary-600 dark:text-secondary-400">
@@ -78,6 +67,9 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
         <Bubble key={m.id} role={m.role} content={m.content} />
       ))}
       {pendingHuman && <Bubble role="human" content={pendingHuman} pending />}
+      {burstedAssistant?.map((content, i) => (
+        <Bubble key={`burst-${i}`} role="ai" content={content} pending />
+      ))}
       {pendingAssistant ? (
         <Bubble role="ai" content={pendingAssistant} pending />
       ) : isWaiting ? (

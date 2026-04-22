@@ -48,6 +48,94 @@ def test_state_creation():
         assert state["proactive_count"] == 0
 
 
+class TestResolveStartsConversation:
+    """`resolve_starts_conversation` must collapse the tri-state persona
+    setting (`True` / `False` / `"sometimes"`) into a concrete bool so the
+    downstream `proactive_trigger` is stable across the session."""
+
+    def test_true_is_preserved(self):
+        from careersim_agent.graph.state import resolve_starts_conversation
+        assert resolve_starts_conversation(True) is True
+
+    def test_false_is_preserved(self):
+        from careersim_agent.graph.state import resolve_starts_conversation
+        assert resolve_starts_conversation(False) is False
+
+    def test_missing_defaults_to_true(self):
+        # Historical default: a persona without the field still opens.
+        from careersim_agent.graph.state import resolve_starts_conversation
+        assert resolve_starts_conversation(None) is True
+
+    def test_unknown_string_defaults_to_true(self):
+        # Defensive fallback for future schema drift.
+        from careersim_agent.graph.state import resolve_starts_conversation
+        assert resolve_starts_conversation("maybe") is True
+
+    def test_sometimes_is_probabilistic(self):
+        import random as _random
+        from careersim_agent.graph.state import resolve_starts_conversation
+
+        # With a fixed seed we must exercise *both* outcomes across a
+        # modest number of draws — otherwise "sometimes" effectively
+        # behaves like True/False (which is what the bug report was about).
+        rng = _random.Random(1234)
+        draws = [
+            resolve_starts_conversation("sometimes", rng=rng) for _ in range(200)
+        ]
+        assert True in draws
+        assert False in draws
+
+    def test_sometimes_respects_probability(self):
+        # Deterministic extremes: probability=0 → never, probability=1 → always.
+        import random as _random
+        from careersim_agent.graph.state import resolve_starts_conversation
+
+        rng = _random.Random(0)
+        assert resolve_starts_conversation(
+            "sometimes", probability=0.0, rng=rng,
+        ) is False
+        assert resolve_starts_conversation(
+            "sometimes", probability=1.0, rng=rng,
+        ) is True
+
+    def test_sometimes_is_case_insensitive(self):
+        import random as _random
+        from careersim_agent.graph.state import resolve_starts_conversation
+
+        # probability=1 makes both sides deterministic so the test can
+        # assert the mapping without flakiness.
+        rng = _random.Random(0)
+        assert resolve_starts_conversation(
+            "SOMETIMES", probability=1.0, rng=rng,
+        ) is True
+        assert resolve_starts_conversation(
+            " Sometimes ", probability=1.0, rng=rng,
+        ) is True
+
+
+def test_initial_state_sometimes_can_yield_no_proactive_trigger():
+    """`create_initial_state` must actually honour "sometimes" — the bug
+    report was that David Miller (startsConversation: "sometimes") always
+    opened the conversation because the raw string was truthy."""
+    import random as _random
+    from careersim_agent.services import load_simulation
+    from careersim_agent.graph.state import create_initial_state
+
+    sim, persona = load_simulation("pitching-idea-david")
+    # Sanity-check the fixture is still configured as the bug describes.
+    assert persona["conversationStyle"]["startsConversation"] == "sometimes"
+
+    # Patch the module-level RNG so we can force both branches deterministically.
+    with patch("careersim_agent.graph.state.random") as mock_random:
+        mock_random.random.return_value = 0.99  # > 0.5 → skip opening
+        skipped = create_initial_state("s-skip", sim, persona)
+        assert skipped["proactive_trigger"] is None
+
+        mock_random.random.return_value = 0.01  # < 0.5 → opens
+        opens = create_initial_state("s-open", sim, persona)
+        assert opens["proactive_trigger"] == "start"
+
+
 def test_graph_builds():
     """Test that the graph builds without errors."""
     from careersim_agent.graph.builder import build_graph, get_graph, reset_graph

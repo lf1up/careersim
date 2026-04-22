@@ -388,9 +388,9 @@ def api_start_session(simulation_slug: str) -> dict:
             "goal_progress": session.get_goal_progress(),
             "messages": [],
         }
-        persona = session.state.get("persona", {})
-        conv_style = persona.get("conversationStyle", {})
-        if conv_style.get("startsConversation", True):
+        # "sometimes" is resolved once during session.start_session() and
+        # surfaced as proactive_trigger == "start".
+        if session.state.get("proactive_trigger") == "start":
             session.trigger_proactive("start")
             result["messages"] = session._build_chat_history()
             result["goal_progress"] = session.get_goal_progress()
@@ -602,10 +602,8 @@ def create_gradio_app() -> gr.Blocks:
                 yield [], status, [], "", "", "{}"
                 return
 
-            persona = _session.state.get("persona", {})
-            conv_style = persona.get("conversationStyle", {})
-
-            if conv_style.get("startsConversation", True):
+            # Decision already made at init time (see resolve_starts_conversation).
+            if _session.state.get("proactive_trigger") == "start":
                 for history, msg_status in _session.stream_proactive("start", delay_enabled):
                     yield (
                         history,

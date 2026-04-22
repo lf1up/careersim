@@ -80,8 +80,18 @@ export interface Range {
   max: number;
 }
 
+/**
+ * Tri-state for `startsConversation`, mirroring the API:
+ * - `true` / `false` — persona always / never opens the conversation.
+ * - `'sometimes'` — persona opens with ~50% probability (coin flipped
+ *   by the agent at init time; this field still describes the persona's
+ *   general behaviour).
+ * - `null` — persona did not declare a value.
+ */
+export type StartsConversation = boolean | 'sometimes' | null;
+
 export interface SessionConfig {
-  starts_conversation: boolean | null;
+  starts_conversation: StartsConversation;
   typing_speed_wpm: number | null;
   inactivity_nudge_delay_sec: Range | null;
   max_inactivity_nudges: number | null;

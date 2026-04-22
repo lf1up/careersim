@@ -23,8 +23,20 @@ export interface Range {
  * burst displays). Any field the underlying persona config does not declare
  * is returned as `null`.
  */
+/**
+ * Tri-state for `startsConversation`:
+ * - `true` / `false` — persona always / never opens the session.
+ * - `'sometimes'` — persona opens the session with ~50% probability.
+ *   The agent resolves the coin flip once at init time; this field still
+ *   reflects the raw persona *behaviour* so clients can surface it as
+ *   "sometimes opens" in the UI regardless of how this particular session
+ *   actually went.
+ * - `null` — the persona declared no value (missing / unknown).
+ */
+export type StartsConversation = boolean | 'sometimes' | null;
+
 export interface SessionConfig {
-  starts_conversation: boolean | null;
+  starts_conversation: StartsConversation;
   typing_speed_wpm: number | null;
   inactivity_nudge_delay_sec: Range | null;
   max_inactivity_nudges: number | null;
@@ -133,8 +145,15 @@ function readRange(value: unknown): Range | null {
 export function extractSessionConfig(snapshot: AgentWireState): SessionConfig {
   const style = readConversationStyle(snapshot);
   const startsRaw = style.startsConversation;
-  // Personas may use the string `"sometimes"`; treat that as null (unknown).
-  const startsConversation = typeof startsRaw === 'boolean' ? startsRaw : null;
+  // Personas declare `true`, `false`, or `"sometimes"`. Anything else
+  // (undefined, nulls, typos) collapses to `null` so clients can treat
+  // the field as "unknown" and hide the badge.
+  const startsConversation: StartsConversation =
+    typeof startsRaw === 'boolean'
+      ? startsRaw
+      : startsRaw === 'sometimes'
+        ? 'sometimes'
+        : null;
   const typing = typeof style.typingSpeedWpm === 'number' ? style.typingSpeedWpm : null;
   const nudgeMax =
     style.inactivityNudges &&
