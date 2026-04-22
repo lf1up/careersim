@@ -6,13 +6,15 @@ import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
-import type { SessionDetail } from '@/lib/types';
+import type { SessionDetail, SimulationDetail } from '@/lib/types';
+import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroPanel } from '@/components/ui/RetroPanel';
 import { RetroAlert, RetroBadge } from '@/components/ui/RetroBadge';
 import { ChatTranscript } from '@/components/chat/ChatTranscript';
 import { ChatComposer } from '@/components/chat/ChatComposer';
+import { GoalProgressTracker } from '@/components/chat/GoalProgressTracker';
 
 // Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
 // the persona's typing pause between burst messages without leaving a dead
@@ -40,6 +42,9 @@ export default function SessionDetailPage() {
   const sessionId = params.id;
 
   const [session, setSession] = useState<SessionDetail | null>(null);
+  // Catalogue entry for this session's simulation. Used to show the full
+  // title and metadata pills in the header instead of just the raw slug.
+  const [simulation, setSimulation] = useState<SimulationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -73,7 +78,19 @@ export default function SessionDetailPage() {
     const load = async () => {
       try {
         const detail = await apiClient.getSession(sessionId);
-        if (!cancelled) setSession(detail);
+        if (cancelled) return;
+        setSession(detail);
+        // Fetch the matching simulation after we know the slug. Run it in
+        // the background — a missing or failed lookup just degrades the
+        // header to slug-only and must not block rendering the chat.
+        apiClient
+          .getSimulation(detail.simulation_slug)
+          .then((sim) => {
+            if (!cancelled) setSimulation(sim);
+          })
+          .catch(() => {
+            // Swallow: the header will fall back to the raw slug.
+          });
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load session');
@@ -296,45 +313,33 @@ export default function SessionDetailPage() {
     <div className="h-full min-h-0 flex flex-col gap-4 retro-fade-in">
       <RetroCard
         className="shrink-0"
-        title={session.simulation_slug}
-        subtitle={
-          <span className="font-monoRetro">
-            Session {session.id.slice(0, 8)} · {session.messages.length} messages
+        title={
+          // Pills live inline *before* the title so the header's first row
+          // immediately communicates "who you're talking to + how hard it
+          // is" alongside the scenario name.
+          <span className="flex flex-wrap items-center gap-2">
+            {simulation?.persona_name && (
+              <RetroBadge color="cyan">{simulation.persona_name}</RetroBadge>
+            )}
+            {simulation && (
+              <RetroBadge color={difficultyColor(simulation.difficulty)}>
+                {difficultyLabel(simulation.difficulty)}
+              </RetroBadge>
+            )}
+            <span>{simulation?.title ?? session.simulation_slug}</span>
           </span>
         }
-        bodyClassName="space-y-4"
+        subtitle={
+          <span className="font-monoRetro">
+            {session.simulation_slug} · Session {session.id.slice(0, 8)} ·{' '}
+            {session.messages.length} messages
+          </span>
+        }
       >
-        <div className="flex flex-wrap gap-2">
-          {session.session_config.typing_speed_wpm !== null && (
-            <RetroBadge color="cyan">
-              {session.session_config.typing_speed_wpm} wpm
-            </RetroBadge>
-          )}
-          {session.session_config.starts_conversation === true && (
-            <RetroBadge color="yellow">Persona opens</RetroBadge>
-          )}
-          {session.session_config.starts_conversation === 'sometimes' && (
-            <RetroBadge color="yellow">Persona sometimes opens</RetroBadge>
-          )}
-          {session.session_config.max_inactivity_nudges != null &&
-            session.session_config.max_inactivity_nudges > 0 && (
-              <RetroBadge color="amber">
-                {session.session_config.max_inactivity_nudges} nudges max
-              </RetroBadge>
-            )}
-          {/*
-           * Persona `burstiness.max` is the total burst size (initial message
-           * + up to N-1 follow-ups). Mirror the nudge badge's semantics by
-           * reporting the additional-followup cap (burst.max - 1), and hide
-           * it when the persona never follows up (burst.max <= 1).
-           */}
-          {session.session_config.burstiness != null &&
-            session.session_config.burstiness.max > 1 && (
-              <RetroBadge color="purple">
-                {session.session_config.burstiness.max - 1} followups max
-              </RetroBadge>
-            )}
-        </div>
+        <GoalProgressTracker
+          progress={session.goal_progress}
+          goals={simulation?.conversation_goals}
+        />
       </RetroCard>
 
       <RetroPanel

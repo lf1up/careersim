@@ -99,7 +99,25 @@ export interface SessionConfig {
 }
 
 export type Analysis = Record<string, unknown>;
-export type GoalProgress = Record<string, unknown>;
+
+export type GoalStatus = 'not_started' | 'in_progress' | 'achieved';
+
+/**
+ * Per-goal progress snapshot emitted by the agent's evaluation node. The
+ * agent uses camelCase and keeps some fields optional (older sessions may
+ * predate newer fields), so mirror that shape here.
+ */
+export interface GoalProgress {
+  goalNumber: number;
+  isOptional?: boolean;
+  title?: string;
+  status?: GoalStatus;
+  confidence?: number;
+  startedAt?: string | null;
+  achievedAt?: string | null;
+  evidence?: unknown[];
+  [key: string]: unknown;
+}
 
 export interface SessionDetail {
   id: string;
