@@ -7,6 +7,7 @@ import clsx from 'clsx';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { GitHubLink } from '@/components/ui/GitHubLink';
 
 // Nav items shown when the user is signed in.
 const AUTH_NAV_ITEMS = [
@@ -94,6 +95,7 @@ export const Navbar: React.FC = () => {
                   <span className="text-sm font-monoRetro text-retro-ink dark:text-retro-ink-dark">
                     {user?.email}
                   </span>
+                  <GitHubLink />
                   <ThemeToggle />
                   <button
                     onClick={handleLogout}
@@ -107,6 +109,7 @@ export const Navbar: React.FC = () => {
                 </>
               ) : (
                 <>
+                  <GitHubLink />
                   <ThemeToggle />
                   {!isLoading && (
                     <>
@@ -136,6 +139,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           <div className="sm:hidden flex items-center space-x-2">
+            <GitHubLink />
             <ThemeToggle />
             <button
               onClick={() => setIsMobileMenuOpen((v) => !v)}
