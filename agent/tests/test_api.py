@@ -37,9 +37,22 @@ class TestSimulations:
     def test_simulation_fields(self, client):
         resp = client.get("/simulations")
         sim = resp.json()["simulations"][0]
+        # Core identifiers required by every client.
         assert "slug" in sim
         assert "title" in sim
         assert "persona_name" in sim
+        # Summary metadata exposed for list-view rendering.
+        for key in (
+            "description",
+            "difficulty",
+            "estimated_duration_minutes",
+            "goal_count",
+            "skills_to_learn",
+            "tags",
+        ):
+            assert key in sim, f"missing field: {key}"
+        assert isinstance(sim["skills_to_learn"], list)
+        assert isinstance(sim["tags"], list)
 
     def test_no_unknown_persona_names(self, client):
         resp = client.get("/simulations")
@@ -47,6 +60,55 @@ class TestSimulations:
             assert sim["persona_name"] != "Unknown", (
                 f"Simulation {sim['slug']} has Unknown persona_name"
             )
+
+
+class TestSimulationDetail:
+    def test_returns_detail_for_known_slug(self, client):
+        # Pick an existing simulation from the list response to stay data-agnostic.
+        listing = client.get("/simulations").json()["simulations"]
+        assert listing, "simulations list is empty"
+        slug = listing[0]["slug"]
+
+        resp = client.get(f"/simulations/{slug}")
+        assert resp.status_code == 200
+        body = resp.json()
+
+        for key in (
+            "slug",
+            "title",
+            "description",
+            "scenario",
+            "objectives",
+            "persona_name",
+            "skills_to_learn",
+            "tags",
+            "success_criteria",
+            "conversation_goals",
+        ):
+            assert key in body, f"missing field: {key}"
+        assert body["slug"] == slug
+        assert isinstance(body["objectives"], list)
+        assert isinstance(body["conversation_goals"], list)
+        # Internal scoring thresholds must never leak through the public API.
+        for goal in body["conversation_goals"]:
+            assert "evaluation_config" not in goal
+            assert "evaluationConfig" not in goal
+            for required in ("goal_number", "title", "description"):
+                assert required in goal
+
+    def test_success_criteria_shape(self, client):
+        listing = client.get("/simulations").json()["simulations"]
+        slug = listing[0]["slug"]
+        resp = client.get(f"/simulations/{slug}")
+        body = resp.json()
+        sc = body["success_criteria"]
+        for key in ("communication", "problem_solving", "emotional"):
+            assert key in sc
+            assert isinstance(sc[key], list)
+
+    def test_unknown_slug_returns_404(self, client):
+        resp = client.get("/simulations/does-not-exist")
+        assert resp.status_code == 404
 
 
 # =============================================================================
@@ -123,6 +185,7 @@ class TestRoutes:
     EXPECTED_ROUTES = [
         ("GET", "/health"),
         ("GET", "/simulations"),
+        ("GET", "/simulations/{slug}"),
         ("POST", "/conversation/init"),
         ("POST", "/conversation/turn"),
         ("POST", "/conversation/proactive"),

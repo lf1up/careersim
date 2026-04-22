@@ -1,9 +1,12 @@
 import type { AgentClient } from '../../src/agent/client.js';
+import { AgentRequestError } from '../../src/agent/client.js';
 import type {
   AgentConversationResponse,
   AgentMessage,
   AgentPersona,
   AgentPersonasResponse,
+  AgentSimulation,
+  AgentSimulationDetail,
   AgentSimulationsResponse,
   AgentStreamEvent,
   AgentWireState,
@@ -38,9 +41,29 @@ export class FakeAgent implements AgentClient {
   public callLog: string[] = [];
 
   constructor(
-    public simulations: Array<{ slug: string; title: string; persona_name: string }> = [
-      { slug: 'behavioral-interview-brenda', title: 'Behavioral Interview', persona_name: 'Brenda' },
-      { slug: 'tech-cultural-fit', title: 'Cultural Fit Chat', persona_name: 'Alex' },
+    public simulations: AgentSimulation[] = [
+      {
+        slug: 'behavioral-interview-brenda',
+        title: 'Behavioral Interview',
+        persona_name: 'Brenda',
+        description: 'Navigate a structured behavioral interview.',
+        difficulty: 3,
+        estimated_duration_minutes: 25,
+        goal_count: 4,
+        skills_to_learn: ['Interview techniques', 'Building rapport'],
+        tags: ['interview', 'behavioral'],
+      },
+      {
+        slug: 'tech-cultural-fit',
+        title: 'Cultural Fit Chat',
+        persona_name: 'Alex',
+        description: 'Impress a passionate tech lead.',
+        difficulty: 2,
+        estimated_duration_minutes: 20,
+        goal_count: 3,
+        skills_to_learn: ['Cultural fit', 'Technical discussion'],
+        tags: ['interview', 'culture'],
+      },
     ],
     public personas: AgentPersona[] = [
       { slug: 'brenda', name: 'Brenda', role: 'HR Manager', category: 'JOB_SEEKING', difficulty_level: 3 },
@@ -70,6 +93,48 @@ export class FakeAgent implements AgentClient {
   async listSimulations(): Promise<AgentSimulationsResponse> {
     this.callLog.push('listSimulations');
     return { simulations: this.simulations };
+  }
+
+  async getSimulation(slug: string): Promise<AgentSimulationDetail> {
+    this.callLog.push(`getSimulation:${slug}`);
+    const sim = this.simulations.find((s) => s.slug === slug);
+    if (!sim) {
+      throw new AgentRequestError(
+        `agent GET /simulations/${slug} failed (404)`,
+        404,
+        JSON.stringify({ detail: `Simulation '${slug}' not found` }),
+      );
+    }
+    return {
+      slug: sim.slug,
+      title: sim.title,
+      description: sim.description ?? '',
+      scenario: `Scenario for ${sim.title}.`,
+      objectives: ['Objective A', 'Objective B'],
+      persona_name: sim.persona_name,
+      persona_role: 'HR Manager',
+      persona_category: 'JOB_SEEKING',
+      persona_difficulty_level: sim.difficulty ?? null,
+      difficulty: sim.difficulty ?? null,
+      estimated_duration_minutes: sim.estimated_duration_minutes ?? null,
+      skills_to_learn: sim.skills_to_learn ?? [],
+      tags: sim.tags ?? [],
+      success_criteria: {
+        communication: ['Clear responses'],
+        problem_solving: ['Structured thinking'],
+        emotional: ['Composure'],
+      },
+      conversation_goals: [
+        {
+          goal_number: 1,
+          title: 'Opening',
+          description: 'Greet the interviewer warmly.',
+          key_behaviors: ['Say hello'],
+          success_indicators: ['Warm reply'],
+          is_optional: false,
+        },
+      ],
+    };
   }
 
   async listPersonas(): Promise<AgentPersonasResponse> {

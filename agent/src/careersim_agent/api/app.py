@@ -59,13 +59,62 @@ class ConversationResponse(BaseModel):
 
 
 class SimulationItem(BaseModel):
+    """Summary row for the /simulations listing."""
     slug: str
     title: str
     persona_name: str
+    description: Optional[str] = None
+    difficulty: Optional[int] = None
+    estimated_duration_minutes: Optional[int] = None
+    goal_count: Optional[int] = None
+    skills_to_learn: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
 
 
 class SimulationsResponse(BaseModel):
     simulations: list[SimulationItem]
+
+
+class SimulationGoal(BaseModel):
+    """Public-safe goal card (no scoring thresholds)."""
+    goal_number: int
+    title: str
+    description: str
+    key_behaviors: list[str] = Field(default_factory=list)
+    success_indicators: list[str] = Field(default_factory=list)
+    is_optional: bool = False
+
+
+class SimulationSuccessCriteria(BaseModel):
+    communication: list[str] = Field(default_factory=list)
+    problem_solving: list[str] = Field(default_factory=list)
+    emotional: list[str] = Field(default_factory=list)
+
+
+class SimulationDetail(BaseModel):
+    """Full user-facing simulation detail.
+
+    Deliberately excludes fields that drive internal scoring or private
+    persona roleplay (``evaluationConfig``, ``personality``,
+    ``hiddenMotivation``, ``conversationStyle``).
+    """
+    slug: str
+    title: str
+    description: str
+    scenario: str
+    objectives: list[str] = Field(default_factory=list)
+    persona_name: str
+    persona_role: Optional[str] = None
+    persona_category: Optional[str] = None
+    persona_difficulty_level: Optional[int] = None
+    difficulty: Optional[int] = None
+    estimated_duration_minutes: Optional[int] = None
+    skills_to_learn: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    success_criteria: SimulationSuccessCriteria = Field(
+        default_factory=SimulationSuccessCriteria,
+    )
+    conversation_goals: list[SimulationGoal] = Field(default_factory=list)
 
 
 class PersonaItem(BaseModel):
@@ -154,6 +203,15 @@ def create_api_app() -> FastAPI:
         return SimulationsResponse(
             simulations=[SimulationItem(**s) for s in svc.list_simulations()],
         )
+
+    @app.get("/simulations/{slug}", response_model=SimulationDetail)
+    async def get_simulation(slug: str):
+        """Return the full user-facing detail for a single simulation."""
+        svc = get_conversation_service()
+        try:
+            return SimulationDetail(**svc.get_simulation(slug))
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
 
     @app.get("/personas", response_model=PersonasResponse)
     async def list_personas():

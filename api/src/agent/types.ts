@@ -57,10 +57,49 @@ export interface AgentSimulation {
   slug: string;
   title: string;
   persona_name: string;
+  description?: string | null;
+  difficulty?: number | null;
+  estimated_duration_minutes?: number | null;
+  goal_count?: number | null;
+  skills_to_learn?: string[];
+  tags?: string[];
 }
 
 export interface AgentSimulationsResponse {
   simulations: AgentSimulation[];
+}
+
+export interface AgentSimulationGoal {
+  goal_number: number;
+  title: string;
+  description: string;
+  key_behaviors: string[];
+  success_indicators: string[];
+  is_optional: boolean;
+}
+
+export interface AgentSimulationSuccessCriteria {
+  communication: string[];
+  problem_solving: string[];
+  emotional: string[];
+}
+
+export interface AgentSimulationDetail {
+  slug: string;
+  title: string;
+  description: string;
+  scenario: string;
+  objectives: string[];
+  persona_name: string;
+  persona_role?: string | null;
+  persona_category?: string | null;
+  persona_difficulty_level?: number | null;
+  difficulty?: number | null;
+  estimated_duration_minutes?: number | null;
+  skills_to_learn: string[];
+  tags: string[];
+  success_criteria: AgentSimulationSuccessCriteria;
+  conversation_goals: AgentSimulationGoal[];
 }
 
 /**

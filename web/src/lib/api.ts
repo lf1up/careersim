@@ -5,6 +5,7 @@ import type {
   SessionDetail,
   SessionSummary,
   Simulation,
+  SimulationDetail,
   StreamEvent,
   User,
 } from './types';
@@ -152,6 +153,12 @@ export const apiClient = {
   async listSimulations(): Promise<Simulation[]> {
     const res = await request<{ simulations: Simulation[] }>('/simulations');
     return res.simulations;
+  },
+
+  async getSimulation(slug: string): Promise<SimulationDetail> {
+    return request<SimulationDetail>(
+      `/simulations/${encodeURIComponent(slug)}`,
+    );
   },
 
   // ---------- personas ----------

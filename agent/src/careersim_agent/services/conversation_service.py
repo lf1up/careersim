@@ -292,16 +292,73 @@ class ConversationService:
 
     # -- Catalogue ------------------------------------------------------------
 
-    def list_simulations(self) -> list[dict[str, str]]:
-        """Return available simulations (slug, title, persona name)."""
-        return [
-            {
+    def list_simulations(self) -> list[dict[str, Any]]:
+        """Return available simulations with summary metadata.
+
+        Includes enough detail for the client list view (difficulty,
+        estimated duration, skills, tags, goal count) without leaking
+        internal scoring thresholds or private persona fields.
+        """
+        summaries = list_simulations()
+        out: list[dict[str, Any]] = []
+        for s in summaries:
+            out.append({
                 "slug": s["slug"],
                 "title": s["title"],
-                "persona_name": s["personaName"],
-            }
-            for s in list_simulations()
-        ]
+                "persona_name": s.get("personaName", "Unknown"),
+                "description": s.get("description"),
+                "difficulty": s.get("difficulty"),
+                "estimated_duration_minutes": s.get("estimatedDurationMinutes"),
+                "goal_count": s.get("goalCount"),
+                "skills_to_learn": list(s.get("skillsToLearn", []) or []),
+                "tags": list(s.get("tags", []) or []),
+            })
+        return out
+
+    def get_simulation(self, slug: str) -> dict[str, Any]:
+        """Return a public-safe detail record for a single simulation.
+
+        Strips internal scoring config (``evaluationConfig``) and private
+        persona roleplay fields — only the persona's name, role, category
+        and difficulty level are forwarded.
+        """
+        sim, persona = load_simulation(slug)
+
+        goals: list[dict[str, Any]] = []
+        for g in sim.get("conversationGoals", []) or []:
+            goals.append({
+                "goal_number": g.get("goalNumber", 0),
+                "title": g.get("title", ""),
+                "description": g.get("description", ""),
+                "key_behaviors": list(g.get("keyBehaviors", []) or []),
+                "success_indicators": list(g.get("successIndicators", []) or []),
+                "is_optional": bool(g.get("isOptional", False)),
+            })
+
+        success_criteria_raw = sim.get("successCriteria", {}) or {}
+        success_criteria = {
+            "communication": list(success_criteria_raw.get("communication", []) or []),
+            "problem_solving": list(success_criteria_raw.get("problemSolving", []) or []),
+            "emotional": list(success_criteria_raw.get("emotional", []) or []),
+        }
+
+        return {
+            "slug": sim["slug"],
+            "title": sim["title"],
+            "description": sim.get("description", ""),
+            "scenario": sim.get("scenario", ""),
+            "objectives": list(sim.get("objectives", []) or []),
+            "persona_name": persona.get("name", "Unknown"),
+            "persona_role": persona.get("role"),
+            "persona_category": persona.get("category"),
+            "persona_difficulty_level": persona.get("difficultyLevel"),
+            "difficulty": sim.get("difficulty"),
+            "estimated_duration_minutes": sim.get("estimatedDurationMinutes"),
+            "skills_to_learn": list(sim.get("skillsToLearn", []) or []),
+            "tags": list(sim.get("tags", []) or []),
+            "success_criteria": success_criteria,
+            "conversation_goals": goals,
+        }
 
     def list_personas(self) -> list[dict[str, Any]]:
         """Return public-safe persona summaries.
