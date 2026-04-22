@@ -33,7 +33,7 @@ export const LoginForm: React.FC = () => {
           title={<span className="font-retro tracking-wider2">SIGN IN</span>}
           subtitle={
             <span className="text-secondary-600 dark:text-secondary-400">
-              New to CareerSim?{' '}
+              New to careersim.ai?{' '}
               <Link
                 href="/register"
                 className="underline text-primary-600 dark:text-primary-400"
