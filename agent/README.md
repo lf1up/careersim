@@ -93,22 +93,47 @@ SSE endpoints emit one `event: message` per generated AI message (with a
 persona-aware `typing_delay_sec` for realistic replay on the frontend) and a
 final `event: done` carrying the complete updated state.
 
+### Authentication
+
+Every route except `/health` is gated on a shared secret. Callers must
+send the configured `AGENT_INTERNAL_KEY` in an `X-Internal-Key` header;
+missing or mismatched values return **401**. `/health` is intentionally
+exempt so Docker / load-balancer liveness probes can poll it without
+holding the key.
+
+When `AGENT_INTERNAL_KEY` is empty the agent logs a single
+`AGENT_INTERNAL_KEY is not set — accepting all requests` warning and
+treats every caller as trusted. This is the default for local dev,
+the Gradio console, and the pytest suite; production deployments must
+set it (and must set the matching value on the Fastify API side — see
+`api/.env.example`).
+
+```bash
+curl -H "X-Internal-Key: $AGENT_INTERNAL_KEY" \
+     http://localhost:8001/simulations
+```
+
 ### Minimal client example
 
 ```python
+import os
 import httpx
 
 BASE = "http://localhost:8000"
 
+# Internal-API key (see `Authentication` above). Leave headers empty
+# in dev mode when AGENT_INTERNAL_KEY is unset.
+HEADERS = {"X-Internal-Key": os.environ["AGENT_INTERNAL_KEY"]}
+
 # Start
-init = httpx.post(f"{BASE}/conversation/init", json={
+init = httpx.post(f"{BASE}/conversation/init", headers=HEADERS, json={
     "simulation_slug": "behavioral-interview-brenda",
     "session_id": "sess-123",  # backend-owned
 }).json()
 state = init["state"]
 
 # Turn
-turn = httpx.post(f"{BASE}/conversation/turn", json={
+turn = httpx.post(f"{BASE}/conversation/turn", headers=HEADERS, json={
     "state": state,
     "user_message": "Hi Brenda, thanks for having me.",
 }).json()

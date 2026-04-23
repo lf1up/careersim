@@ -10,6 +10,13 @@ const EnvSchema = z.object({
 
   AGENT_API_URL: z.string().url(),
 
+  // Shared secret sent as `X-Internal-Key` on every API ⇒ agent call.
+  // Must match `AGENT_INTERNAL_KEY` on the agent side (see
+  // agent/src/careersim_agent/config.py). When empty we still start —
+  // the agent runs in "dev mode" and accepts unauthenticated calls —
+  // but production deployments MUST set this to a long random string.
+  AGENT_INTERNAL_KEY: z.string().default(''),
+
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 

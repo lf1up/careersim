@@ -51,21 +51,52 @@ export class AgentRequestError extends Error {
   }
 }
 
+export interface HttpAgentClientOptions {
+  /**
+   * Shared secret sent in the `X-Internal-Key` header on every
+   * outbound request. Must match `AGENT_INTERNAL_KEY` on the agent
+   * side. When empty/undefined the header is omitted — the agent
+   * logs a warning and accepts everything, which keeps local dev
+   * (and the pytest suite) working out of the box.
+   */
+  internalKey?: string;
+}
+
 export class HttpAgentClient implements AgentClient {
-  constructor(private readonly baseUrl: string) {
+  private readonly internalKey: string;
+
+  constructor(
+    private readonly baseUrl: string,
+    options: HttpAgentClientOptions = {},
+  ) {
     if (!baseUrl) {
       throw new Error('HttpAgentClient: baseUrl is required');
     }
+    this.internalKey = options.internalKey ?? '';
   }
 
   private url(path: string): string {
     return new URL(path, this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`).toString();
   }
 
+  /**
+   * Merge caller-supplied headers with the internal-auth header (when
+   * configured). Kept in one place so adding more header-level
+   * concerns later (tracing, tenant id, …) doesn't require touching
+   * every request site.
+   */
+  private headers(extra: Record<string, string>): Record<string, string> {
+    const base: Record<string, string> = { ...extra };
+    if (this.internalKey) {
+      base['X-Internal-Key'] = this.internalKey;
+    }
+    return base;
+  }
+
   private async postJson<T>(path: string, body: unknown): Promise<T> {
     const res = await request(this.url(path), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: this.headers({ 'content-type': 'application/json' }),
       body: JSON.stringify(body),
     });
     const text = await res.body.text();
@@ -80,7 +111,10 @@ export class HttpAgentClient implements AgentClient {
   }
 
   private async getJson<T>(path: string): Promise<T> {
-    const res = await request(this.url(path), { method: 'GET' });
+    const res = await request(this.url(path), {
+      method: 'GET',
+      headers: this.headers({}),
+    });
     const text = await res.body.text();
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw new AgentRequestError(
@@ -167,10 +201,10 @@ export class HttpAgentClient implements AgentClient {
   ): AsyncIterable<AgentStreamEvent> {
     const res = await request(this.url(path), {
       method: 'POST',
-      headers: {
+      headers: this.headers({
         'content-type': 'application/json',
         accept: 'text/event-stream',
-      },
+      }),
       body: JSON.stringify(body),
       signal,
     });

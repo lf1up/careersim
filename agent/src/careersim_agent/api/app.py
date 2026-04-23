@@ -11,14 +11,16 @@ Two flavours per operation:
     replay them to the frontend in real time.
 """
 
+import hmac
 import json
 import logging
 from typing import Any, Literal, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..config import get_settings
 from ..services.conversation_service import (
     ConversationService,
     MessageEvent,
@@ -28,6 +30,60 @@ from ..services.conversation_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# -- Internal API authentication ---------------------------------------------
+
+# Header used by the Node/Fastify API to authenticate itself to the agent.
+# Paired with the `AGENT_INTERNAL_KEY` env var on both sides. The path is
+# deliberately short + namespaced to "internal" so it's immediately obvious
+# this isn't a user-facing credential.
+_INTERNAL_KEY_HEADER = "X-Internal-Key"
+
+# `/health` stays open so Docker healthchecks, load balancers, and on-call
+# scripts can probe liveness without distributing the shared secret to
+# infrastructure that otherwise has no reason to hold it. The endpoint
+# returns a bare `{"status": "ok"}` and exposes no domain data.
+_INTERNAL_KEY_EXEMPT_PATHS = frozenset({"/health"})
+
+
+async def require_internal_key(
+    request: Request,
+    x_internal_key: Optional[str] = Header(default=None, alias=_INTERNAL_KEY_HEADER),
+) -> None:
+    """FastAPI dependency that gates non-exempt routes on a shared secret.
+
+    Applied globally via ``FastAPI(dependencies=[...])`` in
+    :func:`create_api_app`.  When the configured key is empty (unset
+    env var) the agent runs in "dev mode" — it logs a one-line warning
+    on first request and accepts everything. This keeps local `pytest`,
+    the Gradio console, and single-service dev sessions trivial.
+
+    Comparison uses :func:`hmac.compare_digest` to avoid trivially
+    leaking key length / prefix via response-time side channels, even
+    though this surface is intended to live on a private network.
+    """
+    if request.url.path in _INTERNAL_KEY_EXEMPT_PATHS:
+        return
+
+    settings = get_settings()
+    expected = settings.agent_internal_key
+    if not expected:
+        # Don't spam the logs on every request — emit a single warning
+        # the first time we notice the unset key, then stay quiet.
+        if not getattr(require_internal_key, "_warned_unset", False):
+            logger.warning(
+                "AGENT_INTERNAL_KEY is not set — accepting all requests. "
+                "Set it in production so only the API service can reach the agent."
+            )
+            require_internal_key._warned_unset = True  # type: ignore[attr-defined]
+        return
+
+    provided = x_internal_key or ""
+    if not hmac.compare_digest(provided, expected):
+        # 401 vs 403: we treat a missing/wrong key as "unauthenticated",
+        # matching how we'd reject an anonymous caller at the edge.
+        raise HTTPException(status_code=401, detail="Invalid or missing internal API key")
 
 
 # -- Request / Response schemas -----------------------------------------------
@@ -189,6 +245,11 @@ def create_api_app() -> FastAPI:
         title="CareerSIM Agent API",
         description="Stateless, message-based conversation agent",
         version="0.1.0",
+        # Global dependency: every route except `/health` requires a
+        # matching `X-Internal-Key` header when the agent is configured
+        # with a non-empty `AGENT_INTERNAL_KEY`. See
+        # `require_internal_key` above for the dev-mode fallback.
+        dependencies=[Depends(require_internal_key)],
     )
 
     # -- Health & catalogue ---------------------------------------------------

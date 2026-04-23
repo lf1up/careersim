@@ -440,3 +440,64 @@ class TestStatelessness:
             {"role": "human", "content": "back again"},
             {"role": "ai", "content": "echo:back again"},
         ]
+
+
+# =============================================================================
+# Internal API authentication
+# =============================================================================
+# See `require_internal_key` in `careersim_agent.api.app`. The agent is
+# designed to run in two modes:
+#   - dev mode (AGENT_INTERNAL_KEY unset) — accepts everything, logs a warning
+#   - hardened mode (AGENT_INTERNAL_KEY set) — requires a matching
+#     `X-Internal-Key` header on every non-`/health` route
+# The existing `client` fixture runs in dev mode; the fixtures below
+# isolate the hardened-mode checks so they don't pollute the settings
+# cache used by other tests.
+
+
+class TestInternalApiKey:
+    """Exercise both enforcement paths of `require_internal_key`."""
+
+    @pytest.fixture
+    def hardened_client(self, monkeypatch):
+        """Rebuild settings + app with a known AGENT_INTERNAL_KEY."""
+        from careersim_agent import config as config_module
+
+        monkeypatch.setenv("AGENT_INTERNAL_KEY", "secret-test-key")
+        # `get_settings()` is cached — clear so we pick up the env change.
+        config_module.get_settings.cache_clear()
+        app = create_api_app()
+        try:
+            yield TestClient(app)
+        finally:
+            config_module.get_settings.cache_clear()
+
+    def test_health_is_exempt_even_when_key_required(self, hardened_client):
+        """`/health` must keep working for infra healthchecks."""
+        resp = hardened_client.get("/health")
+        assert resp.status_code == 200
+
+    def test_missing_header_rejected(self, hardened_client):
+        resp = hardened_client.get("/simulations")
+        assert resp.status_code == 401
+        assert "internal api key" in resp.json()["detail"].lower()
+
+    def test_wrong_header_rejected(self, hardened_client):
+        resp = hardened_client.get(
+            "/simulations",
+            headers={"X-Internal-Key": "not-the-key"},
+        )
+        assert resp.status_code == 401
+
+    def test_correct_header_accepted(self, hardened_client):
+        resp = hardened_client.get(
+            "/simulations",
+            headers={"X-Internal-Key": "secret-test-key"},
+        )
+        assert resp.status_code == 200
+        assert "simulations" in resp.json()
+
+    def test_dev_mode_accepts_anything(self, client):
+        """Default fixture runs with AGENT_INTERNAL_KEY unset → no auth."""
+        resp = client.get("/simulations")
+        assert resp.status_code == 200

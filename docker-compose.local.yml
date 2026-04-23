@@ -84,6 +84,10 @@ services:
       DATABASE_URL: postgres://careersim:careersim_password@postgres:5432/careersim
       REDIS_URL: redis://redis:6379
       AGENT_API_URL: http://agent:8001
+      # AGENT_INTERNAL_KEY is picked up from `./api/.env` and must match
+      # the `AGENT_INTERNAL_KEY` in `./agent/.env`. Leave both unset in
+      # local dev (the agent falls back to unauthenticated mode with a
+      # warning); set to a matching random value in staging/prod.
     depends_on:
       postgres:
         condition: service_healthy

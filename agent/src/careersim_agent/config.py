@@ -50,6 +50,19 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    # -------------------------------------------------------------------
+    # Internal API authentication
+    #
+    # Shared secret used to authenticate the Node/Fastify API when it
+    # calls into this agent service. When empty, the agent logs a
+    # warning on startup and accepts requests without the header —
+    # this keeps local dev, Gradio-only mode, and the pytest suite
+    # working out of the box. In any real deployment this MUST be set
+    # to a long random string that matches `AGENT_INTERNAL_KEY` on the
+    # API side.
+    # -------------------------------------------------------------------
+    agent_internal_key: str = ""
+
     @property
     def openai_config(self) -> dict:
         """Get OpenAI configuration as a dict."""

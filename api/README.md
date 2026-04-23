@@ -266,6 +266,7 @@ See `.env.example` for the authoritative list. Required in production:
 | --- | --- | --- |
 | `DATABASE_URL` | — | Postgres connection string |
 | `AGENT_API_URL` | — | Base URL of the agent FastAPI server (`agent/ --serve api`) |
+| `AGENT_INTERNAL_KEY` | — | Shared secret sent as `X-Internal-Key` on every API ⇒ agent call. Must match the agent's `AGENT_INTERNAL_KEY`. Leave empty for single-service dev (agent accepts unauthenticated calls with a warning); set to a long random string in production |
 | `JWT_SECRET` | — | Min 16 chars; rotate via deploy |
 | `JWT_EXPIRES_IN` | `7d` | Passed to `@fastify/jwt` |
 | `WEB_APP_URL` | `http://localhost:3000` | Public origin of the Next.js app. Embedded in outbound emails (magic links, password reset) |

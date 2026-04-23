@@ -6,7 +6,9 @@ import { buildApp } from './server.js';
 async function main(): Promise<void> {
   const env = loadEnv();
   const dbHandle = createPgClient(env.DATABASE_URL);
-  const agent = new HttpAgentClient(env.AGENT_API_URL);
+  const agent = new HttpAgentClient(env.AGENT_API_URL, {
+    internalKey: env.AGENT_INTERNAL_KEY || undefined,
+  });
 
   const app = await buildApp({
     db: dbHandle.db,
@@ -74,8 +76,21 @@ async function main(): Promise<void> {
       ? 'enabled (Redis store)'
       : 'enabled (in-memory store)'
     : 'disabled';
+  // The agent defaults to dev-mode (unauthenticated) when its
+  // AGENT_INTERNAL_KEY is empty; surface the matching API-side state
+  // here so ops notice a missing key at startup rather than when a
+  // wrong-header 401 hits production traffic.
+  const agentAuthState = env.AGENT_INTERNAL_KEY
+    ? 'shared secret configured'
+    : 'unauthenticated (AGENT_INTERNAL_KEY unset)';
 
   app.log.info(`api listening on http://${env.HOST}:${env.PORT}`);
+  if (!env.AGENT_INTERNAL_KEY && env.NODE_ENV === 'production') {
+    app.log.warn(
+      'AGENT_INTERNAL_KEY is unset in production — agent calls are unauthenticated. ' +
+        'Set it on both the API and the agent to match.',
+    );
+  }
 
   const line = '='.repeat(60);
   process.stdout.write(
@@ -91,6 +106,7 @@ async function main(): Promise<void> {
       '',
       `  Rate:  ${rateLimitState}`,
       `  Agent: ${env.AGENT_API_URL}`,
+      `  Auth:  ${agentAuthState}`,
       '',
       '  Press Ctrl+C to stop',
       line,
