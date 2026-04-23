@@ -115,7 +115,7 @@ if (config.isDevelopment) {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'CareerSim API Documentation',
+    customSiteTitle: 'CareerSIM API Documentation',
   }));
 }
 

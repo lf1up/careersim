@@ -506,9 +506,9 @@ def create_gradio_app() -> gr.Blocks:
     sim_choices = [(f"{s['title']} ({s['personaName']})", s['slug']) for s in simulations]
 
     with gr.Blocks(
-        title="CareerSim Agent - Developer Console",
+        title="CareerSIM Agent - Developer Console",
     ) as app:
-        gr.Markdown("# CareerSim Agent - Developer Console")
+        gr.Markdown("# CareerSIM Agent - Developer Console")
         gr.Markdown("Debug and test the conversation agent with full state visibility.")
 
         with gr.Row():

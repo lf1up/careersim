@@ -4,7 +4,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { MagicLinkCallback } from '@/components/auth/MagicLinkCallback';
 
 export const metadata = {
-  title: 'Signing in · CareerSim',
+  title: 'Signing in · CareerSIM',
 };
 
 export default function AuthCallbackPage() {

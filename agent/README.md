@@ -1,4 +1,4 @@
-# CareerSim Agent
+# CareerSIM Agent
 
 A standalone Python LangGraph agent for career-simulation conversations. Ships
 with a Gradio developer console **and** a stateless FastAPI production server.

@@ -1,7 +1,7 @@
 {
   "name": "careersim-backend",
   "version": "1.0.0",
-  "description": "Backend API for CareerSim - AI-Powered Career Skills Simulator",
+  "description": "Backend API for CareerSIM - AI-Powered Career Skills Simulator",
   "type": "module",
   "main": "dist/server.js",
   "private": true,

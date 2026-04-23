@@ -1,15 +1,15 @@
-# CareerSim — AI-Powered Career Skills Simulator
+# CareerSIM — AI-Powered Career Skills Simulator
 
-**CareerSim** is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
+**CareerSIM** is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
 
-The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSim provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
+The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
 > [!NOTE]
 > **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
 
 ## Architecture
 
-CareerSim runs as three first-party services plus shared infrastructure. The API owns all persistence; the agent is a pure function of its inputs (full state snapshot in, new messages + updated state out) — this makes replay, testing, and horizontal scaling straightforward.
+CareerSIM runs as three first-party services plus shared infrastructure. The API owns all persistence; the agent is a pure function of its inputs (full state snapshot in, new messages + updated state out) — this makes replay, testing, and horizontal scaling straightforward.
 
 ```
                       ┌──────────────────────┐

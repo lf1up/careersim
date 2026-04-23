@@ -166,7 +166,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const res = await apiClient.verifyEmail(email, code);
       dispatch({ type: 'SET_USER', payload: res.user });
-      toast.success('Welcome to CareerSim!');
+      toast.success('Welcome to CareerSIM!');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Verification failed';

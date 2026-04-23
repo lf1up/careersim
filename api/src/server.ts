@@ -79,8 +79,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(swagger, {
     openapi: {
       info: {
-        title: 'CareerSim API',
-        description: 'Fastify + Drizzle API gateway in front of the CareerSim agent.',
+        title: 'CareerSIM API',
+        description: 'Fastify + Drizzle API gateway in front of the CareerSIM agent.',
         version: '0.1.0',
       },
       components: {
@@ -176,7 +176,7 @@ function renderSwaggerUiHtml(specUrl: string): string {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>CareerSim API — Swagger UI</title>
+    <title>CareerSIM API — Swagger UI</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/swagger-ui.css" />
     <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/favicon-32x32.png" sizes="32x32" />
     <style>body { margin: 0; }</style>

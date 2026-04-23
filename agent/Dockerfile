@@ -1,5 +1,5 @@
 # =============================================================================
-# CareerSim Agent - Core Microservice
+# CareerSIM Agent - Core Microservice
 # =============================================================================
 # Multi-stage Dockerfile for the LangGraph conversation agent with Gradio API
 # Connect from backend using gradio_client

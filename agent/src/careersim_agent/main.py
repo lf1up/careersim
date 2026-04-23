@@ -1,4 +1,4 @@
-"""Main entry point for the CareerSim Agent.
+"""Main entry point for the CareerSIM Agent.
 
 Supports two modes:
     python -m careersim_agent.main              # Gradio dev console (default)
@@ -73,7 +73,7 @@ def run_gradio():
     logger.info(f"Launching Gradio UI on port {settings.gradio_server_port}...")
 
     print("\n" + "=" * 60)
-    print("CareerSim Agent - Developer Console")
+    print("CareerSIM Agent - Developer Console")
     print("=" * 60)
     print(f"\n  URL: http://localhost:{settings.gradio_server_port}")
     print("\n  Features:")
@@ -103,7 +103,7 @@ def run_api(host: str = "0.0.0.0", port: int = 8000):
     app = create_api_app()
 
     print("\n" + "=" * 60)
-    print("CareerSim Agent - Production API")
+    print("CareerSIM Agent - Production API")
     print("=" * 60)
     print(f"\n  URL:  http://{host}:{port}")
     print(f"  Docs: http://{host}:{port}/docs")
@@ -115,7 +115,7 @@ def run_api(host: str = "0.0.0.0", port: int = 8000):
 
 def main():
     """Parse arguments and launch the appropriate server."""
-    parser = argparse.ArgumentParser(description="CareerSim Agent")
+    parser = argparse.ArgumentParser(description="CareerSIM Agent")
     parser.add_argument(
         "--serve",
         choices=["gradio", "api"],
@@ -138,7 +138,7 @@ def main():
 
     setup_logging()
     logger = logging.getLogger(__name__)
-    logger.info("Starting CareerSim Agent...")
+    logger.info("Starting CareerSIM Agent...")
 
     if not validate_config():
         logger.warning("Configuration incomplete - some features may not work")

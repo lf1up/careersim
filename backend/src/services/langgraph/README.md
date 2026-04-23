@@ -1,6 +1,6 @@
 # LangGraph Conversation System
 
-This directory contains the LangGraph-based conversation agent system for CareerSim, providing a stateful, multi-node graph architecture for managing AI conversations, proactive messages, and goal evaluation.
+This directory contains the LangGraph-based conversation agent system for CareerSIM, providing a stateful, multi-node graph architecture for managing AI conversations, proactive messages, and goal evaluation.
 
 ## Standalone Server for Testing
 

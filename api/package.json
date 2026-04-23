@@ -1,7 +1,7 @@
 {
   "name": "careersim-api",
   "version": "0.1.0",
-  "description": "CareerSim Fastify + Drizzle API gateway in front of the LangGraph agent service.",
+  "description": "CareerSIM Fastify + Drizzle API gateway in front of the LangGraph agent service.",
   "private": true,
   "type": "module",
   "engines": {

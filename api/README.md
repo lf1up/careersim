@@ -1,4 +1,4 @@
-# CareerSim API
+# CareerSIM API
 
 Fastify + Drizzle + TypeScript API gateway in front of the Python `agent/`
 service. The API owns all persistence (Postgres); the agent stays fully
@@ -259,7 +259,7 @@ links straight from `pnpm dev` output):
 | `SMTP_SECURE` | `false` | `true` for implicit TLS (usually port 465) |
 | `SMTP_USER` | — | SMTP username |
 | `SMTP_PASS` | — | SMTP password |
-| `MAIL_FROM` | `CareerSim <no-reply@careersim.local>` | `From:` header on outbound mail |
+| `MAIL_FROM` | `CareerSIM <no-reply@careersim.local>` | `From:` header on outbound mail |
 
 ## Docker
 

@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await apiClient.register(data);
       dispatch({ type: 'SET_USER', payload: response.user });
-      toast.success('Welcome to CareerSim!');
+      toast.success('Welcome to CareerSIM!');
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Registration failed' });
       throw error;

@@ -186,7 +186,7 @@ def _done_event_to_sse(state: dict) -> str:
 
 def create_api_app() -> FastAPI:
     app = FastAPI(
-        title="CareerSim Agent API",
+        title="CareerSIM Agent API",
         description="Stateless, message-based conversation agent",
         version="0.1.0",
     )

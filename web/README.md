@@ -1,6 +1,6 @@
-# CareerSim Web
+# CareerSIM Web
 
-Next.js 15 (App Router) frontend for the CareerSim platform. Talks directly to
+Next.js 15 (App Router) frontend for the CareerSIM platform. Talks directly to
 the Fastify `api/` service — auth, simulations, personas, sessions, and the SSE
 streaming surface. No admin panel, no socket.io, no analytics: those belong to
 the legacy `frontend/` app and are not backed by the new API.

@@ -1,6 +1,6 @@
 # End-to-End Simulation Tests
 
-Comprehensive test suite for all 7 CareerSim simulations with detailed evaluation and eloquent console logging.
+Comprehensive test suite for all 7 CareerSIM simulations with detailed evaluation and eloquent console logging.
 
 ## Overview
 

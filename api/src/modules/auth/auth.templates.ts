@@ -1,6 +1,6 @@
 import type { MailMessage } from '../../plugins/mailer.js';
 
-const PRODUCT = 'CareerSim';
+const PRODUCT = 'CareerSIM';
 
 function shell(title: string, body: string, cta?: { label: string; url: string }): string {
   return `<!DOCTYPE html>

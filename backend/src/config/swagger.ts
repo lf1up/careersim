@@ -5,9 +5,9 @@ const options: swaggerJSDoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'CareerSim API',
+      title: 'CareerSIM API',
       version: '1.0.0',
-      description: 'Backend API for CareerSim - AI-Powered Career Skills Simulator',
+      description: 'Backend API for CareerSIM - AI-Powered Career Skills Simulator',
       contact: {
         name: 'Pavel Vdovenko',
         email: 'reactivecake@gmail.com',

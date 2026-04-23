@@ -1,4 +1,4 @@
-# CareerSim Backend
+# CareerSIM Backend
 
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
@@ -9,7 +9,7 @@
 > - **Status:** commented out in `docker-compose.local.yml`; do not re-enable.
 > - **Do not add new code here.** If you still need something from this codebase, port it into `api/`.
 
-A comprehensive Node.js backend for the CareerSim AI-powered career skills simulator platform.
+A comprehensive Node.js backend for the CareerSIM AI-powered career skills simulator platform.
 
 ## 🏗️ Architecture Overview
 

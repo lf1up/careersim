@@ -54,7 +54,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     jwtExpiresIn: '1h',
     webAppUrl: 'http://localhost:3000',
     mail: {
-      from: 'CareerSim Test <no-reply@test.careersim.local>',
+      from: 'CareerSIM Test <no-reply@test.careersim.local>',
       devFallback: true,
       outbox,
     },

@@ -1,4 +1,4 @@
-# CareerSim Frontend
+# CareerSIM Frontend
 
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
@@ -9,7 +9,7 @@
 > - **Status:** commented out in `docker-compose.local.yml`; do not re-enable.
 > - **Do not add new features here.** Port components into `web/src/components/` instead.
 
-A React TypeScript frontend for the CareerSim professional simulation platform, featuring a retro-themed UI with dark mode support.
+A React TypeScript frontend for the CareerSIM professional simulation platform, featuring a retro-themed UI with dark mode support.
 
 ## Prerequisites
 

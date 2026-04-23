@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Flexible simulation test script for CareerSim Agent.
+Flexible simulation test script for CareerSIM Agent.
 
 Supports:
 - Any simulation (behavioral, technical, saying-no, etc.)
@@ -634,7 +634,7 @@ def list_simulations(client: Client):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CareerSim Simulation Tester")
+    parser = argparse.ArgumentParser(description="CareerSIM Simulation Tester")
     parser.add_argument("--sim", default="behavioral-interview-brenda",
                         help="Simulation slug to run")
     parser.add_argument("--auto", action="store_true",
@@ -663,7 +663,7 @@ def main():
         print("Connected successfully!")
     except Exception as e:
         print(f"Error connecting: {e}")
-        print("Make sure the CareerSim server is running: python -m careersim_agent.main")
+        print("Make sure the CareerSIM server is running: python -m careersim_agent.main")
         sys.exit(1)
     
     if args.list:
