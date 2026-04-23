@@ -62,7 +62,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request, reply) => {
-      const { email, password } = request.body;
+      const { email, password, altcha } = request.body;
+      await app.altcha.verify(altcha);
       const issued = await service.startRegistration(email, password);
       await app.mailer.send(verifyEmailMail(issued.user.email, issued.code));
       reply.code(202).send({ pending: true as const, email: issued.user.email });
@@ -80,6 +81,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request) => {
+      await app.altcha.verify(request.body.altcha);
       const issued = await service.resendVerification(request.body.email);
       if (issued) {
         await app.mailer.send(verifyEmailMail(issued.user.email, issued.code));
@@ -119,7 +121,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request) => {
-      const { email, password } = request.body;
+      const { email, password, altcha } = request.body;
+      await app.altcha.verify(altcha);
       const user = await service.verifyCredentials(email, password);
       const token = await signUser(user);
       return { token, user: service.toDto(user) };
@@ -139,6 +142,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request) => {
+      await app.altcha.verify(request.body.altcha);
       const issued = await service.startEmailLinkLogin(request.body.email);
       if (issued) {
         const url = buildLinkUrl(opts.webAppUrl, '/auth/callback', issued.token);
@@ -178,6 +182,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request) => {
+      await app.altcha.verify(request.body.altcha);
       const issued = await service.startPasswordReset(request.body.email);
       if (issued) {
         const url = buildLinkUrl(opts.webAppUrl, '/reset-password', issued.token);

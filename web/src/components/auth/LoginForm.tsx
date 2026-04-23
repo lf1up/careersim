@@ -11,6 +11,7 @@ import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 import { ApiError } from '@/lib/api';
 import { safeNextPath } from '@/lib/safe-next-path';
+import { AltchaWidget } from './AltchaWidget';
 import { CheckYourInboxCard } from './CheckYourInboxCard';
 import { VerifyCodeCard } from './VerifyCodeCard';
 
@@ -25,6 +26,7 @@ export const LoginForm: React.FC = () => {
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [altcha, setAltcha] = useState<string | null>(null);
 
   const {
     login,
@@ -42,15 +44,25 @@ export const LoginForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    if (!altcha) {
+      setFormError('Please complete the human-check above before continuing.');
+      return;
+    }
     try {
-      await login(email, password);
+      await login(email, password, altcha);
       router.push(nextPath);
     } catch (err) {
+      // The altcha payload is single-use on the server; drop it so the
+      // widget re-verifies before the next submit.
+      setAltcha(null);
       // Special-case a couple of known errors so the UI can nudge the user
       // into the right flow rather than dead-ending.
       if (err instanceof ApiError) {
         if (err.code === 'EMAIL_NOT_VERIFIED') {
           // Re-trigger a fresh code so the user has one in their inbox.
+          // The previous email-link endpoint is the abuse-prone one; resend
+          // doesn't need a second captcha because the server gates it by
+          // pending-verification state.
           await resendVerification(email).catch(() => {
             /* swallow — we're already pivoting the UI */
           });
@@ -74,11 +86,16 @@ export const LoginForm: React.FC = () => {
       setFormError('Enter your email first.');
       return;
     }
+    if (!altcha) {
+      setFormError('Please complete the human-check above before continuing.');
+      return;
+    }
     setLinkSubmitting(true);
     try {
-      await requestEmailLink(email);
+      await requestEmailLink(email, altcha);
       setStep({ kind: 'email-link-sent', email });
     } catch (err) {
+      setAltcha(null);
       setFormError(err instanceof Error ? err.message : 'Could not send email');
     } finally {
       setLinkSubmitting(false);
@@ -179,13 +196,23 @@ export const LoginForm: React.FC = () => {
               </Link>
             </div>
 
+            <AltchaWidget
+              onVerified={setAltcha}
+              onReset={() => setAltcha(null)}
+            />
+
             {formError && (
               <RetroAlert tone="error" title="Sign in failed">
                 {formError}
               </RetroAlert>
             )}
 
-            <Button type="submit" className="w-full" isLoading={isLoading}>
+            <Button
+              type="submit"
+              className="w-full"
+              isLoading={isLoading}
+              disabled={!altcha}
+            >
               Sign in
             </Button>
           </form>
@@ -202,6 +229,7 @@ export const LoginForm: React.FC = () => {
             className="w-full"
             onClick={handleEmailLink}
             isLoading={linkSubmitting}
+            disabled={!altcha}
           >
             Email me a sign-in link
           </Button>

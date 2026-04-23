@@ -20,6 +20,9 @@ importers:
       '@fastify/swagger':
         specifier: ^9.7.0
         version: 9.7.0
+      altcha-lib:
+        specifier: ^2.0.3
+        version: 2.0.3(@fastify/cors@11.2.0)(fastify@5.8.5)
       argon2:
         specifier: ^0.44.0
         version: 0.44.0
@@ -951,6 +954,51 @@ packages:
 
   ajv@8.18.0:
     resolution: {integrity: sha512-PlXPeEWMXMZ7sPYOHqmDyCJzcfNrUr3fGNKtezX14ykXOEIvyK81d+qydx89KY5O71FKMPaQ2vBfBFI5NHR63A==}
+
+  altcha-lib@2.0.3:
+    resolution: {integrity: sha512-rbBOrVcg5DiBPfn5dfhT+7J5k/Dqtj4seR5m1BB+w0QK4pZOBSS0ZpZ5PkolypmR315/SVbpXHM/QuL0kH5Seg==}
+    hasBin: true
+    peerDependencies:
+      '@fastify/cookie': ^11.0.0
+      '@fastify/cors': ^11.0.0
+      '@fastify/formbody': ^8.0.0
+      '@nestjs/common': ^10.0.0 || ^11.0.0
+      '@nestjs/core': ^10.0.0 || ^11.0.0
+      '@nestjs/platform-express': ^10.0.0 || ^11.0.0
+      '@sveltejs/kit': ^2.0.0
+      cookie-parser: ^1.0.0
+      cors: ^2.0.0
+      express: ^4.0.0 || ^5.0.0
+      fastify: ^5.0.0
+      h3: ^2.0.0
+      hono: ^4.0.0
+    peerDependenciesMeta:
+      '@fastify/cookie':
+        optional: true
+      '@fastify/cors':
+        optional: true
+      '@fastify/formbody':
+        optional: true
+      '@nestjs/common':
+        optional: true
+      '@nestjs/core':
+        optional: true
+      '@nestjs/platform-express':
+        optional: true
+      '@sveltejs/kit':
+        optional: true
+      cookie-parser:
+        optional: true
+      cors:
+        optional: true
+      express:
+        optional: true
+      fastify:
+        optional: true
+      h3:
+        optional: true
+      hono:
+        optional: true
 
   argon2@0.44.0:
     resolution: {integrity: sha512-zHPGN3S55sihSQo0dBbK0A5qpi2R31z7HZDZnry3ifOyj8bZZnpZND2gpmhnRGO1V/d555RwBqIK5W4Mrmv3ig==}
@@ -2630,6 +2678,11 @@ snapshots:
       fast-uri: 3.1.0
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
+
+  altcha-lib@2.0.3(@fastify/cors@11.2.0)(fastify@5.8.5):
+    optionalDependencies:
+      '@fastify/cors': 11.2.0
+      fastify: 5.8.5
 
   argon2@0.44.0:
     dependencies:

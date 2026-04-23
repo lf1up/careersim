@@ -10,9 +10,17 @@ turn.
 - **Runtime**: Node 20+, TypeScript (strict ESM), pnpm
 - **HTTP**: Fastify 5 + `fastify-type-provider-zod` (Zod schemas double as OpenAPI)
 - **DB**: PostgreSQL 17, Drizzle ORM + drizzle-kit migrations
-- **Auth**: JWT bearer (`@fastify/jwt`) + argon2id password hashing
+- **Auth**: JWT bearer (`@fastify/jwt`) + argon2id password/OTP hashing.
+  Email-verified registration (6-digit code), passwordless magic-link login,
+  password reset, and authenticated email/password change flows
+- **Email**: `nodemailer` with a dev-friendly stdout transport when SMTP is
+  unconfigured (verification codes + magic links get logged to the Fastify
+  logger instead of sent)
+- **CAPTCHA**: [ALTCHA](https://altcha.org) proof-of-work via `altcha-lib`.
+  Server issues signed challenges at `GET /auth/challenge`; public-facing
+  auth mutations require a solved payload
 - **Upstream client**: `undici` + `eventsource-parser` for SSE proxying
-- **Tests**: Vitest + Fastify `app.inject()` + `@electric-sql/pglite` + an in-process `FakeAgent`
+- **Tests**: Vitest + Fastify `app.inject()` + `@electric-sql/pglite` + an in-process `FakeAgent` (ALTCHA runs in bypass mode for tests, with a dedicated suite that exercises real challenges end-to-end)
 
 ## Quick start
 
@@ -32,21 +40,35 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 
 ## Endpoints (v0)
 
-| Method | Path | Auth | Purpose |
-| --- | --- | --- | --- |
-| GET  | `/health` | public | Liveness + db/agent ping |
-| POST | `/auth/register` | public | Create user, return JWT |
-| POST | `/auth/login` | public | Exchange credentials for JWT |
-| GET  | `/auth/me` | jwt | Current user |
-| GET  | `/simulations` | jwt | Passthrough to agent `GET /simulations` |
-| POST | `/sessions` | jwt | Create session → `POST /conversation/init` → persist |
-| GET  | `/sessions` | jwt | List caller's sessions with message counts |
-| GET  | `/sessions/:id` | jwt (owner) | Persisted messages + latest analysis/goal progress |
-| POST | `/sessions/:id/messages` | jwt (owner) | `POST /conversation/turn` → persist delta |
-| POST | `/sessions/:id/messages/stream` | jwt (owner) | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
-| POST | `/sessions/:id/proactive` | jwt (owner) | Batch followup (`trigger_type: "followup"` only) |
-| POST | `/sessions/:id/proactive/stream` | jwt (owner) | SSE followup (`trigger_type: "followup"` only) |
-| POST | `/sessions/:id/nudge` | jwt (owner) | Guarded inactivity nudge (batch only) |
+| Method | Path | Auth | CAPTCHA | Purpose |
+| --- | --- | --- | --- | --- |
+| GET  | `/health` | public | — | Liveness + db/agent ping |
+| GET  | `/auth/challenge` | public | — | Issue an ALTCHA proof-of-work challenge for the forms below |
+| POST | `/auth/register` | public | ✓ | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
+| POST | `/auth/resend-verification` | public | ✓ | Re-send the registration verification code |
+| POST | `/auth/verify-email` | public | — | Consume the 6-digit code; returns `{ user, token }` |
+| POST | `/auth/login` | public | ✓ | Exchange credentials for a JWT |
+| POST | `/auth/login/email-link` | public | ✓ | Email a magic sign-in link (passwordless) |
+| POST | `/auth/consume-link` | public | — | Consume a magic-link token; returns `{ user, token }` |
+| POST | `/auth/forgot-password` | public | ✓ | Email a password-reset link |
+| POST | `/auth/reset-password` | public | — | Consume a reset token + set a new password |
+| GET  | `/auth/me` | jwt | — | Current user |
+| POST | `/auth/change-password` | jwt | — | Rotate / set a password (current password required when one exists) |
+| POST | `/auth/request-email-change` | jwt | — | Start an email change; emails a 6-digit code to the new address |
+| POST | `/auth/confirm-email-change` | jwt | — | Consume the code + swap the email |
+| GET  | `/simulations` | jwt | — | Passthrough to agent `GET /simulations` |
+| POST | `/sessions` | jwt | — | Create session → `POST /conversation/init` → persist |
+| GET  | `/sessions` | jwt | — | List caller's sessions with message counts |
+| GET  | `/sessions/:id` | jwt (owner) | — | Persisted messages + latest analysis/goal progress |
+| POST | `/sessions/:id/messages` | jwt (owner) | — | `POST /conversation/turn` → persist delta |
+| POST | `/sessions/:id/messages/stream` | jwt (owner) | — | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
+| POST | `/sessions/:id/proactive` | jwt (owner) | — | Batch followup (`trigger_type: "followup"` only) |
+| POST | `/sessions/:id/proactive/stream` | jwt (owner) | — | SSE followup (`trigger_type: "followup"` only) |
+| POST | `/sessions/:id/nudge` | jwt (owner) | — | Guarded inactivity nudge (batch only) |
+
+The CAPTCHA-gated endpoints accept an optional `altcha` field (the solved
+challenge payload) in the JSON body. It is **required in production** and
+bypassed only when the app is built with `altcha.bypass = true` (tests).
 
 ## Layout
 
@@ -58,26 +80,29 @@ api/
 │   ├── config/env.ts           # Zod-validated env
 │   ├── db/
 │   │   ├── client.ts           # createPgClient / createPgliteClient
-│   │   ├── schema.ts           # users, sessions, messages
+│   │   ├── schema.ts           # users (nullable password + emailVerifiedAt), authTokens, sessions, messages
 │   │   ├── migrate.ts          # drizzle-orm migrator (node-postgres)
-│   │   └── migrations/         # drizzle-kit output
+│   │   └── migrations/         # drizzle-kit output (0002 adds email verification + authTokens)
 │   ├── agent/
 │   │   ├── types.ts            # Wire types mirroring agent/src/careersim_agent/api/app.py
 │   │   └── client.ts           # HttpAgentClient + parseAgentSSE
 │   ├── plugins/
 │   │   ├── auth.ts             # @fastify/jwt + app.authenticate decorator
+│   │   ├── altcha.ts           # ALTCHA: GET /auth/challenge + app.altcha.verify(payload)
+│   │   ├── mailer.ts           # nodemailer + dev stdout fallback (app.mailer.send)
 │   │   └── errors.ts           # HttpError + Zod validation mapping
 │   └── modules/
-│       ├── auth/               # register / login / me
+│       ├── auth/               # register, verify, login, magic-link, forgot/reset, profile (change pw/email)
 │       ├── health/             # /health with db + agent probes
 │       ├── simulations/        # agent passthrough
 │       └── sessions/           # create, list, get, turn (batch + SSE), proactive
 ├── tests/
 │   ├── helpers/
-│   │   ├── build-test-app.ts   # pglite + FakeAgent wiring
+│   │   ├── build-test-app.ts   # pglite + FakeAgent + ALTCHA bypass wiring (exports TEST_ALTCHA)
 │   │   └── fake-agent.ts       # mirrors agent/tests/test_api.py _FakeGraph contract
 │   ├── health.test.ts
-│   ├── auth.test.ts
+│   ├── auth.test.ts            # register / verify / login / magic link / password reset / email + password change
+│   ├── altcha.test.ts          # challenge shape, bypass semantics, real solve end-to-end, signature tampering
 │   ├── simulations.test.ts
 │   ├── sessions.batch.test.ts
 │   ├── sessions.stream.test.ts
@@ -131,7 +156,16 @@ the Gradio dev UI.
 Tests cover:
 
 - Health probe (happy + degraded agent paths)
-- Auth: register / login / `/me`, duplicate email, wrong password, tampered token, email normalisation
+- Auth (register + login): password + passwordless registration, 6-digit
+  verification, resend, wrong/expired code, duplicate email, wrong
+  password, tampered token, email normalisation, `/auth/me`, change
+  password, request + confirm email change
+- Auth (passwordless): magic-link issuance, consumption, token
+  single-use + expiry, forgot-password → reset-password round-trip
+- ALTCHA: `/auth/challenge` response shape, bypass mode accepting the
+  test token and rejecting garbage, production mode rejecting missing /
+  bogus / tampered payloads, and a real PoW solve against a live
+  challenge that round-trips through `/auth/register`
 - Simulations: auth-required + passthrough
 - Sessions (batch): create, get, list, ownership, unknown id, message ordering, validation
 - Sessions (SSE stream): event shape, persistence on `done`, ownership
@@ -207,9 +241,25 @@ See `.env.example` for the authoritative list. Required in production:
 | `AGENT_API_URL` | — | Base URL of the agent FastAPI server (`agent/ --serve api`) |
 | `JWT_SECRET` | — | Min 16 chars; rotate via deploy |
 | `JWT_EXPIRES_IN` | `7d` | Passed to `@fastify/jwt` |
+| `WEB_APP_URL` | `http://localhost:3000` | Public origin of the Next.js app. Embedded in outbound emails (magic links, password reset) |
+| `ALTCHA_HMAC_KEY` | — | Server-only secret (≥16 chars) used to sign + verify ALTCHA challenges. Rotating invalidates in-flight challenges |
+| `ALTCHA_MAX_NUMBER` | `50000` | Upper bound for the PoW target. Raise under attack; lower for low-power clients |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
 | `LOG_LEVEL` | `info` | pino level |
+
+Outbound email (optional in dev — leave `SMTP_HOST` blank to log rendered
+emails through the Fastify logger and read verification codes / magic
+links straight from `pnpm dev` output):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SMTP_HOST` | — | SMTP relay host (SendGrid, Postmark, SES, Mailgun, …). Empty ⇒ stdout fallback |
+| `SMTP_PORT` | `587` | SMTP port |
+| `SMTP_SECURE` | `false` | `true` for implicit TLS (usually port 465) |
+| `SMTP_USER` | — | SMTP username |
+| `SMTP_PASS` | — | SMTP password |
+| `MAIL_FROM` | `CareerSim <no-reply@careersim.local>` | `From:` header on outbound mail |
 
 ## Docker
 
@@ -240,3 +290,21 @@ service is uncommented in compose.
 - **Ownership is checked in the service layer.** Routes only destructure
   `request.user.sub`; the service throws `forbidden()` if the session's
   `user_id` doesn't match, which the error plugin maps to HTTP 403.
+- **Auth secrets at rest are argon2id-hashed.** Passwords, 6-digit
+  verification codes, and magic-link tokens all go through the same
+  argon2id config before being written to `auth_tokens` / `users`. The
+  raw values only ever exist in memory long enough to be emailed and are
+  never logged. Magic-link / reset tokens are single-use (`consumed_at`
+  flipped atomically) and expire on the server.
+- **ALTCHA is our only bot-defence layer.** The widget solves a signed
+  proof-of-work challenge client-side; the server re-verifies the HMAC
+  and the solution with the shared `ALTCHA_HMAC_KEY`. There is no
+  third-party CAPTCHA and no IP reputation service — rate-tuning is a
+  matter of bumping `ALTCHA_MAX_NUMBER`. Tests set `altcha.bypass = true`
+  at app build time so the existing suites don't need to solve a PoW on
+  every request; a dedicated `altcha.test.ts` suite turns bypass off to
+  cover the production path end-to-end.
+- **Dev email goes to stdout.** When `SMTP_HOST` is empty the mailer
+  plugin falls back to a logger transport that prints the full rendered
+  email, so registration / reset flows are usable locally without SMTP
+  credentials.

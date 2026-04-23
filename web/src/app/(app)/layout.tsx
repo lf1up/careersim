@@ -3,6 +3,11 @@ import type { ReactNode } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 
+// All (app) routes are auth-gated and rely on client-side context
+// (useAuth, useSearchParams in RequireAuth). Skip static prerendering
+// so Next.js doesn't try to evaluate client-only hooks at build time.
+export const dynamic = 'force-dynamic';
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   // Shell is a flex column pinned to the viewport so pages that want to
   // stretch to full height (e.g. the chat transcript on /sessions/:id)

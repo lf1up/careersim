@@ -26,6 +26,10 @@ async function main(): Promise<void> {
           }
         : undefined,
     },
+    altcha: {
+      hmacKey: env.ALTCHA_HMAC_KEY,
+      maxNumber: env.ALTCHA_MAX_NUMBER,
+    },
     logger: {
       level: env.LOG_LEVEL,
       transport:

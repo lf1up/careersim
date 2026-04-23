@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
+import { AltchaWidget } from './AltchaWidget';
 import { CheckYourInboxCard } from './CheckYourInboxCard';
 
 export const ForgotPasswordForm: React.FC = () => {
@@ -17,18 +18,24 @@ export const ForgotPasswordForm: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [altcha, setAltcha] = useState<string | null>(null);
 
   const { forgotPassword } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!altcha) {
+      setError('Please complete the human-check above before continuing.');
+      return;
+    }
     setSubmitting(true);
     try {
-      await forgotPassword(email);
+      await forgotPassword(email, altcha);
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send reset link');
+      setAltcha(null);
     } finally {
       setSubmitting(false);
     }
@@ -42,6 +49,10 @@ export const ForgotPasswordForm: React.FC = () => {
             email={email}
             title={<span className="font-retro tracking-wider2">RESET LINK SENT</span>}
             description="If an account exists for this address, we just emailed a password reset link. It expires in 30 minutes and can only be used once."
+            // Resending from the inbox screen doesn't have a fresh altcha
+            // payload; the server will reject without one when bypass is
+            // off. In practice this screen points users back to the
+            // forgot-password form for a re-run of the full flow.
             onResend={async () => {
               await forgotPassword(email);
             }}
@@ -74,13 +85,23 @@ export const ForgotPasswordForm: React.FC = () => {
               onChange={(e) => setEmail(e.target.value)}
             />
 
+            <AltchaWidget
+              onVerified={setAltcha}
+              onReset={() => setAltcha(null)}
+            />
+
             {error && (
               <RetroAlert tone="error" title="Couldn't send">
                 {error}
               </RetroAlert>
             )}
 
-            <Button type="submit" className="w-full" isLoading={submitting}>
+            <Button
+              type="submit"
+              className="w-full"
+              isLoading={submitting}
+              disabled={!altcha}
+            >
               Send reset link
             </Button>
 

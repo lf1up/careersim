@@ -129,18 +129,25 @@ export const apiClient = {
    * it to create a passwordless account (the user can set a password
    * later from the profile page).
    */
-  async register(email: string, password?: string): Promise<PendingRegistration> {
+  async register(
+    email: string,
+    password?: string,
+    altcha?: string,
+  ): Promise<PendingRegistration> {
+    const base: Record<string, string> = { email };
+    if (password) base.password = password;
+    if (altcha) base.altcha = altcha;
     return request<PendingRegistration>('/auth/register', {
       method: 'POST',
-      body: password ? { email, password } : { email },
+      body: base,
       auth: false,
     });
   },
 
-  async resendVerification(email: string): Promise<void> {
+  async resendVerification(email: string, altcha?: string): Promise<void> {
     await request<{ ok: true }>('/auth/resend-verification', {
       method: 'POST',
-      body: { email },
+      body: altcha ? { email, altcha } : { email },
       auth: false,
     });
   },
@@ -156,10 +163,14 @@ export const apiClient = {
     return res;
   },
 
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(
+    email: string,
+    password: string,
+    altcha?: string,
+  ): Promise<AuthResponse> {
     const res = await request<AuthResponse>('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: altcha ? { email, password, altcha } : { email, password },
       auth: false,
     });
     setToken(res.token);
@@ -167,10 +178,10 @@ export const apiClient = {
   },
 
   /** Ask the backend to email a single-use magic-link sign-in URL. */
-  async requestEmailLink(email: string): Promise<void> {
+  async requestEmailLink(email: string, altcha?: string): Promise<void> {
     await request<{ ok: true }>('/auth/login/email-link', {
       method: 'POST',
-      body: { email },
+      body: altcha ? { email, altcha } : { email },
       auth: false,
     });
   },
@@ -186,10 +197,10 @@ export const apiClient = {
     return res;
   },
 
-  async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(email: string, altcha?: string): Promise<void> {
     await request<{ ok: true }>('/auth/forgot-password', {
       method: 'POST',
-      body: { email },
+      body: altcha ? { email, altcha } : { email },
       auth: false,
     });
   },

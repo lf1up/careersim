@@ -8,17 +8,24 @@ const codeField = z.string().regex(/^\d{6}$/, 'Code must be 6 digits');
 // Opaque URL token we emit for magic-link / reset-password flows. 32 bytes
 // hex-encoded => 64 chars; be permissive about length for forward-compat.
 const opaqueTokenField = z.string().min(16).max(256);
+// Base64-encoded JSON blob produced by the altcha-widget (v1 payload).
+// Optional at the schema layer: `app.altcha.verify()` enforces presence
+// at runtime so the test harness can run with `bypass: true` without
+// every request including a real payload.
+const altchaField = z.string().min(8).max(4096).optional();
 
 // -- Requests -----------------------------------------------------------
 
 export const registerRequestSchema = z.object({
   email: emailField,
   password: passwordField.optional(),
+  altcha: altchaField,
 });
 
 export const credentialsSchema = z.object({
   email: emailField,
   password: passwordField,
+  altcha: altchaField,
 });
 
 export const verifyEmailRequestSchema = z.object({
@@ -28,10 +35,12 @@ export const verifyEmailRequestSchema = z.object({
 
 export const resendVerificationRequestSchema = z.object({
   email: emailField,
+  altcha: altchaField,
 });
 
 export const emailOnlyRequestSchema = z.object({
   email: emailField,
+  altcha: altchaField,
 });
 
 export const consumeMagicLinkRequestSchema = z.object({

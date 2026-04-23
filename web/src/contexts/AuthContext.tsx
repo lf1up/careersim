@@ -21,13 +21,17 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password?: string) => Promise<PendingRegistration>;
-  resendVerification: (email: string) => Promise<void>;
+  login: (email: string, password: string, altcha?: string) => Promise<void>;
+  register: (
+    email: string,
+    password?: string,
+    altcha?: string,
+  ) => Promise<PendingRegistration>;
+  resendVerification: (email: string, altcha?: string) => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<void>;
-  requestEmailLink: (email: string) => Promise<void>;
+  requestEmailLink: (email: string, altcha?: string) => Promise<void>;
   consumeMagicLink: (token: string) => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
+  forgotPassword: (email: string, altcha?: string) => Promise<void>;
   resetPassword: (token: string, password: string) => Promise<void>;
   changePassword: (newPassword: string, currentPassword?: string) => Promise<void>;
   requestEmailChange: (newEmail: string, currentPassword?: string) => Promise<void>;
@@ -110,25 +114,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    try {
-      const res = await apiClient.login(email, password);
-      dispatch({ type: 'SET_USER', payload: res.user });
-      toast.success('Welcome back!');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Invalid email or password';
-      dispatch({ type: 'SET_ERROR', payload: message });
-      throw err;
-    }
-  }, []);
-
-  const register = useCallback(
-    async (email: string, password?: string): Promise<PendingRegistration> => {
+  const login = useCallback(
+    async (email: string, password: string, altcha?: string) => {
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
-        const pending = await apiClient.register(email, password);
+        const res = await apiClient.login(email, password, altcha);
+        dispatch({ type: 'SET_USER', payload: res.user });
+        toast.success('Welcome back!');
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Invalid email or password';
+        dispatch({ type: 'SET_ERROR', payload: message });
+        throw err;
+      }
+    },
+    [],
+  );
+
+  const register = useCallback(
+    async (
+      email: string,
+      password?: string,
+      altcha?: string,
+    ): Promise<PendingRegistration> => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      try {
+        const pending = await apiClient.register(email, password, altcha);
         // Registration no longer returns a JWT — the user must still
         // confirm their email. Surface it in state, but don't flip to
         // authenticated.
@@ -143,9 +154,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [],
   );
 
-  const resendVerification = useCallback(async (email: string) => {
-    await apiClient.resendVerification(email);
-  }, []);
+  const resendVerification = useCallback(
+    async (email: string, altcha?: string) => {
+      await apiClient.resendVerification(email, altcha);
+    },
+    [],
+  );
 
   const verifyEmail = useCallback(async (email: string, code: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -161,8 +175,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const requestEmailLink = useCallback(async (email: string) => {
-    await apiClient.requestEmailLink(email);
+  const requestEmailLink = useCallback(async (email: string, altcha?: string) => {
+    await apiClient.requestEmailLink(email, altcha);
   }, []);
 
   const consumeMagicLink = useCallback(async (token: string) => {
@@ -179,8 +193,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const forgotPassword = useCallback(async (email: string) => {
-    await apiClient.forgotPassword(email);
+  const forgotPassword = useCallback(async (email: string, altcha?: string) => {
+    await apiClient.forgotPassword(email, altcha);
   }, []);
 
   const resetPassword = useCallback(async (token: string, password: string) => {

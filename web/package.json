@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
+    "altcha": "^3.0.4",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "eventsource-parser": "^3.0.0",

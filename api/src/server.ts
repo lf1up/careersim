@@ -17,6 +17,7 @@ const pkg = require('../package.json') as { name: string; version: string };
 
 import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
+import altchaPlugin from './plugins/altcha.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import mailerPlugin, { type MailMessage } from './plugins/mailer.js';
@@ -50,6 +51,15 @@ export interface BuildAppOptions {
     /** Force the stdout-only transport (tests / dev without SMTP). */
     devFallback?: boolean;
     outbox?: MailMessage[];
+  };
+  altcha: {
+    hmacKey: string;
+    maxNumber?: number;
+    /**
+     * When true, `app.altcha.verify()` accepts the test bypass token.
+     * Only enable in the Vitest harness.
+     */
+    bypass?: boolean;
   };
 }
 
@@ -105,6 +115,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     smtp: opts.mail.smtp,
     devFallback: opts.mail.devFallback,
     outbox: opts.mail.outbox,
+  });
+
+  await app.register(altchaPlugin, {
+    hmacKey: opts.altcha.hmacKey,
+    maxNumber: opts.altcha.maxNumber,
+    bypass: opts.altcha.bypass,
   });
 
   app.withTypeProvider<ZodTypeProvider>().get(

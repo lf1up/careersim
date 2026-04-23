@@ -11,6 +11,7 @@ import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 import { safeNextPath } from '@/lib/safe-next-path';
+import { AltchaWidget } from './AltchaWidget';
 import { VerifyCodeCard } from './VerifyCodeCard';
 
 type Mode = 'email-link' | 'password';
@@ -29,6 +30,7 @@ export const RegisterForm: React.FC = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [altcha, setAltcha] = useState<string | null>(null);
 
   const { register, verifyEmail, resendVerification } = useAuth();
   const router = useRouter();
@@ -52,15 +54,23 @@ export const RegisterForm: React.FC = () => {
       setPasswordError(null);
     }
 
+    if (!altcha) {
+      setFormError('Please complete the human-check above before continuing.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { email: pendingEmail } = await register(
         email,
         mode === 'password' ? password : undefined,
+        altcha,
       );
       setStep({ kind: 'verify', email: pendingEmail });
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Registration failed');
+      // Altcha payloads are single-use; reset so the user can re-verify.
+      setAltcha(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -177,13 +187,23 @@ export const RegisterForm: React.FC = () => {
               </p>
             )}
 
+            <AltchaWidget
+              onVerified={setAltcha}
+              onReset={() => setAltcha(null)}
+            />
+
             {formError && (
               <RetroAlert tone="error" title="Registration failed">
                 {formError}
               </RetroAlert>
             )}
 
-            <Button type="submit" className="w-full" isLoading={isSubmitting}>
+            <Button
+              type="submit"
+              className="w-full"
+              isLoading={isSubmitting}
+              disabled={!altcha}
+            >
               {mode === 'password' ? 'Create account' : 'Email me a code'}
             </Button>
           </form>

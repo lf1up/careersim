@@ -28,6 +28,14 @@ const EnvSchema = z.object({
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
   MAIL_FROM: z.string().default('CareerSim <no-reply@careersim.local>'),
+
+  // HMAC secret for ALTCHA proof-of-work challenges. Must be kept secret
+  // server-side — the widget never sees it. Rotating invalidates any
+  // in-flight challenges. 32+ chars recommended.
+  ALTCHA_HMAC_KEY: z.string().min(16, 'ALTCHA_HMAC_KEY must be at least 16 characters'),
+  // Upper bound for the random PoW target. Higher = slower solve. The default
+  // (~50k) typically solves in well under a second on modern hardware.
+  ALTCHA_MAX_NUMBER: z.coerce.number().int().positive().default(50_000),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
