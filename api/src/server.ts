@@ -78,6 +78,13 @@ export interface BuildAppOptions {
     /** Override the global safety-net limit (default 200/min per IP). */
     globalMax?: number;
     globalTimeWindow?: string;
+    /**
+     * Override the per-user session-creation cap (default 2 per 6 hours).
+     * Exposed as env vars `SESSIONS_CREATE_MAX` / `SESSIONS_CREATE_WINDOW`
+     * so ops can tune quota without a code change.
+     */
+    createSessionMax?: number;
+    createSessionTimeWindow?: string;
   };
 }
 
@@ -103,6 +110,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     redisUrl: opts.rateLimit?.redisUrl,
     globalMax: opts.rateLimit?.globalMax,
     globalTimeWindow: opts.rateLimit?.globalTimeWindow,
+    createSessionMax: opts.rateLimit?.createSessionMax,
+    createSessionTimeWindow: opts.rateLimit?.createSessionTimeWindow,
   });
 
   await app.register(swagger, {

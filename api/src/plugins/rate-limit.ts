@@ -71,6 +71,26 @@ function limit(
   return { max, timeWindow, keyGenerator };
 }
 
+/**
+ * Mutable config for per-route policies that ops can tune without
+ * touching code. Route factories below read from this object at
+ * registration time, so the rate-limit plugin can override defaults
+ * from env vars during `register()` before any route runs.
+ *
+ * Only the knobs we actually want configurable live here — the rest of
+ * the policy table is intentionally hard-coded so the limits stay
+ * reviewable in one place.
+ */
+const policyConfig = {
+  createSession: {
+    // Each session spins up an agent thread and burns LLM tokens, so we
+    // keep new-session creation aggressively capped by default. Bumped
+    // to 2/6h from an earlier 30/1h once we moved to hosted inference.
+    max: 2,
+    timeWindow: '6 hours',
+  },
+};
+
 export const rateLimitPolicy = {
   // Public auth — brute-force and spam sensitive. The IP axis is also
   // covered by the plugin's global 200/min default, so per-route entries
@@ -92,7 +112,12 @@ export const rateLimitPolicy = {
   changePassword: () => limit(10, '1 hour', byUser),
   requestEmailChange: () => limit(5, '1 hour', byUser),
   confirmEmailChange: () => limit(10, '5 minutes', byUser),
-  createSession: () => limit(30, '1 hour', byUser),
+  /**
+   * Env-configurable via `SESSIONS_CREATE_MAX` / `SESSIONS_CREATE_WINDOW`.
+   * Defaults to 2 per 6 hours per user — see `policyConfig.createSession`.
+   */
+  createSession: () =>
+    limit(policyConfig.createSession.max, policyConfig.createSession.timeWindow, byUser),
   sendMessage: () => limit(60, '1 minute', byUser),
   proactive: () => limit(30, '1 minute', byUser),
   nudge: () => limit(120, '1 minute', byUser),
@@ -121,6 +146,12 @@ export interface RateLimitOptions {
    */
   globalMax?: number;
   globalTimeWindow?: string;
+  /**
+   * Overrides for per-route policies that are exposed via env vars.
+   * See `policyConfig` in this file for the set of tunable limits.
+   */
+  createSessionMax?: number;
+  createSessionTimeWindow?: string;
 }
 
 declare module 'fastify' {
@@ -138,6 +169,17 @@ export default fp<RateLimitOptions>(
   async (app, opts) => {
     const enabled = opts.enabled !== false;
     app.decorate('rateLimitEnabled', enabled);
+
+    // Apply env-driven overrides to the policy table *before* routes
+    // register, so their `config.rateLimit` factories pick up the new
+    // values. This runs even when `enabled` is false so the policy table
+    // stays consistent for tests that toggle the flag on later.
+    if (typeof opts.createSessionMax === 'number') {
+      policyConfig.createSession.max = opts.createSessionMax;
+    }
+    if (typeof opts.createSessionTimeWindow === 'string' && opts.createSessionTimeWindow.length > 0) {
+      policyConfig.createSession.timeWindow = opts.createSessionTimeWindow;
+    }
 
     if (!enabled) {
       app.log.info('rate-limit plugin disabled (RATE_LIMIT_ENABLED=false)');

@@ -52,6 +52,17 @@ const EnvSchema = z.object({
     .default('true')
     .transform((v) => v !== 'false' && v !== '0'),
   REDIS_URL: z.string().default(''),
+
+  // Per-user cap on creating new chat sessions. We keep this aggressive by
+  // default (2 per 6 hours) because each session spins up an agent thread
+  // and consumes LLM tokens; a sustained burst from one account is almost
+  // always abuse or a runaway client, not legitimate use. Ops can loosen
+  // these per environment without code changes.
+  //
+  // The window accepts anything `@fastify/rate-limit` understands: a
+  // string like '1 hour' / '30 minutes' / '6 hours', or a number of ms.
+  SESSIONS_CREATE_MAX: z.coerce.number().int().positive().default(2),
+  SESSIONS_CREATE_WINDOW: z.string().default('6 hours'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

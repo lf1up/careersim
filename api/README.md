@@ -62,7 +62,7 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 | POST | `/auth/me/email-change` | jwt | — | 5/hour per user | Start an email change; emails a 6-digit code to the new address |
 | POST | `/auth/me/email-change/confirm` | jwt | — | 10/5min per user | Consume the code + swap the email |
 | GET  | `/simulations` | jwt | — | 200/min per IP (global) | Passthrough to agent `GET /simulations` |
-| POST | `/sessions` | jwt | — | 30/hour per user | Create session → `POST /conversation/init` → persist |
+| POST | `/sessions` | jwt | — | 2 / 6 hours per user (env) | Create session → `POST /conversation/init` → persist |
 | GET  | `/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
 | GET  | `/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
 | POST | `/sessions/:id/messages` | jwt (owner) | — | 60/min per user | `POST /conversation/turn` → persist delta |
@@ -273,6 +273,8 @@ See `.env.example` for the authoritative list. Required in production:
 | `ALTCHA_MAX_NUMBER` | `50000` | Upper bound for the PoW target. Raise under attack; lower for low-power clients |
 | `RATE_LIMIT_ENABLED` | `true` | Master on/off switch for `@fastify/rate-limit`. Flip to `false` in an incident / load test |
 | `REDIS_URL` | — | Optional Redis connection string (e.g. `redis://localhost:6379`). When set, rate-limit buckets are shared across API instances; otherwise the plugin uses a per-process LRU store |
+| `SESSIONS_CREATE_MAX` | `2` | Per-user cap on `POST /sessions` within `SESSIONS_CREATE_WINDOW`. Each new session spins up an agent thread + burns LLM tokens, so this is kept aggressive by default |
+| `SESSIONS_CREATE_WINDOW` | `6 hours` | Window for `SESSIONS_CREATE_MAX`. Accepts any duration `@fastify/rate-limit` understands (`'30 minutes'`, `'1 hour'`, `'6 hours'`, or a raw ms number) |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
 | `LOG_LEVEL` | `info` | pino level |

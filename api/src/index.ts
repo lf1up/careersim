@@ -33,6 +33,8 @@ async function main(): Promise<void> {
     rateLimit: {
       enabled: env.RATE_LIMIT_ENABLED,
       redisUrl: env.REDIS_URL || undefined,
+      createSessionMax: env.SESSIONS_CREATE_MAX,
+      createSessionTimeWindow: env.SESSIONS_CREATE_WINDOW,
     },
     logger: {
       level: env.LOG_LEVEL,

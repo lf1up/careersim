@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
-import { apiClient, ApiError } from '@/lib/api';
+import { apiClient, ApiError, isRateLimitError } from '@/lib/api';
 import type { SimulationDetail } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge, RetroAlert } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 
 function humanizeCategory(category: string | null | undefined): string | null {
   if (!category) return null;
@@ -60,6 +61,10 @@ export default function SimulationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Kept separate from `error` (which blocks the whole page) because a
+  // failed *start* shouldn't hide the simulation the user is reading —
+  // it should just render an inline alert next to the Start button.
+  const [startError, setStartError] = useState<unknown>(null);
 
   const startingRef = useRef(false);
 
@@ -101,17 +106,24 @@ export default function SimulationDetailPage() {
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
+    setStartError(null);
     try {
       const session = await apiClient.createSession(slug);
       router.push(`/sessions/${session.id}`);
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
+      // 429 gets the rich inline alert (with retry-after copy) from
+      // FormErrorAlert. Everything else keeps the toast too so a user
+      // who's already scrolled past the button still sees feedback.
+      setStartError(err);
+      if (!isRateLimitError(err)) {
+        const message =
+          err instanceof ApiError
             ? err.message
-            : 'Failed to start session';
-      toast.error(message);
+            : err instanceof Error
+              ? err.message
+              : 'Failed to start session';
+        toast.error(message);
+      }
       startingRef.current = false;
       setStarting(false);
     }
@@ -228,6 +240,19 @@ export default function SimulationDetailPage() {
               </Button>
             </Link>
           </div>
+
+          <FormErrorAlert
+            error={startError}
+            fallbackTitle="Couldn't start session"
+            rateLimitTitle="Session limit reached"
+            rateLimitMessage={(waitHint) => (
+              <>
+                You&apos;ve hit the new-session quota. Every chat spins up a
+                live coaching agent, so we cap how many you can start in a
+                short window — please try again {waitHint}.
+              </>
+            )}
+          />
         </div>
       </RetroCard>
 

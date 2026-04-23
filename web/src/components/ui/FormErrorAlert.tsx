@@ -15,6 +15,21 @@ export interface FormErrorAlertProps {
    * (e.g. "Too many requests").
    */
   fallbackTitle?: string;
+  /**
+   * Title used for the 429 variant. Defaults to "Too many requests"
+   * which fits the auth brute-force framing; callers whose endpoint
+   * represents a *quota* (e.g. session creation) can pass something
+   * more specific like "Session limit reached".
+   */
+  rateLimitTitle?: string;
+  /**
+   * Body for the 429 variant. Defaults to the auth-flavoured
+   * "slow down … brute-force" copy. Quota endpoints should supply
+   * their own explanation — the `waitHint` already carries the
+   * human-readable retry-after window so callers can slot it into
+   * whatever sentence reads right.
+   */
+  rateLimitMessage?: (waitHint: string) => React.ReactNode;
   className?: string;
 }
 
@@ -28,6 +43,8 @@ export interface FormErrorAlertProps {
 export const FormErrorAlert: React.FC<FormErrorAlertProps> = ({
   error,
   fallbackTitle = 'Something went wrong',
+  rateLimitTitle = 'Too many requests',
+  rateLimitMessage,
   className,
 }) => {
   if (error == null) return null;
@@ -36,11 +53,18 @@ export const FormErrorAlert: React.FC<FormErrorAlertProps> = ({
     const seconds = rateLimitRetryAfterSeconds(error);
     const waitHint = seconds
       ? formatRetryWindow(seconds)
-      : 'Please wait a moment before retrying.';
-    return (
-      <RetroAlert tone="warning" title="Too many requests" className={className}>
+      : 'in a little while';
+    const body = rateLimitMessage ? (
+      rateLimitMessage(waitHint)
+    ) : (
+      <>
         You&apos;re hitting our rate limit — slow down and try again {waitHint}.
         This protects accounts from brute-force attempts.
+      </>
+    );
+    return (
+      <RetroAlert tone="warning" title={rateLimitTitle} className={className}>
+        {body}
       </RetroAlert>
     );
   }
@@ -65,9 +89,18 @@ export const FormErrorAlert: React.FC<FormErrorAlertProps> = ({
   );
 };
 
-/** Render "in 45s" / "in 2 minutes" etc. for the retry hint. */
+/**
+ * Render "in about 45s" / "in about 2 minutes" / "in about 6 hours" for
+ * the retry hint. We round aggressively because the retry-after window
+ * is already approximate (bucket TTL), and a "5 hours 59 minutes"
+ * message reads worse than a rounded "about 6 hours".
+ */
 function formatRetryWindow(seconds: number): string {
   if (seconds < 60) return `in about ${seconds}s`;
   const minutes = Math.round(seconds / 60);
-  return minutes === 1 ? 'in about a minute' : `in about ${minutes} minutes`;
+  if (minutes < 60) {
+    return minutes === 1 ? 'in about a minute' : `in about ${minutes} minutes`;
+  }
+  const hours = Math.round(minutes / 60);
+  return hours === 1 ? 'in about an hour' : `in about ${hours} hours`;
 }
