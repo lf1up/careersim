@@ -21,6 +21,7 @@ import altchaPlugin from './plugins/altcha.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import mailerPlugin, { type MailMessage } from './plugins/mailer.js';
+import rateLimitPlugin from './plugins/rate-limit.js';
 import { authRoutes } from './modules/auth/auth.route.js';
 import { healthRoutes } from './modules/health/health.route.js';
 import { personasRoutes } from './modules/personas/personas.route.js';
@@ -61,6 +62,23 @@ export interface BuildAppOptions {
      */
     bypass?: boolean;
   };
+  rateLimit?: {
+    /**
+     * Master on/off switch for `@fastify/rate-limit`. Defaults to true;
+     * the test harness flips it to false so the suite doesn't have to
+     * reason about buckets.
+     */
+    enabled?: boolean;
+    /**
+     * Optional Redis URL. When omitted, the plugin falls back to an
+     * in-memory LRU store (per-process). Use Redis for multi-instance
+     * deployments where buckets need to be shared.
+     */
+    redisUrl?: string;
+    /** Override the global safety-net limit (default 200/min per IP). */
+    globalMax?: number;
+    globalTimeWindow?: string;
+  };
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
@@ -75,6 +93,17 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
 
   await app.register(cors, { origin: true, credentials: true });
   await app.register(sensible);
+
+  // Rate limiting must be registered before route plugins so the global
+  // default attaches to all routes (and per-route configs can override
+  // it). When disabled it's a no-op; when enabled the 429 response
+  // shape is wired up in the plugin itself.
+  await app.register(rateLimitPlugin, {
+    enabled: opts.rateLimit?.enabled,
+    redisUrl: opts.rateLimit?.redisUrl,
+    globalMax: opts.rateLimit?.globalMax,
+    globalTimeWindow: opts.rateLimit?.globalTimeWindow,
+  });
 
   await app.register(swagger, {
     openapi: {

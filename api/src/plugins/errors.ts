@@ -4,13 +4,23 @@ import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 import { AgentRequestError } from '../agent/client.js';
 
 export class HttpError extends Error {
+  /**
+   * Optional payload merged into the JSON response body alongside the
+   * standard `{ error, message }` envelope. Used (e.g.) by the rate
+   * limiter to surface `retryAfter` without needing a second branch
+   * in `registerErrorHandler`.
+   */
+  public readonly extra?: Record<string, unknown>;
+
   constructor(
     public readonly statusCode: number,
     message: string,
     public readonly code?: string,
+    extra?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'HttpError';
+    this.extra = extra;
   }
 }
 
@@ -46,6 +56,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
       reply.status(error.statusCode).send({
         error: error.code ?? 'Error',
         message: error.message,
+        ...(error.extra ?? {}),
       });
       return;
     }

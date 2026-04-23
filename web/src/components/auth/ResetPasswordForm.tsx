@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
@@ -19,7 +20,8 @@ export const ResetPasswordForm: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /** Raw thrown value so {@link FormErrorAlert} can detect `RATE_LIMITED`. */
+  const [error, setError] = useState<unknown>(null);
 
   const { resetPassword } = useAuth();
 
@@ -42,7 +44,7 @@ export const ResetPasswordForm: React.FC = () => {
       await resetPassword(token, password);
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reset password');
+      setError(err ?? new Error('Could not reset password'));
     } finally {
       setSubmitting(false);
     }
@@ -123,11 +125,7 @@ export const ResetPasswordForm: React.FC = () => {
               error={passwordError || undefined}
             />
 
-            {error && (
-              <RetroAlert tone="error" title="Couldn't reset password">
-                {error}
-              </RetroAlert>
-            )}
+            <FormErrorAlert error={error} fallbackTitle="Couldn't reset password" />
 
             <Button type="submit" className="w-full" isLoading={submitting}>
               Update password

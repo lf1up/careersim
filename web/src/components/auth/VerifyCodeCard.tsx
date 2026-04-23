@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
-import { RetroAlert } from '@/components/ui/RetroBadge';
 
 interface VerifyCodeCardProps {
   email: string;
@@ -30,7 +30,8 @@ export const VerifyCodeCard: React.FC<VerifyCodeCardProps> = ({
   submitLabel = 'Confirm code',
 }) => {
   const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  /** Raw thrown value so {@link FormErrorAlert} can detect `RATE_LIMITED`. */
+  const [error, setError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resent, setResent] = useState<'idle' | 'sending' | 'sent'>('idle');
 
@@ -39,7 +40,7 @@ export const VerifyCodeCard: React.FC<VerifyCodeCardProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (code.length !== 6) {
-      setError('Enter the 6-digit code we emailed you.');
+      setError(new Error('Enter the 6-digit code we emailed you.'));
       return;
     }
     setIsSubmitting(true);
@@ -47,7 +48,7 @@ export const VerifyCodeCard: React.FC<VerifyCodeCardProps> = ({
     try {
       await onSubmit(code);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid or expired code.');
+      setError(err ?? new Error('Invalid or expired code.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -56,12 +57,19 @@ export const VerifyCodeCard: React.FC<VerifyCodeCardProps> = ({
   const handleResend = async () => {
     if (!onResend || resent === 'sending') return;
     setResent('sending');
+    // Share the main error slot — a resend failure (typically the
+    // 3/hour per-mailbox rate limit) is strictly more informative
+    // than the old silent swallow that just flipped state back to
+    // `idle`, and the submit/resend errors are mutually exclusive
+    // from the user's point of view.
+    setError(null);
     try {
       await onResend();
       setResent('sent');
       setTimeout(() => setResent('idle'), 4000);
-    } catch {
+    } catch (err) {
       setResent('idle');
+      setError(err ?? new Error('Could not resend code — please try again.'));
     }
   };
 
@@ -100,11 +108,7 @@ export const VerifyCodeCard: React.FC<VerifyCodeCardProps> = ({
           hint="The code expires in 10 minutes."
         />
 
-        {error && (
-          <RetroAlert tone="error" title="Couldn't verify code">
-            {error}
-          </RetroAlert>
-        )}
+        <FormErrorAlert error={error} fallbackTitle="Couldn't verify code" />
 
         <Button type="submit" className="w-full" isLoading={isSubmitting}>
           {submitLabel}

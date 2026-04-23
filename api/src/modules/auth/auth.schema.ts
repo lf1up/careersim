@@ -33,9 +33,13 @@ export const verifyEmailRequestSchema = z.object({
   code: codeField,
 });
 
+// Note: this endpoint is intentionally *not* gated by ALTCHA. The
+// pending-registration record that makes a resend meaningful can only be
+// created by `/auth/register`, which *is* captcha-gated, so an attacker
+// cannot cheaply manufacture targets to resend against. The per-mailbox
+// rate limit (`emailSendByMailbox: 3/hour`) is the abuse cap here.
 export const resendVerificationRequestSchema = z.object({
   email: emailField,
-  altcha: altchaField,
 });
 
 export const emailOnlyRequestSchema = z.object({

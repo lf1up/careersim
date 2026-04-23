@@ -5,7 +5,7 @@
 // runtime stub, so this is free at build time.
 import 'altcha/types/react';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useImperativeHandle, useRef } from 'react';
 
 /**
  * React wrapper around the <altcha-widget> custom element shipped by the
@@ -33,6 +33,17 @@ type StateChangeDetail = {
   payload?: string;
 };
 
+/**
+ * Public, imperative surface forms use to invalidate the widget after a
+ * failed submit. The altcha payload is single-use on the server — once
+ * the server rejects it we must flip the widget back to `unverified` so
+ * the user can produce a fresh one, otherwise the widget stays silently
+ * in `verified` and forms hang with a disabled submit button.
+ */
+export interface AltchaHandle {
+  reset: () => void;
+}
+
 interface Props {
   /**
    * Invoked once the widget finishes its PoW and produces a payload. The
@@ -52,6 +63,11 @@ interface Props {
    */
   challengeUrl?: string;
   className?: string;
+  /**
+   * Imperative handle. Call `handle.reset()` after a failed submit to
+   * invalidate the widget's cached proof and make the user re-verify.
+   */
+  handleRef?: React.Ref<AltchaHandle>;
 }
 
 function defaultChallengeUrl(): string {
@@ -67,8 +83,23 @@ export const AltchaWidget: React.FC<Props> = ({
   onReset,
   challengeUrl,
   className,
+  handleRef,
 }) => {
   const ref = useRef<AltchaCustomElement | null>(null);
+
+  // Expose a stable `reset()` to parents. We call through to the
+  // widget's own `reset()` (defined on the custom element) — it flips
+  // internal state to `unverified`, which fires `statechange` below
+  // and, in turn, invokes the form's `onReset` to clear cached payload.
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      reset: () => {
+        ref.current?.reset();
+      },
+    }),
+    [],
+  );
 
   // Lazily import the widget bundle on the client so SSR doesn't try to
   // register a custom element (which would crash since `HTMLElement` is

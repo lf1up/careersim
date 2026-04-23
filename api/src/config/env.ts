@@ -36,6 +36,22 @@ const EnvSchema = z.object({
   // Upper bound for the random PoW target. Higher = slower solve. The default
   // (~50k) typically solves in well under a second on modern hardware.
   ALTCHA_MAX_NUMBER: z.coerce.number().int().positive().default(50_000),
+
+  // ------------------------------------------------------------------
+  // Rate limiting (@fastify/rate-limit)
+  //
+  // `RATE_LIMIT_ENABLED=false` disables the plugin entirely (useful in
+  // integration tests, load tests, or during incidents where the limit
+  // is itself an availability issue). When enabled and REDIS_URL is
+  // set, buckets live in Redis so horizontally-scaled API instances
+  // share state; otherwise they fall back to per-process LRU memory
+  // (fine for a single-instance deploy).
+  // ------------------------------------------------------------------
+  RATE_LIMIT_ENABLED: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false' && v !== '0'),
+  REDIS_URL: z.string().default(''),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

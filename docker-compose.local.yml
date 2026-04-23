@@ -77,8 +77,12 @@ services:
       PORT: "8000"
       LOG_LEVEL: info
       # Override Docker-specific settings so containers can reach each other
-      # via the compose network instead of localhost.
+      # via the compose network instead of localhost. `api/.env` ships with
+      # host-oriented URLs (for `pnpm dev` on the host against ports
+      # published by compose); on the compose network we rewrite them to
+      # the service DNS names.
       DATABASE_URL: postgres://careersim:careersim_password@postgres:5432/careersim
+      REDIS_URL: redis://redis:6379
       AGENT_API_URL: http://agent:8001
     depends_on:
       postgres:

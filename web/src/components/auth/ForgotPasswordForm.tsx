@@ -1,24 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
-import { RetroAlert } from '@/components/ui/RetroBadge';
-import { AltchaWidget } from './AltchaWidget';
+import { AltchaWidget, type AltchaHandle } from './AltchaWidget';
 import { CheckYourInboxCard } from './CheckYourInboxCard';
 
 export const ForgotPasswordForm: React.FC = () => {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get('email') ?? '');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /** Raw thrown value so {@link FormErrorAlert} can detect `RATE_LIMITED`. */
+  const [error, setError] = useState<unknown>(null);
   const [sent, setSent] = useState(false);
   const [altcha, setAltcha] = useState<string | null>(null);
+  /**
+   * Imperative handle — see note in {@link LoginForm}. Required to
+   * flip the widget out of `verified` on failure; clearing React state
+   * alone leaves the custom element stuck in verified state.
+   */
+  const altchaRef = useRef<AltchaHandle | null>(null);
 
   const { forgotPassword } = useAuth();
 
@@ -26,7 +33,7 @@ export const ForgotPasswordForm: React.FC = () => {
     e.preventDefault();
     setError(null);
     if (!altcha) {
-      setError('Please complete the human-check above before continuing.');
+      setError(new Error('Please complete the human-check above before continuing.'));
       return;
     }
     setSubmitting(true);
@@ -34,8 +41,9 @@ export const ForgotPasswordForm: React.FC = () => {
       await forgotPassword(email, altcha);
       setSent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send reset link');
+      setError(err ?? new Error('Could not send reset link'));
       setAltcha(null);
+      altchaRef.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -86,15 +94,12 @@ export const ForgotPasswordForm: React.FC = () => {
             />
 
             <AltchaWidget
+              handleRef={altchaRef}
               onVerified={setAltcha}
               onReset={() => setAltcha(null)}
             />
 
-            {error && (
-              <RetroAlert tone="error" title="Couldn't send">
-                {error}
-              </RetroAlert>
-            )}
+            <FormErrorAlert error={error} fallbackTitle="Couldn't send" />
 
             <Button
               type="submit"

@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert, RetroBadge } from '@/components/ui/RetroBadge';
@@ -91,12 +92,13 @@ const ChangeEmailCard: React.FC = () => {
   const [newEmail, setNewEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /** Raw thrown value so {@link FormErrorAlert} can detect `RATE_LIMITED`. */
+  const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const [code, setCode] = useState('');
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<unknown>(null);
 
   if (!user) return null;
 
@@ -105,11 +107,11 @@ const ChangeEmailCard: React.FC = () => {
     setError(null);
     setSuccess(null);
     if (newEmail.trim().toLowerCase() === user.email.toLowerCase()) {
-      setError('That is already your email.');
+      setError(new Error('That is already your email.'));
       return;
     }
     if (user.has_password && !currentPassword) {
-      setError('Enter your current password to authorize this change.');
+      setError(new Error('Enter your current password to authorize this change.'));
       return;
     }
     setSubmitting(true);
@@ -121,7 +123,7 @@ const ChangeEmailCard: React.FC = () => {
       setStep({ kind: 'verify', newEmail: newEmail.trim() });
       setCurrentPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start email change.');
+      setError(err ?? new Error('Could not start email change.'));
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +132,7 @@ const ChangeEmailCard: React.FC = () => {
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (code.length !== 6) {
-      setConfirmError('Enter the 6-digit code we emailed you.');
+      setConfirmError(new Error('Enter the 6-digit code we emailed you.'));
       return;
     }
     setConfirmSubmitting(true);
@@ -142,9 +144,7 @@ const ChangeEmailCard: React.FC = () => {
       setCode('');
       setSuccess('Email updated.');
     } catch (err) {
-      setConfirmError(
-        err instanceof Error ? err.message : 'Invalid or expired code.',
-      );
+      setConfirmError(err ?? new Error('Invalid or expired code.'));
     } finally {
       setConfirmSubmitting(false);
     }
@@ -182,11 +182,7 @@ const ChangeEmailCard: React.FC = () => {
             />
           )}
 
-          {error && (
-            <RetroAlert tone="error" title="Couldn't start change">
-              {error}
-            </RetroAlert>
-          )}
+          <FormErrorAlert error={error} fallbackTitle="Couldn't start change" />
           {success && (
             <RetroAlert tone="success" title="Saved">
               {success}
@@ -220,11 +216,7 @@ const ChangeEmailCard: React.FC = () => {
             className="tracking-[0.5em] text-center"
           />
 
-          {confirmError && (
-            <RetroAlert tone="error" title="Couldn't verify code">
-              {confirmError}
-            </RetroAlert>
-          )}
+          <FormErrorAlert error={confirmError} fallbackTitle="Couldn't verify code" />
 
           <div className="flex gap-3">
             <Button type="submit" isLoading={confirmSubmitting}>
@@ -256,7 +248,8 @@ const PasswordCard: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  /** Raw thrown value so {@link FormErrorAlert} can detect `RATE_LIMITED`. */
+  const [error, setError] = useState<unknown>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -270,15 +263,15 @@ const PasswordCard: React.FC = () => {
     setSuccess(null);
 
     if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(new Error('Passwords do not match.'));
       return;
     }
     if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters.');
+      setError(new Error('Password must be at least 8 characters.'));
       return;
     }
     if (hasPassword && !currentPassword) {
-      setError('Enter your current password.');
+      setError(new Error('Enter your current password.'));
       return;
     }
 
@@ -293,7 +286,7 @@ const PasswordCard: React.FC = () => {
       setConfirmPassword('');
       setSuccess('Password updated.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update password.');
+      setError(err ?? new Error('Could not update password.'));
     } finally {
       setSubmitting(false);
     }
@@ -348,11 +341,7 @@ const PasswordCard: React.FC = () => {
           onChange={(e) => setConfirmPassword(e.target.value)}
         />
 
-        {error && (
-          <RetroAlert tone="error" title="Couldn't update password">
-            {error}
-          </RetroAlert>
-        )}
+        <FormErrorAlert error={error} fallbackTitle="Couldn't update password" />
         {success && (
           <RetroAlert tone="success" title="Saved">
             {success}

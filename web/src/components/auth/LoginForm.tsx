@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
-import { RetroAlert } from '@/components/ui/RetroBadge';
 import { ApiError } from '@/lib/api';
 import { safeNextPath } from '@/lib/safe-next-path';
-import { AltchaWidget } from './AltchaWidget';
+import { AltchaWidget, type AltchaHandle } from './AltchaWidget';
 import { CheckYourInboxCard } from './CheckYourInboxCard';
 import { VerifyCodeCard } from './VerifyCodeCard';
 
@@ -25,8 +25,22 @@ export const LoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [step, setStep] = useState<Step>({ kind: 'form' });
   const [linkSubmitting, setLinkSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  /**
+   * Store the raw thrown value (not a pre-formatted string) so the
+   * {@link FormErrorAlert} below can distinguish `RATE_LIMITED`
+   * responses from ordinary 400/401s and surface the server's
+   * `retryAfter` hint with the right tone.
+   */
+  const [formError, setFormError] = useState<unknown>(null);
   const [altcha, setAltcha] = useState<string | null>(null);
+  /**
+   * Handle into the ALTCHA widget. We call `reset()` after a failed
+   * submit so the widget flips back to `unverified` — clearing React
+   * state alone is not enough because the custom element keeps its own
+   * internal `verified` state and would otherwise never re-emit a
+   * payload, leaving the submit button permanently disabled.
+   */
+  const altchaRef = useRef<AltchaHandle | null>(null);
 
   const {
     login,
@@ -45,7 +59,7 @@ export const LoginForm: React.FC = () => {
     e.preventDefault();
     setFormError(null);
     if (!altcha) {
-      setFormError('Please complete the human-check above before continuing.');
+      setFormError(new Error('Please complete the human-check above before continuing.'));
       return;
     }
     try {
@@ -55,6 +69,7 @@ export const LoginForm: React.FC = () => {
       // The altcha payload is single-use on the server; drop it so the
       // widget re-verifies before the next submit.
       setAltcha(null);
+      altchaRef.current?.reset();
       // Special-case a couple of known errors so the UI can nudge the user
       // into the right flow rather than dead-ending.
       if (err instanceof ApiError) {
@@ -71,23 +86,25 @@ export const LoginForm: React.FC = () => {
         }
         if (err.code === 'PASSWORDLESS_ACCOUNT') {
           setFormError(
-            'This account has no password yet. Use the "Email me a sign-in link" button below, then set a password from your profile.',
+            new Error(
+              'This account has no password yet. Use the "Email me a sign-in link" button below, then set a password from your profile.',
+            ),
           );
           return;
         }
       }
-      setFormError(err instanceof Error ? err.message : 'Invalid email or password');
+      setFormError(err ?? new Error('Invalid email or password'));
     }
   };
 
   const handleEmailLink = async () => {
     setFormError(null);
     if (!email) {
-      setFormError('Enter your email first.');
+      setFormError(new Error('Enter your email first.'));
       return;
     }
     if (!altcha) {
-      setFormError('Please complete the human-check above before continuing.');
+      setFormError(new Error('Please complete the human-check above before continuing.'));
       return;
     }
     setLinkSubmitting(true);
@@ -96,7 +113,8 @@ export const LoginForm: React.FC = () => {
       setStep({ kind: 'email-link-sent', email });
     } catch (err) {
       setAltcha(null);
-      setFormError(err instanceof Error ? err.message : 'Could not send email');
+      altchaRef.current?.reset();
+      setFormError(err ?? new Error('Could not send email'));
     } finally {
       setLinkSubmitting(false);
     }
@@ -197,15 +215,12 @@ export const LoginForm: React.FC = () => {
             </div>
 
             <AltchaWidget
+              handleRef={altchaRef}
               onVerified={setAltcha}
               onReset={() => setAltcha(null)}
             />
 
-            {formError && (
-              <RetroAlert tone="error" title="Sign in failed">
-                {formError}
-              </RetroAlert>
-            )}
+            <FormErrorAlert error={formError} fallbackTitle="Sign in failed" />
 
             <Button
               type="submit"

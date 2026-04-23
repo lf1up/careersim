@@ -19,8 +19,13 @@ turn.
 - **CAPTCHA**: [ALTCHA](https://altcha.org) proof-of-work via `altcha-lib`.
   Server issues signed challenges at `GET /auth/challenge`; public-facing
   auth mutations require a solved payload
+- **Rate limiting**: `@fastify/rate-limit` with Redis store (falls back to
+  per-process LRU when `REDIS_URL` is unset). Global 200/min per-IP safety
+  net plus per-route policies keyed by IP / email / user id. Full policy
+  table in `src/plugins/rate-limit.ts`; flip off for emergencies via
+  `RATE_LIMIT_ENABLED=false`
 - **Upstream client**: `undici` + `eventsource-parser` for SSE proxying
-- **Tests**: Vitest + Fastify `app.inject()` + `@electric-sql/pglite` + an in-process `FakeAgent` (ALTCHA runs in bypass mode for tests, with a dedicated suite that exercises real challenges end-to-end)
+- **Tests**: Vitest + Fastify `app.inject()` + `@electric-sql/pglite` + an in-process `FakeAgent` (ALTCHA and rate limits both run in off/bypass mode for the main suite, with dedicated suites that exercise them end-to-end)
 
 ## Quick start
 
@@ -40,35 +45,50 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 
 ## Endpoints (v0)
 
-| Method | Path | Auth | CAPTCHA | Purpose |
-| --- | --- | --- | --- | --- |
-| GET  | `/health` | public | — | Liveness + db/agent ping |
-| GET  | `/auth/challenge` | public | — | Issue an ALTCHA proof-of-work challenge for the forms below |
-| POST | `/auth/register` | public | ✓ | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
-| POST | `/auth/resend-verification` | public | ✓ | Re-send the registration verification code |
-| POST | `/auth/verify-email` | public | — | Consume the 6-digit code; returns `{ user, token }` |
-| POST | `/auth/login` | public | ✓ | Exchange credentials for a JWT |
-| POST | `/auth/login/email-link` | public | ✓ | Email a magic sign-in link (passwordless) |
-| POST | `/auth/consume-link` | public | — | Consume a magic-link token; returns `{ user, token }` |
-| POST | `/auth/forgot-password` | public | ✓ | Email a password-reset link |
-| POST | `/auth/reset-password` | public | — | Consume a reset token + set a new password |
-| GET  | `/auth/me` | jwt | — | Current user |
-| POST | `/auth/change-password` | jwt | — | Rotate / set a password (current password required when one exists) |
-| POST | `/auth/request-email-change` | jwt | — | Start an email change; emails a 6-digit code to the new address |
-| POST | `/auth/confirm-email-change` | jwt | — | Consume the code + swap the email |
-| GET  | `/simulations` | jwt | — | Passthrough to agent `GET /simulations` |
-| POST | `/sessions` | jwt | — | Create session → `POST /conversation/init` → persist |
-| GET  | `/sessions` | jwt | — | List caller's sessions with message counts |
-| GET  | `/sessions/:id` | jwt (owner) | — | Persisted messages + latest analysis/goal progress |
-| POST | `/sessions/:id/messages` | jwt (owner) | — | `POST /conversation/turn` → persist delta |
-| POST | `/sessions/:id/messages/stream` | jwt (owner) | — | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
-| POST | `/sessions/:id/proactive` | jwt (owner) | — | Batch followup (`trigger_type: "followup"` only) |
-| POST | `/sessions/:id/proactive/stream` | jwt (owner) | — | SSE followup (`trigger_type: "followup"` only) |
-| POST | `/sessions/:id/nudge` | jwt (owner) | — | Guarded inactivity nudge (batch only) |
+| Method | Path | Auth | CAPTCHA | Rate limit | Purpose |
+| --- | --- | --- | --- | --- | --- |
+| GET  | `/health` | public | — | 200/min per IP (global) | Liveness + db/agent ping |
+| GET  | `/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
+| POST | `/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
+| POST | `/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/auth/register`, which *is* gated |
+| POST | `/auth/verify-email` | public | — | 10/5min per email+IP | Consume the 6-digit code; returns `{ user, token }` |
+| POST | `/auth/login` | public | ✓ | 10/min per IP | Exchange credentials for a JWT |
+| POST | `/auth/login/email-link` | public | ✓ | 5/hour per email | Email a magic sign-in link (passwordless) |
+| POST | `/auth/magic-link/consume` | public | — | 10/5min per IP | Consume a magic-link token; returns `{ user, token }` |
+| POST | `/auth/forgot-password` | public | ✓ | 3/hour per email | Email a password-reset link |
+| POST | `/auth/reset-password` | public | — | 10/5min per IP | Consume a reset token + set a new password |
+| GET  | `/auth/me` | jwt | — | 200/min per IP (global) | Current user |
+| PATCH | `/auth/me/password` | jwt | — | 10/hour per user | Rotate / set a password (current password required when one exists) |
+| POST | `/auth/me/email-change` | jwt | — | 5/hour per user | Start an email change; emails a 6-digit code to the new address |
+| POST | `/auth/me/email-change/confirm` | jwt | — | 10/5min per user | Consume the code + swap the email |
+| GET  | `/simulations` | jwt | — | 200/min per IP (global) | Passthrough to agent `GET /simulations` |
+| POST | `/sessions` | jwt | — | 30/hour per user | Create session → `POST /conversation/init` → persist |
+| GET  | `/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
+| GET  | `/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
+| POST | `/sessions/:id/messages` | jwt (owner) | — | 60/min per user | `POST /conversation/turn` → persist delta |
+| POST | `/sessions/:id/messages/stream` | jwt (owner) | — | 60/min per user | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
+| POST | `/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
+| POST | `/sessions/:id/proactive/stream` | jwt (owner) | — | 30/min per user | SSE followup (`trigger_type: "followup"` only) |
+| POST | `/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
 
 The CAPTCHA-gated endpoints accept an optional `altcha` field (the solved
 challenge payload) in the JSON body. It is **required in production** and
 bypassed only when the app is built with `altcha.bypass = true` (tests).
+
+When a limit is exceeded the server responds `429 Too Many Requests` with
+`Retry-After`, `X-RateLimit-*` headers, and a JSON body shaped like:
+
+```json
+{
+  "error": "RATE_LIMITED",
+  "message": "Too many requests. Try again in 1 minute.",
+  "retryAfter": 59995
+}
+```
+
+`retryAfter` is in milliseconds. The full policy table (and the three
+keyers — IP, email-from-body, authenticated user id) lives in
+`src/plugins/rate-limit.ts`.
 
 ## Layout
 
@@ -89,6 +109,7 @@ api/
 │   ├── plugins/
 │   │   ├── auth.ts             # @fastify/jwt + app.authenticate decorator
 │   │   ├── altcha.ts           # ALTCHA: GET /auth/challenge + app.altcha.verify(payload)
+│   │   ├── rate-limit.ts       # @fastify/rate-limit: Redis/LRU store, keyers (IP/email/user), policy catalogue
 │   │   ├── mailer.ts           # nodemailer + dev stdout fallback (app.mailer.send)
 │   │   └── errors.ts           # HttpError + Zod validation mapping
 │   └── modules/
@@ -103,6 +124,7 @@ api/
 │   ├── health.test.ts
 │   ├── auth.test.ts            # register / verify / login / magic link / password reset / email + password change
 │   ├── altcha.test.ts          # challenge shape, bypass semantics, real solve end-to-end, signature tampering
+│   ├── rate-limit.test.ts      # disabled flag, global 429 envelope, per-email / per-user bucket isolation, burst login
 │   ├── simulations.test.ts
 │   ├── sessions.batch.test.ts
 │   ├── sessions.stream.test.ts
@@ -166,6 +188,11 @@ Tests cover:
   test token and rejecting garbage, production mode rejecting missing /
   bogus / tampered payloads, and a real PoW solve against a live
   challenge that round-trips through `/auth/register`
+- Rate limiting: disabled flag is a hard no-op, global default fires a
+  `RATE_LIMITED` envelope with `retry-after` once the quota burns,
+  per-email bucket isolation on `/auth/resend-verification`, per-user
+  bucket isolation on `/auth/me/password`, per-IP burst ceiling on
+  `/auth/login`
 - Simulations: auth-required + passthrough
 - Sessions (batch): create, get, list, ownership, unknown id, message ordering, validation
 - Sessions (SSE stream): event shape, persistence on `done`, ownership
@@ -244,6 +271,8 @@ See `.env.example` for the authoritative list. Required in production:
 | `WEB_APP_URL` | `http://localhost:3000` | Public origin of the Next.js app. Embedded in outbound emails (magic links, password reset) |
 | `ALTCHA_HMAC_KEY` | — | Server-only secret (≥16 chars) used to sign + verify ALTCHA challenges. Rotating invalidates in-flight challenges |
 | `ALTCHA_MAX_NUMBER` | `50000` | Upper bound for the PoW target. Raise under attack; lower for low-power clients |
+| `RATE_LIMIT_ENABLED` | `true` | Master on/off switch for `@fastify/rate-limit`. Flip to `false` in an incident / load test |
+| `REDIS_URL` | — | Optional Redis connection string (e.g. `redis://localhost:6379`). When set, rate-limit buckets are shared across API instances; otherwise the plugin uses a per-process LRU store |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
 | `LOG_LEVEL` | `info` | pino level |
@@ -304,6 +333,16 @@ service is uncommented in compose.
   at app build time so the existing suites don't need to solve a PoW on
   every request; a dedicated `altcha.test.ts` suite turns bypass off to
   cover the production path end-to-end.
+- **Rate limiting complements ALTCHA, it does not replace it.** ALTCHA
+  adds per-request cost (a few ms of client CPU); rate limiting caps
+  sustained request counts. The plugin runs in `preHandler` rather than
+  `onRequest` so body-keyed limits (e.g. the 3/hour quota per email
+  mailbox on `/auth/forgot-password`) can actually read the parsed
+  body. All 429 responses are routed through the same `HttpError`
+  pipeline as the rest of the API so the envelope `{ error, message,
+  retryAfter }` is uniform. Buckets live in Redis when `REDIS_URL` is
+  set and in an in-memory LRU otherwise — swapping stores doesn't
+  change behaviour, only the sharing radius.
 - **Dev email goes to stdout.** When `SMTP_HOST` is empty the mailer
   plugin falls back to a logger transport that prints the full rendered
   email, so registration / reset flows are usable locally without SMTP

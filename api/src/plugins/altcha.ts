@@ -3,6 +3,7 @@ import fp from 'fastify-plugin';
 import { z } from 'zod';
 
 import { badRequest } from './errors.js';
+import { rateLimitPolicy } from './rate-limit.js';
 
 const challengeResponseSchema = z.object({
   algorithm: z.string(),
@@ -93,6 +94,7 @@ export default fp<AltchaOptions>(
     app.get(
       '/auth/challenge',
       {
+        config: { rateLimit: rateLimitPolicy.authChallenge() },
         schema: {
           tags: ['auth'],
           summary: 'Issue an ALTCHA proof-of-work challenge',

@@ -9,6 +9,7 @@ import type {
   ProactiveTrigger,
 } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
+import { rateLimitPolicy } from '../../plugins/rate-limit.js';
 import { createSessionsService } from './sessions.service.js';
 import {
   createSessionSchema,
@@ -31,6 +32,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     '/sessions',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.createSession() },
       schema: {
         tags: ['sessions'],
         summary: 'Create a new conversation session',
@@ -84,6 +86,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     '/sessions/:id/messages',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.sendMessage() },
       schema: {
         tags: ['sessions'],
         summary: 'Send a user message (batch, returns full updated session)',
@@ -109,6 +112,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     '/sessions/:id/proactive',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.proactive() },
       schema: {
         tags: ['sessions'],
         summary: 'Trigger a batch followup message from the agent',
@@ -127,6 +131,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     '/sessions/:id/proactive/stream',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.proactive() },
       schema: {
         tags: ['sessions'],
         summary: 'Trigger a followup message and stream it back as SSE',
@@ -154,6 +159,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     '/sessions/:id/nudge',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.nudge() },
       schema: {
         tags: ['sessions'],
         summary: 'Attempt an inactivity nudge (batch, persona-driven)',
@@ -175,6 +181,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     '/sessions/:id/messages/stream',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.sendMessage() },
       schema: {
         tags: ['sessions'],
         summary: 'Send a user message and stream AI responses (SSE)',

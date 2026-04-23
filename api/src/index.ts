@@ -30,6 +30,10 @@ async function main(): Promise<void> {
       hmacKey: env.ALTCHA_HMAC_KEY,
       maxNumber: env.ALTCHA_MAX_NUMBER,
     },
+    rateLimit: {
+      enabled: env.RATE_LIMIT_ENABLED,
+      redisUrl: env.REDIS_URL || undefined,
+    },
     logger: {
       level: env.LOG_LEVEL,
       transport:
@@ -55,7 +59,43 @@ async function main(): Promise<void> {
   }
 
   await app.listen({ host: env.HOST, port: env.PORT });
+
+  // `HOST=0.0.0.0` (or `::`) is how we bind inside containers so Docker's
+  // port mapping to the host works, but it's not a useful *clickable* URL
+  // for humans. Display `localhost` in the splash while keeping the bind
+  // address in the structured log for ops.
+  const displayHost =
+    env.HOST === '0.0.0.0' || env.HOST === '::' || env.HOST === '0' ? 'localhost' : env.HOST;
+  const baseUrl = `http://${displayHost}:${env.PORT}`;
+  const rateLimitState = env.RATE_LIMIT_ENABLED
+    ? env.REDIS_URL
+      ? 'enabled (Redis store)'
+      : 'enabled (in-memory store)'
+    : 'disabled';
+
   app.log.info(`api listening on http://${env.HOST}:${env.PORT}`);
+
+  const line = '='.repeat(60);
+  process.stdout.write(
+    [
+      '',
+      line,
+      `CareerSIM API — ${env.NODE_ENV === 'production' ? 'Production' : 'Developer'} Console`,
+      line,
+      '',
+      `  URL:   ${baseUrl}`,
+      `  Docs:  ${baseUrl}/docs`,
+      `  Spec:  ${baseUrl}/docs/openapi.json`,
+      '',
+      `  Rate:  ${rateLimitState}`,
+      `  Agent: ${env.AGENT_API_URL}`,
+      '',
+      '  Press Ctrl+C to stop',
+      line,
+      '',
+      '',
+    ].join('\n'),
+  );
 }
 
 main().catch((err) => {

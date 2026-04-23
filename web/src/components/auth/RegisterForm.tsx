@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
-import { RetroAlert } from '@/components/ui/RetroBadge';
 import { safeNextPath } from '@/lib/safe-next-path';
-import { AltchaWidget } from './AltchaWidget';
+import { AltchaWidget, type AltchaHandle } from './AltchaWidget';
 import { VerifyCodeCard } from './VerifyCodeCard';
 
 type Mode = 'email-link' | 'password';
@@ -28,9 +28,16 @@ export const RegisterForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
+  /** Raw thrown value so {@link FormErrorAlert} can detect `RATE_LIMITED`. */
+  const [formError, setFormError] = useState<unknown>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [altcha, setAltcha] = useState<string | null>(null);
+  /**
+   * Imperative handle — see note in {@link LoginForm}. Required to
+   * flip the widget out of `verified` on failure; clearing React state
+   * alone leaves the custom element happily reporting verified forever.
+   */
+  const altchaRef = useRef<AltchaHandle | null>(null);
 
   const { register, verifyEmail, resendVerification } = useAuth();
   const router = useRouter();
@@ -55,7 +62,7 @@ export const RegisterForm: React.FC = () => {
     }
 
     if (!altcha) {
-      setFormError('Please complete the human-check above before continuing.');
+      setFormError(new Error('Please complete the human-check above before continuing.'));
       return;
     }
 
@@ -68,9 +75,10 @@ export const RegisterForm: React.FC = () => {
       );
       setStep({ kind: 'verify', email: pendingEmail });
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Registration failed');
+      setFormError(err ?? new Error('Registration failed'));
       // Altcha payloads are single-use; reset so the user can re-verify.
       setAltcha(null);
+      altchaRef.current?.reset();
     } finally {
       setIsSubmitting(false);
     }
@@ -188,15 +196,12 @@ export const RegisterForm: React.FC = () => {
             )}
 
             <AltchaWidget
+              handleRef={altchaRef}
               onVerified={setAltcha}
               onReset={() => setAltcha(null)}
             />
 
-            {formError && (
-              <RetroAlert tone="error" title="Registration failed">
-                {formError}
-              </RetroAlert>
-            )}
+            <FormErrorAlert error={formError} fallbackTitle="Registration failed" />
 
             <Button
               type="submit"

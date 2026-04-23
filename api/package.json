@@ -25,6 +25,7 @@
   "dependencies": {
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/sensible": "^6.0.4",
     "@fastify/swagger": "^9.7.0",
     "altcha-lib": "^2.0.3",
@@ -34,6 +35,7 @@
     "fastify": "^5.8.5",
     "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^6.1.0",
+    "ioredis": "^5.10.1",
     "nodemailer": "^8.0.5",
     "pg": "^8.20.0",
     "pino": "^10.3.1",

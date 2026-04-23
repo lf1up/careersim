@@ -27,7 +27,7 @@ interface AuthContextType extends AuthState {
     password?: string,
     altcha?: string,
   ) => Promise<PendingRegistration>;
-  resendVerification: (email: string, altcha?: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   requestEmailLink: (email: string, altcha?: string) => Promise<void>;
   consumeMagicLink: (token: string) => Promise<void>;
@@ -155,8 +155,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   const resendVerification = useCallback(
-    async (email: string, altcha?: string) => {
-      await apiClient.resendVerification(email, altcha);
+    async (email: string) => {
+      await apiClient.resendVerification(email);
     },
     [],
   );

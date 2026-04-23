@@ -79,6 +79,18 @@ form body. Submit buttons stay disabled until the widget emits a `verified`
 state, and the payload is reset automatically on error so users can retry
 without a page reload.
 
+### Rate limiting
+
+The API applies `@fastify/rate-limit` policies on top of ALTCHA (see
+`api/README.md` for the full table). When a user crosses a limit the
+server responds `429` with a `{ error: "RATE_LIMITED", message,
+retryAfter }` envelope — the shared `apiClient` surfaces that payload as
+an `ApiError` whose `code` is `RATE_LIMITED`, and every auth form renders
+it as an inline `RetroAlert` so the user sees the `retryAfter` window
+without a page reload. No client-side throttling is needed — the server
+is the single source of truth and the 429 body already carries everything
+the UI needs to display.
+
 ## Layout
 
 ```text

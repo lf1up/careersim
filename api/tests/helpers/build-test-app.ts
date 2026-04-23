@@ -37,6 +37,16 @@ export interface BuildTestAppOptions {
    * that exercises real CAPTCHA verification against the widget lib.
    */
   altchaBypass?: boolean;
+  /**
+   * When true (default: false), `@fastify/rate-limit` is registered
+   * with its normal global + per-route limits. The general suite
+   * leaves it off so tests don't collide with buckets; the dedicated
+   * `rate-limit.test.ts` flips it on and asserts the policy.
+   */
+  rateLimitEnabled?: boolean;
+  /** Optional override for the global ceiling used by rate-limit tests. */
+  rateLimitGlobalMax?: number;
+  rateLimitGlobalTimeWindow?: string;
 }
 
 export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestHarness> {
@@ -53,6 +63,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     jwtSecret: 'test-secret-test-secret-test-secret',
     jwtExpiresIn: '1h',
     webAppUrl: 'http://localhost:3000',
+    logger: process.env.VITEST_DEBUG === '1' ? { level: 'debug' } : false,
     mail: {
       from: 'CareerSIM Test <no-reply@test.careersim.local>',
       devFallback: true,
@@ -62,6 +73,11 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
       hmacKey: 'test-altcha-hmac-key-test-altcha-hmac-key',
       maxNumber: 1_000,
       bypass: options?.altchaBypass ?? true,
+    },
+    rateLimit: {
+      enabled: options?.rateLimitEnabled ?? false,
+      globalMax: options?.rateLimitGlobalMax,
+      globalTimeWindow: options?.rateLimitGlobalTimeWindow,
     },
   });
 

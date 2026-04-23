@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { AppDatabase } from '../../db/client.js';
 import { badRequest } from '../../plugins/errors.js';
+import { rateLimitPolicy } from '../../plugins/rate-limit.js';
 import { createAuthService, type UserDto } from './auth.service.js';
 import {
   authResponseSchema,
@@ -50,6 +51,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/register',
     {
+      config: { rateLimit: rateLimitPolicy.register() },
       schema: {
         tags: ['auth'],
         summary: 'Begin signup (optionally with a password)',
@@ -73,15 +75,20 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/resend-verification',
     {
+      config: { rateLimit: rateLimitPolicy.emailSendByMailbox() },
       schema: {
         tags: ['auth'],
         summary: 'Resend the 6-digit email confirmation code',
+        description:
+          'Not captcha-gated on purpose: the only way to create a pending-verification ' +
+          'record is to hit /auth/register (which is captcha-gated), so an attacker ' +
+          "cannot cheaply manufacture targets here. Abuse is capped by the " +
+          'per-mailbox rate limit (3/hour).',
         body: resendVerificationRequestSchema,
         response: { 200: noContentResponseSchema },
       },
     },
     async (request) => {
-      await app.altcha.verify(request.body.altcha);
       const issued = await service.resendVerification(request.body.email);
       if (issued) {
         await app.mailer.send(verifyEmailMail(issued.user.email, issued.code));
@@ -93,6 +100,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/verify-email',
     {
+      config: { rateLimit: rateLimitPolicy.verifyCode() },
       schema: {
         tags: ['auth'],
         summary: 'Exchange a 6-digit code for a JWT',
@@ -113,6 +121,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/login',
     {
+      config: { rateLimit: rateLimitPolicy.login() },
       schema: {
         tags: ['auth'],
         summary: 'Exchange credentials for a JWT',
@@ -134,6 +143,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/login/email-link',
     {
+      config: { rateLimit: rateLimitPolicy.emailLinkByMailbox() },
       schema: {
         tags: ['auth'],
         summary: 'Email a single-use sign-in link',
@@ -155,6 +165,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/magic-link/consume',
     {
+      config: { rateLimit: rateLimitPolicy.consumeToken() },
       schema: {
         tags: ['auth'],
         summary: 'Exchange a magic-link token for a JWT',
@@ -174,6 +185,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/forgot-password',
     {
+      config: { rateLimit: rateLimitPolicy.emailSendByMailbox() },
       schema: {
         tags: ['auth'],
         summary: 'Email a single-use password-reset link',
@@ -195,6 +207,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   app.post(
     '/auth/reset-password',
     {
+      config: { rateLimit: rateLimitPolicy.resetPassword() },
       schema: {
         tags: ['auth'],
         summary: 'Set a new password using a reset-link token',
@@ -239,6 +252,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
     '/auth/me/password',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.changePassword() },
       schema: {
         tags: ['auth'],
         summary: 'Set or change your password',
@@ -267,6 +281,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
     '/auth/me/email-change',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.requestEmailChange() },
       schema: {
         tags: ['auth'],
         summary: 'Request an email change; sends a code to the new address',
@@ -296,6 +311,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
     '/auth/me/email-change/confirm',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.confirmEmailChange() },
       schema: {
         tags: ['auth'],
         summary: 'Confirm a pending email change with the 6-digit code',

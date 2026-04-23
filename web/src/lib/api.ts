@@ -35,6 +35,12 @@ export function clearToken(): void {
 export class ApiError extends Error {
   status: number;
   code?: string;
+  /**
+   * Milliseconds until the bucket refills, populated by the server on a
+   * `429 RATE_LIMITED` response. Forms can format this into a retry
+   * countdown — see `isRateLimitError` / `rateLimitRetryAfterSeconds`.
+   */
+  retryAfter?: number;
   payload?: unknown;
 
   constructor(status: number, message: string, payload?: unknown) {
@@ -49,7 +55,31 @@ export class ApiError extends Error {
     ) {
       this.code = (payload as { error: string }).error;
     }
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'retryAfter' in payload &&
+      typeof (payload as { retryAfter?: unknown }).retryAfter === 'number'
+    ) {
+      this.retryAfter = (payload as { retryAfter: number }).retryAfter;
+    }
   }
+}
+
+/** True when `err` is a 429 from the API rate limiter. */
+export function isRateLimitError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 429 && err.code === 'RATE_LIMITED';
+}
+
+/**
+ * Convert an `ApiError.retryAfter` (milliseconds) into a rounded-up
+ * number of seconds, clamped to at least 1. Returns null if the field
+ * is missing so callers can fall back to the server-rendered message
+ * string.
+ */
+export function rateLimitRetryAfterSeconds(err: ApiError): number | null {
+  if (typeof err.retryAfter !== 'number') return null;
+  return Math.max(1, Math.ceil(err.retryAfter / 1000));
 }
 
 interface RequestOptions {
@@ -144,10 +174,15 @@ export const apiClient = {
     });
   },
 
-  async resendVerification(email: string, altcha?: string): Promise<void> {
+  // Note: resend-verification is intentionally ungated on the server
+  // (see api/src/modules/auth/auth.schema.ts) so this method doesn't
+  // take an ALTCHA payload. The per-mailbox rate limit (3/hour) is the
+  // abuse cap, and the pending record it resends against can only be
+  // created by `/auth/register`, which *is* captcha-gated.
+  async resendVerification(email: string): Promise<void> {
     await request<{ ok: true }>('/auth/resend-verification', {
       method: 'POST',
-      body: altcha ? { email, altcha } : { email },
+      body: { email },
       auth: false,
     });
   },
