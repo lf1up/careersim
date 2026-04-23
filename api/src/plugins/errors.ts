@@ -18,8 +18,8 @@ export function notFound(message = 'Not found'): HttpError {
   return new HttpError(404, message, 'NOT_FOUND');
 }
 
-export function forbidden(message = 'Forbidden'): HttpError {
-  return new HttpError(403, message, 'FORBIDDEN');
+export function forbidden(message = 'Forbidden', code = 'FORBIDDEN'): HttpError {
+  return new HttpError(403, message, code);
 }
 
 export function badRequest(message: string, code = 'BAD_REQUEST'): HttpError {

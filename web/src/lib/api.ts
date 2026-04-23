@@ -1,6 +1,7 @@
 import type {
   AuthResponse,
   NudgeResponse,
+  PendingRegistration,
   Persona,
   SessionDetail,
   SessionSummary,
@@ -121,10 +122,34 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
 export const apiClient = {
   // ---------- auth ----------
-  async register(email: string, password: string): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/register', {
+
+  /**
+   * Start a signup; the backend emails a 6-digit confirmation code to
+   * `email`. Pass `password` to create a password-backed account or omit
+   * it to create a passwordless account (the user can set a password
+   * later from the profile page).
+   */
+  async register(email: string, password?: string): Promise<PendingRegistration> {
+    return request<PendingRegistration>('/auth/register', {
       method: 'POST',
-      body: { email, password },
+      body: password ? { email, password } : { email },
+      auth: false,
+    });
+  },
+
+  async resendVerification(email: string): Promise<void> {
+    await request<{ ok: true }>('/auth/resend-verification', {
+      method: 'POST',
+      body: { email },
+      auth: false,
+    });
+  },
+
+  /** Confirm a 6-digit email code and sign in. */
+  async verifyEmail(email: string, code: string): Promise<AuthResponse> {
+    const res = await request<AuthResponse>('/auth/verify-email', {
+      method: 'POST',
+      body: { email, code },
       auth: false,
     });
     setToken(res.token);
@@ -141,8 +166,78 @@ export const apiClient = {
     return res;
   },
 
+  /** Ask the backend to email a single-use magic-link sign-in URL. */
+  async requestEmailLink(email: string): Promise<void> {
+    await request<{ ok: true }>('/auth/login/email-link', {
+      method: 'POST',
+      body: { email },
+      auth: false,
+    });
+  },
+
+  /** Exchange a magic-link token (from the email URL) for a JWT. */
+  async consumeMagicLink(token: string): Promise<AuthResponse> {
+    const res = await request<AuthResponse>('/auth/magic-link/consume', {
+      method: 'POST',
+      body: { token },
+      auth: false,
+    });
+    setToken(res.token);
+    return res;
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    await request<{ ok: true }>('/auth/forgot-password', {
+      method: 'POST',
+      body: { email },
+      auth: false,
+    });
+  },
+
+  async resetPassword(token: string, password: string): Promise<AuthResponse> {
+    const res = await request<AuthResponse>('/auth/reset-password', {
+      method: 'POST',
+      body: { token, password },
+      auth: false,
+    });
+    setToken(res.token);
+    return res;
+  },
+
   async me(): Promise<User> {
     return request<User>('/auth/me');
+  },
+
+  async changePassword(
+    newPassword: string,
+    currentPassword?: string,
+  ): Promise<User> {
+    const res = await request<{ ok: true; user: User }>('/auth/me/password', {
+      method: 'PATCH',
+      body: currentPassword
+        ? { newPassword, currentPassword }
+        : { newPassword },
+    });
+    return res.user;
+  },
+
+  async requestEmailChange(
+    newEmail: string,
+    currentPassword?: string,
+  ): Promise<void> {
+    await request<{ ok: true }>('/auth/me/email-change', {
+      method: 'POST',
+      body: currentPassword ? { newEmail, currentPassword } : { newEmail },
+    });
+  },
+
+  async confirmEmailChange(code: string): Promise<AuthResponse> {
+    const res = await request<AuthResponse>('/auth/me/email-change/confirm', {
+      method: 'POST',
+      body: { code },
+    });
+    setToken(res.token);
+    return res;
   },
 
   logout(): void {

@@ -15,6 +15,13 @@
       "when": 1776524438008,
       "tag": "0001_nudge_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776531000000,
+      "tag": "0002_email_verification",
+      "breakpoints": true
     }
   ]
 }

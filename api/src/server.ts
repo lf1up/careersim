@@ -19,6 +19,7 @@ import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
+import mailerPlugin, { type MailMessage } from './plugins/mailer.js';
 import { authRoutes } from './modules/auth/auth.route.js';
 import { healthRoutes } from './modules/health/health.route.js';
 import { personasRoutes } from './modules/personas/personas.route.js';
@@ -31,6 +32,25 @@ export interface BuildAppOptions {
   jwtSecret: string;
   jwtExpiresIn?: string;
   logger?: boolean | Record<string, unknown>;
+  /**
+   * Public origin of the Next.js web app; used when building absolute
+   * URLs in outbound email (magic-link login, password reset, email
+   * confirmation links).
+   */
+  webAppUrl: string;
+  mail: {
+    from: string;
+    smtp?: {
+      host: string;
+      port: number;
+      secure: boolean;
+      user: string;
+      pass: string;
+    };
+    /** Force the stdout-only transport (tests / dev without SMTP). */
+    devFallback?: boolean;
+    outbox?: MailMessage[];
+  };
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
@@ -80,6 +100,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     expiresIn: opts.jwtExpiresIn ?? '7d',
   });
 
+  await app.register(mailerPlugin, {
+    from: opts.mail.from,
+    smtp: opts.mail.smtp,
+    devFallback: opts.mail.devFallback,
+    outbox: opts.mail.outbox,
+  });
+
   app.withTypeProvider<ZodTypeProvider>().get(
     '/',
     {
@@ -111,7 +138,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   );
 
   await app.register(healthRoutes, { db: opts.db, agent: opts.agent });
-  await app.register(authRoutes, { db: opts.db });
+  await app.register(authRoutes, { db: opts.db, webAppUrl: opts.webAppUrl });
   await app.register(simulationsRoutes, { agent: opts.agent });
   await app.register(personasRoutes, { agent: opts.agent });
   await app.register(sessionsRoutes, {

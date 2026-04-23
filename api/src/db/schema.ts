@@ -15,16 +15,52 @@ import type { AgentWireState } from '../agent/types.js';
 
 export const messageRoleEnum = pgEnum('message_role', ['human', 'ai']);
 
+export const authTokenPurposeEnum = pgEnum('auth_token_purpose', [
+  'verify_email',
+  'login_link',
+  'reset_password',
+  'change_email',
+]);
+
 export const users = pgTable(
   'users',
   {
     id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
     email: text('email').notNull(),
-    passwordHash: text('password_hash').notNull(),
+    // Nullable so passwordless accounts (magic-link signup) can exist until
+    // the user chooses to set a password from /profile.
+    passwordHash: text('password_hash'),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('users_email_unique').on(t.email)],
+);
+
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    purpose: authTokenPurposeEnum('purpose').notNull(),
+    // Hash of the opaque magic-link / reset token (sha256 hex). Null for
+    // code-based flows (verify_email, change_email) which store codeHash.
+    tokenHash: text('token_hash'),
+    // Hash of the 6-digit OTP (argon2id) for code-based flows. Null for
+    // link-based flows.
+    codeHash: text('code_hash'),
+    // For change_email flow, the pending new address the code was sent to.
+    newEmail: text('new_email'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('auth_tokens_user_purpose_idx').on(t.userId, t.purpose),
+    index('auth_tokens_token_hash_idx').on(t.tokenHash),
+  ],
 );
 
 export const sessions = pgTable(
@@ -63,6 +99,11 @@ export const messages = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
+  authTokens: many(authTokens),
+}));
+
+export const authTokensRelations = relations(authTokens, ({ one }) => ({
+  user: one(users, { fields: [authTokens.userId], references: [users.id] }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one, many }) => ({
@@ -80,3 +121,6 @@ export type SessionRow = typeof sessions.$inferSelect;
 export type NewSessionRow = typeof sessions.$inferInsert;
 export type MessageRow = typeof messages.$inferSelect;
 export type NewMessageRow = typeof messages.$inferInsert;
+export type AuthTokenRow = typeof authTokens.$inferSelect;
+export type NewAuthTokenRow = typeof authTokens.$inferInsert;
+export type AuthTokenPurpose = (typeof authTokenPurposeEnum.enumValues)[number];

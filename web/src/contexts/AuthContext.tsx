@@ -11,7 +11,7 @@ import React, {
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
-import type { User } from '@/lib/types';
+import type { PendingRegistration, User } from '@/lib/types';
 
 interface AuthState {
   user: User | null;
@@ -22,7 +22,17 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password?: string) => Promise<PendingRegistration>;
+  resendVerification: (email: string) => Promise<void>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
+  requestEmailLink: (email: string) => Promise<void>;
+  consumeMagicLink: (token: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
+  changePassword: (newPassword: string, currentPassword?: string) => Promise<void>;
+  requestEmailChange: (newEmail: string, currentPassword?: string) => Promise<void>;
+  confirmEmailChange: (code: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   logout: () => void;
   clearError: () => void;
 }
@@ -114,16 +124,109 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
+  const register = useCallback(
+    async (email: string, password?: string): Promise<PendingRegistration> => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      try {
+        const pending = await apiClient.register(email, password);
+        // Registration no longer returns a JWT — the user must still
+        // confirm their email. Surface it in state, but don't flip to
+        // authenticated.
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return pending;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Registration failed';
+        dispatch({ type: 'SET_ERROR', payload: message });
+        throw err;
+      }
+    },
+    [],
+  );
+
+  const resendVerification = useCallback(async (email: string) => {
+    await apiClient.resendVerification(email);
+  }, []);
+
+  const verifyEmail = useCallback(async (email: string, code: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const res = await apiClient.register(email, password);
+      const res = await apiClient.verifyEmail(email, code);
       dispatch({ type: 'SET_USER', payload: res.user });
       toast.success('Welcome to CareerSim!');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
+      const message =
+        err instanceof Error ? err.message : 'Verification failed';
       dispatch({ type: 'SET_ERROR', payload: message });
       throw err;
+    }
+  }, []);
+
+  const requestEmailLink = useCallback(async (email: string) => {
+    await apiClient.requestEmailLink(email);
+  }, []);
+
+  const consumeMagicLink = useCallback(async (token: string) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const res = await apiClient.consumeMagicLink(token);
+      dispatch({ type: 'SET_USER', payload: res.user });
+      toast.success('Signed in');
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not sign you in';
+      dispatch({ type: 'SET_ERROR', payload: message });
+      throw err;
+    }
+  }, []);
+
+  const forgotPassword = useCallback(async (email: string) => {
+    await apiClient.forgotPassword(email);
+  }, []);
+
+  const resetPassword = useCallback(async (token: string, password: string) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const res = await apiClient.resetPassword(token, password);
+      dispatch({ type: 'SET_USER', payload: res.user });
+      toast.success('Password updated');
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not reset password';
+      dispatch({ type: 'SET_ERROR', payload: message });
+      throw err;
+    }
+  }, []);
+
+  const changePassword = useCallback(
+    async (newPassword: string, currentPassword?: string) => {
+      const user = await apiClient.changePassword(newPassword, currentPassword);
+      dispatch({ type: 'SET_USER', payload: user });
+      toast.success('Password updated');
+    },
+    [],
+  );
+
+  const requestEmailChange = useCallback(
+    async (newEmail: string, currentPassword?: string) => {
+      await apiClient.requestEmailChange(newEmail, currentPassword);
+      toast.success('Check your new inbox for a 6-digit code');
+    },
+    [],
+  );
+
+  const confirmEmailChange = useCallback(async (code: string) => {
+    const res = await apiClient.confirmEmailChange(code);
+    dispatch({ type: 'SET_USER', payload: res.user });
+    toast.success('Email updated');
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const user = await apiClient.me();
+      dispatch({ type: 'SET_USER', payload: user });
+    } catch {
+      apiClient.logout();
+      dispatch({ type: 'CLEAR_USER' });
     }
   }, []);
 
@@ -137,7 +240,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, register, logout, clearError }}
+      value={{
+        ...state,
+        login,
+        register,
+        resendVerification,
+        verifyEmail,
+        requestEmailLink,
+        consumeMagicLink,
+        forgotPassword,
+        resetPassword,
+        changePassword,
+        requestEmailChange,
+        confirmEmailChange,
+        refreshUser,
+        logout,
+        clearError,
+      }}
     >
       {children}
     </AuthContext.Provider>

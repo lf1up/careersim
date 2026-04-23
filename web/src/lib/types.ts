@@ -4,11 +4,19 @@
 export interface User {
   id: string;
   email: string;
+  email_verified_at: string | null;
+  has_password: boolean;
+  created_at: string;
 }
 
 export interface AuthResponse {
   token: string;
   user: User;
+}
+
+export interface PendingRegistration {
+  pending: true;
+  email: string;
 }
 
 export interface Simulation {

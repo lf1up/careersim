@@ -13,6 +13,19 @@ async function main(): Promise<void> {
     agent,
     jwtSecret: env.JWT_SECRET,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
+    webAppUrl: env.WEB_APP_URL,
+    mail: {
+      from: env.MAIL_FROM,
+      smtp: env.SMTP_HOST
+        ? {
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            secure: env.SMTP_SECURE,
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+          }
+        : undefined,
+    },
     logger: {
       level: env.LOG_LEVEL,
       transport:
