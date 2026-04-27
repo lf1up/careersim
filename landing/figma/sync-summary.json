@@ -13,5 +13,5 @@
     "desktop": "/figma/desktop.png",
     "mobile": "/figma/mobile.png"
   },
-  "note": "Future refreshes should be run with `pnpm sync:figma` and FIGMA_TOKEN."
+  "note": "`hero.png` is a 2880px-wide PNG rasterized from the Figma SVG export for a sharper README preview. Future refreshes should be run with `pnpm sync:figma` and FIGMA_TOKEN."
 }
