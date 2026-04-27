@@ -3,10 +3,12 @@
   "source": "Figma MCP screenshot export",
   "fileKey": "HGN8KoPABVniypGOBzozLX",
   "nodes": {
+    "hero": "4:14",
     "desktop": "4:2",
     "mobile": "4:107"
   },
   "exported": {
+    "hero": "/figma/hero.png",
     "desktop": "/figma/desktop.png",
     "mobile": "/figma/mobile.png"
   },

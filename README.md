@@ -4,7 +4,7 @@
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
-<img src="./landing/public/figma/desktop.png" alt="CareerSIM.ai landing page" width="960" />
+<img src="./landing/public/figma/hero.png" alt="CareerSIM.ai landing page hero section" width="960" />
 
 > [!NOTE]
 > **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
