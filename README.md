@@ -4,8 +4,10 @@
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
+CareerSIM.ai landing page
+
 > [!NOTE]
-> **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
+> **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
 
 ## Architecture
 
@@ -37,22 +39,27 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
                       └──────────┘
 ```
 
-| Service | Stack | Description |
-|:--------|:------|:------------|
-| **web** | Next.js 15 (App Router, React 19), TypeScript, Tailwind 3 | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts. |
-| **api** | Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy. |
-| **agent** | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter | Stateless conversation engine. One binary serves either a Gradio dev console or a FastAPI production server (`--serve api`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |
-| **postgres** | PostgreSQL 17 | Source of truth for users, sessions, messages, and state snapshots. |
-| **redis** | Redis 7 | Present in compose for future rate-limiting / pub-sub work. |
+
+| Service      | Stack                                                                    | Description                                                                                                                                                                                         |
+| ------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **landing**  | Astro static site, TypeScript, plain CSS                                 | Public `careersim.ai` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                      |
+| **web**      | Next.js 15 (App Router, React 19), TypeScript, Tailwind 3                | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                   |
+| **api**      | Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod        | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                 |
+| **agent**    | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter | Stateless conversation engine. One binary serves either a Gradio dev console or a FastAPI production server (`--serve api`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |
+| **postgres** | PostgreSQL 17                                                            | Source of truth for users, sessions, messages, and state snapshots.                                                                                                                                 |
+| **redis**    | Redis 7                                                                  | Present in compose for future rate-limiting / pub-sub work.                                                                                                                                         |
+
 
 ### Deprecated services (kept for reference)
 
-| Legacy directory | Replaced by | Notes |
-|:-----------------|:------------|:------|
-| `backend/` (Express + TypeORM + Socket.IO + Stripe) | `api/` | REST surface, JWT, and SSE streaming fully rewritten on Fastify. |
-| `frontend/` (Vite + React 18 SPA) | `web/` | Retro theme ported 1:1; admin panel / analytics dashboards dropped — the new API doesn't back them yet. |
-| `transformers/` (FastAPI + HuggingFace sentiment / emotion / toxicity) | `agent/` | Evaluation now happens in-process via an LLM eval model (`OPENAI_EVAL_MODEL`). |
-| `rag/` (FastAPI + ChromaDB service) | `agent/` | Chroma is embedded directly in the agent; no HTTP boundary. |
+
+| Legacy directory                                                       | Replaced by | Notes                                                                                                   |
+| ---------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| `backend/` (Express + TypeORM + Socket.IO + Stripe)                    | `api/`      | REST surface, JWT, and SSE streaming fully rewritten on Fastify.                                        |
+| `frontend/` (Vite + React 18 SPA)                                      | `web/`      | Retro theme ported 1:1; admin panel / analytics dashboards dropped — the new API doesn't back them yet. |
+| `transformers/` (FastAPI + HuggingFace sentiment / emotion / toxicity) | `agent/`    | Evaluation now happens in-process via an LLM eval model (`OPENAI_EVAL_MODEL`).                          |
+| `rag/` (FastAPI + ChromaDB service)                                    | `agent/`    | Chroma is embedded directly in the agent; no HTTP boundary.                                             |
+
 
 Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top of its README. They are also commented out in `docker-compose.local.yml` under a deprecation block and will be removed in a future clean-up pass.
 
@@ -60,6 +67,10 @@ Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top 
 
 ```text
 careersim/
+├── landing/                    # Astro static landing page + Figma design sync
+│   ├── src/{pages,styles}
+│   ├── figma/                  # source design metadata and sync summary
+│   └── scripts/sync-figma.mjs
 ├── api/                        # Fastify + Drizzle API (active)
 │   ├── src/{agent,config,db,modules,plugins}
 │   ├── tests/                  # Vitest + pglite + FakeAgent
@@ -89,8 +100,8 @@ careersim/
 ### Prerequisites
 
 - **Docker** + **Docker Compose** (for the one-shot path)
-- **Node.js ≥ 20**, **pnpm ≥ 10** (for running `api/` or `web/` outside Docker)
-- **Python ≥ 3.11** + [`uv`](https://docs.astral.sh/uv/) (for running `agent/` outside Docker)
+- **Node.js ≥ 20**, **pnpm ≥ 10** (for running `landing/`, `api/`, or `web/` outside Docker)
+- **Python ≥ 3.11** + `[uv](https://docs.astral.sh/uv/)` (for running `agent/` outside Docker)
 - An **OpenAI-compatible API key** (OpenAI, OpenRouter, …) for the agent
 
 ### Local development with Docker Compose
@@ -107,15 +118,17 @@ docker compose -f docker-compose.local.yml up --build
 
 This starts:
 
-| URL | Service |
-|:----|:--------|
-| http://localhost:3000 | `web` — Next.js app |
-| http://localhost:8000 | `api` — Fastify API |
-| http://localhost:8000/docs | API Swagger UI (zod schemas → OpenAPI) |
-| http://localhost:8001 | `agent` — FastAPI (stateless) |
-| http://localhost:8001/docs | Agent Swagger UI |
-| localhost:5432 | PostgreSQL (`careersim` / `careersim_password`) |
-| localhost:6379 | Redis |
+
+| URL                                                      | Service                                         |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| [http://localhost:3000](http://localhost:3000)           | `web` — Next.js app                             |
+| [http://localhost:8000](http://localhost:8000)           | `api` — Fastify API                             |
+| [http://localhost:8000/docs](http://localhost:8000/docs) | API Swagger UI (zod schemas → OpenAPI)          |
+| [http://localhost:8001](http://localhost:8001)           | `agent` — FastAPI (stateless)                   |
+| [http://localhost:8001/docs](http://localhost:8001/docs) | Agent Swagger UI                                |
+| localhost:5432                                           | PostgreSQL (`careersim` / `careersim_password`) |
+| localhost:6379                                           | Redis                                           |
+
 
 The `api` container runs Drizzle migrations on start; no manual seeding needed. Register a new user from the web UI (there is **no default admin account** — that concept belonged to the legacy `backend/`).
 
@@ -124,6 +137,9 @@ The `api` container runs Drizzle migrations on start; no manual seeding needed. 
 Useful when you want a faster hot-reload loop for a single service. Each subdirectory has its own README with detailed flags.
 
 ```bash
+# Landing
+cd landing && pnpm install && pnpm dev                       # :4321
+
 # API
 cd api && pnpm install && pnpm db:migrate && pnpm dev        # :8000
 
@@ -142,66 +158,82 @@ When mixing Docker + host, point each service at the others via `host.docker.int
 ## Core Features
 
 ### Simulation library
+
 Seven first-party simulations shipped in `agent/data/simulations.json`, each bound to a persona with its own hidden goals, difficulty, and success criteria. The web app lists them at `/simulations`.
 
 ### Live chat with SSE streaming
+
 The `api` exposes `POST /sessions/:id/messages/stream`, which proxies the agent's SSE stream end-to-end. The web client shows an optimistic echo of the user's message, renders a typing indicator until the first AI chunk lands, then streams the reply token-by-token. Persistence happens exactly once when the upstream emits `done`.
 
 ### LangGraph conversation engine
+
 Stateful graph inside `agent/`:
+
 - Processes user input, fetches embedded-Chroma context, generates a persona response, and runs an LLM-based eval pass (sentiment / emotion / per-goal progress).
 - Proactive messages are explicit graph branches: `start` (conversation opener, fired during session init), `followup` (multi-message burst, capped by `burstiness.max`), and `inactivity` (guardrailed nudge).
 - Fully stateless at the API boundary — the caller-owned `state_snapshot` is sent on every turn, mirroring the `TestStatelessness` suite in `agent/tests/test_api.py`.
 
 ### Inactivity nudges (pull model)
+
 The `api` exposes `POST /sessions/:id/nudge`; the server decides idempotently whether to fire based on the persona's `inactivityNudgeDelaySec` window and `inactivityNudges.max` budget. The web client polls every 5 s while idle and stops automatically when the server returns `nudges_disabled` or `budget_exhausted`, re-arming on the next human reply. See `api/README.md` for the exact contract.
 
 ### Follow-up bursts
+
 `POST /sessions/:id/proactive/stream` drives persona-initiated follow-ups capped by `burstiness.max - 1` additional messages. The web UI exposes this behind a "Follow up" button and surfaces the cap as a `{N} followups max` badge alongside typing speed and nudge count.
 
 ### Retrieval-Augmented Generation (embedded)
+
 Per-simulation and per-persona Markdown under `agent/data/documents/` is indexed into a persisted Chroma store (volume `agent_chroma_db`). No separate HTTP hop.
 
 ### Per-turn evaluation
+
 Sentiment and emotion for both sides of the conversation, plus per-goal progress with confidence scoring, computed by a cheaper eval model (`OPENAI_EVAL_MODEL`) on every turn. Results are persisted to the session's `analysis` + `goal_progress` columns and returned in `GET /sessions/:id`.
 
 ### Authentication
+
 Email + password → JWT bearer (stored in `localStorage` on the web side; `Authorization: Bearer` on every request). Passwords hashed with argon2id. No refresh tokens, email verification, or Stripe billing — all of that lived in the deprecated `backend/` and has not been re-implemented.
 
 ## AI Personas
 
 Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that the runtime surfaces in `GET /sessions/:id.session_config` and the web UI badges.
 
-| Persona | Role | Simulation slug | Typing (wpm) | Nudges max | Burst max |
-|:--------|:-----|:----------------|:------------:|:----------:|:---------:|
-| **Brenda Vance** | By-the-Book HR Manager | `behavioral-interview-brenda` | 110 | 2 | 3 |
-| **Alex Chen** | Passionate Tech Lead | `tech-cultural-interview-alex` | 140 | 3 | 3 |
-| **David Miller** | Senior Analyst / Skeptical Veteran | `pitching-idea-david` | 120 | 2 | 1 |
-| **Sarah Jenkins** | Overwhelmed Project Manager | `saying-no-to-extra-work-sarah` | 130 | — | 2 |
-| **Michael Reyes** | Disengaged High-Performer | `reengaging-disengaged-employee-michael` | — | — | 1 |
-| **Chloe Davis** | Eager but Anxious Junior | `delegating-task-chloe` | — | — | 2 |
-| **Priya Patel** | Senior Data Analyst | `data-analyst-technical-interview-priya` | — | — | 2 |
+
+| Persona           | Role                               | Simulation slug                          | Typing (wpm) | Nudges max | Burst max |
+| ----------------- | ---------------------------------- | ---------------------------------------- | ------------ | ---------- | --------- |
+| **Brenda Vance**  | By-the-Book HR Manager             | `behavioral-interview-brenda`            | 110          | 2          | 3         |
+| **Alex Chen**     | Passionate Tech Lead               | `tech-cultural-interview-alex`           | 140          | 3          | 3         |
+| **David Miller**  | Senior Analyst / Skeptical Veteran | `pitching-idea-david`                    | 120          | 2          | 1         |
+| **Sarah Jenkins** | Overwhelmed Project Manager        | `saying-no-to-extra-work-sarah`          | 130          | —          | 2         |
+| **Michael Reyes** | Disengaged High-Performer          | `reengaging-disengaged-employee-michael` | —            | —          | 1         |
+| **Chloe Davis**   | Eager but Anxious Junior           | `delegating-task-chloe`                  | —            | —          | 2         |
+| **Priya Patel**   | Senior Data Analyst                | `data-analyst-technical-interview-priya` | —            | —          | 2         |
+
 
 See [PERSONAS.md](PERSONAS.md) for the full persona definitions, hidden goals, and success criteria.
 
 ## Tech Stack
 
-| Layer | Technology |
-|:------|:-----------|
-| Web | Next.js 15 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, `eventsource-parser` |
-| API | Node.js 20+, Fastify 5, TypeScript (strict ESM), Drizzle ORM + drizzle-kit, `@fastify/jwt`, argon2id, Zod + `fastify-type-provider-zod`, `undici` |
-| Agent | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI SDK, `uv` |
-| Data | PostgreSQL 17, Redis 7 |
-| LLM / models | OpenAI-compatible chat + embeddings (OpenAI, OpenRouter, …); in-process LLM eval |
-| Testing | Vitest + `@electric-sql/pglite` + `FakeAgent` (api), `pytest` + `_FakeGraph` (agent) |
-| Infrastructure | Docker, Docker Compose; Terraform (AWS) and Kustomize (K8s) checked in but targeting the legacy layout |
+
+| Layer          | Technology                                                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Landing        | Astro static output, TypeScript, plain CSS, Figma reference sync                                                                                  |
+| Web            | Next.js 15 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, `eventsource-parser`                                                    |
+| API            | Node.js 20+, Fastify 5, TypeScript (strict ESM), Drizzle ORM + drizzle-kit, `@fastify/jwt`, argon2id, Zod + `fastify-type-provider-zod`, `undici` |
+| Agent          | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI SDK, `uv`                                                                             |
+| Data           | PostgreSQL 17, Redis 7                                                                                                                            |
+| LLM / models   | OpenAI-compatible chat + embeddings (OpenAI, OpenRouter, …); in-process LLM eval                                                                  |
+| Testing        | Vitest + `@electric-sql/pglite` + `FakeAgent` (api), `pytest` + `_FakeGraph` (agent)                                                              |
+| Infrastructure | Docker, Docker Compose; Terraform (AWS) and Kustomize (K8s) checked in but targeting the legacy layout                                            |
+
 
 ## Infrastructure
 
 ### AWS (Terraform) — `infrastructure/aws/`
+
 Production-ready ECS Fargate topology with VPC, ALB, RDS PostgreSQL, ElastiCache Redis, EFS, Cloud Map service discovery, and optional GPU instances for the deprecated `transformers` service. Currently wired for the **legacy** `backend` + `frontend` + `transformers` + `rag` stack and has **not** been updated for `api` + `web` + `agent`.
 
 ### Kubernetes (Kustomize) — `infrastructure/k8s/`
+
 Self-hosted deployment with dev and prod overlays, StatefulSets for databases, and GPU scheduling. Same caveat as above — it targets the legacy layout.
 
 > [!IMPORTANT]
@@ -214,6 +246,10 @@ Self-hosted deployment with dev and prod overlays, StatefulSets for databases, a
 docker compose -f docker-compose.local.yml up --build         # full stack
 docker compose -f docker-compose.local.yml logs -f api web    # tail two services
 docker compose -f docker-compose.local.yml restart api        # after a .env change
+
+# Landing
+cd landing && pnpm check && pnpm build
+cd landing && pnpm sync:figma  # requires FIGMA_TOKEN in the shell
 
 # API
 cd api && pnpm test          # vitest (pglite + FakeAgent — no OpenAI, no network)

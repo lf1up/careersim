@@ -1,0 +1,24 @@
+{
+  "name": "careersim-landing",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0 --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --host 0.0.0.0 --port 4321",
+    "check": "astro check",
+    "sync:figma": "node scripts/sync-figma.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "Pavel Vdovenko <reactivecake@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "astro": "^6.1.9",
+    "typescript": "^5.9.3"
+  }
+}

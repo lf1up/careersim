@@ -1,0 +1,14 @@
+{
+  "syncedAt": "2026-04-27T17:50:00.000Z",
+  "source": "Figma MCP screenshot export",
+  "fileKey": "HGN8KoPABVniypGOBzozLX",
+  "nodes": {
+    "desktop": "4:2",
+    "mobile": "4:107"
+  },
+  "exported": {
+    "desktop": "/figma/desktop.png",
+    "mobile": "/figma/mobile.png"
+  },
+  "note": "Future refreshes should be run with `pnpm sync:figma` and FIGMA_TOKEN."
+}

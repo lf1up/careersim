@@ -1,0 +1,48 @@
+---
+description: Rules for implementing Figma designs in CareerSim using the Figma MCP server and local React/Tailwind conventions.
+globs: "{web/src/**/*.tsx,frontend/src/**/*.tsx,web/tailwind.config.ts,frontend/tailwind.config.js}"
+alwaysApply: false
+---
+
+# Figma Design System Rules
+
+Use these rules for every Figma-driven UI change in CareerSim.
+
+## Required Figma Flow
+
+1. Run `get_design_context` for the exact Figma node being implemented.
+2. Run `get_screenshot` for the same node and use it as the visual reference.
+3. If context is too large, run `get_metadata`, then refetch only the needed node.
+4. Treat Figma MCP output as design intent, not final code. Translate it into this repo's components, Tailwind tokens, routing, and framework patterns.
+5. Validate the final UI against the screenshot before calling the work complete.
+
+## Frontend Targets
+
+- `web` is the primary Next.js app: React 19, Next 16, TypeScript, Tailwind, `next dev --turbopack`.
+- `frontend` is the Vite app: React 18, TypeScript, Tailwind, React Router, Socket.IO client.
+- Reuse existing UI components from `web/src/components/ui/` or `frontend/src/components/ui/` before creating new components.
+- Keep feature-specific UI under the nearest feature directory, such as `web/src/components/chat/` or `frontend/src/pages/`.
+
+## Styling And Tokens
+
+- Use Tailwind utilities and `clsx` composition, matching existing components such as `Button`, `RetroCard`, `RetroPanel`, `RetroInput`, `RetroBadge`, `RetroDialog`, and `RetroTable`.
+- IMPORTANT: Do not hardcode new brand colors when a Tailwind token already exists.
+- Design tokens live in `web/tailwind.config.ts` and `frontend/tailwind.config.js`.
+- Prefer `primary`, `secondary`, and especially the shared `retro` palette: `retro-paper`, `retro-surface`, `retro-ink`, `retro-muted`, `retro-accent`, `retro-accent2`, plus dark-mode variants.
+- Use existing retro shadows such as `shadow-retro-1` through `shadow-retro-4` and `shadow-retro-dark-*`.
+- Use `font-retro` for pixel-display accents and `font-monoRetro` for mono retro supporting text.
+- Support dark mode with Tailwind `dark:` classes; the app toggles the `dark` class on the document root.
+
+## Component Patterns
+
+- Components are functional React components with TypeScript props interfaces.
+- Export named components; default exports are acceptable only where the local file already does that.
+- Components that accept styling overrides should expose `className`, and compound surfaces may also use `headerClassName` or `bodyClassName`.
+- Prefer variant and size union props for reusable UI, following `Button`'s `variant`, `size`, and `isLoading` pattern.
+- Preserve accessibility states: focus-visible rings, disabled styles, semantic buttons/links/forms, and keyboard-friendly interactions.
+
+## Assets And Icons
+
+- Use assets returned by the Figma MCP server directly when it provides localhost asset URLs.
+- Do not add a new icon library for a Figma implementation; the repo already uses `@heroicons/react`.
+- Store static app assets in the app-local public directory when persistence is needed.

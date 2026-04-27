@@ -1,0 +1,29 @@
+{
+  "fileKey": "HGN8KoPABVniypGOBzozLX",
+  "fileName": "TEST",
+  "url": "https://www.figma.com/design/HGN8KoPABVniypGOBzozLX/TEST?node-id=0-1&t=0s1rQanzczaPThFe-1",
+  "pageName": "Landing Page Concept",
+  "frames": {
+    "desktop": {
+      "nodeId": "4:2",
+      "name": "CareerSIM Landing / Desktop 1440",
+      "width": 1440
+    },
+    "mobile": {
+      "nodeId": "4:107",
+      "name": "CareerSIM Landing / Mobile 375",
+      "width": 375
+    }
+  },
+  "implementation": {
+    "generator": "Astro",
+    "output": "static",
+    "sourcePage": "src/pages/index.astro",
+    "styleSheet": "src/styles/global.css"
+  },
+  "notes": [
+    "Landing implementation is hand-adapted from Figma, not pasted from generated React/Tailwind.",
+    "Run `pnpm sync:figma` with FIGMA_TOKEN to refresh Figma node JSON and PNG reference renders.",
+    "Reference screenshots are saved under `public/figma/` when sync succeeds."
+  ]
+}
