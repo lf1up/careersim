@@ -8,6 +8,7 @@
     "mobile": "4:107"
   },
   "exported": {
+    "heroSvg": "/figma/hero.svg",
     "hero": "/figma/hero.png",
     "desktop": "/figma/desktop.png",
     "mobile": "/figma/mobile.png"
