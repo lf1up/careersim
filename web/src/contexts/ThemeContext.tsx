@@ -42,9 +42,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>('light');
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- Hydrate browser-only theme state after the server-safe initial render. */
     setThemeState(getStoredTheme());
     setSystemTheme(getSystemTheme());
     setMounted(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const resolvedTheme: ResolvedTheme = theme === 'system' ? systemTheme : theme;
