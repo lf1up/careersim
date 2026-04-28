@@ -6,12 +6,12 @@
   "frames": {
     "desktop": {
       "nodeId": "4:2",
-      "name": "CareerSIM Landing / Desktop 1440",
+      "name": "careersim.ai Landing / Desktop 1440",
       "width": 1440
     },
     "mobile": {
       "nodeId": "4:107",
-      "name": "CareerSIM Landing / Mobile 375",
+      "name": "careersim.ai Landing / Mobile 375",
       "width": 375
     }
   },
