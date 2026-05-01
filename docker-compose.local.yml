@@ -4,7 +4,7 @@ services:
   # ---------------------------------------------------------------------
   # The following services are no longer part of the active runtime:
   #   - `backend`       → superseded by `api`  (Fastify rewrite)
-  #   - `frontend`      → superseded by `web`  (Next.js 15 rewrite)
+  #   - `frontend`      → superseded by `web`  (Next.js 16 rewrite)
   #   - `transformers`  → absorbed into `agent` (in-process inference)
   #   - `rag`           → absorbed into `agent` (embedded Chroma DB)
   #

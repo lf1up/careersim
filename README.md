@@ -15,7 +15,7 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
 
 ```
                       ┌──────────────────────┐
-                      │   Web (Next.js 15)   │
+                      │   Web (Next.js 16)   │
                       │   App Router + RSC   │
                       │   :3000              │
                       └──────────┬───────────┘
@@ -42,9 +42,9 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
 
 | Service      | Stack                                                                    | Description                                                                                                                                                                                         |
 | ------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **landing**  | Astro static site, TypeScript, plain CSS                                 | Public `careersim.ai` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                      |
-| **web**      | Next.js 15 (App Router, React 19), TypeScript, Tailwind 3                | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                   |
-| **api**      | Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod        | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                 |
+| **landing**  | Astro 6 static site, TypeScript, plain CSS                               | Public `careersim.ai` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                      |
+| **web**      | Next.js 16 (App Router, React 19), TypeScript 6, Tailwind 3              | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                   |
+| **api**      | Node.js 22, Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod 4 | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                 |
 | **agent**    | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter | Stateless conversation engine. One binary serves either a Gradio dev console or a FastAPI production server (`--serve api`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |
 | **postgres** | PostgreSQL 17                                                            | Source of truth for users, sessions, messages, and state snapshots.                                                                                                                                 |
 | **redis**    | Redis 7                                                                  | Present in compose for future rate-limiting / pub-sub work.                                                                                                                                         |
@@ -75,7 +75,7 @@ careersim/
 │   ├── src/{agent,config,db,modules,plugins}
 │   ├── tests/                  # Vitest + pglite + FakeAgent
 │   └── drizzle.config.ts
-├── web/                        # Next.js 15 App Router frontend (active)
+├── web/                        # Next.js 16 App Router frontend (active)
 │   └── src/{app,components,contexts,lib}
 ├── agent/                      # Python LangGraph agent (active)
 │   ├── src/careersim_agent/
@@ -100,7 +100,7 @@ careersim/
 ### Prerequisites
 
 - **Docker** + **Docker Compose** (for the one-shot path)
-- **Node.js ≥ 20**, **pnpm ≥ 10** (for running `landing/`, `api/`, or `web/` outside Docker)
+- **Node.js ≥ 22.12** for `api/`; **Node.js ≥ 20** for `landing/` and `web/`; **pnpm ≥ 10**
 - **Python ≥ 3.11** + `[uv](https://docs.astral.sh/uv/)` (for running `agent/` outside Docker)
 - An **OpenAI-compatible API key** (OpenAI, OpenRouter, …) for the agent
 
@@ -216,13 +216,13 @@ See [PERSONAS.md](PERSONAS.md) for the full persona definitions, hidden goals, a
 
 | Layer          | Technology                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Landing        | Astro static output, TypeScript, plain CSS, Figma reference sync                                                                                  |
-| Web            | Next.js 15 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 3, `eventsource-parser`                                                    |
-| API            | Node.js 20+, Fastify 5, TypeScript (strict ESM), Drizzle ORM + drizzle-kit, `@fastify/jwt`, argon2id, Zod + `fastify-type-provider-zod`, `undici` |
-| Agent          | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI SDK, `uv`                                                                             |
+| Landing        | Astro 6 static output, TypeScript 5.9, plain CSS, Figma reference sync                                                                            |
+| Web            | Next.js 16 (App Router, Turbopack), React 19, TypeScript 6, Tailwind CSS 3, `eventsource-parser`                                                  |
+| API            | Node.js 22.12+, Fastify 5, TypeScript 6 (strict ESM), Drizzle ORM + drizzle-kit, `@fastify/jwt`, argon2id, Zod 4 + `fastify-type-provider-zod`, `undici` |
+| Agent          | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI SDK, Gradio 5, `uv`                                                                   |
 | Data           | PostgreSQL 17, Redis 7                                                                                                                            |
 | LLM / models   | OpenAI-compatible chat + embeddings (OpenAI, OpenRouter, …); in-process LLM eval                                                                  |
-| Testing        | Vitest + `@electric-sql/pglite` + `FakeAgent` (api), `pytest` + `_FakeGraph` (agent)                                                              |
+| Testing        | Vitest 4 + `@electric-sql/pglite` + `FakeAgent` (api), `pytest` + `_FakeGraph` (agent)                                                            |
 | Infrastructure | Docker, Docker Compose; Terraform (AWS) and Kustomize (K8s) checked in but targeting the legacy layout                                            |
 
 

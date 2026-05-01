@@ -1,6 +1,6 @@
 # CareerSIM Web
 
-Next.js 15 (App Router) frontend for the CareerSIM platform. Talks directly to
+Next.js 16 (App Router) frontend for the CareerSIM platform. Talks directly to
 the Fastify `api/` service — auth, simulations, personas, sessions, and the SSE
 streaming surface. No admin panel, no socket.io, no analytics: those belong to
 the legacy `frontend/` app and are not backed by the new API.
@@ -8,7 +8,7 @@ the legacy `frontend/` app and are not backed by the new API.
 ## Stack
 
 - **Runtime**: Node 20+, pnpm
-- **Framework**: Next.js 15 (App Router, Turbopack), React 19
+- **Framework**: Next.js 16 (App Router, Turbopack), React 19, TypeScript 6
 - **Styling**: Tailwind 3 with the shared retro theme (fonts, shadows,
   light/dark palette ported from `frontend/`)
 - **Auth**: JWT stored in `localStorage` + `Authorization: Bearer` header (no

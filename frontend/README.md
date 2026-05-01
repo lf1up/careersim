@@ -3,7 +3,7 @@
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
 >
-> This Vite + React SPA has been superseded by [`web/`](../web) (Next.js 15 App Router, RSC, SSE streaming against `api/`). New UI work ships in `web/` only. This directory is kept **for reference and component porting** during the migration and will be removed in a future clean-up.
+> This Vite + React SPA has been superseded by [`web/`](../web) (Next.js 16 App Router, RSC, SSE streaming against `api/`). New UI work ships in `web/` only. This directory is kept **for reference and component porting** during the migration and will be removed in a future clean-up.
 >
 > - **Replacement:** [`web/`](../web)
 > - **Status:** commented out in `docker-compose.local.yml`; do not re-enable.
