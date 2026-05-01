@@ -8,7 +8,7 @@
 <text id="Badge Text" fill="#111827" style="white-space: pre" xml:space="preserve" font-family="JetBrains Mono" font-size="12" font-weight="500" letter-spacing="0em"><tspan x="94" y="116.82">PRIVATE BETA &#xb7; CAREER PRACTICE</tspan></text>
 </g>
 <text id="Headline" fill="#111827" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="72" font-weight="800" letter-spacing="0em"><tspan x="80" y="222.682">Practice career-</tspan><tspan x="80" y="295.682">defining </tspan><tspan x="80" y="368.682">conversations </tspan><tspan x="80" y="441.682">before they </tspan><tspan x="80" y="514.682">happen.</tspan></text>
-<text id="Subhead" fill="#111827" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="21" font-weight="500" letter-spacing="0em"><tspan x="80" y="575.636">CareerSIM turns interviews, salary talks, performance </tspan><tspan x="80" y="605.636">conversations, and high-stakes pitches into realistic AI </tspan><tspan x="80" y="635.636">simulations with immediate feedback.</tspan></text>
+<text id="Subhead" fill="#111827" style="white-space: pre" xml:space="preserve" font-family="Inter" font-size="21" font-weight="500" letter-spacing="0em"><tspan x="80" y="575.636">careersim.ai turns interviews, salary talks, performance </tspan><tspan x="80" y="605.636">conversations, and high-stakes pitches into realistic AI </tspan><tspan x="80" y="635.636">simulations with immediate feedback.</tspan></text>
 <g id="Hero Actions">
 <g id="Button / Start practicing" filter="url(#filter0_d_4_14)">
 <rect x="80" y="671" width="190" height="54" fill="#111827"/>
