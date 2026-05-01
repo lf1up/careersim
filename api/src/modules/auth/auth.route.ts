@@ -32,6 +32,7 @@ import {
 interface AuthRouteOptions {
   db: AppDatabase;
   webAppUrl: string;
+  mailProductName: string;
 }
 
 function buildLinkUrl(webAppUrl: string, path: string, token: string): string {
@@ -67,7 +68,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       const { email, password, altcha } = request.body;
       await app.altcha.verify(altcha);
       const issued = await service.startRegistration(email, password);
-      await app.mailer.send(verifyEmailMail(issued.user.email, issued.code));
+      await app.mailer.send(
+        verifyEmailMail(issued.user.email, issued.code, opts.mailProductName),
+      );
       reply.code(202).send({ pending: true as const, email: issued.user.email });
     },
   );
@@ -91,7 +94,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
     async (request) => {
       const issued = await service.resendVerification(request.body.email);
       if (issued) {
-        await app.mailer.send(verifyEmailMail(issued.user.email, issued.code));
+        await app.mailer.send(
+          verifyEmailMail(issued.user.email, issued.code, opts.mailProductName),
+        );
       }
       return { ok: true as const };
     },
@@ -156,7 +161,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       const issued = await service.startEmailLinkLogin(request.body.email);
       if (issued) {
         const url = buildLinkUrl(opts.webAppUrl, '/auth/callback', issued.token);
-        await app.mailer.send(loginLinkMail(issued.user.email, url));
+        await app.mailer.send(
+          loginLinkMail(issued.user.email, url, opts.mailProductName),
+        );
       }
       return { ok: true as const };
     },
@@ -198,7 +205,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       const issued = await service.startPasswordReset(request.body.email);
       if (issued) {
         const url = buildLinkUrl(opts.webAppUrl, '/reset-password', issued.token);
-        await app.mailer.send(resetPasswordMail(issued.user.email, url));
+        await app.mailer.send(
+          resetPasswordMail(issued.user.email, url, opts.mailProductName),
+        );
       }
       return { ok: true as const };
     },
@@ -302,7 +311,9 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         // surface a 500 rather than emailing the wrong address.
         throw badRequest('Internal: missing target email', 'INTERNAL');
       }
-      await app.mailer.send(changeEmailMail(issued.newEmail, issued.code));
+      await app.mailer.send(
+        changeEmailMail(issued.newEmail, issued.code, opts.mailProductName),
+      );
       return { ok: true as const };
     },
   );

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { SITE_NAME } from '@/lib/seo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
 
@@ -72,7 +73,7 @@ export const Navbar: React.FC = () => {
                 href={homeHref}
                 className="text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark"
               >
-                CAREERSIM.ai
+                {SITE_NAME}
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8 sm:items-center">

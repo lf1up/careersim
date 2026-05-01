@@ -132,6 +132,9 @@ services:
       # the user's browser can reach — i.e. the host-mapped api port, not the
       # compose-internal `http://api:8000`.
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      # Server-rendered Next.js routes run inside the web container, so they
+      # need the compose service DNS name to reach the API.
+      API_INTERNAL_URL: http://api:8000
     depends_on:
       - api
     volumes:

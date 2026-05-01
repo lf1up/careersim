@@ -34,7 +34,8 @@ const EnvSchema = z.object({
     .transform((v) => v === 'true' || v === '1'),
   SMTP_USER: z.string().default(''),
   SMTP_PASS: z.string().default(''),
-  MAIL_FROM: z.string().default('CareerSIM <no-reply@careersim.local>'),
+  MAIL_FROM: z.string().default('careersim.ai <no-reply@careersim.ai>'),
+  MAIL_PRODUCT_NAME: z.string().default('careersim.ai'),
 
   // HMAC secret for ALTCHA proof-of-work challenges. Must be kept secret
   // server-side — the widget never sees it. Rotating invalidates any

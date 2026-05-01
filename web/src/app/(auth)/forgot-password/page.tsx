@@ -4,7 +4,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 
 export const metadata = {
-  title: 'Forgot password · CareerSIM',
+  title: 'Forgot password',
 };
 
 export default function ForgotPasswordPage() {

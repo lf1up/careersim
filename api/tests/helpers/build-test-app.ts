@@ -20,6 +20,7 @@ export const TEST_ALTCHA = ALTCHA_TEST_BYPASS_TOKEN;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = resolve(__dirname, '..', '..', 'src', 'db', 'migrations');
+const TEST_SITE_NAME = process.env.MAIL_PRODUCT_NAME ?? 'careersim.ai';
 
 export interface TestHarness {
   app: FastifyInstance;
@@ -65,7 +66,8 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     webAppUrl: 'http://localhost:3000',
     logger: process.env.VITEST_DEBUG === '1' ? { level: 'debug' } : false,
     mail: {
-      from: 'CareerSIM Test <no-reply@test.careersim.local>',
+      from: `${TEST_SITE_NAME} Test <no-reply@test.careersim.local>`,
+      productName: TEST_SITE_NAME,
       devFallback: true,
       outbox,
     },

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
 import type { SessionDetail, SimulationDetail } from '@/lib/types';
+import { SITE_NAME } from '@/lib/seo';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
@@ -108,6 +109,12 @@ export default function SessionDetailPage() {
       abortRef.current?.abort();
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    document.title = simulation?.title
+      ? `${simulation.title} Session | ${SITE_NAME}`
+      : `Session | ${SITE_NAME}`;
+  }, [simulation?.title]);
 
   // Keep `busyRef` current so the nudge-polling interval below can read it
   // without re-subscribing on every streaming chunk.

@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     webAppUrl: env.WEB_APP_URL,
     mail: {
       from: env.MAIL_FROM,
+      productName: env.MAIL_PRODUCT_NAME,
       smtp: env.SMTP_HOST
         ? {
             host: env.SMTP_HOST,

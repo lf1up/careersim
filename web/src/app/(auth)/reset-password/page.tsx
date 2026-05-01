@@ -4,7 +4,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 
 export const metadata = {
-  title: 'Reset password · CareerSIM',
+  title: 'Reset password',
 };
 
 export default function ResetPasswordPage() {

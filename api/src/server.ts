@@ -42,6 +42,7 @@ export interface BuildAppOptions {
   webAppUrl: string;
   mail: {
     from: string;
+    productName: string;
     smtp?: {
       host: string;
       port: number;
@@ -192,7 +193,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   );
 
   await app.register(healthRoutes, { db: opts.db, agent: opts.agent });
-  await app.register(authRoutes, { db: opts.db, webAppUrl: opts.webAppUrl });
+  await app.register(authRoutes, {
+    db: opts.db,
+    webAppUrl: opts.webAppUrl,
+    mailProductName: opts.mail.productName,
+  });
   await app.register(simulationsRoutes, { agent: opts.agent });
   await app.register(personasRoutes, { agent: opts.agent });
   await app.register(sessionsRoutes, {

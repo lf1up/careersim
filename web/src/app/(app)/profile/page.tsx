@@ -1,7 +1,7 @@
 import { ProfilePage } from '@/components/auth/ProfilePage';
 
 export const metadata = {
-  title: 'Profile · CareerSIM',
+  title: 'Profile',
 };
 
 export default function Profile() {

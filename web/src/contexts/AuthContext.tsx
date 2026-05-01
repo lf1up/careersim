@@ -11,6 +11,7 @@ import React, {
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
+import { SITE_NAME } from '@/lib/seo';
 import type { PendingRegistration, User } from '@/lib/types';
 
 interface AuthState {
@@ -166,7 +167,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const res = await apiClient.verifyEmail(email, code);
       dispatch({ type: 'SET_USER', payload: res.user });
-      toast.success('Welcome to CareerSIM!');
+      toast.success(`Welcome to ${SITE_NAME}!`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Verification failed';
