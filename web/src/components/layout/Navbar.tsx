@@ -71,13 +71,13 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav className="bg-retro-paper dark:bg-retro-paper-dark border-b-2 border-black dark:border-retro-ink-dark shadow-retro-y-4 dark:shadow-retro-dark-y-4 relative z-50 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 gap-2">
+          <div className="flex min-w-0 flex-1 items-center">
+            <div className="min-w-0 flex-shrink">
               <Link
                 href={homeHref}
-                className="text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark"
+                className="block truncate text-base sm:text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark"
               >
                 {SITE_NAME}
               </Link>
@@ -149,17 +149,17 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="sm:hidden flex items-center space-x-2">
-            <GitHubLink />
-            <ThemeToggle />
+          <div className="sm:hidden flex flex-none items-center gap-1.5">
+            <GitHubLink className="!h-9 !w-9" />
+            <ThemeToggle className="!h-9 !w-9" />
             <button
               onClick={() => setIsMobileMenuOpen((v) => !v)}
               aria-expanded={isMobileMenuOpen}
               aria-controls="mobile-menu"
-              className="inline-flex items-center justify-center p-2 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
+              className="inline-flex h-9 w-9 items-center justify-center border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
             >
               <svg
-                className="h-6 w-6 text-retro-ink dark:text-retro-ink-dark"
+                className="h-5 w-5 text-retro-ink dark:text-retro-ink-dark"
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 24 24"
