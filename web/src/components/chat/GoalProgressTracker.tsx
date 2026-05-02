@@ -244,28 +244,29 @@ export const GoalProgressSummary: React.FC<GoalProgressSummaryProps> = ({
     // Always stack the label above the bar+count so the summary reads as
     // a stable two-row control and never competes with the persona /
     // difficulty pills for horizontal room in the card header.
-    <div className={clsx('flex flex-col items-end gap-1', className)}>
-      <span className="text-sm font-semibold tracking-wider2 uppercase text-secondary-600 dark:text-secondary-400 shrink-0">
-        Goals achieved
+    <div className={clsx('flex flex-col items-end gap-0.5 sm:gap-1', className)}>
+      <span className="text-[10px] sm:text-sm font-semibold tracking-wider2 uppercase text-secondary-600 dark:text-secondary-400 shrink-0">
+        <span className="sm:hidden">Goals</span>
+        <span className="hidden sm:inline">Goals achieved</span>
       </span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         <div
           role="progressbar"
           aria-valuenow={achieved}
           aria-valuemin={0}
           aria-valuemax={denominator}
           aria-label={`${achieved} of ${denominator} goals achieved`}
-          className="h-2 w-24 sm:w-32 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark overflow-hidden shrink-0"
+          className="h-1.5 w-14 sm:h-2 sm:w-32 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark overflow-hidden shrink-0"
         >
           <div
             className="h-full bg-green-400 dark:bg-green-500 transition-[width] duration-300 ease-out"
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className="text-sm font-monoRetro text-retro-ink dark:text-retro-ink-dark shrink-0">
+        <span className="text-xs sm:text-sm font-monoRetro text-retro-ink dark:text-retro-ink-dark shrink-0">
           {achieved}/{denominator}
           {optionalCount > 0 && (
-            <span className="text-secondary-600 dark:text-secondary-400">
+            <span className="hidden sm:inline text-secondary-600 dark:text-secondary-400">
               {' '}
               · {optionalCount} opt
             </span>

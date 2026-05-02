@@ -71,6 +71,7 @@ export default function SessionDetailPage() {
   //   the next `handleSend`, since a human reply resets the server-side budget.
   const [nudgesPermanentlyDisabled, setNudgesPermanentlyDisabled] = useState(false);
   const [nudgesPausedUntilHumanReply, setNudgesPausedUntilHumanReply] = useState(false);
+  const [goalsExpanded, setGoalsExpanded] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   // Busy flag read *inside* the nudge-polling interval. Stored as a ref so the
@@ -319,15 +320,21 @@ export default function SessionDetailPage() {
     );
   }
 
+  const hasTrackedGoals =
+    session.goal_progress.length > 0 ||
+    (simulation?.conversation_goals.length ?? 0) > 0;
+
   return (
     <div className="h-full min-h-0 flex flex-col gap-4 retro-fade-in">
       <RetroCard
         className="shrink-0"
+        headerClassName="!px-3 !py-3 sm:!px-6 sm:!py-4 gap-3"
+        bodyClassName={goalsExpanded ? '!block !p-3 sm:!p-6' : 'hidden sm:block'}
         title={
           // Pills live inline *before* the title so the header's first row
           // immediately communicates "who you're talking to + how hard it
           // is" alongside the scenario name.
-          <span className="flex flex-wrap items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2 text-lg leading-tight sm:text-xl">
             {simulation?.persona_name && (
               <RetroBadge color="cyan">{simulation.persona_name}</RetroBadge>
             )}
@@ -341,8 +348,13 @@ export default function SessionDetailPage() {
         }
         subtitle={
           <span className="font-monoRetro">
-            {session.simulation_slug} · Session {session.id.slice(0, 8)} ·{' '}
-            {session.messages.length} messages
+            <span className="hidden sm:inline">
+              {session.simulation_slug} · Session {session.id.slice(0, 8)} ·{' '}
+              {session.messages.length} messages
+            </span>
+            <span className="sm:hidden">
+              Session {session.id.slice(0, 8)} · {session.messages.length} messages
+            </span>
           </span>
         }
         actions={
@@ -350,17 +362,32 @@ export default function SessionDetailPage() {
           // card's `actions` slot means it sits flush with the title and
           // gets the free right-alignment we need, while the wider chips
           // list stays in the card body below.
-          <GoalProgressSummary
-            className="self-center"
+          <>
+            <GoalProgressSummary
+              className="self-center"
+              progress={session.goal_progress}
+              goals={simulation?.conversation_goals}
+            />
+            {hasTrackedGoals && (
+              <button
+                type="button"
+                className="sm:hidden px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2"
+                aria-expanded={goalsExpanded}
+                aria-controls="session-goals"
+                onClick={() => setGoalsExpanded((open) => !open)}
+              >
+                {goalsExpanded ? 'Hide' : 'Show'}
+              </button>
+            )}
+          </>
+        }
+      >
+        <div id="session-goals">
+          <GoalProgressChips
             progress={session.goal_progress}
             goals={simulation?.conversation_goals}
           />
-        }
-      >
-        <GoalProgressChips
-          progress={session.goal_progress}
-          goals={simulation?.conversation_goals}
-        />
+        </div>
       </RetroCard>
 
       <RetroPanel
