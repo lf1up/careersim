@@ -82,7 +82,7 @@ export const Navbar: React.FC = () => {
                 {SITE_NAME}
               </Link>
             </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8 sm:items-center">
+            <div className="hidden lg:ml-6 lg:flex lg:space-x-8 lg:items-center">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -95,7 +95,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="hidden sm:flex sm:items-center">
+          <div className="hidden lg:flex lg:items-center">
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <>
@@ -149,7 +149,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="sm:hidden flex flex-none items-center gap-1.5">
+          <div className="lg:hidden flex flex-none items-center gap-1.5">
             <GitHubLink className="!h-9 !w-9" />
             <ThemeToggle className="!h-9 !w-9" />
             <button
@@ -181,7 +181,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       {isMobileMenuOpen && (
-        <div id="mobile-menu" className="sm:hidden relative z-50">
+        <div id="mobile-menu" className="lg:hidden relative z-50">
           <div className="pt-2 pb-3 space-y-1 bg-retro-paper dark:bg-retro-paper-dark border-t-2 border-black dark:border-retro-ink-dark">
             {navItems.map((item) => (
               <Link

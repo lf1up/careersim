@@ -329,7 +329,7 @@ export default function SessionDetailPage() {
       <RetroCard
         className="shrink-0"
         headerClassName="!px-3 !py-3 sm:!px-6 sm:!py-4 gap-3"
-        bodyClassName={goalsExpanded ? '!block !p-3 sm:!p-6' : 'hidden sm:block'}
+        bodyClassName={goalsExpanded ? '!block !p-3 lg:!p-6' : 'hidden lg:block'}
         title={
           // Pills live inline *before* the title so the header's first row
           // immediately communicates "who you're talking to + how hard it
@@ -348,11 +348,11 @@ export default function SessionDetailPage() {
         }
         subtitle={
           <span className="font-monoRetro">
-            <span className="hidden sm:inline">
+            <span className="hidden lg:inline">
               {session.simulation_slug} · Session {session.id.slice(0, 8)} ·{' '}
               {session.messages.length} messages
             </span>
-            <span className="sm:hidden">
+            <span className="lg:hidden">
               Session {session.id.slice(0, 8)} · {session.messages.length} messages
             </span>
           </span>
@@ -371,7 +371,7 @@ export default function SessionDetailPage() {
             {hasTrackedGoals && (
               <button
                 type="button"
-                className="sm:hidden px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2"
+                className="lg:hidden px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2"
                 aria-expanded={goalsExpanded}
                 aria-controls="session-goals"
                 onClick={() => setGoalsExpanded((open) => !open)}
