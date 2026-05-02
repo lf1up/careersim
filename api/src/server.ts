@@ -171,6 +171,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         name: z.string(),
         version: z.string(),
         status: z.literal('ok'),
+        agent: z.enum(['ok', 'error']),
         docs: z.string(),
         health: z.string(),
         uptimeSeconds: z.number().int().nonnegative(),
@@ -179,6 +180,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         name: z.string(),
         version: z.string(),
         status: z.literal('ok'),
+        agent: z.enum(['ok', 'error']),
         health: z.string(),
         uptimeSeconds: z.number().int().nonnegative(),
       });
@@ -198,10 +200,18 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       },
     },
     async () => {
+      let agentStatus: 'ok' | 'error' = 'ok';
+      try {
+        await opts.agent.health();
+      } catch {
+        agentStatus = 'error';
+      }
+
       const body = {
         name: pkg.name,
         version: pkg.version,
         status: 'ok' as const,
+        agent: agentStatus,
         health: '/health',
         uptimeSeconds: Math.floor(process.uptime()),
       };
