@@ -5,6 +5,7 @@ import '../styles/global.css';
 const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
 const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.ai/register';
 const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.ai/simulations';
+const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.ai';
 
 const useCases = [
   {
@@ -219,6 +220,9 @@ const faqs = [
 
         <footer class="site-footer">
           <span class="footer-wordmark">careersim.ai</span>
+          <p class="footer-contact">
+            Have any questions? Send an email to <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
+          </p>
           <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label="View careersim.ai on GitHub">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path

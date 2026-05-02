@@ -70,7 +70,7 @@ export default function DashboardPage() {
     .slice(0, 5);
 
   return (
-    <div className="space-y-6 pb-12 sm:pb-16 retro-fade-in">
+    <div className="space-y-6 pb-3 sm:pb-4 retro-fade-in">
       <RetroCard
         title={<span className="font-retro tracking-wider2">WELCOME BACK</span>}
         subtitle={user?.email ?? 'Loading user...'}

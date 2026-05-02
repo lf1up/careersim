@@ -291,7 +291,7 @@ links straight from `pnpm dev` output):
 | `SMTP_SECURE` | `false` | `true` for implicit TLS (usually port 465) |
 | `SMTP_USER` | — | SMTP username |
 | `SMTP_PASS` | — | SMTP password |
-| `MAIL_FROM` | `CareerSIM <no-reply@careersim.ai>` | `From:` header on outbound mail. In production, this must use a domain verified with the SMTP provider |
+| `MAIL_FROM` | `CareerSIM <no-reply@careersim.local>` | `From:` header on outbound mail. In production, this must use a domain verified with the SMTP provider |
 
 ## Docker
 

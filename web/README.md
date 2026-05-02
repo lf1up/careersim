@@ -146,12 +146,15 @@ pnpm typecheck  # tsc --noEmit
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Base URL of the `api/` service. Also used by `AltchaWidget` to fetch `/auth/challenge` |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@careersim.local` | Public support/contact email displayed in the app footer |
 | `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door |
 
 `NEXT_PUBLIC_API_URL` is inlined into the client bundle at build time (note the
-`NEXT_PUBLIC_` prefix), so changes require a rebuild in production. `LANDING_ORIGIN`
-is server-side Next.js config used by rewrites; set it to the landing project's
-deployment origin, for example `https://careersim-landing.vercel.app`.
+`NEXT_PUBLIC_` prefix), so changes require a rebuild in production. The same
+applies to other `NEXT_PUBLIC_*` values such as `NEXT_PUBLIC_CONTACT_EMAIL`.
+`LANDING_ORIGIN` is server-side Next.js config used by rewrites; set it to the
+landing project's deployment origin, for example
+`https://careersim-landing.vercel.app`.
 
 No ALTCHA configuration lives on the client — the HMAC key, challenge TTL,
 and PoW difficulty are all server-side (`ALTCHA_HMAC_KEY`,

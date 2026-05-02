@@ -53,7 +53,7 @@ export const MagicLinkCallback: React.FC = () => {
   }, [token, consumeMagicLink, router, nextRaw]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
+    <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
       <div className="w-full max-w-md">
         <RetroCard
           title={<span className="font-retro tracking-wider2">SIGNING YOU IN</span>}

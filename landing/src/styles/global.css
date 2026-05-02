@@ -564,12 +564,27 @@ h1 {
   align-items: center;
   color: var(--surface);
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
+  text-align: center;
 }
 
 .footer-wordmark {
   font-size: 0.75rem;
+}
+
+.footer-contact {
+  flex-basis: 100%;
+  font-size: 0.94rem;
+  font-weight: 500;
+  line-height: 1.45;
+  order: 2;
+}
+
+.footer-contact a {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 @media (max-width: 1100px) {
@@ -754,6 +769,7 @@ h1 {
   }
 
   .site-footer {
+    flex-direction: column;
     gap: 20px;
   }
 

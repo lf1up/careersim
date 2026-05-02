@@ -128,7 +128,7 @@ export const LoginForm: React.FC = () => {
 
   if (step.kind === 'verify-after-unverified') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
+      <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
         <div className="w-full max-w-md">
           <VerifyCodeCard
             email={step.email}
@@ -154,7 +154,7 @@ export const LoginForm: React.FC = () => {
 
   if (step.kind === 'email-link-sent') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
+      <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
         <div className="w-full max-w-md">
           <CheckYourInboxCard
             email={step.email}
@@ -168,7 +168,7 @@ export const LoginForm: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
+    <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
       <div className="w-full max-w-md">
         <RetroCard
           title={<span className="font-retro tracking-wider2">SIGN IN</span>}

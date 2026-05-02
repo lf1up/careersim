@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 
 import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
 import { RequireAuth } from '@/components/auth/RequireAuth';
 import { SITE_NAME } from '@/lib/seo';
 
@@ -35,6 +36,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full h-full">
             {children}
+            <Footer />
           </div>
         </main>
       </div>

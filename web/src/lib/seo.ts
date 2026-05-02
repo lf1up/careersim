@@ -5,6 +5,8 @@ export const SITE_NAME =
 export const SITE_DESCRIPTION =
   process.env.NEXT_PUBLIC_SITE_DESCRIPTION?.trim() ||
   'Practice career conversations with AI simulations for interviews, workplace scenarios, feedback, and professional growth.';
+export const CONTACT_EMAIL =
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || 'hello@careersim.ai';
 
 const rawSiteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??

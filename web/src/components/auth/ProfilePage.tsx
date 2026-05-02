@@ -16,7 +16,7 @@ export const ProfilePage: React.FC = () => {
   if (!user) return null;
 
   return (
-    <div className="space-y-6 pb-12 sm:pb-16 max-w-2xl mx-auto w-full retro-fade-in">
+    <div className="space-y-6 pb-3 sm:pb-4 max-w-2xl mx-auto w-full retro-fade-in">
       <AccountSummaryCard />
       <ChangeEmailCard />
       <PasswordCard />
