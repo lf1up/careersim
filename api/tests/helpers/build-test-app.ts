@@ -32,6 +32,7 @@ export interface TestHarness {
 
 export interface BuildTestAppOptions {
   agent?: FakeAgent;
+  nodeEnv?: 'development' | 'test' | 'production';
   /**
    * When true (default), the app accepts {@link ALTCHA_TEST_BYPASS_TOKEN}
    * in place of a real PoW payload. Set to false in a dedicated test
@@ -63,6 +64,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     agent,
     jwtSecret: 'test-secret-test-secret-test-secret',
     jwtExpiresIn: '1h',
+    nodeEnv: options?.nodeEnv ?? 'test',
     webAppUrl: 'http://localhost:3000',
     logger: process.env.VITEST_DEBUG === '1' ? { level: 'debug' } : false,
     mail: {

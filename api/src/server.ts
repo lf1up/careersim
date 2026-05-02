@@ -33,6 +33,7 @@ export interface BuildAppOptions {
   agent: AgentClient;
   jwtSecret: string;
   jwtExpiresIn?: string;
+  nodeEnv?: 'development' | 'test' | 'production';
   logger?: boolean | Record<string, unknown>;
   /**
    * Public origin of the Next.js web app; used when building absolute
@@ -93,6 +94,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const app = Fastify({
     logger: opts.logger ?? false,
   }).withTypeProvider<ZodTypeProvider>();
+  const docsEnabled = (opts.nodeEnv ?? process.env.NODE_ENV ?? 'development') === 'development';
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -134,15 +136,17 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     },
     transform: jsonSchemaTransform,
   });
-  // Serve the OpenAPI JSON + a Swagger UI page loaded from CDN.
-  // We do NOT use @fastify/swagger-ui: at @fastify/swagger-ui@5.2.5 +
-  // @fastify/static@9.1.1 its internal nested-prefix registration 404s on all
-  // static assets (swagger-ui.css, swagger-ui-bundle.js, favicons, logo, etc.).
-  // See the note in README.md for the minimal repro.
-  app.get('/docs/openapi.json', { schema: { hide: true } }, async () => app.swagger());
-  app.get('/docs', { schema: { tags: ['meta'], summary: 'Swagger UI' } }, async (_req, reply) => {
-    reply.type('text/html').send(renderSwaggerUiHtml('/docs/openapi.json'));
-  });
+  if (docsEnabled) {
+    // Serve the OpenAPI JSON + a Swagger UI page loaded from CDN.
+    // We do NOT use @fastify/swagger-ui: at @fastify/swagger-ui@5.2.5 +
+    // @fastify/static@9.1.1 its internal nested-prefix registration 404s on all
+    // static assets (swagger-ui.css, swagger-ui-bundle.js, favicons, logo, etc.).
+    // See the note in README.md for the minimal repro.
+    app.get('/docs/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+    app.get('/docs', { schema: { tags: ['meta'], summary: 'Swagger UI' } }, async (_req, reply) => {
+      reply.type('text/html').send(renderSwaggerUiHtml('/docs/openapi.json'));
+    });
+  }
 
   await registerAuth(app, {
     secret: opts.jwtSecret,
@@ -162,34 +166,47 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     bypass: opts.altcha.bypass,
   });
 
+  const serviceIndexResponse = docsEnabled
+    ? z.object({
+        name: z.string(),
+        version: z.string(),
+        status: z.literal('ok'),
+        docs: z.string(),
+        health: z.string(),
+        uptimeSeconds: z.number().int().nonnegative(),
+      })
+    : z.object({
+        name: z.string(),
+        version: z.string(),
+        status: z.literal('ok'),
+        health: z.string(),
+        uptimeSeconds: z.number().int().nonnegative(),
+      });
+
   app.withTypeProvider<ZodTypeProvider>().get(
     '/',
     {
       schema: {
         tags: ['meta'],
         summary: 'Service index',
-        description:
-          'Returns basic service metadata and pointers to the health probe and OpenAPI docs.',
+        description: docsEnabled
+          ? 'Returns basic service metadata and pointers to the health probe and OpenAPI docs.'
+          : 'Returns basic service metadata and a pointer to the health probe.',
         response: {
-          200: z.object({
-            name: z.string(),
-            version: z.string(),
-            status: z.literal('ok'),
-            docs: z.string(),
-            health: z.string(),
-            uptimeSeconds: z.number().int().nonnegative(),
-          }),
+          200: serviceIndexResponse,
         },
       },
     },
-    async () => ({
-      name: pkg.name,
-      version: pkg.version,
-      status: 'ok' as const,
-      docs: '/docs',
-      health: '/health',
-      uptimeSeconds: Math.floor(process.uptime()),
-    }),
+    async () => {
+      const body = {
+        name: pkg.name,
+        version: pkg.version,
+        status: 'ok' as const,
+        health: '/health',
+        uptimeSeconds: Math.floor(process.uptime()),
+      };
+      return docsEnabled ? { ...body, docs: '/docs' } : body;
+    },
   );
 
   await app.register(healthRoutes, { db: opts.db, agent: opts.agent });

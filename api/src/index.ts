@@ -15,6 +15,7 @@ async function main(): Promise<void> {
     agent,
     jwtSecret: env.JWT_SECRET,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
+    nodeEnv: env.NODE_ENV,
     webAppUrl: env.WEB_APP_URL,
     mail: {
       from: env.MAIL_FROM,
@@ -77,6 +78,10 @@ async function main(): Promise<void> {
       ? 'enabled (Redis store)'
       : 'enabled (in-memory store)'
     : 'disabled';
+  const docsLines =
+    env.NODE_ENV === 'development'
+      ? [`  Docs:  ${baseUrl}/docs`, `  Spec:  ${baseUrl}/docs/openapi.json`]
+      : [];
   // The agent defaults to dev-mode (unauthenticated) when its
   // AGENT_INTERNAL_KEY is empty; surface the matching API-side state
   // here so ops notice a missing key at startup rather than when a
@@ -102,8 +107,7 @@ async function main(): Promise<void> {
       line,
       '',
       `  URL:   ${baseUrl}`,
-      `  Docs:  ${baseUrl}/docs`,
-      `  Spec:  ${baseUrl}/docs/openapi.json`,
+      ...docsLines,
       '',
       `  Rate:  ${rateLimitState}`,
       `  Agent: ${env.AGENT_API_URL}`,
