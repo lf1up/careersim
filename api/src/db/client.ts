@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, type PoolConfig } from 'pg';
 import { drizzle as drizzlePg, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { drizzle as drizzlePglite, type PgliteDatabase } from 'drizzle-orm/pglite';
 import type { PGlite } from '@electric-sql/pglite';
@@ -20,8 +20,19 @@ export interface PgClientHandle {
   close(): Promise<void>;
 }
 
+export function buildPgPoolConfig(databaseUrl: string): PoolConfig {
+  const config: PoolConfig = { connectionString: databaseUrl };
+  const sslMode = new URL(databaseUrl).searchParams.get('sslmode')?.toLowerCase();
+
+  if (sslMode === 'require') {
+    config.ssl = { rejectUnauthorized: false };
+  }
+
+  return config;
+}
+
 export function createPgClient(databaseUrl: string): PgClientHandle {
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = new Pool(buildPgPoolConfig(databaseUrl));
   const db = drizzlePg(pool, { schema });
   return {
     db,
