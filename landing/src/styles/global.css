@@ -604,17 +604,17 @@ h1 {
   }
 
   .wordmark {
-    font-size: 0.63rem;
-    max-width: 180px;
+    font-size: clamp(0.78rem, 3.4vw, 0.9rem);
+    max-width: min(48vw, 210px);
   }
 
   .header-actions {
-    gap: 12px;
+    gap: 10px;
   }
 
   .header-cta {
-    min-width: 90px;
-    padding-inline: 16px;
+    min-width: 84px;
+    padding-inline: 14px;
   }
 
   .header-cta {
