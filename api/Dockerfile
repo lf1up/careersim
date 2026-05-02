@@ -32,4 +32,4 @@ COPY --from=build /app/src/db/migrations ./dist/db/migrations
 COPY package.json ./
 USER app
 EXPOSE 8000
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "node dist/db/migrate.js && node dist/index.js"]

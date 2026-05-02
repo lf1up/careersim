@@ -20,6 +20,7 @@
     "e2e": "tsx scripts/e2e-flow.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate:prod": "node dist/db/migrate.js",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
