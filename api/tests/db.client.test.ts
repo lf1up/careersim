@@ -15,7 +15,18 @@ describe('buildPgPoolConfig', () => {
     const config = buildPgPoolConfig('postgres://user:pass@db.example.com:5432/careersim?sslmode=require');
 
     expect(config).toEqual({
-      connectionString: 'postgres://user:pass@db.example.com:5432/careersim?sslmode=require',
+      connectionString: 'postgres://user:pass@db.example.com:5432/careersim',
+      ssl: { rejectUnauthorized: false },
+    });
+  });
+
+  it('removes only sslmode from SSL connection strings', () => {
+    const config = buildPgPoolConfig(
+      'postgres://user:pass@db.example.com:5432/careersim?connect_timeout=10&sslmode=require',
+    );
+
+    expect(config).toEqual({
+      connectionString: 'postgres://user:pass@db.example.com:5432/careersim?connect_timeout=10',
       ssl: { rejectUnauthorized: false },
     });
   });

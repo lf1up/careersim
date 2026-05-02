@@ -21,14 +21,18 @@ export interface PgClientHandle {
 }
 
 export function buildPgPoolConfig(databaseUrl: string): PoolConfig {
-  const config: PoolConfig = { connectionString: databaseUrl };
-  const sslMode = new URL(databaseUrl).searchParams.get('sslmode')?.toLowerCase();
+  const url = new URL(databaseUrl);
+  const sslMode = url.searchParams.get('sslmode')?.toLowerCase();
 
   if (sslMode === 'require') {
-    config.ssl = { rejectUnauthorized: false };
+    url.searchParams.delete('sslmode');
+    return {
+      connectionString: url.toString(),
+      ssl: { rejectUnauthorized: false },
+    };
   }
 
-  return config;
+  return { connectionString: databaseUrl };
 }
 
 export function createPgClient(databaseUrl: string): PgClientHandle {
