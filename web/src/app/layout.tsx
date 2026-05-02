@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 
 import { Providers } from '@/components/layout/Providers';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/seo';
@@ -71,6 +72,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

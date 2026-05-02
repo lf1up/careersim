@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@vercel/analytics": "^2.0.1",
     "altcha": "^3.0.4",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
