@@ -3,6 +3,9 @@ const landingOrigin = process.env.LANDING_ORIGIN?.replace(/\/$/, '');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_HAS_LANDING_ORIGIN: landingOrigin ? 'true' : 'false',
+  },
   async rewrites() {
     if (!landingOrigin) return [];
 

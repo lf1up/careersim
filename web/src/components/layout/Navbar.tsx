@@ -20,6 +20,8 @@ const AUTH_NAV_ITEMS = [
 // Nav items shown to guests. Keep this to just the public catalogue so
 // they don't see dead links pointing at auth-gated pages.
 const GUEST_NAV_ITEMS = [{ href: '/simulations', label: 'Simulations' }];
+const HAS_LANDING_ORIGIN =
+  process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
 
 function isActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
@@ -61,7 +63,11 @@ export const Navbar: React.FC = () => {
   const authButtonClass =
     'px-3 py-2 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1';
 
-  const homeHref = isAuthenticated ? '/dashboard' : '/simulations';
+  const homeHref = HAS_LANDING_ORIGIN
+    ? '/'
+    : isAuthenticated
+      ? '/dashboard'
+      : '/simulations';
 
   return (
     <nav className="bg-retro-paper dark:bg-retro-paper-dark border-b-2 border-black dark:border-retro-ink-dark shadow-retro-y-4 dark:shadow-retro-dark-y-4 relative z-50 transition-colors">
