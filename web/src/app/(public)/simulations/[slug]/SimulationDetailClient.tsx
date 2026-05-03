@@ -97,7 +97,7 @@ export function SimulationDetailClient({
     simulation.success_criteria.emotional.length > 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-3 sm:pb-4 retro-fade-in">
+    <div className="max-w-4xl mx-auto space-y-6 pt-2 pb-3 sm:pt-0 sm:pb-4 retro-fade-in">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Link href="/simulations">
           <Button variant="ghost" size="sm">

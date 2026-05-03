@@ -11,6 +11,7 @@ import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { safeNextPath } from '@/lib/safe-next-path';
+import { AuthBackLink } from './AuthBackLink';
 import { AltchaWidget, type AltchaHandle } from './AltchaWidget';
 import { VerifyCodeCard } from './VerifyCodeCard';
 
@@ -99,6 +100,7 @@ export const RegisterForm: React.FC = () => {
     return (
       <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
         <div className="w-full max-w-md">
+          <AuthBackLink />
           <VerifyCodeCard
             email={step.email}
             onSubmit={handleVerify}
@@ -114,6 +116,7 @@ export const RegisterForm: React.FC = () => {
   return (
     <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
       <div className="w-full max-w-md">
+        <AuthBackLink />
         <RetroCard
           title={<span className="font-retro tracking-wider2">CREATE ACCOUNT</span>}
           subtitle={
