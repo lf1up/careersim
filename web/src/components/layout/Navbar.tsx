@@ -52,12 +52,24 @@ export const Navbar: React.FC = () => {
         : 'bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1',
     );
 
+  const mobileMenuItemBase =
+    'flex w-full items-center justify-between px-3 py-2 text-base font-semibold border-2 border-black dark:border-retro-ink-dark transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1';
+
   const mobileNavLinkClass = (active: boolean) =>
     clsx(
-      'block px-3 py-2 text-base font-semibold border-2 border-black dark:border-retro-ink-dark mx-2',
+      mobileMenuItemBase,
       active
         ? 'bg-primary-300 dark:bg-primary-600 text-black dark:text-white shadow-retro-1 dark:shadow-retro-dark-1'
         : 'bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2',
+    );
+
+  const mobileActionClass = (variant: 'neutral' | 'primary' = 'neutral') =>
+    clsx(
+      mobileMenuItemBase,
+      'text-left shadow-retro-2 dark:shadow-retro-dark-2',
+      variant === 'primary'
+        ? 'bg-primary-300 dark:bg-primary-600 text-black dark:text-white'
+        : 'bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark',
     );
 
   const authButtonClass =
@@ -182,55 +194,57 @@ export const Navbar: React.FC = () => {
 
       {isMobileMenuOpen && (
         <div id="mobile-menu" className="lg:hidden relative z-50">
-          <div className="pt-2 pb-3 space-y-1 bg-retro-paper dark:bg-retro-paper-dark border-t-2 border-black dark:border-retro-ink-dark">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={mobileNavLinkClass(isActive(pathname, item.href))}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <div className="border-t-2 border-black dark:border-retro-ink-dark mt-2 pt-2 space-y-1">
-              {isAuthenticated ? (
-                <>
-                  <Link
-                    href="/profile"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-base font-semibold border-2 border-black dark:border-retro-ink-dark mx-2 bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
-                  >
-                    Profile settings
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      handleLogout();
-                    }}
-                    className="block w-full text-left px-3 py-2 text-base font-semibold border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 mx-2 text-retro-ink dark:text-retro-ink-dark transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1"
-                  >
-                    Sign out
-                  </button>
-                </>
-              ) : !isLoading ? (
-                <>
-                  <Link
-                    href="/login"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-base font-semibold border-2 border-black dark:border-retro-ink-dark mx-2 bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/register"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="block px-3 py-2 text-base font-semibold border-2 border-black dark:border-retro-ink-dark mx-2 bg-primary-300 dark:bg-primary-600 text-black dark:text-white shadow-retro-2 dark:shadow-retro-dark-2"
-                  >
-                    Sign up
-                  </Link>
-                </>
-              ) : null}
+          <div className="bg-retro-paper dark:bg-retro-paper-dark border-t-2 border-black dark:border-retro-ink-dark">
+            <div className="max-w-7xl mx-auto pl-4 pr-6 sm:px-6 pt-3 pb-4 space-y-2">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={mobileNavLinkClass(isActive(pathname, item.href))}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <div className="border-t-2 border-black dark:border-retro-ink-dark mt-3 pt-3 space-y-2">
+                {isAuthenticated ? (
+                  <>
+                    <Link
+                      href="/profile"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={mobileActionClass()}
+                    >
+                      Profile settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className={mobileActionClass()}
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : !isLoading ? (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={mobileActionClass()}
+                    >
+                      Sign in
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={mobileActionClass('primary')}
+                    >
+                      Sign up
+                    </Link>
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
