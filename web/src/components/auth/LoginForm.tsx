@@ -11,6 +11,7 @@ import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { ApiError } from '@/lib/api';
 import { safeNextPath } from '@/lib/safe-next-path';
+import { SITE_NAME } from '@/lib/seo';
 import { AuthBackLink } from './AuthBackLink';
 import { AltchaWidget, type AltchaHandle } from './AltchaWidget';
 import { CheckYourInboxCard } from './CheckYourInboxCard';
@@ -178,7 +179,7 @@ export const LoginForm: React.FC = () => {
           title={<span className="font-retro tracking-wider2">SIGN IN</span>}
           subtitle={
             <span className="text-secondary-600 dark:text-secondary-400">
-              New to careersim.ai?{' '}
+              New to {SITE_NAME}?{' '}
               <Link
                 href={registerHref}
                 className="underline text-primary-600 dark:text-primary-400"

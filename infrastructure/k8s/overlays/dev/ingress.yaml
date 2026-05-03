@@ -10,10 +10,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.careersim.ai
+        - api.careersim.local
       secretName: api-careersim-tls
   rules:
-    - host: api.careersim.ai
+    - host: api.careersim.local
       http:
         paths:
           - path: /

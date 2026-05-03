@@ -2,10 +2,12 @@
 import Analytics from '@vercel/analytics/astro';
 import '../styles/global.css';
 
+const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
+const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.local';
 const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
-const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.ai/register';
-const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.ai/simulations';
-const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.ai';
+const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.local/register';
+const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
+const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
 
 const useCases = [
   {
@@ -75,22 +77,22 @@ const faqs = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="careersim.ai helps people practice career-defining conversations through realistic AI simulations and immediate coaching feedback."
+      content={`${siteName} helps people practice career-defining conversations through realistic AI simulations and immediate coaching feedback.`}
     />
-    <meta property="og:title" content="careersim.ai - AI career practice simulations" />
+    <meta property="og:title" content={`${siteName} - AI career practice simulations`} />
     <meta
       property="og:description"
       content="Practice interviews, negotiations, feedback conversations, and pitches before they happen."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://careersim.ai" />
+    <meta property="og:url" content={siteUrl} />
     <meta name="theme-color" content="#fffdf5" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>careersim.ai | Practice career-defining conversations</title>
+    <title>{siteName} | Practice career-defining conversations</title>
   </head>
   <body>
     <header class="site-header">
-      <a class="wordmark" href="/" aria-label="careersim.ai home">careersim.ai</a>
+      <a class="wordmark" href="/" aria-label={`${siteName} home`}>{siteName}</a>
 
       <nav class="nav-links" aria-label="Landing page sections">
         <a href="#use-cases">Use cases</a>
@@ -99,7 +101,7 @@ const faqs = [
       </nav>
 
       <div class="header-actions">
-        <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label="View careersim.ai on GitHub">
+        <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill-rule="evenodd"
@@ -118,7 +120,7 @@ const faqs = [
           <p class="badge">Private beta · Career practice</p>
           <h1 id="hero-title">Practice career-defining conversations before they happen.</h1>
           <p class="hero-subhead">
-            <span class="hero-highlight">careersim.ai</span> turns interviews, salary talks, performance conversations, and high-stakes pitches into realistic AI simulations with immediate feedback.
+            <span class="hero-highlight">{siteName}</span> turns interviews, salary talks, performance conversations, and high-stakes pitches into realistic AI simulations with immediate feedback.
           </p>
           <div class="hero-actions">
             <a class="button button-dark" href={appUrl}>Start practicing</a>
@@ -127,7 +129,7 @@ const faqs = [
           <p class="proof-strip">12+ scenarios / AI personas / feedback after every session</p>
         </div>
 
-        <aside class="product-preview" aria-label="careersim.ai product preview">
+        <aside class="product-preview" aria-label={`${siteName} product preview`}>
           <div class="window-bar">
             <span class="window-dot dot-red"></span>
             <span class="window-dot dot-yellow"></span>
@@ -219,11 +221,11 @@ const faqs = [
         </div>
 
         <footer class="site-footer">
-          <span class="footer-wordmark">careersim.ai</span>
+          <span class="footer-wordmark">{siteName}</span>
           <p class="footer-contact">
             Have any questions? Send an email to <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
           </p>
-          <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label="View careersim.ai on GitHub">
+          <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 fill-rule="evenodd"

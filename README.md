@@ -4,7 +4,7 @@
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
-<img src="./landing/public/figma/hero.png" alt="CareerSIM.ai landing page hero section" width="960" />
+<img src="./landing/public/figma/hero.png" alt="CareerSIM landing page hero section" width="960" />
 
 > [!NOTE]
 > **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
@@ -42,7 +42,7 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
 
 | Service      | Stack                                                                    | Description                                                                                                                                                                                         |
 | ------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **landing**  | Astro 6 static site, TypeScript, plain CSS                               | Public `careersim.ai` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                      |
+| **landing**  | Astro 6 static site, TypeScript, plain CSS                               | Public `careersim.local` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                      |
 | **web**      | Next.js 16 (App Router, React 19), TypeScript 6, Tailwind 3              | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                   |
 | **api**      | Node.js 22, Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod 4 | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                 |
 | **agent**    | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter | Stateless conversation engine. One binary serves either a Gradio dev console or a FastAPI production server (`--serve api`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |

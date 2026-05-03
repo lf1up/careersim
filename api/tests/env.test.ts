@@ -14,10 +14,10 @@ describe('loadEnv', () => {
     const env = loadEnv({
       ...baseEnv,
       NODE_ENV: 'production',
-      MAIL_FROM: 'careersim.ai <no-reply@careersim.local>',
+      MAIL_FROM: 'careersim.local <no-reply@careersim.local>',
     });
 
-    expect(env.MAIL_FROM).toBe('careersim.ai <no-reply@careersim.local>');
+    expect(env.MAIL_FROM).toBe('careersim.local <no-reply@careersim.local>');
   });
 
   it('rejects local sender domains when production SMTP is enabled', () => {
@@ -26,7 +26,7 @@ describe('loadEnv', () => {
         ...baseEnv,
         NODE_ENV: 'production',
         SMTP_HOST: 'smtp.resend.com',
-        MAIL_FROM: 'careersim.ai <no-reply@careersim.local>',
+        MAIL_FROM: 'careersim.local <no-reply@careersim.local>',
       }),
     ).toThrow(/MAIL_FROM must use a verified sender domain/);
   });
@@ -36,9 +36,9 @@ describe('loadEnv', () => {
       ...baseEnv,
       NODE_ENV: 'production',
       SMTP_HOST: 'smtp.resend.com',
-      MAIL_FROM: 'careersim.ai <no-reply@careersim.ai>',
+      MAIL_FROM: 'careersim.local <no-reply@careersim.local>',
     });
 
-    expect(env.MAIL_FROM).toBe('careersim.ai <no-reply@careersim.ai>');
+    expect(env.MAIL_FROM).toBe('careersim.local <no-reply@careersim.local>');
   });
 });

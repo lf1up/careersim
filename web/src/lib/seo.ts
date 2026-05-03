@@ -1,17 +1,17 @@
 import type { Metadata } from 'next';
 
 export const SITE_NAME =
-  process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'careersim.ai';
+  process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'careersim.local';
 export const SITE_DESCRIPTION =
   process.env.NEXT_PUBLIC_SITE_DESCRIPTION?.trim() ||
   'Practice career conversations with AI simulations for interviews, workplace scenarios, feedback, and professional growth.';
 export const CONTACT_EMAIL =
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || 'hello@careersim.ai';
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || 'hello@careersim.local';
 
 const rawSiteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
-  'https://careersim.ai';
+  'https://careersim.local';
 
 export const SITE_URL = rawSiteUrl.replace(/\/$/, '');
 

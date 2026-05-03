@@ -46,7 +46,7 @@ configMapGenerator:
       - REDIS_HOST=prod-redis
       - TRANSFORMERS_API_URL=http://prod-transformers:8001
       - RAG_API_URL=http://prod-rag:8002
-      - ALLOWED_ORIGINS=https://api.careersim.ai,https://careersim.ai
+      - ALLOWED_ORIGINS=https://api.careersim.local,https://careersim.local
       - LANGCHAIN_PROJECT=careersim-prod
       - USE_LANGGRAPH=true
 

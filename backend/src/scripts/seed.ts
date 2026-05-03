@@ -770,7 +770,7 @@ const seedData = async (): Promise<void> => {
     const adminUser = userRepository.create({
       firstName: 'Admin',
       lastName: 'User',
-      email: 'admin@careersim.ai',
+      email: 'admin@careersim.local',
       password: adminPassword,
       role: UserRole.ADMIN,
       subscriptionTier: SubscriptionTier.PREMIUM,
@@ -779,7 +779,7 @@ const seedData = async (): Promise<void> => {
     });
 
     await userRepository.save(adminUser);
-    console.log('👤 Created admin user: admin@careersim.ai / admin123!@#=SHOOOTm');
+    console.log('👤 Created admin user: admin@careersim.local / admin123!@#=SHOOOTm');
 
     // Seed Test Users
     const testUsers = [
@@ -858,7 +858,7 @@ const seedData = async (): Promise<void> => {
     console.log(`Users: ${String(testUsers.length + 1)} (including admin)`);
     console.log(`System Configurations: ${String(configs.length)}`);
     console.log('\n🔐 Admin Login:');
-    console.log('Email: admin@careersim.ai');
+    console.log('Email: admin@careersim.local');
     console.log('Password: admin123!@#=SHOOOTm');
 
   } catch (error) {

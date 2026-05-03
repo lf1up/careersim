@@ -5,7 +5,12 @@ import {
   getPublicSimulation,
   listPublicSimulations,
 } from '@/lib/public-api';
-import { absoluteUrl, metadataFor, truncateDescription } from '@/lib/seo';
+import {
+  absoluteUrl,
+  metadataFor,
+  SITE_NAME,
+  truncateDescription,
+} from '@/lib/seo';
 
 import { SimulationDetailClient } from './SimulationDetailClient';
 
@@ -70,7 +75,7 @@ export default async function SimulationDetailPage({ params }: PageProps) {
             url: absoluteUrl(`/simulations/${simulation.slug}`),
             provider: {
               '@type': 'Organization',
-              name: 'careersim.ai',
+              name: SITE_NAME,
               url: absoluteUrl('/'),
             },
             teaches: simulation.skills_to_learn,

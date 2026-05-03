@@ -20,7 +20,7 @@ export const TEST_ALTCHA = ALTCHA_TEST_BYPASS_TOKEN;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = resolve(__dirname, '..', '..', 'src', 'db', 'migrations');
-const TEST_SITE_NAME = process.env.MAIL_PRODUCT_NAME ?? 'careersim.ai';
+const TEST_SITE_NAME = process.env.MAIL_PRODUCT_NAME ?? 'careersim.local';
 
 export interface TestHarness {
   app: FastifyInstance;

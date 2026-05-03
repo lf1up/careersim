@@ -33,7 +33,7 @@ infrastructure/k8s/
       ingress.yaml              # HTTP ingress for careersim.local
     prod/
       kustomization.yaml        # GHCR images, prod secrets, prod CORS origins
-      ingress.yaml              # TLS ingress for api.careersim.ai (cert-manager)
+      ingress.yaml              # TLS ingress for api.careersim.local (cert-manager)
 ```
 
 ### Prereqs
@@ -60,7 +60,7 @@ infrastructure/k8s/
 
 ### Production overlay
 
-The prod overlay uses GHCR container images (`ghcr.io/lf1up/careersim`), TLS ingress via cert-manager for `api.careersim.ai`, and separate secret values. Before applying, update secrets and image tags in `overlays/prod/kustomization.yaml`.
+The prod overlay uses GHCR container images (`ghcr.io/lf1up/careersim`), TLS ingress via cert-manager for `api.careersim.local`, and separate secret values. Before applying, update secrets and image tags in `overlays/prod/kustomization.yaml`.
 
 ```bash
 kubectl apply -k infrastructure/k8s/overlays/prod
