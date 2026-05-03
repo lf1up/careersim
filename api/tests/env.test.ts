@@ -36,9 +36,9 @@ describe('loadEnv', () => {
       ...baseEnv,
       NODE_ENV: 'production',
       SMTP_HOST: 'smtp.resend.com',
-      MAIL_FROM: 'careersim.local <no-reply@careersim.local>',
+      MAIL_FROM: 'CareerSIM <no-reply@careersim.com>',
     });
 
-    expect(env.MAIL_FROM).toBe('careersim.local <no-reply@careersim.local>');
+    expect(env.MAIL_FROM).toBe('CareerSIM <no-reply@careersim.com>');
   });
 });
