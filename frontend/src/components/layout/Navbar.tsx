@@ -62,7 +62,7 @@ export const Navbar: React.FC = () => {
                 Simulations
               </NavLink>
               <NavLink to="/sessions" className={desktopNavLinkClass}>
-                My Sessions
+                Sessions
               </NavLink>
               <NavLink to="/analytics" className={desktopNavLinkClass}>
                 Analytics
@@ -178,7 +178,7 @@ export const Navbar: React.FC = () => {
               Simulations
             </NavLink>
             <NavLink to="/sessions" className={mobileNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>
-              My Sessions
+              Sessions
             </NavLink>
             <NavLink to="/analytics" className={mobileNavLinkClass} onClick={() => setIsMobileMenuOpen(false)}>
               Analytics

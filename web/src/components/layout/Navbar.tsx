@@ -14,7 +14,7 @@ import { GitHubLink } from '@/components/ui/GitHubLink';
 const AUTH_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/simulations', label: 'Simulations' },
-  { href: '/sessions', label: 'My Sessions' },
+  { href: '/sessions', label: 'Sessions' },
 ];
 
 // Nav items shown to guests. Keep this to just the public catalogue so
@@ -71,7 +71,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <nav className="bg-retro-paper dark:bg-retro-paper-dark border-b-2 border-black dark:border-retro-ink-dark shadow-retro-y-4 dark:shadow-retro-dark-y-4 relative z-50 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto pl-4 pr-6 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 gap-2">
           <div className="flex min-w-0 flex-1 items-center">
             <div className="min-w-0 flex-shrink">
