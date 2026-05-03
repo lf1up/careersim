@@ -325,7 +325,7 @@ export default function SessionDetailPage() {
     (simulation?.conversation_goals.length ?? 0) > 0;
 
   return (
-    <div className="h-full min-h-0 flex flex-col gap-4 retro-fade-in">
+    <div className="h-full min-h-0 flex flex-col gap-4 pr-[10px] sm:pr-0 retro-fade-in">
       <RetroCard
         className="shrink-0"
         headerClassName="!px-3 !py-3 sm:!px-6 sm:!py-4 gap-3"

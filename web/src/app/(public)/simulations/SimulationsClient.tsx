@@ -34,7 +34,7 @@ export function SimulationsClient({
   }, [initialSimulations, query]);
 
   return (
-    <div className="space-y-6 pb-3 sm:pb-4 retro-fade-in">
+    <div className="space-y-6 pb-3 sm:mr-[-5px] sm:pb-4 retro-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
