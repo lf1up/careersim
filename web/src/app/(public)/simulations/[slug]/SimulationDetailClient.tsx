@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient, ApiError, isRateLimitError } from '@/lib/api';
-import type { SimulationDetail } from '@/lib/types';
+import type { SessionSummary, SimulationDetail } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
 import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
+import { RetroDialog } from '@/components/ui/RetroDialog';
 
 function humanizeCategory(category: string | null | undefined): string | null {
   if (!category) return null;
@@ -20,6 +21,26 @@ function humanizeCategory(category: string | null | undefined): string | null {
     .split('_')
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
     .join(' ');
+}
+
+function sessionActivityTime(session: SessionSummary): number {
+  const updatedAt = new Date(session.updated_at).getTime();
+  if (!Number.isNaN(updatedAt)) return updatedAt;
+  const createdAt = new Date(session.created_at).getTime();
+  return Number.isNaN(createdAt) ? 0 : createdAt;
+}
+
+function findLatestSession(sessions: SessionSummary[]): SessionSummary | null {
+  let latest: SessionSummary | null = null;
+  let latestTime = 0;
+  for (const session of sessions) {
+    const time = sessionActivityTime(session);
+    if (!latest || time > latestTime) {
+      latest = session;
+      latestTime = time;
+    }
+  }
+  return latest;
 }
 
 interface SectionListProps {
@@ -59,18 +80,25 @@ export function SimulationDetailClient({
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<unknown>(null);
+  const [resumeSession, setResumeSession] = useState<SessionSummary | null>(
+    null,
+  );
   const startingRef = useRef(false);
 
-  const handleStart = async () => {
-    if (!authLoading && !isAuthenticated) {
-      const next = `/simulations/${encodeURIComponent(simulation.slug)}`;
-      router.push(`/register?next=${encodeURIComponent(next)}`);
-      return;
-    }
+  const beginStarting = () => {
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
     setStartError(null);
+    return true;
+  };
+
+  const finishStarting = () => {
+    startingRef.current = false;
+    setStarting(false);
+  };
+
+  const createSessionAndNavigate = async () => {
     try {
       const session = await apiClient.createSession(simulation.slug);
       router.push(`/sessions/${session.id}`);
@@ -85,9 +113,50 @@ export function SimulationDetailClient({
               : 'Failed to start session';
         toast.error(message);
       }
-      startingRef.current = false;
-      setStarting(false);
+      finishStarting();
     }
+  };
+
+  const handleStart = async () => {
+    if (!authLoading && !isAuthenticated) {
+      const next = `/simulations/${encodeURIComponent(simulation.slug)}`;
+      router.push(`/register?next=${encodeURIComponent(next)}`);
+      return;
+    }
+    if (!beginStarting()) return;
+
+    let latestSession: SessionSummary | null = null;
+    try {
+      latestSession = findLatestSession(await apiClient.listSessions());
+    } catch {
+      latestSession = null;
+    }
+
+    if (latestSession?.simulation_slug === simulation.slug) {
+      setResumeSession(latestSession);
+      finishStarting();
+      return;
+    }
+
+    await createSessionAndNavigate();
+  };
+
+  const handleReturnToPreviousSession = () => {
+    if (!resumeSession || startingRef.current) return;
+    startingRef.current = true;
+    setStarting(true);
+    router.push(`/sessions/${resumeSession.id}`);
+  };
+
+  const handleStartNewSession = async () => {
+    setResumeSession(null);
+    if (!beginStarting()) return;
+    await createSessionAndNavigate();
+  };
+
+  const handleCloseResumeDialog = () => {
+    if (startingRef.current) return;
+    setResumeSession(null);
   };
 
   const personaCategory = humanizeCategory(simulation.persona_category);
@@ -188,8 +257,8 @@ export function SimulationDetailClient({
             rateLimitMessage={(waitHint) => (
               <>
                 You&apos;ve hit the new-session quota. Every chat spins up a
-                live coaching agent, so we cap how many you can start in a
-                short window - please try again {waitHint}.
+                live coaching agent, so we cap how many you can start in a short
+                window - please try again {waitHint}.
               </>
             )}
           />
@@ -292,6 +361,35 @@ export function SimulationDetailClient({
           ))}
         </div>
       )}
+      <RetroDialog
+        open={resumeSession !== null}
+        onClose={handleCloseResumeDialog}
+        title="Continue your latest session?"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-retro-ink dark:text-retro-ink-dark">
+            Your latest session is already{' '}
+            <span className="font-semibold">{simulation.title}</span>. You can
+            return to that conversation, or start a new one if you&apos;re sure.
+          </p>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={handleStartNewSession}
+              isLoading={starting}
+            >
+              Start a new one
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleReturnToPreviousSession}
+              disabled={starting}
+            >
+              Return to previous session
+            </Button>
+          </div>
+        </div>
+      </RetroDialog>
     </div>
   );
 }

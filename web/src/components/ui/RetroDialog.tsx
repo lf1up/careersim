@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 
 export interface RetroDialogProps {
@@ -37,10 +38,10 @@ export const RetroDialog: React.FC<RetroDialogProps> = ({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
   const titleId = title ? 'retro-dialog-title' : undefined;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <div
         className="absolute inset-0 bg-black/30 dark:bg-black/60"
@@ -62,19 +63,28 @@ export const RetroDialog: React.FC<RetroDialogProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           {title && (
-            <div className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark">
+            <div className="px-6 py-4 border-b-2 border-black dark:border-retro-ink-dark flex items-start justify-between gap-4">
               <h3
                 id={titleId}
                 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark"
               >
                 {title}
               </h3>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close dialog"
+                className="retro-btn-base bg-red-600 dark:bg-red-500 text-white px-2 py-0.5 text-lg leading-none hover:opacity-90"
+              >
+                ×
+              </button>
             </div>
           )}
           <div className={clsx('p-6', bodyClassName)}>{children}</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
