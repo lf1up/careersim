@@ -229,12 +229,14 @@ const GoalHoverCard: React.FC<GoalHoverCardProps> = ({ id, goal }) => {
  */
 interface GoalProgressSummaryProps extends GoalProgressBaseProps {
   className?: string;
+  align?: 'start' | 'end';
 }
 
 export const GoalProgressSummary: React.FC<GoalProgressSummaryProps> = ({
   progress,
   goals,
   className,
+  align = 'end',
 }) => {
   const resolved = resolveGoals(progress, goals);
   if (resolved.length === 0) return null;
@@ -244,7 +246,13 @@ export const GoalProgressSummary: React.FC<GoalProgressSummaryProps> = ({
     // Always stack the label above the bar+count so the summary reads as
     // a stable two-row control and never competes with the persona /
     // difficulty pills for horizontal room in the card header.
-    <div className={clsx('flex flex-col items-end gap-0.5 lg:gap-1', className)}>
+    <div
+      className={clsx(
+        'flex flex-col gap-0.5 lg:gap-1',
+        align === 'start' ? 'items-start' : 'items-end',
+        className,
+      )}
+    >
       <span className="text-[10px] lg:text-sm font-semibold tracking-wider2 uppercase text-secondary-600 dark:text-secondary-400 shrink-0">
         <span className="lg:hidden">Goals</span>
         <span className="hidden lg:inline">Goals achieved</span>

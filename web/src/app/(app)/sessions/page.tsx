@@ -115,7 +115,7 @@ export default function SessionsPage() {
                 className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
               >
                 <RetroCard className="retro-card-interactive">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1 space-y-2">
                       <p className="font-semibold text-retro-ink dark:text-retro-ink-dark break-words">
                         {title}
@@ -143,9 +143,12 @@ export default function SessionsPage() {
                         {formatDate(s.updated_at)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-4 shrink-0">
+                    <div className="flex w-full items-end justify-between gap-4 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:w-auto sm:shrink-0 sm:items-center sm:justify-end sm:border-t-0 sm:pt-0">
                       {hasGoalProgress && (
-                        <GoalProgressSummary progress={s.goal_progress} />
+                        <GoalProgressSummary
+                          align="start"
+                          progress={s.goal_progress}
+                        />
                       )}
                       <span
                         aria-hidden

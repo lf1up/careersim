@@ -489,22 +489,41 @@ export default function SessionDetailPage() {
           </span>
         }
         subtitle={
-          <span className="font-monoRetro">
-            <span className="hidden lg:inline">
-              {session.simulation_slug} · Session {session.id.slice(0, 8)} ·{' '}
-              {session.messages.length} messages
+          <span className="font-monoRetro space-y-3">
+            <span className="block">
+              <span className="hidden lg:inline">
+                {session.simulation_slug} · Session {session.id.slice(0, 8)} ·{' '}
+                {session.messages.length} messages
+              </span>
+              <span className="lg:hidden">
+                Session {session.id.slice(0, 8)} · {session.messages.length}{' '}
+                messages
+              </span>
             </span>
-            <span className="lg:hidden">
-              Session {session.id.slice(0, 8)} · {session.messages.length} messages
+            <span className="flex items-end justify-end gap-3 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
+              <GoalProgressSummary
+                align="end"
+                progress={session.goal_progress}
+                goals={simulation?.conversation_goals}
+              />
+              {hasTrackedGoals && (
+                <button
+                  type="button"
+                  className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
+                  aria-expanded={goalsExpanded}
+                  aria-controls="session-goals"
+                  onClick={() => setGoalsExpanded((open) => !open)}
+                >
+                  {goalsExpanded ? 'Hide' : 'Show'}
+                </button>
+              )}
             </span>
           </span>
         }
         actions={
-          // Right-aligned compact progress bar in the header. Using the
-          // card's `actions` slot means it sits flush with the title and
-          // gets the free right-alignment we need, while the wider chips
-          // list stays in the card body below.
-          <>
+          // Right-aligned compact progress bar in the header. Hidden on phone
+          // widths so the title/subtitle can use the full card width.
+          <div className="hidden sm:flex items-center gap-2">
             <GoalProgressSummary
               className="self-center"
               progress={session.goal_progress}
@@ -521,7 +540,7 @@ export default function SessionDetailPage() {
                 {goalsExpanded ? 'Hide' : 'Show'}
               </button>
             )}
-          </>
+          </div>
         }
       >
         <div id="session-goals">
@@ -545,7 +564,7 @@ export default function SessionDetailPage() {
         />
       </RetroPanel>
 
-      <RetroCard className="shrink-0">
+      <RetroCard className="shrink-0" bodyClassName="!p-3 sm:!p-6">
         <ChatComposer sending={sending} onSend={handleSend} />
       </RetroCard>
 

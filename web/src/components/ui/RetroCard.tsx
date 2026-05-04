@@ -36,9 +36,9 @@ export const RetroCard: React.FC<RetroCardProps> = ({
               </h3>
             )}
             {subtitle && (
-              <p className="text-sm font-monoRetro mt-1 text-secondary-600 dark:text-secondary-400">
+              <div className="text-sm font-monoRetro mt-1 text-secondary-600 dark:text-secondary-400">
                 {subtitle}
-              </p>
+              </div>
             )}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}

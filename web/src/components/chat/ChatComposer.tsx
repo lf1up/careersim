@@ -34,7 +34,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
   return (
     <form
-      className="flex items-end gap-3"
+      className="flex items-end gap-2 sm:gap-3"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
@@ -43,8 +43,9 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       <div className="flex-1">
         <RetroTextArea
           name="message"
-          rows={3}
+          rows={2}
           placeholder="Type your message..."
+          className="min-h-16 resize-y text-sm sm:min-h-24"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -57,6 +58,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       </div>
       <Button
         type="submit"
+        size="sm"
+        className="sm:px-4 sm:py-2 sm:text-sm"
         disabled={sending || !value.trim()}
         isLoading={sending}
       >
