@@ -77,7 +77,7 @@ export default function SessionsPage() {
   );
 
   return (
-    <div className="space-y-6 pb-3 pr-[10px] sm:pb-4 sm:pr-0 retro-fade-in">
+    <div className="space-y-6 pb-3 min-[600px]:pr-2 sm:pb-4 sm:pr-0 retro-fade-in">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
