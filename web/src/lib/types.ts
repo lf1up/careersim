@@ -144,6 +144,7 @@ export interface SessionSummary {
   created_at: string;
   updated_at: string;
   message_count: number;
+  goal_progress: GoalProgress[];
 }
 
 export type NudgeSkipReason =

@@ -67,6 +67,7 @@ export interface SessionSummary {
   created_at: string;
   updated_at: string;
   message_count: number;
+  goal_progress: AgentGoalProgress[];
 }
 
 export type NudgeSkipReason =
@@ -356,6 +357,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         created_at: r.createdAt.toISOString(),
         updated_at: r.updatedAt.toISOString(),
         message_count: byId.get(r.id) ?? 0,
+        goal_progress: r.stateSnapshot.goal_progress ?? [],
       }));
     },
 

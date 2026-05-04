@@ -15,6 +15,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
+import { GoalProgressSummary } from '@/components/chat/GoalProgressTracker';
 
 function formatDate(iso: string): string {
   try {
@@ -106,6 +107,7 @@ export default function SessionsPage() {
           {sorted.map((s) => {
             const sim = simulationBySlug[s.simulation_slug];
             const title = sim?.title ?? s.simulation_slug;
+            const hasGoalProgress = s.goal_progress.length > 0;
             return (
               <Link
                 key={s.id}
@@ -141,12 +143,17 @@ export default function SessionsPage() {
                         {formatDate(s.updated_at)}
                       </p>
                     </div>
-                    <span
-                      aria-hidden
-                      className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
-                    >
-                      →
-                    </span>
+                    <div className="flex items-center gap-4 shrink-0">
+                      {hasGoalProgress && (
+                        <GoalProgressSummary progress={s.goal_progress} />
+                      )}
+                      <span
+                        aria-hidden
+                        className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
+                      >
+                        →
+                      </span>
+                    </div>
                   </div>
                 </RetroCard>
               </Link>

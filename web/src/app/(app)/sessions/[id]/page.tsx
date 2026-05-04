@@ -6,13 +6,21 @@ import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
-import type { SessionDetail, SimulationDetail } from '@/lib/types';
+import type {
+  GoalProgress,
+  GoalStatus,
+  SessionDetail,
+  SimulationDetail,
+  SimulationGoal,
+} from '@/lib/types';
 import { SITE_NAME } from '@/lib/seo';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroPanel } from '@/components/ui/RetroPanel';
 import { RetroAlert, RetroBadge } from '@/components/ui/RetroBadge';
+import { Button } from '@/components/ui/Button';
+import { RetroDialog } from '@/components/ui/RetroDialog';
 import { ChatTranscript } from '@/components/chat/ChatTranscript';
 import { ChatComposer } from '@/components/chat/ChatComposer';
 import {
@@ -39,6 +47,90 @@ function waitWithAbort(ms: number, signal: AbortSignal): Promise<void> {
     }, ms);
     signal.addEventListener('abort', onAbort, { once: true });
   });
+}
+
+function normalizeGoalStatus(status: unknown): GoalStatus {
+  if (status === 'in_progress' || status === 'achieved') return status;
+  return 'not_started';
+}
+
+function goalProgressByNumber(progress: GoalProgress[]): Map<number, GoalProgress> {
+  const byNumber = new Map<number, GoalProgress>();
+  for (const goal of progress) {
+    if (typeof goal.goalNumber === 'number') {
+      byNumber.set(goal.goalNumber, goal);
+    }
+  }
+  return byNumber;
+}
+
+function goalTitle(
+  goalNumber: number,
+  progress: GoalProgress[],
+  goals: SimulationGoal[] | undefined,
+): string {
+  const catalogueGoal = goals?.find((goal) => goal.goal_number === goalNumber);
+  if (catalogueGoal?.title) return catalogueGoal.title;
+
+  const progressGoal = progress.find((goal) => goal.goalNumber === goalNumber);
+  if (typeof progressGoal?.title === 'string' && progressGoal.title.length > 0) {
+    return progressGoal.title;
+  }
+
+  return `Goal ${goalNumber}`;
+}
+
+function goalStatusRank(status: GoalStatus): number {
+  if (status === 'achieved') return 2;
+  if (status === 'in_progress') return 1;
+  return 0;
+}
+
+function goalStatusTransitions(
+  previous: GoalProgress[],
+  next: GoalProgress[],
+  goals: SimulationGoal[] | undefined,
+) {
+  const previousByNumber = goalProgressByNumber(previous);
+  return next
+    .filter((goal) => typeof goal.goalNumber === 'number')
+    .map((goal) => {
+      const nextStatus = normalizeGoalStatus(goal.status);
+      const previousStatus = normalizeGoalStatus(
+        previousByNumber.get(goal.goalNumber)?.status,
+      );
+      return {
+        goalNumber: goal.goalNumber,
+        title: goalTitle(goal.goalNumber, next, goals),
+        previousStatus,
+        nextStatus,
+      };
+    })
+    .filter(
+      (change) =>
+        (change.nextStatus === 'in_progress' ||
+          change.nextStatus === 'achieved') &&
+        goalStatusRank(change.nextStatus) > goalStatusRank(change.previousStatus),
+    );
+}
+
+function allGoalsAchieved(
+  progress: GoalProgress[],
+  goals: SimulationGoal[] | undefined,
+): boolean {
+  const progressByNumber = goalProgressByNumber(progress);
+  if (goals && goals.length > 0) {
+    return goals.every(
+      (goal) =>
+        normalizeGoalStatus(progressByNumber.get(goal.goal_number)?.status) ===
+        'achieved',
+    );
+  }
+
+  return (
+    progress.length > 0 &&
+    progress.every((goal) => normalizeGoalStatus(goal.status) === 'achieved')
+  );
 }
 
 export default function SessionDetailPage() {
@@ -72,11 +164,53 @@ export default function SessionDetailPage() {
   const [nudgesPermanentlyDisabled, setNudgesPermanentlyDisabled] = useState(false);
   const [nudgesPausedUntilHumanReply, setNudgesPausedUntilHumanReply] = useState(false);
   const [goalsExpanded, setGoalsExpanded] = useState(false);
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   // Busy flag read *inside* the nudge-polling interval. Stored as a ref so the
   // interval doesn't get torn down & recreated on every streaming chunk.
   const busyRef = useRef(false);
+  const sessionRef = useRef<SessionDetail | null>(null);
+  const simulationGoalsRef = useRef<SimulationGoal[] | undefined>(undefined);
+
+  const applySessionUpdate = useCallback(
+    (nextSession: SessionDetail, options?: { notify?: boolean }) => {
+      const notify = options?.notify ?? true;
+      const previousSession = sessionRef.current;
+      const goals = simulationGoalsRef.current;
+
+      if (notify && previousSession) {
+        for (const change of goalStatusTransitions(
+          previousSession.goal_progress,
+          nextSession.goal_progress,
+          goals,
+        )) {
+          if (change.nextStatus === 'achieved') {
+            toast.success(`Goal achieved: ${change.title}`);
+          } else {
+            toast(`Goal in progress: ${change.title}`, { icon: '●' });
+          }
+        }
+
+        const previousCompletionAlreadyKnown =
+          allGoalsAchieved(previousSession.goal_progress, goals) &&
+          ((goals?.length ?? 0) > 0 ||
+            previousSession.goal_progress.length >=
+              nextSession.goal_progress.length);
+
+        if (
+          !previousCompletionAlreadyKnown &&
+          allGoalsAchieved(nextSession.goal_progress, goals)
+        ) {
+          setCompletionDialogOpen(true);
+        }
+      }
+
+      sessionRef.current = nextSession;
+      setSession(nextSession);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -84,14 +218,17 @@ export default function SessionDetailPage() {
       try {
         const detail = await apiClient.getSession(sessionId);
         if (cancelled) return;
-        setSession(detail);
+        applySessionUpdate(detail, { notify: false });
         // Fetch the matching simulation after we know the slug. Run it in
         // the background — a missing or failed lookup just degrades the
         // header to slug-only and must not block rendering the chat.
         apiClient
           .getSimulation(detail.simulation_slug)
           .then((sim) => {
-            if (!cancelled) setSimulation(sim);
+            if (!cancelled) {
+              simulationGoalsRef.current = sim.conversation_goals;
+              setSimulation(sim);
+            }
           })
           .catch(() => {
             // Swallow: the header will fall back to the raw slug.
@@ -109,13 +246,17 @@ export default function SessionDetailPage() {
       cancelled = true;
       abortRef.current?.abort();
     };
-  }, [sessionId]);
+  }, [applySessionUpdate, sessionId]);
 
   useEffect(() => {
     document.title = simulation?.title
       ? `${simulation.title} Session | ${SITE_NAME}`
       : `Session | ${SITE_NAME}`;
   }, [simulation?.title]);
+
+  useEffect(() => {
+    simulationGoalsRef.current = simulation?.conversation_goals;
+  }, [simulation?.conversation_goals]);
 
   // Keep `busyRef` current so the nudge-polling interval below can read it
   // without re-subscribing on every streaming chunk.
@@ -155,7 +296,7 @@ export default function SessionDetailPage() {
         const res = await apiClient.nudge(sessionId);
         if (cancelled) return;
         if (res.nudged) {
-          setSession(res.session);
+          applySessionUpdate(res.session);
         } else if (res.reason === 'nudges_disabled') {
           setNudgesPermanentlyDisabled(true);
         } else if (res.reason === 'budget_exhausted') {
@@ -177,6 +318,7 @@ export default function SessionDetailPage() {
     };
   }, [
     sessionId,
+    applySessionUpdate,
     nudgesEnabled,
     nudgesPermanentlyDisabled,
     nudgesPausedUntilHumanReply,
@@ -243,7 +385,7 @@ export default function SessionDetailPage() {
             setStreamingAssistant(currentStreaming);
           } else if (event.type === 'done') {
             if (event.data.session) {
-              setSession(event.data.session);
+              applySessionUpdate(event.data.session);
             }
             setCommittedBurst([]);
             setStreamingAssistant(null);
@@ -256,7 +398,7 @@ export default function SessionDetailPage() {
         }
         // stream ended without a `done` event — fall back to a refetch.
         const latest = await apiClient.getSession(sessionId);
-        setSession(latest);
+        applySessionUpdate(latest);
       } finally {
         setCommittedBurst([]);
         setStreamingAssistant(null);
@@ -264,7 +406,7 @@ export default function SessionDetailPage() {
         setIsWaiting(false);
       }
     },
-    [sessionId],
+    [applySessionUpdate, sessionId],
   );
 
   const handleSend = useCallback(
@@ -406,6 +548,36 @@ export default function SessionDetailPage() {
       <RetroCard className="shrink-0">
         <ChatComposer sending={sending} onSend={handleSend} />
       </RetroCard>
+
+      <RetroDialog
+        open={completionDialogOpen}
+        onClose={() => setCompletionDialogOpen(false)}
+        title="Simulation passed successfully"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-retro-ink dark:text-retro-ink-dark">
+            Every conversation goal for{' '}
+            <span className="font-semibold">
+              {simulation?.title ?? session.simulation_slug}
+            </span>{' '}
+            has been achieved. You can keep practicing in this conversation, or
+            return to the simulations list.
+          </p>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setCompletionDialogOpen(false)}
+            >
+              Continue conversation
+            </Button>
+            <Link href="/simulations">
+              <Button variant="primary" className="w-full sm:w-auto">
+                Back to simulations
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </RetroDialog>
     </div>
   );
 }

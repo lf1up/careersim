@@ -138,7 +138,7 @@ describe('sessions (batch endpoints)', () => {
     expect([500, 502]).toContain(res.statusCode);
   });
 
-  it('GET /sessions lists only caller-owned sessions with message counts', async () => {
+  it('GET /sessions lists only caller-owned sessions with message counts and goal progress', async () => {
     const alice = await registerAndAuth(h.app, 'a@example.com');
     const bob = await registerAndAuth(h.app, 'b@example.com');
     const a1 = await createSession(alice.authHeader);
@@ -160,5 +160,6 @@ describe('sessions (batch endpoints)', () => {
     expect(body.sessions[0].id).toBe(a1.id);
     // opener + human + ai = 3
     expect(body.sessions[0].message_count).toBe(3);
+    expect(body.sessions[0].goal_progress).toEqual(expect.any(Array));
   });
 });

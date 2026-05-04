@@ -50,15 +50,16 @@ export const messageSchema = z.object({
   created_at: z.string(),
 });
 
+export const goalProgressSchema = z.record(z.string(), z.unknown());
+
 export const sessionSummarySchema = z.object({
   id: z.uuid(),
   simulation_slug: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
   message_count: z.number().int(),
+  goal_progress: z.array(goalProgressSchema),
 });
-
-export const goalProgressSchema = z.record(z.string(), z.unknown());
 
 /**
  * Sentiment / emotion fields from the agent's evaluator are intentionally
