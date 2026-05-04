@@ -27,6 +27,7 @@ import { healthRoutes } from './modules/health/health.route.js';
 import { personasRoutes } from './modules/personas/personas.route.js';
 import { sessionsRoutes } from './modules/sessions/sessions.route.js';
 import { simulationsRoutes } from './modules/simulations/simulations.route.js';
+import { isCorsOriginAllowed } from './utils/cors.js';
 
 export interface BuildAppOptions {
   db: AppDatabase;
@@ -41,6 +42,10 @@ export interface BuildAppOptions {
    * confirmation links).
    */
   webAppUrl: string;
+  cors?: {
+    /** Empty means preserve wide-open CORS behavior. */
+    allowedOrigins?: string[];
+  };
   mail: {
     from: string;
     productName: string;
@@ -101,7 +106,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
 
   registerErrorHandler(app);
 
-  await app.register(cors, { origin: true, credentials: true });
+  const corsAllowedOrigins = opts.cors?.allowedOrigins ?? [];
+  await app.register(cors, {
+    credentials: true,
+    origin:
+      corsAllowedOrigins.length === 0
+        ? true
+        : (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
+            cb(null, !origin || isCorsOriginAllowed(origin, corsAllowedOrigins));
+          },
+  });
   await app.register(sensible);
 
   // Rate limiting must be registered before route plugins so the global
@@ -230,6 +244,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(sessionsRoutes, {
     db: opts.db,
     agent: opts.agent,
+    corsAllowedOrigins,
   });
 
   return app;

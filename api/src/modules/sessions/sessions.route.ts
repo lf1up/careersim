@@ -10,6 +10,7 @@ import type {
 } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
 import { rateLimitPolicy } from '../../plugins/rate-limit.js';
+import { isCorsOriginAllowed } from '../../utils/cors.js';
 import { createSessionsService } from './sessions.service.js';
 import {
   createSessionSchema,
@@ -23,10 +24,12 @@ import {
 interface SessionsRouteOptions {
   db: AppDatabase;
   agent: AgentClient;
+  corsAllowedOrigins?: string[];
 }
 
 export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async (app, opts) => {
   const service = createSessionsService(opts.db, opts.agent);
+  const corsAllowedOrigins = opts.corsAllowedOrigins ?? [];
 
   app.post(
     '/sessions',
@@ -144,6 +147,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       const trigger: ProactiveTrigger = 'followup';
       await runSseProxy(app, request, reply, {
         kind: 'proactive',
+        corsAllowedOrigins,
         load: () => service.prepareStream(request.user.sub, request.params.id),
         agent: (state, signal) =>
           opts.agent.streamProactive({ state, triggerType: trigger, signal }),
@@ -194,6 +198,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       const userMessage = request.body.content;
       await runSseProxy(app, request, reply, {
         kind: 'turn',
+        corsAllowedOrigins,
         load: () => service.prepareStream(request.user.sub, request.params.id),
         agent: (state, signal) =>
           opts.agent.streamTurn({ state, userMessage, signal }),
@@ -209,6 +214,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
 
 interface SseProxyContext {
   kind: 'turn' | 'proactive';
+  corsAllowedOrigins: readonly string[];
   load: () => Promise<{
     session: { stateSnapshot: AgentWireState };
     persist: (
@@ -235,8 +241,8 @@ async function runSseProxy(
 
   // We write directly to `reply.raw`, which bypasses Fastify's reply lifecycle
   // — including the @fastify/cors hook that would otherwise add CORS headers.
-  // Echo the request origin manually so browsers don't block the SSE response
-  // once the preflight OPTIONS has already succeeded.
+  // Echo allowed request origins manually so browsers don't block the SSE
+  // response once the preflight OPTIONS has already succeeded.
   const headers: Record<string, string> = {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -244,7 +250,11 @@ async function runSseProxy(
     'X-Accel-Buffering': 'no',
   };
   const origin = request.headers.origin;
-  if (typeof origin === 'string' && origin.length > 0) {
+  if (
+    typeof origin === 'string' &&
+    origin.length > 0 &&
+    isCorsOriginAllowed(origin, ctx.corsAllowedOrigins)
+  ) {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Credentials'] = 'true';
     headers.Vary = 'Origin';

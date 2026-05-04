@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { parseCorsAllowedOrigins } from '../utils/cors.js';
+
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -24,6 +26,10 @@ const EnvSchema = z
     // URL of the Next.js web app; embedded in magic-link and password-reset
     // emails so the links point at the correct origin per environment.
     WEB_APP_URL: z.string().url().default('http://localhost:3000'),
+
+    // Comma-separated browser origins allowed by CORS. Leave empty to keep
+    // Fastify's current wide-open CORS behavior for local/dev deployments.
+    CORS_ALLOWED_ORIGINS: z.string().default('').transform(parseCorsAllowedOrigins),
 
     // Outbound email. When SMTP_HOST is empty we log rendered emails to the
     // Fastify logger instead of sending (useful in dev / Vitest).

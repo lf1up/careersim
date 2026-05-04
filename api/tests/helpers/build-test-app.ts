@@ -49,6 +49,7 @@ export interface BuildTestAppOptions {
   /** Optional override for the global ceiling used by rate-limit tests. */
   rateLimitGlobalMax?: number;
   rateLimitGlobalTimeWindow?: string;
+  corsAllowedOrigins?: string[];
 }
 
 export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestHarness> {
@@ -66,6 +67,9 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     jwtExpiresIn: '1h',
     nodeEnv: options?.nodeEnv ?? 'test',
     webAppUrl: 'http://localhost:3000',
+    cors: {
+      allowedOrigins: options?.corsAllowedOrigins,
+    },
     logger: process.env.VITEST_DEBUG === '1' ? { level: 'debug' } : false,
     mail: {
       from: `${TEST_SITE_NAME} Test <no-reply@test.careersim.local>`,

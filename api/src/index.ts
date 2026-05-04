@@ -17,6 +17,9 @@ async function main(): Promise<void> {
     jwtExpiresIn: env.JWT_EXPIRES_IN,
     nodeEnv: env.NODE_ENV,
     webAppUrl: env.WEB_APP_URL,
+    cors: {
+      allowedOrigins: env.CORS_ALLOWED_ORIGINS,
+    },
     mail: {
       from: env.MAIL_FROM,
       productName: env.MAIL_PRODUCT_NAME,

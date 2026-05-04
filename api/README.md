@@ -270,6 +270,7 @@ See `.env.example` for the authoritative list. Required in production:
 | `JWT_SECRET` | — | Min 16 chars; rotate via deploy |
 | `JWT_EXPIRES_IN` | `7d` | Passed to `@fastify/jwt` |
 | `WEB_APP_URL` | `http://localhost:3000` | Public origin of the Next.js app. Embedded in outbound emails (magic links, password reset) |
+| `CORS_ALLOWED_ORIGINS` | — | Optional comma-separated browser origins allowed to call the API. Leave empty to keep CORS wide open |
 | `ALTCHA_HMAC_KEY` | — | Server-only secret (≥16 chars) used to sign + verify ALTCHA challenges. Rotating invalidates in-flight challenges |
 | `ALTCHA_MAX_NUMBER` | `50000` | Upper bound for the PoW target. Raise under attack; lower for low-power clients |
 | `RATE_LIMIT_ENABLED` | `true` | Master on/off switch for `@fastify/rate-limit`. Flip to `false` in an incident / load test |
