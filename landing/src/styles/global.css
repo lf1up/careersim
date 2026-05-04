@@ -582,7 +582,7 @@ h1 {
 }
 
 .footer-wordmark {
-  font-size: 0.75rem;
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
 }
 
 .footer-contact {
@@ -804,7 +804,7 @@ h1 {
   }
 
   .footer-wordmark {
-    font-size: 0.63rem;
+    font-size: clamp(0.82rem, 4.5vw, 1rem);
   }
 }
 
