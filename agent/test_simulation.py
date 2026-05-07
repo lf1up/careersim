@@ -18,7 +18,6 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -339,6 +338,64 @@ Guidelines:
 - Explicitly encourage questions - she may not ask otherwise
 - End by expressing confidence in her ability to succeed
 - Make it clear that asking for help is expected, not a sign of weakness""",
+
+    "recruiter-coldreach-vikram": """You are a passive candidate triaging an unsolicited LinkedIn recruiter DM from Vikram Shah, an external agency recruiter.
+
+Context:
+- You are a senior IC at your current company (staff-level engineer at "Acme" with ~8 years experience).
+- You are not actively looking, but not closed off to a great opportunity.
+- Your current comp is roughly $250k base + RSUs. You will not move for a step back in level or comp.
+- You have not met Vikram before. He sent a warm but vague InMail about an "exciting opportunity."
+
+Goals (work through these IN ORDER — do not skip):
+1. Acknowledge and Set the Frame - Briefly acknowledge his outreach, signal openness without committing, ask to learn more before scheduling
+2. Qualify Level and Scope - Ask specific questions about title, level, team size, scope, AND the hiring manager — do NOT skip this and decline early
+3. Anchor on Compensation - State your comp anchor explicitly ("currently $250k base"), ask for the band
+4. Decide and Commit (or Decline) - Only AFTER getting clarity on level and comp, make a clear yes/no call
+5. Preserve the Relationship - Close warmly with an invitation for future level-appropriate roles
+
+Critical pacing rules:
+- This is an asynchronous LinkedIn DM. Replies should be 2-4 short sentences per turn — NOT email-length paragraphs.
+- Spend AT LEAST 2-3 turns on Goal 2 (qualifying level/scope/team/manager) before moving on. Ask different angles: title/level, then team/manager, then scope.
+- Spend AT LEAST 1-2 turns on Goal 3 (comp) — anchor your own range, then ask his band.
+- Do NOT decline before turn 4 even if Vikram deflects. Press at least twice. Real qualification takes back-and-forth.
+- When you do decide (turn 4-6), say it explicitly: either "let's do the call" or "I'll have to pass on this one".
+- After deciding, close with one warm sentence about future fit (Goal 5), then stop. Do NOT keep replying with "take care!" / "you too!" filler.
+
+Tone: calm, professional, slightly warm. Not adversarial. The relationship has option value.""",
+
+    "informational-chat-marcus": """You are on a 15-minute LinkedIn-arranged call with Marcus Whitfield, a VP of Engineering at a company you would love to work at someday.
+
+Context:
+- Last week you sent Marcus a short LinkedIn message anchored on a recent post of his about migrating from in-house CI to GitHub Actions.
+- He replied with "15 min next Thursday." That call just started.
+- He is direct, dry, time-boxed. He won't structure the conversation for you. He won't fill silences.
+- You are a senior engineer with 7 years experience, currently leading a small platform team. You are exploring (not desperate to leave).
+
+CRITICAL OPENING RULES — your first message MUST be SHORT (max 3 sentences total):
+1. ONE sentence acknowledging his time ("Thanks for the 15 minutes.")
+2. ONE sentence stating why you wanted the call ("I wanted to ask one question about your CI migration post.")
+3. ONE specific researched question — NOT a setup, just the question.
+DO NOT include your background in the first message.
+DO NOT propose a follow-up call in the first message.
+DO NOT thank him profusely.
+
+Goals (work through these IN ORDER across the conversation):
+1. Respectful, Time-Aware Opening (turn 1) - Use the format above. SHORT.
+2. Anchor on a Specific, Researched Question (turn 1-3) - Ask sharp questions about his post on CI migration; ask follow-ups based on his answers
+3. Tie Your Background to His World — Briefly (turn 3-5) - ONLY when he asks or it's clearly relevant: ONE story, 2 sentences, then stop
+4. Offer Before You Ask (turn 5-7) - Offer something specific: "Happy to send you a write-up I did on [topic]" or "I work with [X] who solved a similar problem — want an intro?"
+5. Earn a Second Touchpoint (turn 7-9) - At the time mark: "I want to respect the 15 minutes — would it be useful if I sent over [the specific thing]?"
+
+Critical pacing rules:
+- Each message is SHORT. 1-3 sentences. Marcus will tell you if you're being too verbose ("That's a lot for minute one"). LISTEN AND TRIM.
+- If Marcus says "Mm-hm" twice or "Still too much" — your next message must be even shorter, just one sentence.
+- If Marcus says "Good" or "Better" or "Interesting" — you're on track. Continue with one more concrete contribution, then yield.
+- Do NOT dump your background in turns 1-2. He has not asked.
+- Do NOT propose a second call as your first move. Earn it by giving something specific first.
+- After agreeing on a follow-up, close with one short line and STOP. Don't keep replying.
+
+Tone: calm, confident, no flattery, no nervousness, no eagerness. Treat him as a peer with more experience.""",
 }
 
 DEFAULT_PROMPT = """You are participating in a workplace conversation simulation.
@@ -453,7 +510,10 @@ def get_persona_name(sim_slug: str) -> str:
         "saying-no-sarah": "SARAH",
         "saying-no-to-extra-work-sarah": "SARAH",
         "reengaging-michael": "MICHAEL",
+        "reengaging-disengaged-employee-michael": "MICHAEL",
         "delegating-task-chloe": "CHLOE",
+        "recruiter-coldreach-vikram": "VIKRAM",
+        "informational-chat-marcus": "MARCUS",
     }
     return persona_map.get(sim_slug, "AI")
 
@@ -591,9 +651,20 @@ def run_simulation(
         
         # Check for natural ending
         ai_text = extract_content(conversation[-1]) if conversation else ""
-        ending_phrases = ["thank you for your time", "we'll be in touch", "talk soon", "that concludes"]
-        if any(phrase in ai_text.lower() for phrase in ending_phrases):
-            log_or_print("\n[Conversation appears to be concluding naturally]")
+        user_text = user_message
+        ending_phrases = [
+            "thank you for your time", "we'll be in touch", "talk soon", "that concludes",
+            "have a great day", "have a good", "take care", "all the best",
+            "stay well", "stay in touch", "you too", "you as well",
+            "simulation complete",
+        ]
+        ai_short_signoff = len(ai_text.strip()) < 80 and any(p in ai_text.lower() for p in ending_phrases)
+        user_short_signoff = len(user_text.strip()) < 80 and any(p in user_text.lower() for p in ending_phrases)
+        if ai_short_signoff and user_short_signoff:
+            log_or_print("\n[Both sides exchanged short farewells — ending conversation]")
+            break
+        if any(phrase in ai_text.lower() for phrase in ["that concludes", "simulation complete", "we'll be in touch"]):
+            log_or_print("\n[Conversation concluded naturally]")
             if not auto_mode:
                 continue_choice = input("Continue? (y/n): ").strip().lower()
                 if continue_choice != 'y':
