@@ -159,7 +159,7 @@ When mixing Docker + host, point each service at the others via `host.docker.int
 
 ### Simulation library
 
-Seven first-party simulations shipped in `agent/data/simulations.json`, each bound to a persona with its own hidden goals, difficulty, and success criteria. The web app lists them at `/simulations`.
+Nine first-party simulations shipped in `agent/data/simulations.json`, each bound to a persona with its own hidden goals, difficulty, and success criteria. The web app lists them at `/simulations`.
 
 ### Live chat with SSE streaming
 
@@ -200,13 +200,15 @@ Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that 
 
 | Persona           | Role                               | Simulation slug                          | Typing (wpm) | Nudges max | Burst max |
 | ----------------- | ---------------------------------- | ---------------------------------------- | ------------ | ---------- | --------- |
-| **Brenda Vance**  | By-the-Book HR Manager             | `behavioral-interview-brenda`            | 110          | 2          | 3         |
-| **Alex Chen**     | Passionate Tech Lead               | `tech-cultural-interview-alex`           | 140          | 3          | 3         |
-| **David Miller**  | Senior Analyst / Skeptical Veteran | `pitching-idea-david`                    | 120          | 2          | 1         |
-| **Sarah Jenkins** | Overwhelmed Project Manager        | `saying-no-to-extra-work-sarah`          | 130          | —          | 2         |
-| **Michael Reyes** | Disengaged High-Performer          | `reengaging-disengaged-employee-michael` | —            | —          | 1         |
-| **Chloe Davis**   | Eager but Anxious Junior           | `delegating-task-chloe`                  | —            | —          | 2         |
-| **Priya Patel**   | Senior Data Analyst                | `data-analyst-technical-interview-priya` | —            | —          | 2         |
+| **Brenda Vance**     | By-the-Book HR Manager             | `behavioral-interview-brenda`            | 110          | 2          | 3         |
+| **Alex Chen**        | Passionate Tech Lead               | `tech-cultural-interview-alex`           | 140          | 3          | 3         |
+| **David Miller**     | Senior Analyst / Skeptical Veteran | `pitching-idea-david`                    | 120          | 2          | 1         |
+| **Sarah Jenkins**    | Overwhelmed Project Manager        | `saying-no-to-extra-work-sarah`          | 130          | 2          | 2         |
+| **Michael Reyes**    | Disengaged High-Performer          | `reengaging-disengaged-employee-michael` | 100          | 1          | 1         |
+| **Chloe Davis**      | Eager but Anxious Junior           | `delegating-task-chloe`                  | 135          | 2          | 2         |
+| **Priya Patel**      | Senior Data Analyst                | `data-analyst-technical-interview-priya` | 125          | 3          | 2         |
+| **Vikram Shah**      | Pipeline-Pressured Recruiter       | `recruiter-coldreach-vikram`             | 150          | 3          | 3         |
+| **Marcus Whitfield** | Time-Boxed VP of Engineering       | `informational-chat-marcus`              | 95           | 1          | 1         |
 
 
 See [PERSONAS.md](PERSONAS.md) for the full persona definitions, hidden goals, and success criteria.
@@ -267,6 +269,12 @@ cd agent && uv run pytest
 
 - **Port infrastructure to the new stack** — Terraform + Kustomize for `api` / `web` / `agent`.
 - **Remove the deprecated directories** once the migration is considered complete and nothing still references them.
+- **Voice / phone-call practice with AI personas** — real-time spoken simulations for the moments where text doesn't cut it (recruiter screens, salary calls, informational interviews, difficult 1:1s). Targeted scope:
+  - **Browser-native voice mode** in `web/` using WebRTC mic capture, low-latency STT (e.g., Whisper / Deepgram streaming), and TTS playback (e.g., ElevenLabs / OpenAI tts) — no install required.
+  - **Real phone calls** for higher-stakes practice — outbound (the persona calls the user at a scheduled time) and inbound (the user dials a number and gets connected to the persona) via Twilio Voice or LiveKit, with the same LangGraph engine driving the conversation.
+  - **Per-persona voice + speech style** — extends `conversationStyle` in `agent/data/personas.json` with voice ID, speaking pace (wpm), filler-word frequency, accent, and barge-in tolerance so Vikram sounds rapid-fire and salesy while Marcus is dry, slow, and tolerant of silence.
+  - **Voice-aware evaluation** — the existing per-turn eval is extended to score **spoken-only signals**: pacing, filler words ("um", "like"), interruptions, time-to-respond, vocal confidence, and silence handling — surfaced in the post-session feedback alongside the text-based goal scores.
+  - **Realistic interruption mechanics** — wire the agent's existing `burstiness` / `inactivityNudges` config to voice-side barge-in so a recruiter can talk over you mid-answer and a senior stranger can let a 6-second silence sit.
 - **Community features** — public leaderboards and discussion forums.
 - **Certification paths** — structured learning programs with shareable certificates.
 - **AI persona builder** — user-created custom personas for specialized practice.
