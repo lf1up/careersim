@@ -920,5 +920,275 @@
         }
       }
     ]
+  },
+  {
+    "slug": "recruiter-coldreach-vikram",
+    "title": "The Cold Recruiter Outreach",
+    "description": "Triage an unsolicited LinkedIn recruiter DM without burning the relationship — qualify the role on level, scope, manager, and comp before agreeing to a call",
+    "scenario": "It's Tuesday afternoon. Your LinkedIn inbox lights up. Vikram Shah, an external recruiter you've never met, has sent you a warm but vague InMail about 'an exciting opportunity that fits your profile perfectly.' He's pushing for a 15-minute call this week. You're not actively looking — but you're not closed off either. Your job is to figure out, in DM, whether the role is real, level-appropriate, and worth your time, without closing the door if it isn't.",
+    "objectives": [
+      "Qualify the role on level, scope, team, and comp band before agreeing to a call",
+      "Decline politely if the role is mis-leveled or below market — without burning the recruiter",
+      "If the role is interesting, convert the DM into a structured call with an agenda",
+      "Practice the async, multi-message rhythm of LinkedIn DMs"
+    ],
+    "personaSlug": "vikram-shah-pipeline-recruiter",
+    "estimatedDurationMinutes": 15,
+    "difficulty": 3,
+    "skillsToLearn": [
+      "Inbound recruiter triage",
+      "Calibrated qualification questions",
+      "Polite, durable decline",
+      "Async DM communication",
+      "Protecting your time"
+    ],
+    "tags": ["linkedin", "recruiter", "networking", "career-mobility", "async"],
+    "successCriteria": {
+      "communication": ["Concise DM-appropriate replies", "Specific, calibrated questions", "Warm but firm tone"],
+      "problemSolving": ["Qualifying level and scope", "Anchoring on comp band", "Detecting mismatch early"],
+      "emotional": ["Composure under sales pressure", "No flattery-driven over-commitment", "Graceful exit if mismatch"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Acknowledge and Set the Frame",
+        "description": "Thank Vikram for reaching out and signal openness without committing to a call yet. Make clear you'd like a few specifics first.",
+        "keyBehaviors": [
+          "Brief, warm acknowledgement",
+          "Signal you're open but not committed",
+          "Ask to learn more before scheduling"
+        ],
+        "successIndicators": [
+          "Vikram responds in a more substantive tone",
+          "He stops pushing for a call in his very next reply",
+          "He offers at least one piece of role context"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Qualify Level and Scope",
+        "description": "Ask specific questions about the role's title, level, team size, scope, and the hiring manager.",
+        "keyBehaviors": [
+          "Ask for the exact title and level",
+          "Ask about scope, team size, or reporting line",
+          "Ask who the hiring manager is or which team"
+        ],
+        "successIndicators": [
+          "Vikram concedes the level or scope details",
+          "He names the team or manager (or admits he can't yet)",
+          "Mismatch with your seniority becomes visible"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Anchor on Compensation",
+        "description": "Surface the comp band before the call — politely but unambiguously.",
+        "keyBehaviors": [
+          "Ask for the published or working salary band",
+          "State your current comp range or expectations once",
+          "Resist deferral of comp to 'after a call'"
+        ],
+        "successIndicators": [
+          "Vikram shares a band (or admits it's below your range)",
+          "Comp expectations are aligned or the gap is explicit",
+          "No further pressure to take a call without comp info"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Decide and Commit (or Decline)",
+        "description": "Based on the answers, either agree to a call with a clear agenda, or decline politely and durably.",
+        "keyBehaviors": [
+          "If interested: propose a 15-min call with 2-3 agenda items",
+          "If not: decline clearly, without ambiguity",
+          "Reference specifics from his answers — not a template"
+        ],
+        "successIndicators": [
+          "Clear, mutual next step (call scheduled, or declined)",
+          "Vikram acknowledges the decision without pushback",
+          "No 'maybe later' ambiguity"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Preserve the Relationship",
+        "description": "Close the DM in a way that keeps the door open for future, better-matched roles.",
+        "keyBehaviors": [
+          "Invite him to reach out for future, level-appropriate roles",
+          "Offer one referral or piece of useful context if appropriate",
+          "Thank him without flattery"
+        ],
+        "successIndicators": [
+          "Vikram offers to keep you in mind for future searches",
+          "Tone stays warm at close",
+          "No bridge-burning language"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
+  },
+  {
+    "slug": "informational-chat-marcus",
+    "title": "Networking with a Senior Stranger",
+    "description": "Run a 15-minute warm-DM-turned-call with a VP at your dream company — without pitching yourself or wasting his time",
+    "scenario": "Last week you sent Marcus Whitfield, a VP of Engineering at a company you'd love to work at, a short LinkedIn message anchored on a recent post of his. To your surprise, he replied: '15 min next Thursday. Send a calendar invite.' It's now Thursday, the call just started, and Marcus is direct: 'Hi. Got 15 minutes. What's up?' He won't structure the conversation for you. He won't fill silence. Your job is to make this 15 minutes valuable enough that he wants a second touchpoint.",
+    "objectives": [
+      "Open with a sharp, well-researched question — not a pitch",
+      "Demonstrate you've done your homework on him and the company",
+      "Offer something credible and specific in return (give before take)",
+      "Earn an explicit second touchpoint or warm intro"
+    ],
+    "personaSlug": "marcus-whitfield-timeboxed-director",
+    "estimatedDurationMinutes": 20,
+    "difficulty": 4,
+    "skillsToLearn": [
+      "Senior-stakeholder networking",
+      "Async-to-live conversion",
+      "Calibrated questioning",
+      "Give-before-take framing",
+      "Earning a second touchpoint"
+    ],
+    "tags": ["linkedin", "networking", "career-mobility", "informational-interview", "senior"],
+    "successCriteria": {
+      "communication": ["Concise framing", "Research-anchored questions", "No resume monologue"],
+      "problemSolving": ["Tying your background to his world specifically", "Reading dry signals", "Time discipline"],
+      "emotional": ["Composure with silence", "Confidence without ego", "Respect for his time"]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Respectful, Time-Aware Opening",
+        "description": "Acknowledge his time, set the frame yourself in 1-2 sentences, and avoid a resume dump.",
+        "keyBehaviors": [
+          "Thank him briefly — not effusively",
+          "Restate your reason in one sentence",
+          "Signal you'll respect the 15-minute box"
+        ],
+        "successIndicators": [
+          "Marcus responds with 'Mm-hm.' or 'Go on.'",
+          "He doesn't ask 'so what is this about?'",
+          "Tone stays neutral or warms slightly"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 2,
+        "title": "Anchor on a Specific, Researched Question",
+        "description": "Ask one sharp question grounded in something he has actually said, written, or done — not a generic 'how did you get into eng leadership' question.",
+        "keyBehaviors": [
+          "Reference a specific post, talk, or move of his",
+          "Frame the question to invite a substantive answer",
+          "Avoid yes/no and overly broad questions"
+        ],
+        "successIndicators": [
+          "Marcus answers with more than three sentences",
+          "He says 'Good question' or equivalent",
+          "He volunteers context he didn't have to share"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.5,
+          "successThreshold": 0.5,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 3,
+        "title": "Tie Your Background to His World — Briefly",
+        "description": "When relevant, surface ONE specific, credible thing from your background that maps to a problem he just described. Two sentences max.",
+        "keyBehaviors": [
+          "Pick one specific story, not a career summary",
+          "Connect it explicitly to what he just said",
+          "Stop talking and let him react"
+        ],
+        "successIndicators": [
+          "Marcus asks a follow-up about your example",
+          "He says 'Interesting' or equivalent",
+          "He doesn't redirect the conversation"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 4,
+        "title": "Offer Before You Ask",
+        "description": "Offer something specific and credible — a person, a resource, an observation, a relevant write-up — before requesting anything.",
+        "keyBehaviors": [
+          "Offer a concrete person, resource, or observation",
+          "Tailor the offer to something he mentioned",
+          "Avoid 'let me know if I can ever help' platitudes"
+        ],
+        "successIndicators": [
+          "Marcus accepts the offer or asks a follow-up",
+          "He volunteers what he's currently looking for",
+          "Tone shifts from screening to conversational"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 1,
+          "minStrongEvidenceCount": 1
+        }
+      },
+      {
+        "goalNumber": 5,
+        "title": "Earn a Second Touchpoint",
+        "description": "Land a clear, mutual next step — a follow-up email with the resource, an intro to a teammate, or 'send me your resume when you're ready.' Don't push past 15 minutes.",
+        "keyBehaviors": [
+          "Propose ONE specific next step",
+          "Make it low-effort for him to say yes",
+          "Wrap on or before the 15-minute mark"
+        ],
+        "successIndicators": [
+          "Marcus agrees to a specific follow-up",
+          "He names a teammate or asks for your resume",
+          "He closes warmly, not perfunctorily"
+        ],
+        "evaluationConfig": {
+          "behaviorThreshold": 0.55,
+          "successThreshold": 0.55,
+          "minEvidenceCount": 2,
+          "minStrongEvidenceCount": 1
+        }
+      }
+    ]
   }
 ]
