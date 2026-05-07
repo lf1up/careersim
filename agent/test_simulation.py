@@ -238,20 +238,6 @@ Guidelines:
 - Share specific examples of problem-solving
 - Show genuine curiosity about their tech stack and challenges""",
 
-    "saying-no-sarah": """You are a colleague being asked for help by Sarah Jenkins, an overwhelmed project manager.
-
-Goals:
-1. Empathetic Listening - Show genuine concern, listen actively, acknowledge her stress
-2. Honest Assessment - Explain your workload clearly, be transparent about constraints
-3. Alternative Solutions - Suggest other resources, offer limited help within your capacity
-
-Guidelines:
-- Be empathetic but firm - you need to say no
-- Don't immediately refuse - listen first
-- Explain your constraints honestly
-- Offer alternatives or limited help if possible
-- Maintain a positive relationship""",
-
     "saying-no-to-extra-work-sarah": """You are a colleague being asked for help by Sarah Jenkins, an overwhelmed project manager.
 
 Goals:
@@ -302,7 +288,7 @@ Guidelines:
 - Frame your idea as building on existing successes, not replacing them
 - Ask for his input and be genuinely open to incorporating his feedback""",
 
-    "reengaging-michael": """You are a manager having a one-on-one with Michael Reyes, a formerly high-performing developer who has become disengaged.
+    "reengaging-disengaged-employee-michael": """You are a manager having a one-on-one with Michael Reyes, a formerly high-performing developer who has become disengaged.
 
 Goals:
 1. Non-Threatening Opening - Avoid accusatory language, express appreciation for his work, set collaborative tone
@@ -507,9 +493,7 @@ def get_persona_name(sim_slug: str) -> str:
         "tech-cultural-interview-alex": "ALEX",
         "data-analyst-technical-interview-priya": "PRIYA",
         "pitching-idea-david": "DAVID",
-        "saying-no-sarah": "SARAH",
         "saying-no-to-extra-work-sarah": "SARAH",
-        "reengaging-michael": "MICHAEL",
         "reengaging-disengaged-employee-michael": "MICHAEL",
         "delegating-task-chloe": "CHLOE",
         "recruiter-coldreach-vikram": "VIKRAM",
@@ -686,22 +670,28 @@ def run_simulation(
 
 
 def list_simulations(client: Client):
-    """List available simulations."""
+    """List available simulations.
+
+    Reads the canonical list from agent/data/simulations.json and personas.json
+    so the help text never drifts from the data files.
+    """
     print_header("AVAILABLE SIMULATIONS")
-    
-    # Get simulation list by checking the dropdown options
-    print("""
-  Available simulations:
-  
-  1. behavioral-interview-brenda
-     The Behavioral Interview with Brenda Vance (HR Manager)
-     
-  2. tech-cultural-interview-alex
-     The Technical & Cultural Fit Interview with Alex Chen (Tech Lead)
-     
-  3. saying-no-sarah
-     Saying 'No' to Extra Work with Sarah Jenkins (Overwhelmed PM)
-""")
+
+    data_dir = Path(__file__).parent / "data"
+    try:
+        sims = json.loads((data_dir / "simulations.json").read_text(encoding="utf-8"))
+        personas = {p["slug"]: p for p in json.loads((data_dir / "personas.json").read_text(encoding="utf-8"))}
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"  Could not read simulation data: {exc}")
+        return
+
+    print(f"\n  {len(sims)} simulations available:\n")
+    for index, sim in enumerate(sorted(sims, key=lambda s: s["slug"]), start=1):
+        persona = personas.get(sim.get("personaSlug", ""), {})
+        persona_label = f"{persona.get('name', 'Unknown')} ({persona.get('role', 'Unknown role')})"
+        print(f"  {index:>2}. {sim['slug']}")
+        print(f"      {sim.get('title', '')} with {persona_label}")
+        print()
 
 
 def main():
