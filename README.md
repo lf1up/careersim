@@ -213,6 +213,20 @@ Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that 
 
 See [PERSONAS.md](PERSONAS.md) for the full persona definitions, hidden goals, and success criteria.
 
+## End-to-end simulation testing
+
+`agent/test_simulation.py` is a CLI harness for running a complete simulation end-to-end against the agent's **Gradio dev console** — useful for sanity-checking a new persona, a tweaked goal, or an evaluation-threshold change without clicking through the UI turn-by-turn. Two modes: **interactive** (you type the user's side) or **`--auto`** (an OpenAI-driven candidate plays the user side using a per-simulation strategy prompt baked into the script). The full transcript and per-turn goal-progress snapshots can be written to `agent/logs/` with `--log` and exported as JSON with `--json`.
+
+```bash
+# Requires the Gradio dev console running on :7860 and OPENAI_API_KEY for --auto.
+cd agent && uv run python -m careersim_agent.main &
+cd agent && uv run python test_simulation.py --list
+cd agent && uv run python test_simulation.py \
+  --sim recruiter-coldreach-vikram --auto --log --json
+```
+
+See [agent/README.md](agent/README.md#end-to-end-simulation-runs-test_simulationpy) for the full flag table and the convention for adding `SIMULATION_PROMPTS` entries when introducing a new simulation.
+
 ## Tech Stack
 
 
@@ -261,8 +275,16 @@ cd api && pnpm typecheck
 # Web
 cd web && pnpm lint && pnpm typecheck
 
-# Agent
+# Agent — unit / contract tests (mocked LangGraph, no OpenAI key needed)
 cd agent && uv run pytest
+
+# Agent — end-to-end simulation runs against a live Gradio dev console.
+# Useful for sanity-checking new personas, goals, or eval thresholds.
+# Requires the dev console running (`uv run python -m careersim_agent.main`)
+# and OPENAI_API_KEY for --auto. See agent/README.md for the full flag list.
+cd agent && uv run python test_simulation.py --list
+cd agent && uv run python test_simulation.py \
+  --sim recruiter-coldreach-vikram --auto --log --json
 ```
 
 ## Roadmap

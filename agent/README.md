@@ -236,6 +236,8 @@ agent/
 
 ## Testing
 
+### Unit / contract tests
+
 ```bash
 uv run pytest                 # Full suite
 uv run pytest tests/test_api.py -v
@@ -244,6 +246,62 @@ uv run pytest tests/test_api.py::TestStatelessness -v
 
 The tests mock the LangGraph runnable where appropriate, so the suite runs
 without an OpenAI API key.
+
+### End-to-end simulation runs (`test_simulation.py`)
+
+`test_simulation.py` is a CLI harness that drives a complete simulation
+against the **running Gradio dev console** (`--serve gradio`, port 7860). It's
+the fastest way to sanity-check a new persona, a tweaked goal, or an
+evaluation-threshold change without clicking through the UI turn-by-turn —
+and it can log the full transcript + goal progression to disk for review.
+
+It runs in two modes:
+
+- **Interactive** — you type the user's side, the agent replies as the
+  persona, and per-turn goal progress is printed inline.
+- **Auto** (`--auto`) — an OpenAI-driven "candidate" plays the user side using
+  a per-simulation strategy prompt baked into the script. Useful for
+  end-to-end smoke tests and for tuning new simulations.
+
+Prerequisites:
+
+- The Gradio dev console must be running locally
+  (`python -m careersim_agent.main` or `uv run python -m careersim_agent.main`).
+- `--auto` additionally needs `OPENAI_API_KEY` (from `agent/.env`).
+
+```bash
+# From agent/
+
+# List every simulation defined in data/ (always in sync with the JSON)
+uv run python test_simulation.py --list
+
+# Interactive run — you play the user
+uv run python test_simulation.py --sim behavioral-interview-brenda
+
+# Auto-run, log full transcript + goal snapshots, also export as JSON
+uv run python test_simulation.py \
+  --sim recruiter-coldreach-vikram --auto --log --json
+```
+
+Useful flags:
+
+| Flag | Default | Notes |
+| --- | --- | --- |
+| `--sim <slug>` | `behavioral-interview-brenda` | Simulation slug from `data/simulations.json` |
+| `--auto` | _(off)_ | Use an OpenAI-driven candidate for the user side |
+| `--turns <n>` | `15` | Max turns before the run is force-ended |
+| `--list` | _(off)_ | Print all sims + personas and exit |
+| `--quiet` | _(off)_ | Reduce per-turn verbosity |
+| `--url <url>` | `http://localhost:7860` | Gradio server URL |
+| `--log` | _(off)_ | Stream a full text log to `agent/logs/<slug>_<timestamp>.log` |
+| `--log-dir <dir>` | `logs` | Override log directory |
+| `--json` | _(off)_ | Also export the conversation as structured JSON next to the log |
+
+The auto-runner is intentionally opinionated: each simulation has a tailored
+candidate-side prompt so the user side actually pushes through persona
+resistance instead of giving up at the first deflection. When you add a new
+simulation, also add a matching entry to `SIMULATION_PROMPTS` in
+`test_simulation.py` so `--auto` can drive it sensibly.
 
 ## Development Notes
 
