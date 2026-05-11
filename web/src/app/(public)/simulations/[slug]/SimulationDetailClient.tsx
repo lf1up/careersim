@@ -180,6 +180,7 @@ export function SimulationDetailClient({
 
       <RetroCard
         title={simulation.title}
+        titleAs="h1"
         subtitle={
           <span>
             with{' '}

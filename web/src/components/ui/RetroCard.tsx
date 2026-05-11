@@ -3,6 +3,13 @@ import clsx from 'clsx';
 
 interface RetroCardProps {
   title?: React.ReactNode;
+  /**
+   * Heading level to render the title as. Visual styling is identical
+   * regardless of the level — this only changes the underlying tag so
+   * callers can promote the card title to a page-level h1 (or h2) when
+   * the card represents the primary content of the page.
+   */
+  titleAs?: 'h1' | 'h2' | 'h3' | 'h4';
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
@@ -13,6 +20,7 @@ interface RetroCardProps {
 
 export const RetroCard: React.FC<RetroCardProps> = ({
   title,
+  titleAs: TitleTag = 'h3',
   subtitle,
   actions,
   className,
@@ -31,9 +39,9 @@ export const RetroCard: React.FC<RetroCardProps> = ({
         >
           <div>
             {title && (
-              <h3 className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
+              <TitleTag className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                 {title}
-              </h3>
+              </TitleTag>
             )}
             {subtitle && (
               <div className="text-sm font-monoRetro mt-1 text-secondary-600 dark:text-secondary-400">
