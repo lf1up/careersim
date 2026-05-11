@@ -280,12 +280,24 @@ const jsonLd = {
 
         <div class="faq-grid">
           {
-            faqs.map((item) => (
-              <article class="faq-card">
-                <h3>{item.question}</h3>
-                <p>{item.answer}</p>
-              </article>
-            ))
+            faqs.map((item) => {
+              const segments = item.answer.split(siteName);
+              return (
+                <article class="faq-card">
+                  <h3>{item.question}</h3>
+                  <p>
+                    {segments.map((segment, index) => (
+                      <>
+                        {segment}
+                        {index < segments.length - 1 && (
+                          <span class="brand-mark">{siteName}</span>
+                        )}
+                      </>
+                    ))}
+                  </p>
+                </article>
+              );
+            })
           }
         </div>
 

@@ -571,6 +571,14 @@ h1 {
   margin-top: 14px;
 }
 
+.brand-mark {
+  background: var(--accent);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 700;
+  padding: 0 0.25em;
+  white-space: nowrap;
+}
+
 .site-footer {
   align-items: center;
   color: var(--surface);
