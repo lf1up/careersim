@@ -69,11 +69,73 @@ const faqs = [
       'It creates realistic pressure, not static tips. The feedback is tied to what you actually said.',
   },
   {
-    question: 'What should launch collect?',
+    question: 'Is it free to use?',
     answer:
-      'Email intent, top scenario interest, and the CTA path into account creation.',
+      `${siteName} is free during the public beta. Practice as many interviews, negotiations, and workplace conversations as you want, no credit card required.`,
+  },
+  {
+    question: 'What can I practice?',
+    answer:
+      'Behavioral interviews, technical and cultural-fit interviews, salary negotiations, performance feedback, delegating, saying no to extra work, pitching ideas, and other high-stakes 1:1s — with new scenarios added regularly.',
+  },
+  {
+    question: 'How does the feedback work?',
+    answer:
+      'Every session is scored on signals like clarity, confidence, and evidence using your actual responses. You get specific coaching notes after the conversation so you know exactly what to try next.',
+  },
+  {
+    question: 'Is my practice data private?',
+    answer:
+      `Your sessions are tied to your account and used to power your feedback and progress. ${siteName} doesn't sell your transcripts, and you can delete your account and data at any time.`,
   },
 ];
+
+const pageTitle = `${siteName} | AI interview practice and workplace conversation simulator`;
+const pageDescription =
+  'Practice AI interviews, salary negotiations, behavioral interview prep, and difficult workplace conversations with realistic AI personas and instant coaching feedback.';
+
+const faqJsonLdEntries = faqs.map((faq) => ({
+  '@type': 'Question',
+  name: faq.question,
+  acceptedAnswer: {
+    '@type': 'Answer',
+    text: faq.answer,
+  },
+}));
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': `${siteUrl}#website`,
+      name: siteName,
+      url: siteUrl,
+      description: pageDescription,
+      inLanguage: 'en',
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${siteUrl}#app`,
+      name: siteName,
+      url: siteUrl,
+      applicationCategory: 'EducationalApplication',
+      operatingSystem: 'Web',
+      description: pageDescription,
+      offers: {
+        '@type': 'Offer',
+        price: 0,
+        priceCurrency: 'USD',
+        availability: 'https://schema.org/InStock',
+      },
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${siteUrl}#faq`,
+      mainEntity: faqJsonLdEntries,
+    },
+  ],
+};
 ---
 
 <!doctype html>
@@ -81,20 +143,21 @@ const faqs = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content={`${siteName} helps people practice career-defining conversations through realistic AI simulations and immediate coaching feedback.`}
-    />
-    <meta property="og:title" content={`${siteName} - AI career practice simulations`} />
-    <meta
-      property="og:description"
-      content="Practice interviews, negotiations, feedback conversations, and pitches before they happen."
-    />
+    <meta name="description" content={pageDescription} />
+    <link rel="canonical" href={siteUrl} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={siteUrl} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
     <meta name="theme-color" content="#fffdf5" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>{siteName} | Practice career-defining conversations</title>
+    <title>{pageTitle}</title>
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
   <body>
     <header class="site-header">
@@ -123,16 +186,16 @@ const faqs = [
     <main>
       <section class="hero section-paper" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <p class="badge">Free public beta · Career practice</p>
-          <h1 id="hero-title">Practice career-defining conversations before they happen.</h1>
+          <p class="badge">Free public beta · AI career simulator</p>
+          <h1 id="hero-title">AI interview, salary negotiation, and workplace conversation simulator.</h1>
           <p class="hero-subhead">
-            <span class="hero-highlight">{siteName}</span> turns interviews, salary talks, performance conversations, and high-stakes pitches into realistic AI simulations with immediate feedback.
+            <span class="hero-highlight">{siteName}</span> is an AI career practice simulator for behavioral interviews, salary negotiations, performance feedback, and high-stakes workplace conversations — with realistic personas and instant coaching feedback.
           </p>
           <div class="hero-actions">
             <a class="button button-dark" href={appUrl}>Start practicing</a>
             <a class="button button-light" href={simulationsUrl}>See simulations</a>
           </div>
-          <p class="proof-strip">12+ scenarios / AI personas / feedback after every session</p>
+          <p class="proof-strip">12+ scenarios · AI interview, negotiation, and feedback personas · scored coaching after every session</p>
         </div>
 
         <aside class="product-preview" aria-label={`${siteName} product preview`}>
@@ -166,7 +229,7 @@ const faqs = [
       <section id="use-cases" class="use-cases section-white" aria-labelledby="use-cases-title">
         <div class="section-heading centered">
           <p class="eyebrow">Practice the hard moments</p>
-          <h2 id="use-cases-title">A simulator for conversations that actually change careers.</h2>
+          <h2 id="use-cases-title">An AI simulator for the career conversations that actually move the needle — interviews, negotiations, feedback, and pitches.</h2>
         </div>
 
         <div class="card-grid">
@@ -187,7 +250,7 @@ const faqs = [
           <p class="eyebrow">How it works</p>
           <h2 id="how-title">Deliberate practice, not generic advice.</h2>
           <p>
-            Pick a scenario, talk with an adaptive AI persona, then get feedback that explains what improved and what to try next.
+            Pick an AI interview, negotiation, or workplace conversation simulation, talk with an adaptive persona, then get scored feedback that explains what improved and what to try next.
           </p>
         </div>
 
@@ -208,7 +271,7 @@ const faqs = [
 
       <section id="faq" class="cta-section" aria-labelledby="cta-title">
         <div class="cta-panel">
-          <h2 id="cta-title">Launch with a sharper first impression.</h2>
+          <h2 id="cta-title">Walk into your next interview, negotiation, or 1:1 with a sharper first impression.</h2>
           <p>
             Rehearse with cautious hiring managers, skeptical stakeholders, and anxious teammates before the real conversation is on the line.
           </p>
