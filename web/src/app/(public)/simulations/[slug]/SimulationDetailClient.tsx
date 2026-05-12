@@ -13,6 +13,7 @@ import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
 import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
+import { PersonaAvatar } from '@/components/ui/PersonaAvatar';
 import { RetroDialog } from '@/components/ui/RetroDialog';
 
 function humanizeCategory(category: string | null | undefined): string | null {
@@ -178,25 +179,36 @@ export function SimulationDetailClient({
         </span>
       </div>
 
-      <RetroCard
-        title={simulation.title}
-        titleAs="h1"
-        subtitle={
-          <span>
-            with{' '}
-            <span className="font-semibold text-retro-ink dark:text-retro-ink-dark">
-              {simulation.persona_name}
-            </span>
-            {simulation.persona_role && (
-              <span className="text-secondary-600 dark:text-secondary-400">
-                {' '}
-                - {simulation.persona_role}
-              </span>
-            )}
-          </span>
-        }
-      >
+      <RetroCard>
         <div className="space-y-5">
+          <PersonaAvatar
+            name={simulation.persona_name}
+            avatarUrl={simulation.avatar_url}
+            slug={simulation.persona_slug}
+            roleHint={simulation.persona_role}
+            variant="wide"
+            priority
+            sizes="(max-width: 768px) 100vw, 768px"
+          />
+
+          <div className="space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-retro-ink dark:text-retro-ink-dark">
+              {simulation.title}
+            </h1>
+            <p className="text-sm font-monoRetro text-secondary-600 dark:text-secondary-400">
+              with{' '}
+              <span className="font-semibold text-retro-ink dark:text-retro-ink-dark">
+                {simulation.persona_name}
+              </span>
+              {simulation.persona_role && (
+                <span className="text-secondary-600 dark:text-secondary-400">
+                  {' '}
+                  - {simulation.persona_role}
+                </span>
+              )}
+            </p>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <RetroBadge color={difficultyColor(simulation.difficulty)}>
               {difficultyLabel(simulation.difficulty)}

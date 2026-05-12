@@ -21,7 +21,12 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from ..config import get_settings
 from ..graph import get_graph
 from ..graph.state import ConversationState, GoalProgressItem, create_initial_state
-from .data_loader import list_personas, list_simulations, load_simulation
+from .data_loader import (
+    get_persona_avatar_path,
+    list_personas,
+    list_simulations,
+    load_simulation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -302,10 +307,17 @@ class ConversationService:
         summaries = list_simulations()
         out: list[dict[str, Any]] = []
         for s in summaries:
+            persona_slug = s.get("personaSlug")
             out.append({
                 "slug": s["slug"],
                 "title": s["title"],
                 "persona_name": s.get("personaName", "Unknown"),
+                "persona_slug": persona_slug,
+                "avatar_url": (
+                    f"/personas/{persona_slug}/avatar"
+                    if isinstance(persona_slug, str) and get_persona_avatar_path(persona_slug)
+                    else None
+                ),
                 "description": s.get("description"),
                 "difficulty": s.get("difficulty"),
                 "estimated_duration_minutes": s.get("estimatedDurationMinutes"),
@@ -349,6 +361,13 @@ class ConversationService:
             "scenario": sim.get("scenario", ""),
             "objectives": list(sim.get("objectives", []) or []),
             "persona_name": persona.get("name", "Unknown"),
+            "persona_slug": persona.get("slug"),
+            "avatar_url": (
+                f"/personas/{persona.get('slug')}/avatar"
+                if isinstance(persona.get("slug"), str)
+                and get_persona_avatar_path(persona.get("slug"))
+                else None
+            ),
             "persona_role": persona.get("role"),
             "persona_category": persona.get("category"),
             "persona_difficulty_level": persona.get("difficultyLevel"),
@@ -374,6 +393,11 @@ class ConversationService:
                 "role": p["role"],
                 "category": p["category"],
                 "difficulty_level": p["difficultyLevel"],
+                "avatar_url": (
+                    f"/personas/{p['slug']}/avatar"
+                    if get_persona_avatar_path(p["slug"])
+                    else None
+                ),
             }
             for p in list_personas()
         ]

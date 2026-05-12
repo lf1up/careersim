@@ -111,6 +111,34 @@ class TestSimulationDetail:
         assert resp.status_code == 404
 
 
+class TestPersonaAvatars:
+    def test_persona_avatar_returns_png(self, client, monkeypatch, tmp_path):
+        png_bytes = (
+            b"\x89PNG\r\n\x1a\n"
+            b"\x00\x00\x00\rIHDR"
+            b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+            b"\x00\x00\x00\rIDATx\x9cc`\x00\x00\x00\x02\x00\x01\xe2!\xbc3"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        avatar_path = tmp_path / "avatar.png"
+        avatar_path.write_bytes(png_bytes)
+
+        monkeypatch.setattr(
+            "careersim_agent.api.app.get_persona_avatar_path",
+            lambda slug: avatar_path if slug == "mock-persona" else None,
+        )
+
+        resp = client.get("/personas/mock-persona/avatar")
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "image/png"
+        assert "cache-control" in resp.headers
+        assert resp.content == png_bytes
+
+    def test_unknown_persona_avatar_returns_404(self, client):
+        resp = client.get("/personas/does-not-exist/avatar")
+        assert resp.status_code == 404
+
+
 # =============================================================================
 # Batch endpoints — schema & validation
 # =============================================================================
@@ -186,6 +214,8 @@ class TestRoutes:
         ("GET", "/health"),
         ("GET", "/simulations"),
         ("GET", "/simulations/{slug}"),
+        ("GET", "/personas"),
+        ("GET", "/personas/{slug}/avatar"),
         ("POST", "/conversation/init"),
         ("POST", "/conversation/turn"),
         ("POST", "/conversation/proactive"),

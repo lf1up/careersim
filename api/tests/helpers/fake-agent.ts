@@ -1,4 +1,4 @@
-import type { AgentClient } from '../../src/agent/client.js';
+import type { AgentAvatarResponse, AgentClient } from '../../src/agent/client.js';
 import { AgentRequestError } from '../../src/agent/client.js';
 import type {
   AgentConversationResponse,
@@ -46,6 +46,8 @@ export class FakeAgent implements AgentClient {
         slug: 'behavioral-interview-brenda',
         title: 'Behavioral Interview',
         persona_name: 'Brenda',
+        persona_slug: 'brenda',
+        avatar_url: '/personas/brenda/avatar',
         description: 'Navigate a structured behavioral interview.',
         difficulty: 3,
         estimated_duration_minutes: 25,
@@ -57,6 +59,8 @@ export class FakeAgent implements AgentClient {
         slug: 'tech-cultural-fit',
         title: 'Cultural Fit Chat',
         persona_name: 'Alex',
+        persona_slug: 'alex',
+        avatar_url: '/personas/alex/avatar',
         description: 'Impress a passionate tech lead.',
         difficulty: 2,
         estimated_duration_minutes: 20,
@@ -66,8 +70,22 @@ export class FakeAgent implements AgentClient {
       },
     ],
     public personas: AgentPersona[] = [
-      { slug: 'brenda', name: 'Brenda', role: 'HR Manager', category: 'JOB_SEEKING', difficulty_level: 3 },
-      { slug: 'alex', name: 'Alex', role: 'Tech Lead', category: 'JOB_SEEKING', difficulty_level: 2 },
+      {
+        slug: 'brenda',
+        name: 'Brenda',
+        role: 'HR Manager',
+        category: 'JOB_SEEKING',
+        difficulty_level: 3,
+        avatar_url: '/personas/brenda/avatar',
+      },
+      {
+        slug: 'alex',
+        name: 'Alex',
+        role: 'Tech Lead',
+        category: 'JOB_SEEKING',
+        difficulty_level: 2,
+        avatar_url: '/personas/alex/avatar',
+      },
     ],
     /**
      * Default style declares a deterministic inactivity profile (min == max
@@ -112,6 +130,8 @@ export class FakeAgent implements AgentClient {
       scenario: `Scenario for ${sim.title}.`,
       objectives: ['Objective A', 'Objective B'],
       persona_name: sim.persona_name,
+      persona_slug: sim.persona_slug ?? null,
+      avatar_url: sim.avatar_url ?? null,
       persona_role: 'HR Manager',
       persona_category: 'JOB_SEEKING',
       persona_difficulty_level: sim.difficulty ?? null,
@@ -140,6 +160,34 @@ export class FakeAgent implements AgentClient {
   async listPersonas(): Promise<AgentPersonasResponse> {
     this.callLog.push('listPersonas');
     return { personas: this.personas };
+  }
+
+  async getPersonaAvatar(args: {
+    slug: string;
+    signal?: AbortSignal;
+  }): Promise<AgentAvatarResponse> {
+    this.callLog.push(`getPersonaAvatar:${args.slug}`);
+    if (!this.personas.some((p) => p.slug === args.slug)) {
+      throw new AgentRequestError(
+        `agent GET /personas/${args.slug}/avatar failed (404)`,
+        404,
+        JSON.stringify({ detail: `No avatar for persona '${args.slug}'` }),
+      );
+    }
+    const pngBytes = Buffer.from(
+      '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000000020001e221bc330000000049454e44ae426082',
+      'hex',
+    );
+    return {
+      headers: {
+        'content-type': 'image/png',
+        'content-length': String(pngBytes.length),
+        'cache-control': 'public, max-age=86400',
+      },
+      body: (async function* stream() {
+        yield pngBytes;
+      })(),
+    };
   }
 
   async initConversation(args: {

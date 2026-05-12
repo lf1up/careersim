@@ -23,6 +23,8 @@ export interface Simulation {
   slug: string;
   title: string;
   persona_name: string;
+  persona_slug?: string | null;
+  avatar_url?: string | null;
   description?: string | null;
   difficulty?: number | null;
   estimated_duration_minutes?: number | null;
@@ -53,6 +55,8 @@ export interface SimulationDetail {
   scenario: string;
   objectives: string[];
   persona_name: string;
+  persona_slug?: string | null;
+  avatar_url?: string | null;
   persona_role?: string | null;
   persona_category?: string | null;
   persona_difficulty_level?: number | null;
@@ -70,6 +74,7 @@ export interface Persona {
   role: string;
   category: string;
   difficulty_level: number;
+  avatar_url?: string | null;
 }
 
 export type MessageRole = 'human' | 'ai';

@@ -17,7 +17,7 @@ import logging
 from typing import Any, Literal, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
@@ -28,6 +28,7 @@ from ..services.conversation_service import (
     get_conversation_service,
     serialize_state,
 )
+from ..services.data_loader import get_persona_avatar_path
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,8 @@ class SimulationItem(BaseModel):
     slug: str
     title: str
     persona_name: str
+    persona_slug: Optional[str] = None
+    avatar_url: Optional[str] = None
     description: Optional[str] = None
     difficulty: Optional[int] = None
     estimated_duration_minutes: Optional[int] = None
@@ -160,6 +163,8 @@ class SimulationDetail(BaseModel):
     scenario: str
     objectives: list[str] = Field(default_factory=list)
     persona_name: str
+    persona_slug: Optional[str] = None
+    avatar_url: Optional[str] = None
     persona_role: Optional[str] = None
     persona_category: Optional[str] = None
     persona_difficulty_level: Optional[int] = None
@@ -180,6 +185,7 @@ class PersonaItem(BaseModel):
     role: str
     category: str
     difficulty_level: int
+    avatar_url: Optional[str] = None
 
 
 class PersonasResponse(BaseModel):
@@ -279,6 +285,17 @@ def create_api_app() -> FastAPI:
         svc = get_conversation_service()
         return PersonasResponse(
             personas=[PersonaItem(**p) for p in svc.list_personas()],
+        )
+
+    @app.get("/personas/{slug}/avatar")
+    async def get_persona_avatar(slug: str):
+        path = get_persona_avatar_path(slug)
+        if path is None:
+            raise HTTPException(status_code=404, detail=f"No avatar for persona '{slug}'")
+        return FileResponse(
+            path,
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400, stale-while-revalidate=604800"},
         )
 
     # -- Batch endpoints (return full result at once) -------------------------

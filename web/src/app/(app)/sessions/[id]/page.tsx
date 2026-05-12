@@ -561,6 +561,16 @@ export default function SessionDetailPage() {
           burstedAssistant={committedBurst}
           pendingAssistant={streamingAssistant}
           isWaiting={isWaiting}
+          persona={
+            simulation?.persona_name
+              ? {
+                  name: simulation.persona_name,
+                  avatarUrl: simulation.avatar_url,
+                  slug: simulation.persona_slug,
+                  role: simulation.persona_role,
+                }
+              : undefined
+          }
         />
       </RetroPanel>
 

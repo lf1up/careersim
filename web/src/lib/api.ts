@@ -308,6 +308,13 @@ export const apiClient = {
     return res.personas;
   },
 
+  personaAvatarUrl(slugOrUrl: string): string {
+    const path = slugOrUrl.startsWith('/')
+      ? slugOrUrl
+      : `/personas/${encodeURIComponent(slugOrUrl)}/avatar`;
+    return `${apiBaseUrl()}${path}`;
+  },
+
   // ---------- sessions ----------
   async createSession(simulationSlug: string): Promise<SessionDetail> {
     return request<SessionDetail>('/sessions', {

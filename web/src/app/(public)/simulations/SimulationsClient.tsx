@@ -7,6 +7,7 @@ import type { Simulation } from '@/lib/types';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge } from '@/components/ui/RetroBadge';
+import { PersonaAvatar } from '@/components/ui/PersonaAvatar';
 
 export function SimulationsClient({
   initialSimulations,
@@ -82,6 +83,17 @@ export function SimulationsClient({
                 title={sim.title}
                 subtitle={<span className="font-monoRetro">{sim.slug}</span>}
               >
+                <PersonaAvatar
+                  name={sim.persona_name}
+                  avatarUrl={sim.avatar_url}
+                  slug={sim.persona_slug}
+                  roleHint={`${sim.persona_name} avatar for ${sim.title}`}
+                  variant="wide"
+                  // Cards top out at ~520px on the xl 3-column grid; let
+                  // the optimizer pick a 640px source for crisp 2x DPR.
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                  className="mb-6"
+                />
                 <div className="flex-1 space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <RetroBadge color="cyan">{sim.persona_name}</RetroBadge>

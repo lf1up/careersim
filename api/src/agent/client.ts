@@ -11,11 +11,17 @@ import type {
   ProactiveTrigger,
 } from './types.js';
 
+export interface AgentAvatarResponse {
+  headers: Record<string, string | string[] | undefined>;
+  body: AsyncIterable<Buffer | Uint8Array | string>;
+}
+
 export interface AgentClient {
   health(): Promise<{ status: string }>;
   listSimulations(): Promise<AgentSimulationsResponse>;
   getSimulation(slug: string): Promise<AgentSimulationDetail>;
   listPersonas(): Promise<AgentPersonasResponse>;
+  getPersonaAvatar(args: { slug: string; signal?: AbortSignal }): Promise<AgentAvatarResponse>;
   initConversation(args: {
     simulationSlug: string;
     sessionId?: string;
@@ -140,6 +146,30 @@ export class HttpAgentClient implements AgentClient {
 
   listPersonas(): Promise<AgentPersonasResponse> {
     return this.getJson('/personas');
+  }
+
+  async getPersonaAvatar(args: {
+    slug: string;
+    signal?: AbortSignal;
+  }): Promise<AgentAvatarResponse> {
+    const path = `/personas/${encodeURIComponent(args.slug)}/avatar`;
+    const res = await request(this.url(path), {
+      method: 'GET',
+      headers: this.headers({}),
+      signal: args.signal,
+    });
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      const text = await res.body.text();
+      throw new AgentRequestError(
+        `agent GET ${path} failed (${res.statusCode})`,
+        res.statusCode,
+        text,
+      );
+    }
+    return {
+      headers: res.headers,
+      body: res.body,
+    };
   }
 
   initConversation(args: {

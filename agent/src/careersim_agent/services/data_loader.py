@@ -90,6 +90,7 @@ class SimulationSummary(TypedDict, total=False):
     title: str
     description: str
     personaName: str
+    personaSlug: str
     difficulty: int
     goalCount: int
     skillsToLearn: list[str]
@@ -290,6 +291,7 @@ def list_simulations() -> list[SimulationSummary]:
             "title": sim["title"],
             "description": sim["description"],
             "personaName": persona_name,
+            "personaSlug": sim["personaSlug"],
             "difficulty": sim["difficulty"],
             "goalCount": len(sim.get("conversationGoals", [])),
         }
@@ -326,6 +328,13 @@ def list_personas() -> list[PersonaSummary]:
         summaries.append(summary)
 
     return summaries
+
+
+def get_persona_avatar_path(slug: str) -> Optional[Path]:
+    """Return the absolute avatar path for a persona slug, if it exists."""
+    data_dir = _get_data_dir()
+    candidate = data_dir / "avatars" / f"{slug}.png"
+    return candidate if candidate.is_file() else None
 
 
 def reload_data() -> None:

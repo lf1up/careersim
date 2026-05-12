@@ -1,6 +1,7 @@
 """Services for data loading, LLM-based evaluation, RAG retrieval, and conversation."""
 
 from .data_loader import (
+    get_persona_avatar_path,
     load_simulation,
     list_simulations,
     load_persona,
@@ -25,6 +26,7 @@ from .conversation_service import (
 __all__ = [
     "load_simulation",
     "list_simulations",
+    "get_persona_avatar_path",
     "load_persona",
     "reload_data",
     "enable_auto_reload",
