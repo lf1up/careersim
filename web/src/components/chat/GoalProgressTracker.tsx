@@ -129,11 +129,12 @@ const statusStyles: Record<
 
 // Tooltip-ish popover that explains what the user actually has to do for a
 // given goal. Positioned *below* the chip with `top-full` so it doesn't get
-// clipped by the RetroCard header above the goal row. Centered horizontally
-// via a 50% translate. `pointer-events-none` keeps the chip's hover state
-// stable if the cursor passes over the popover body — since there's
-// nothing interactive inside, we don't lose anything by making it
-// non-interactive.
+// clipped by the RetroCard header above the goal row. Left-aligned with the
+// chip's start edge (`left-0`) so the hint visually "drops" from the chip
+// the user is hovering instead of floating in the middle of the row.
+// `pointer-events-none` keeps the chip's hover state stable if the cursor
+// passes over the popover body — since there's nothing interactive inside,
+// we don't lose anything by making it non-interactive.
 interface GoalHoverCardProps {
   id: string;
   goal: ResolvedGoal;
@@ -146,7 +147,7 @@ const GoalHoverCard: React.FC<GoalHoverCardProps> = ({ id, goal }) => {
       id={id}
       role="tooltip"
       className={clsx(
-        'pointer-events-none absolute z-30 top-full left-1/2 -translate-x-1/2 mt-2',
+        'pointer-events-none absolute z-30 top-full left-0 mt-2',
         'w-72 sm:w-80 max-w-[min(22rem,calc(100vw-2rem))]',
         'retro-card p-3 text-left shadow-retro-4 dark:shadow-retro-dark-4',
         'text-retro-ink dark:text-retro-ink-dark',
