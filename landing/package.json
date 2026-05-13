@@ -18,7 +18,7 @@
   "license": "MIT",
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
-    "astro": "^6.1.9",
+    "astro": "^6.1.10",
     "typescript": "^5.9.3"
   },
   "dependencies": {
