@@ -98,7 +98,7 @@ export const RegisterForm: React.FC = () => {
 
   if (step.kind === 'verify') {
     return (
-      <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
+      <div className="min-h-full flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <AuthBackLink />
           <VerifyCodeCard
@@ -114,7 +114,7 @@ export const RegisterForm: React.FC = () => {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center bg-retro-paper dark:bg-retro-paper-dark p-4 transition-colors">
+    <div className="min-h-full flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <AuthBackLink />
         <RetroCard

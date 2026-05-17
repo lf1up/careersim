@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-retro-paper text-retro-ink transition-colors dark:bg-retro-paper-dark dark:text-retro-ink-dark">
+    <div className="flex min-h-screen flex-col">
       <main className="min-h-0 flex-1">
         {children}
         <Footer />
