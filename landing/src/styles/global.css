@@ -579,6 +579,21 @@ h1 {
   right: 0;
 }
 
+.preview-tabs.is-auto .tab-button.is-active::after {
+  right: auto;
+  width: 100%;
+  animation: tab-progress var(--auto-duration, 5500ms) linear forwards;
+}
+
+@keyframes tab-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
 .preview-panels {
   display: block;
 }
@@ -589,7 +604,31 @@ h1 {
 
 .preview-panel.is-active {
   display: block;
-  animation: panel-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: panel-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.preview-panel.is-active .preview-chat > * {
+  animation: panel-child-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.preview-panel.is-active .preview-chat > *:nth-child(1) {
+  animation-delay: 80ms;
+}
+
+.preview-panel.is-active .preview-chat > *:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.preview-panel.is-active .preview-chat > *:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.preview-panel.is-active .preview-chat > *:nth-child(4) {
+  animation-delay: 320ms;
+}
+
+.preview-panel.is-active .persona-rail {
+  animation: persona-rail-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes panel-in {
@@ -603,8 +642,33 @@ h1 {
   }
 }
 
+@keyframes panel-child-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes persona-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .preview-panel.is-active {
+  .preview-panel.is-active,
+  .preview-panel.is-active .preview-chat > *,
+  .preview-panel.is-active .persona-rail,
+  .preview-tabs.is-auto .tab-button.is-active::after {
     animation: none;
   }
 }

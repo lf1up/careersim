@@ -909,6 +909,26 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         const tabs = document.querySelectorAll('.tab-button');
         const panels = document.querySelectorAll('.preview-panel');
         const sessionTitleEl = document.querySelector('[data-session-title]');
+        const previewTabs = document.querySelector('.preview-tabs');
+        const productPreview = document.querySelector('.product-preview');
+
+        const tabsArray = Array.from(tabs);
+        const AUTO_INTERVAL_MS = 2500;
+        const reduceMotion =
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        if (previewTabs) {
+          previewTabs.style.setProperty('--auto-duration', `${AUTO_INTERVAL_MS}ms`);
+        }
+
+        let autoTimer = null;
+        let autoStopped = reduceMotion || tabsArray.length < 2;
+        let isPreviewVisible = false;
+        let activeIndex = Math.max(
+          tabsArray.findIndex((t) => t.classList.contains('is-active')),
+          0,
+        );
 
         const activateTab = (tab) => {
           const target = tab.dataset.target;
@@ -928,18 +948,77 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           if (sessionTitleEl && tab.dataset.sessionTitle) {
             sessionTitleEl.textContent = tab.dataset.sessionTitle;
           }
+
+          activeIndex = tabsArray.indexOf(tab);
+        };
+
+        const advanceTab = () => {
+          if (autoStopped || tabsArray.length < 2) return;
+          const next = tabsArray[(activeIndex + 1) % tabsArray.length];
+          activateTab(next);
+        };
+
+        const pauseAutoCycle = () => {
+          if (autoTimer !== null) {
+            window.clearInterval(autoTimer);
+            autoTimer = null;
+          }
+          previewTabs?.classList.remove('is-auto');
+        };
+
+        const startAutoCycle = () => {
+          if (autoStopped || autoTimer !== null || !isPreviewVisible) return;
+          previewTabs?.classList.add('is-auto');
+          autoTimer = window.setInterval(advanceTab, AUTO_INTERVAL_MS);
+        };
+
+        const stopAutoCycle = () => {
+          autoStopped = true;
+          pauseAutoCycle();
         };
 
         tabs.forEach((tab, index) => {
-          tab.addEventListener('click', () => activateTab(tab));
+          tab.addEventListener('click', () => {
+            stopAutoCycle();
+            activateTab(tab);
+          });
           tab.addEventListener('keydown', (event) => {
             if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
             event.preventDefault();
+            stopAutoCycle();
             const direction = event.key === 'ArrowRight' ? 1 : -1;
             const next = tabs[(index + direction + tabs.length) % tabs.length];
             activateTab(next);
             next.focus();
           });
+        });
+
+        if (productPreview && 'IntersectionObserver' in window) {
+          const previewObserver = new IntersectionObserver(
+            (entries) => {
+              for (const entry of entries) {
+                isPreviewVisible = entry.isIntersecting;
+                if (isPreviewVisible) {
+                  startAutoCycle();
+                } else {
+                  pauseAutoCycle();
+                }
+              }
+            },
+            { threshold: 0.3 },
+          );
+          previewObserver.observe(productPreview);
+        } else {
+          isPreviewVisible = true;
+          startAutoCycle();
+        }
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            pauseAutoCycle();
+          } else {
+            startAutoCycle();
+          }
         });
       })();
     </script>
