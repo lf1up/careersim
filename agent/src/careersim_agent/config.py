@@ -1,7 +1,7 @@
 """Configuration settings using pydantic-settings."""
 
 from functools import lru_cache
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -62,6 +62,57 @@ class Settings(BaseSettings):
     # API side.
     # -------------------------------------------------------------------
     agent_internal_key: str = ""
+
+    # -------------------------------------------------------------------
+    # Voice mode
+    #
+    # Browser-native WebRTC voice via a self-hosted LiveKit SFU plus a
+    # chained STT -> existing LangGraph turn -> TTS pipeline. All
+    # config below is read by the `agent-voice` worker (see
+    # `careersim_agent.voice`); the FastAPI app and existing chat
+    # surface ignore these fields entirely.
+    #
+    # `voice_enabled=False` is a clean kill switch: the worker logs
+    # one info line and exits 0 at startup, matching the API's 503
+    # behavior on the same flag.
+    # -------------------------------------------------------------------
+    voice_enabled: bool = True
+    voice_daily_minutes_per_user: int = 20
+
+    # LiveKit (self-hosted by default; cloud just swaps the URL + keys)
+    livekit_url: str = "ws://livekit:7880"
+    livekit_api_key: str = ""
+    livekit_api_secret: str = ""
+
+    # STT / TTS provider selection. Defaults are the self-hosted
+    # in-process providers (faster-whisper, Piper). Cloud opt-ins are
+    # gated on the corresponding API key being non-empty.
+    voice_stt_provider: Literal[
+        "whisper_local",
+        "whisper_openai",
+        "deepgram",
+    ] = "whisper_local"
+    voice_tts_provider: Literal[
+        "piper_local",
+        "openai_tts",
+        "elevenlabs",
+    ] = "piper_local"
+
+    # faster-whisper (default STT) tuning. Models are prefetched into
+    # the agent Docker image during build.
+    voice_whisper_model: str = "base.en"
+    voice_whisper_device: Literal["cpu", "cuda"] = "cpu"
+    voice_whisper_compute_type: str = "int8"
+
+    # Piper (default TTS) tuning. Voice models live in a named volume.
+    voice_piper_model_dir: str = "/app/.piper_models"
+    voice_piper_default_voice: str = "en_US-libritts_r-medium"
+
+    # Cloud provider keys (empty unless the matching provider is
+    # selected). OpenAI providers reuse `openai_api_key` /
+    # `openai_base_url` from the chat configuration above.
+    deepgram_api_key: str = ""
+    elevenlabs_api_key: str = ""
 
     @property
     def openai_config(self) -> dict:

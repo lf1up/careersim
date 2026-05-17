@@ -27,6 +27,8 @@ import { healthRoutes } from './modules/health/health.route.js';
 import { personasRoutes } from './modules/personas/personas.route.js';
 import { sessionsRoutes } from './modules/sessions/sessions.route.js';
 import { simulationsRoutes } from './modules/simulations/simulations.route.js';
+import { voiceRoutes } from './modules/voice/voice.route.js';
+import type { VoiceServiceConfig } from './modules/voice/voice.service.js';
 import { isCorsOriginAllowed } from './utils/cors.js';
 
 export interface BuildAppOptions {
@@ -92,6 +94,26 @@ export interface BuildAppOptions {
      */
     createSessionMax?: number;
     createSessionTimeWindow?: string;
+  };
+  /**
+   * Voice mode (browser-native LiveKit + chained pipeline).
+   *
+   * Routes register unconditionally — the OpenAPI surface stays
+   * stable across deployments — but each route returns 503
+   * `voice_disabled` when `enabled` is false. That way ops can flip
+   * the kill switch without redeploying the API container.
+   *
+   * `internalKey` is the shared secret the agent-voice worker sends
+   * on `/internal/sessions/:id/state-for-voice`; we reuse
+   * `AGENT_INTERNAL_KEY` so there's only one secret to rotate.
+   */
+  voice?: {
+    enabled: boolean;
+    livekitUrl: string;
+    livekitApiKey: string;
+    livekitApiSecret: string;
+    dailyMinutesPerUser: number;
+    internalKey: string;
   };
 }
 
@@ -245,6 +267,31 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     db: opts.db,
     agent: opts.agent,
     corsAllowedOrigins,
+  });
+
+  // Voice routes always register; the kill switch lives inside the
+  // service layer so the OpenAPI surface stays consistent. When the
+  // caller doesn't pass a `voice` block (older bootstrap, tests that
+  // opt out) we synthesize a disabled config so the routes 503.
+  const voiceConfig: VoiceServiceConfig = opts.voice
+    ? {
+        enabled: opts.voice.enabled,
+        livekitUrl: opts.voice.livekitUrl,
+        livekitApiKey: opts.voice.livekitApiKey,
+        livekitApiSecret: opts.voice.livekitApiSecret,
+        dailyMinutesPerUser: opts.voice.dailyMinutesPerUser,
+      }
+    : {
+        enabled: false,
+        livekitUrl: '',
+        livekitApiKey: '',
+        livekitApiSecret: '',
+        dailyMinutesPerUser: 0,
+      };
+  await app.register(voiceRoutes, {
+    db: opts.db,
+    config: voiceConfig,
+    internalKey: opts.voice?.internalKey ?? '',
   });
 
   return app;

@@ -43,6 +43,14 @@ async function main(): Promise<void> {
       createSessionMax: env.SESSIONS_CREATE_MAX,
       createSessionTimeWindow: env.SESSIONS_CREATE_WINDOW,
     },
+    voice: {
+      enabled: env.VOICE_ENABLED,
+      livekitUrl: env.LIVEKIT_URL,
+      livekitApiKey: env.LIVEKIT_API_KEY,
+      livekitApiSecret: env.LIVEKIT_API_SECRET,
+      dailyMinutesPerUser: env.VOICE_DAILY_MINUTES_PER_USER,
+      internalKey: env.AGENT_INTERNAL_KEY,
+    },
     logger: {
       level: env.LOG_LEVEL,
       transport:

@@ -130,7 +130,13 @@ class ConversationState(TypedDict, total=False):
     
     # Error handling
     last_error: Optional[str]
-    
+
+    # Voice mode flag — set by the agent-voice worker on its
+    # ``LangGraphAdapter`` so the conversation node can append a
+    # spoken-style guidance block (filler frequency, cadence) to the
+    # system prompt. Kept opt-in so text turns stay clean.
+    voice_mode: bool
+
     # Debug/tracing
     node_trace: list[NodeTraceEntry]
 

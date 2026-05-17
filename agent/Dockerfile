@@ -13,8 +13,15 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 # Install build dependencies
+# `ffmpeg` + `libsndfile` are needed by faster-whisper (audio I/O) and
+# Piper at install time on slim images; they're tiny so we bake them
+# in unconditionally rather than gating on a build arg. The voice
+# extras themselves are only installed in the dedicated voice stage
+# below; the regular runtime stage gets the chat-only deps.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    ffmpeg \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for faster dependency installation
@@ -82,3 +89,45 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=30s \
 
 # Default command - run the agent
 CMD ["python", "-m", "careersim_agent.main"]
+
+
+# -----------------------------------------------------------------------------
+# Stage 3: Voice runtime - same as runtime, plus the `voice` extras
+# -----------------------------------------------------------------------------
+# A separate stage so the chat-only `agent` container stays slim. The
+# `voice` extra pulls in livekit-agents, faster-whisper, piper-tts,
+# and websockets — all of which ride sizeable C-extension wheels
+# (CTranslate2, onnxruntime, piper-phonemize). We also prefetch the
+# default Piper voice + Whisper model so first-run `docker compose up`
+# doesn't stall on a network download.
+FROM runtime AS voice-runtime
+
+USER root
+
+# Switch back to the venv path so `uv` lives where the chat stage put it.
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Install uv into this stage too (needed for the voice extras install).
+RUN pip install --no-cache-dir uv
+
+# Re-add the build deps we stripped in the slim runtime stage so
+# transitively-built voice wheels (e.g. piper-phonemize) link cleanly.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the voice extras on top of the editable chat install.
+RUN uv pip install --no-cache -e ".[voice]"
+
+# Copy the prefetch script and warm both Piper + Whisper caches into
+# the image. Failures are logged but non-fatal — the runtime falls
+# back to on-demand downloads when the cache is cold.
+COPY --chown=appuser:appuser scripts/ ./scripts/
+RUN mkdir -p /app/.piper_models \
+    && chown -R appuser:appuser /app/.piper_models /app/scripts \
+    && python /app/scripts/prefetch_voice_models.py || true
+
+USER appuser
+
+# Voice worker entry point — joins LiveKit rooms minted by the API.
+CMD ["python", "-m", "careersim_agent.main", "--serve", "voice"]

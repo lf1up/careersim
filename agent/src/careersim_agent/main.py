@@ -113,12 +113,33 @@ def run_api(host: str = "0.0.0.0", port: int = 8000):
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 
+def run_voice() -> None:
+    """Run the voice-mode worker.
+
+    Honours the ``VOICE_ENABLED`` kill switch — exits 0 cleanly when
+    voice is disabled so docker-compose's restart policy doesn't loop.
+    See :mod:`careersim_agent.voice.worker` for the bootstrap details.
+    """
+    from .voice.worker import run_worker
+
+    print("\n" + "=" * 60)
+    print("CareerSIM Agent - Voice Worker")
+    print("=" * 60)
+    print("\n  Joining LiveKit rooms minted by the API service.")
+    print("  Set VOICE_ENABLED=false to disable; restart on env change.")
+    print("\n  Press Ctrl+C to stop")
+    print("=" * 60 + "\n")
+
+    code = run_worker()
+    sys.exit(code)
+
+
 def main():
     """Parse arguments and launch the appropriate server."""
     parser = argparse.ArgumentParser(description="CareerSIM Agent")
     parser.add_argument(
         "--serve",
-        choices=["gradio", "api"],
+        choices=["gradio", "api", "voice"],
         default="gradio",
         help="Which server to run (default: gradio)",
     )
@@ -146,6 +167,8 @@ def main():
     if args.serve == "api":
         port = args.port or 8000
         run_api(host=args.host, port=port)
+    elif args.serve == "voice":
+        run_voice()
     else:
         if args.port:
             from .config import get_settings

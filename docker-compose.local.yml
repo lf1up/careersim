@@ -249,6 +249,77 @@ services:
       start_period: 120s
     command: ["python", "-m", "careersim_agent.main", "--serve", "api", "--host", "0.0.0.0", "--port", "8001"]
 
+  # =====================================================================
+  # Voice mode — self-hosted LiveKit SFU + dedicated agent worker.
+  # ---------------------------------------------------------------------
+  # Both services run by default; flip `VOICE_ENABLED=false` in
+  # `./agent/.env` (and `./api/.env`) to disable cleanly without
+  # touching this file. Voice transcripts persist via the existing
+  # `api -> postgres` flow; audio is never stored.
+  # =====================================================================
+  livekit:
+    image: livekit/livekit-server:latest
+    # `--dev` enables a permissive WebRTC config (no TURN, accepts loopback)
+    # which matches the local docker-compose topology. Production deploys
+    # MUST swap this for a real config file with a TLS cert.
+    command: ["--dev", "--bind", "0.0.0.0"]
+    ports:
+      # 7880 — websocket signalling (browser <-> SFU)
+      - "7880:7880"
+      # 7881 — TURN/TLS (unused in --dev, exposed for parity with prod)
+      - "7881:7881"
+      # 7882 — UDP media (where the actual audio frames flow)
+      - "7882:7882/udp"
+    environment:
+      # The dev-keys here MUST match `LIVEKIT_API_KEY` /
+      # `LIVEKIT_API_SECRET` in agent/.env and api/.env. The format is
+      # `key: secret` (note the space after the colon).
+      LIVEKIT_KEYS: "devkey: devsecret-min-32-chars-change-me-openssl-rand-hex-32"
+    networks:
+      - careersim-network
+    restart: unless-stopped
+    healthcheck:
+      # /rtc is the SFU's healthcheck endpoint (returns 200 on a fresh process).
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7880/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  agent-voice:
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+      target: voice-runtime
+    env_file:
+      - ./agent/.env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # Internal API URL on the compose network — the worker reaches
+      # back into the API for state-for-voice + post-message; see
+      # careersim_agent.voice.state_bridge.APIClient.
+      VOICE_API_BASE_URL: http://api:8000
+      # In-compose hostname for the LiveKit SFU — overrides the
+      # default in agent/.env so contributors can leave that file as
+      # the host-oriented `ws://localhost:7880` for the smoke script.
+      LIVEKIT_URL: ws://livekit:7880
+    depends_on:
+      livekit:
+        condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      - ./agent/src:/app/src
+      - ./agent/data:/app/data
+      # Persist Piper voices + faster-whisper / HuggingFace caches so
+      # `docker compose down -v` doesn't force a re-download every time.
+      - voice_piper_models:/app/.piper_models
+      - voice_whisper_cache:/root/.cache/huggingface
+      - ./agent/logs:/app/logs
+    networks:
+      - careersim-network
+    restart: unless-stopped
+
   # DEPRECATED: model inference is now handled in-process by the `agent`
   # service. See ./transformers/README.md.
   # transformers:
@@ -307,6 +378,8 @@ volumes:
   postgres_data:
   redis_data:
   agent_chroma_db:
+  voice_piper_models:
+  voice_whisper_cache:
   # backend_uploads:
   # models_cache:
   # rag_data:

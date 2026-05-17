@@ -75,10 +75,48 @@ export const sessions = pgTable(
     lastHumanMessageAt: timestamp('last_human_message_at', { withTimezone: true }),
     lastNudgeAt: timestamp('last_nudge_at', { withTimezone: true }),
     nudgeCountSinceHuman: integer('nudge_count_since_human').notNull().default(0),
+    // Voice mode bookkeeping. Both nullable + only set while a voice
+    // call is active for this session — the values let the eval node
+    // know the call window without needing a separate table for the
+    // single most recent call. Multi-call analytics live on
+    // `voice_minute_usage` (per-user, per-day) below.
+    voiceCallStartedAt: timestamp('voice_call_started_at', { withTimezone: true }),
+    voiceCallEndedAt: timestamp('voice_call_ended_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('sessions_user_idx').on(t.userId, t.createdAt)],
+);
+
+/**
+ * Per-user-per-day voice minute usage.
+ *
+ * Each row tracks one user's cumulative voice minutes for a single
+ * UTC date. `secondsUsed` is incremented on every successful
+ * `/sessions/:id/voice/end` call; the cap (`VOICE_DAILY_MINUTES_PER_USER`,
+ * default 20 minutes) is enforced at `/voice/start` time before the
+ * LiveKit token is minted.
+ *
+ * Storing the day as a `text` (`YYYY-MM-DD`, UTC) rather than a
+ * `date` keeps PGlite-backed tests and Postgres production identical
+ * — PGlite has spotty tz handling around `date` casts. The row count
+ * scales with active users, not call volume, so this is fine.
+ */
+export const voiceMinuteUsage = pgTable(
+  'voice_minute_usage',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    usageDate: text('usage_date').notNull(),
+    secondsUsed: integer('seconds_used').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('voice_minute_usage_user_day_unique').on(t.userId, t.usageDate),
+  ],
 );
 
 export const messages = pgTable(
@@ -124,3 +162,5 @@ export type NewMessageRow = typeof messages.$inferInsert;
 export type AuthTokenRow = typeof authTokens.$inferSelect;
 export type NewAuthTokenRow = typeof authTokens.$inferInsert;
 export type AuthTokenPurpose = (typeof authTokenPurposeEnum.enumValues)[number];
+export type VoiceMinuteUsageRow = typeof voiceMinuteUsage.$inferSelect;
+export type NewVoiceMinuteUsageRow = typeof voiceMinuteUsage.$inferInsert;
