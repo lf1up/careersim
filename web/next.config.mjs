@@ -65,8 +65,15 @@ const nextConfig = {
           destination: `${landingOrigin}/_astro/:path*`,
         },
         {
+          // Landing-page static assets (favicon, persona avatar PNGs, etc.)
+          // live in `landing/public/...`. The Astro deploy serves them at
+          // root paths, so we proxy the matching paths through the apex.
           source: '/favicon.svg',
           destination: `${landingOrigin}/favicon.svg`,
+        },
+        {
+          source: '/avatars/:path*',
+          destination: `${landingOrigin}/avatars/:path*`,
         },
       ],
     };
