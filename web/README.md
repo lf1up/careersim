@@ -1,11 +1,11 @@
-# CareerSIM Web
+# 🌐 CareerSIM Web
 
 Next.js 16 (App Router) frontend for the CareerSIM platform. Talks directly to
 the Fastify `api/` service — auth, simulations, personas, sessions, and the SSE
 streaming surface. No admin panel, no socket.io, no analytics: those belong to
 the legacy `frontend/` app and are not backed by the new API.
 
-## Stack
+## 🧱 Stack
 
 - **Runtime**: Node 20+, pnpm
 - **Framework**: Next.js 16 (App Router, Turbopack), React 19, TypeScript 6
@@ -21,7 +21,7 @@ the legacy `frontend/` app and are not backed by the new API.
 - **Streaming**: `fetch` + `ReadableStream` + `eventsource-parser` (the native
   `EventSource` can't set bearer headers, and the API is POST-based)
 
-## Quick start
+## 🚀 Quick start
 
 ```bash
 cd web
@@ -39,7 +39,7 @@ Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
 > resets) are logged to the API's stdout when `SMTP_HOST` is empty — copy the
 > 6-digit code or the reset URL straight from the `pnpm dev` output.
 
-## Pages
+## 📄 Pages
 
 | Path | Purpose |
 | --- | --- |
@@ -55,7 +55,7 @@ Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
 | `/sessions` | List caller's sessions (`GET /sessions`) |
 | `/sessions/[id]` | Chat: `GET /sessions/:id`, send via `POST /sessions/:id/messages/stream`, optional follow-up + nudge |
 
-## Auth flows
+## 🔐 Auth flows
 
 The UI is a thin shell around the API's auth surface (see `api/README.md` for
 canonical endpoints):
@@ -79,7 +79,7 @@ form body. Submit buttons stay disabled until the widget emits a `verified`
 state, and the payload is reset automatically on error so users can retry
 without a page reload.
 
-### Rate limiting
+### 🛑 Rate limiting
 
 The API applies `@fastify/rate-limit` policies on top of ALTCHA (see
 `api/README.md` for the full table). When a user crosses a limit the
@@ -91,7 +91,7 @@ without a page reload. No client-side throttling is needed — the server
 is the single source of truth and the 429 body already carries everything
 the UI needs to display.
 
-## Layout
+## 📁 Layout
 
 ```text
 web/
@@ -131,7 +131,7 @@ web/
 └── tailwind.config.ts
 ```
 
-## Scripts
+## ⚙️ Scripts
 
 ```bash
 pnpm dev        # next dev (Turbopack) on :3000
@@ -141,7 +141,7 @@ pnpm lint       # next lint
 pnpm typecheck  # tsc --noEmit
 ```
 
-## Environment
+## 🌱 Environment
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -161,7 +161,7 @@ and PoW difficulty are all server-side (`ALTCHA_HMAC_KEY`,
 `ALTCHA_MAX_NUMBER` in `api/.env`). The widget only sees the signed
 challenge payload.
 
-## Design notes
+## 🎨 Design notes
 
 - **The old `frontend/` is untouched.** `web/` is an additive port that only
   talks to the new `api/` service. When the API surface grows (analytics,

@@ -1,8 +1,8 @@
-# CareerSIM Landing
+# 🏠 CareerSIM Landing
 
 Static marketing landing page for `careersim.ai`.
 
-## Why Astro
+## 🤔 Why Astro
 
 The landing page is content-first, SEO-sensitive, and does not need app runtime
 state. Current static-site-generator comparisons consistently point to Astro as
@@ -11,7 +11,7 @@ and ships zero browser JavaScript unless a component explicitly needs hydration.
 That gives us a fast standalone site without coupling launch marketing to the
 authenticated `web/` app.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 cd landing
@@ -19,7 +19,7 @@ pnpm install
 pnpm dev
 ```
 
-## Scripts
+## ⚙️ Scripts
 
 ```bash
 pnpm dev          # local dev server on :4321
@@ -29,7 +29,7 @@ pnpm check        # Astro type/template checks
 pnpm sync:figma   # refresh Figma metadata and reference screenshots
 ```
 
-## Figma Source
+## 🎨 Figma Source
 
 The source design is saved in `figma/design-source.json`.
 

@@ -1,9 +1,9 @@
-# CareerSIM Agent
+# 🤖 CareerSIM Agent
 
 A standalone Python LangGraph agent for career-simulation conversations. Ships
 with a Gradio developer console **and** a stateless FastAPI production server.
 
-## Features
+## ✨ Features
 
 - **LangGraph conversation flow** with persona-driven AI responses,
   configurable via `data/personas.json` + `data/simulations.json`.
@@ -21,7 +21,7 @@ with a Gradio developer console **and** a stateless FastAPI production server.
   - FastAPI production server (`--serve api`) — stateless JSON API with both
     batch and Server-Sent Events streaming endpoints.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 # From agent/
@@ -58,13 +58,13 @@ Useful flags:
 Interactive API docs (Swagger UI) are available at `http://<host>:<port>/docs`
 when running in API mode.
 
-## Production API (`--serve api`)
+## 🚦 Production API (`--serve api`)
 
 The server is fully **stateless** — the backend sends the full
 `ConversationState` + a command on every request, the graph runs, and the
 updated state is returned. No sessions are held in memory on the agent.
 
-### Endpoints
+### 🛣️ Endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -93,7 +93,7 @@ SSE endpoints emit one `event: message` per generated AI message (with a
 persona-aware `typing_delay_sec` for realistic replay on the frontend) and a
 final `event: done` carrying the complete updated state.
 
-### Authentication
+### 🔐 Authentication
 
 Every route except `/health` is gated on a shared secret. Callers must
 send the configured `AGENT_INTERNAL_KEY` in an `X-Internal-Key` header;
@@ -113,7 +113,7 @@ curl -H "X-Internal-Key: $AGENT_INTERNAL_KEY" \
      http://localhost:8001/simulations
 ```
 
-### Minimal client example
+### 🧰 Minimal client example
 
 ```python
 import os
@@ -142,7 +142,7 @@ print(turn["messages"][-1])
 print(turn["goal_progress"])
 ```
 
-## Gradio Dev Console (`--serve gradio`)
+## 🎛️ Gradio Dev Console (`--serve gradio`)
 
 Browser UI at http://localhost:7860 with:
 
@@ -154,7 +154,7 @@ Browser UI at http://localhost:7860 with:
 Intended for developers iterating on personas, prompts, and graph behaviour —
 not as the backend's runtime target.
 
-## Docker
+## 🐳 Docker
 
 The `Dockerfile` builds a self-contained image that runs the agent. By
 default it starts the Gradio console on `7860`; override the command to run
@@ -176,7 +176,7 @@ docker run --rm -p 8000:8000 --env-file agent/.env careersim-agent \
 > commented out; run it standalone via `docker run` (above) until it's wired
 > back into the compose stack.
 
-## Configuration
+## ⚙️ Configuration
 
 Configuration is loaded from environment variables (or `.env`). See
 `.env.example` for the authoritative list; the most important knobs are:
@@ -197,7 +197,7 @@ Simulations and personas are pure data — edit `data/simulations.json`,
 `data/personas.json`, and the Markdown files under `data/documents/` to add or
 tune scenarios. No code changes required.
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 agent/
@@ -234,9 +234,9 @@ agent/
 └── .env.example
 ```
 
-## Testing
+## 🧪 Testing
 
-### Unit / contract tests
+### ✅ Unit / contract tests
 
 ```bash
 uv run pytest                 # Full suite
@@ -247,7 +247,7 @@ uv run pytest tests/test_api.py::TestStatelessness -v
 The tests mock the LangGraph runnable where appropriate, so the suite runs
 without an OpenAI API key.
 
-### End-to-end simulation runs (`test_simulation.py`)
+### 🎬 End-to-end simulation runs (`test_simulation.py`)
 
 `test_simulation.py` is a CLI harness that drives a complete simulation
 against the **running Gradio dev console** (`--serve gradio`, port 7860). It's
@@ -303,7 +303,7 @@ resistance instead of giving up at the first deflection. When you add a new
 simulation, also add a matching entry to `SIMULATION_PROMPTS` in
 `test_simulation.py` so `--auto` can drive it sensibly.
 
-## Development Notes
+## 📝 Development Notes
 
 - Both run modes share the same `ConversationService`, which is the single
   source of truth for graph invocation, (de)serialisation, and typing-delay
