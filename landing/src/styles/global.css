@@ -639,11 +639,19 @@ h1 {
   box-shadow: var(--shadow-2);
   color: var(--surface);
   display: inline-flex;
+  flex: 0 0 auto;
   font-family: 'Press Start 2P', monospace;
   font-size: 0.85rem;
   height: 56px;
   justify-content: center;
+  object-fit: cover;
+  object-position: center top;
+  overflow: hidden;
   width: 56px;
+}
+
+img.persona-avatar {
+  display: block;
 }
 
 .persona-avatar.tone-1 {

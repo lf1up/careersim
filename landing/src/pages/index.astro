@@ -14,12 +14,18 @@ const previewSessions = [
     id: 'negotiation',
     tabLabel: 'salary-negotiation',
     sessionTitle: 'salary-negotiation.session',
-    persona: { initials: 'MH', tone: 1, name: 'Maya', role: 'Hiring manager' },
-    meta: { mode: 'Negotiation', difficulty: 4, round: '02 / 05', time: '04:12' },
+    persona: {
+      avatar: '/avatars/brenda-vance-hr-manager.png',
+      initials: 'BV',
+      tone: 1,
+      name: 'Brenda',
+      role: 'HR manager',
+    },
+    meta: { mode: 'Negotiation', difficulty: 3, round: '02 / 05', time: '04:12' },
     messages: [
       {
         type: 'ai',
-        label: 'Maya · Hiring manager',
+        label: 'Brenda · HR manager',
         text: '“Your current offer is already at the top of our band. Why do you feel an adjustment is warranted?”',
       },
       {
@@ -28,7 +34,7 @@ const previewSessions = [
         text: '“I’m excited about the role. Based on scope and market data, I’d like to discuss a package closer to…”',
       },
     ],
-    typing: 'Maya is responding',
+    typing: 'Brenda is responding',
     scores: [
       { label: 'Clarity', value: 86 },
       { label: 'Confidence', value: 78 },
@@ -41,81 +47,99 @@ const previewSessions = [
     id: 'behavioral',
     tabLabel: 'behavioral-loop',
     sessionTitle: 'behavioral-loop.session',
-    persona: { initials: 'NR', tone: 2, name: 'Nina', role: 'Recruiter' },
+    persona: {
+      avatar: '/avatars/vikram-shah-pipeline-recruiter.png',
+      initials: 'VS',
+      tone: 2,
+      name: 'Vikram',
+      role: 'Recruiter',
+    },
     meta: { mode: 'Behavioral', difficulty: 3, round: '01 / 04', time: '02:47' },
     messages: [
       {
         type: 'ai',
-        label: 'Nina · Recruiter',
-        text: '“Tell me about a time you took ownership of a project that wasn’t going well — and what specifically you did.”',
+        label: 'Vikram · Recruiter',
+        text: '“Hey! Saw your profile and had to reach out 👋 — got 15 minutes for a quick chat about an exciting role?”',
       },
       {
         type: 'user',
         label: 'You',
-        text: '“We had a launch slipping three weeks. I scoped the risk myself, called the two engineers blocking us, and rebuilt the timeline by Tuesday…”',
+        text: '“Sure — before we set anything up, can you share the level, comp band, and hiring manager’s name?”',
       },
     ],
-    typing: 'Nina is responding',
+    typing: 'Vikram is responding',
     scores: [
       { label: 'Structure', value: 72 },
       { label: 'Specificity', value: 84 },
       { label: 'Impact', value: 79 },
     ],
-    tip: 'Lead with the outcome before the process. The “I did X” detail lands — keep it.',
+    tip: 'Good early pushback. Keep the tone friendly so he stays in the room while you qualify the role.',
     recording: '02:47',
   },
   {
     id: 'feedback',
     tabLabel: '1on1-feedback',
     sessionTitle: '1on1-feedback.session',
-    persona: { initials: 'SP', tone: 3, name: 'Sara', role: 'Peer' },
-    meta: { mode: '1:1 Repair', difficulty: 2, round: '01 / 03', time: '03:21' },
+    persona: {
+      avatar: '/avatars/chloe-davis-anxious-junior.png',
+      initials: 'CD',
+      tone: 3,
+      name: 'Chloe',
+      role: 'Anxious junior',
+    },
+    meta: { mode: '1:1 Coaching', difficulty: 3, round: '01 / 03', time: '03:21' },
     messages: [
       {
         type: 'ai',
-        label: 'Sara · Peer',
-        text: '“I just want to know — are we still good? I felt like that review came out of nowhere this morning.”',
+        label: 'Chloe · Anxious junior',
+        text: '“Sorry — I just want to make sure I got it right. Should I send the draft to the whole team first, or run it past you again?”',
       },
       {
         type: 'user',
         label: 'You',
-        text: '“I should have given you the heads-up before the meeting. That’s on me. What part landed worst for you?”',
+        text: '“Run it past me first this round so we can catch issues early. You don’t need permission — just flag what you’re worried about.”',
       },
     ],
-    typing: 'Sara is responding',
+    typing: 'Chloe is responding',
     scores: [
       { label: 'Empathy', value: 91 },
       { label: 'Clarity', value: 74 },
       { label: 'Tone', value: 88 },
     ],
-    tip: 'Solid repair opener. Don’t rush to solutions — let her name the worst part first.',
+    tip: 'Good coaching frame. Next, give her a clear “done looks like…” so she stops guessing.',
     recording: '03:21',
   },
   {
     id: 'pitch',
     tabLabel: 'exec-pitch',
     sessionTitle: 'exec-pitch.session',
-    persona: { initials: 'OE', tone: 4, name: 'Omar', role: 'VP' },
-    meta: { mode: 'Exec pitch', difficulty: 5, round: '03 / 03', time: '01:58' },
+    persona: {
+      avatar: '/avatars/marcus-whitfield-timeboxed-director.png',
+      initials: 'MW',
+      tone: 4,
+      name: 'Marcus',
+      role: 'VP of Engineering',
+    },
+    meta: { mode: 'Exec pitch', difficulty: 4, round: '03 / 03', time: '01:58' },
     messages: [
       {
         type: 'ai',
-        label: 'Omar · VP',
-        text: '“I don’t need the journey. Tell me what changed, what it cost, and what you’d do differently next quarter.”',
+        label: 'Marcus · VP of Engineering',
+        text: '“I’ve got about 15 minutes. What were you hoping to get out of this?”',
       },
       {
         type: 'user',
         label: 'You',
-        text: '“Two things changed. Activation jumped 18% after the onboarding rebuild — that cost six engineer-weeks. Net positive…”',
+        text: '“I’ll keep it tight. I read your post on platform consolidation — wanted your perspective on one specific tradeoff we’re facing.”',
       },
     ],
-    typing: 'Omar is responding',
+    typing: 'Marcus is responding',
     scores: [
       { label: 'Brevity', value: 81 },
       { label: 'Outcomes', value: 93 },
       { label: 'Tradeoffs', value: 70 },
     ],
-    tip: 'Tight intro. Name the tradeoff explicitly — execs reward visible cost/benefit thinking.',
+    tip: 'Strong anchor to a real post. Don’t pitch yourself yet — let him ask before you talk scope.',
     recording: '01:58',
   },
 ];
@@ -215,82 +239,88 @@ const useCases = [
 
 const personas = [
   {
-    handle: 'MAYA-HM',
-    initials: 'MH',
-    name: 'Maya',
-    role: 'Hiring manager · skeptical',
-    quote: '“Walk me through the offer math one more time. Why exactly do you think the band should move for you?”',
+    avatar: '/avatars/brenda-vance-hr-manager.png',
+    handle: 'BRENDA-HR',
+    initials: 'BV',
+    name: 'Brenda Vance',
+    role: 'HR manager · risk-averse',
+    quote: '“Can you walk me through how you’d handle a teammate who consistently misses deadlines?”',
     traits: [
-      { label: 'Negotiation', tone: 'pink' },
-      { label: 'Pushback x3', tone: 'yellow' },
-      { label: 'Comp band data', tone: 'blue' },
+      { label: 'Behavioral', tone: 'pink' },
+      { label: 'STAR drilldowns', tone: 'yellow' },
+      { label: 'Cultural fit', tone: 'blue' },
+    ],
+    badge: 'HR',
+  },
+  {
+    avatar: '/avatars/david-miller-skeptical-veteran.png',
+    handle: 'DAVID-VET',
+    initials: 'DM',
+    name: 'David Miller',
+    role: 'Senior analyst · skeptical veteran',
+    quote: '“I’ve seen this before. What data supports the assumption that this scope is even feasible?”',
+    traits: [
+      { label: 'Pushback', tone: 'pink' },
+      { label: 'Data-driven', tone: 'lime' },
+      { label: 'Pitch defense', tone: 'yellow' },
     ],
     badge: 'L+1',
   },
   {
-    handle: 'DEV-PM',
-    initials: 'DP',
-    name: 'Dev',
-    role: 'PM · time-poor, blunt',
-    quote: '“You\u2019ve got three minutes. Sell me on this scope without a slide deck. What\u2019s the riskiest assumption?”',
+    avatar: '/avatars/sarah-jenkins-overwhelmed-project-manager.png',
+    handle: 'SARAH-PM',
+    initials: 'SJ',
+    name: 'Sarah Jenkins',
+    role: 'PM · overwhelmed, people-pleaser',
+    quote: '“I know it’s a lot to ask, but could you possibly take this one off my plate? It would really help me out.”',
     traits: [
-      { label: 'Pitches', tone: 'lime' },
-      { label: 'Time pressure', tone: 'yellow' },
-      { label: 'Risk probing', tone: 'pink' },
-    ],
-    badge: 'Hard',
-  },
-  {
-    handle: 'SARA-PEER',
-    initials: 'SP',
-    name: 'Sara',
-    role: 'Peer · anxious about feedback',
-    quote: '“I just want to know — are we still good? I felt like that review came out of nowhere this morning.”',
-    traits: [
-      { label: 'Conflict', tone: 'blue' },
-      { label: 'Repair talks', tone: 'pink' },
-      { label: 'Active listening', tone: 'lime' },
+      { label: 'Saying no', tone: 'pink' },
+      { label: 'Boundaries', tone: 'blue' },
+      { label: 'Repair talks', tone: 'lime' },
     ],
     badge: 'Soft skills',
   },
   {
-    handle: 'OMAR-EXEC',
-    initials: 'OE',
-    name: 'Omar',
-    role: 'VP · cuts to outcomes',
-    quote: '“I don\u2019t need the journey. Tell me what changed, what it cost, and what you\u2019d do differently next quarter.”',
+    avatar: '/avatars/marcus-whitfield-timeboxed-director.png',
+    handle: 'MARCUS-VP',
+    initials: 'MW',
+    name: 'Marcus Whitfield',
+    role: 'VP · time-boxed, skeptical of networking',
+    quote: '“I’ve got about 15 minutes. What were you hoping to get out of this?”',
     traits: [
       { label: 'Skip-levels', tone: 'yellow' },
-      { label: 'Exec summary', tone: 'pink' },
+      { label: 'Exec brief', tone: 'pink' },
       { label: 'Outcome-focused', tone: 'blue' },
     ],
     badge: 'Exec',
   },
   {
-    handle: 'NINA-RCR',
-    initials: 'NR',
-    name: 'Nina',
-    role: 'Recruiter · scripted screen',
-    quote: '“Tell me about a time you took ownership of a project that wasn\u2019t going well — and what specifically you did.”',
+    avatar: '/avatars/vikram-shah-pipeline-recruiter.png',
+    handle: 'VIKRAM-RCR',
+    initials: 'VS',
+    name: 'Vikram Shah',
+    role: 'Recruiter · pipeline-pressured',
+    quote: '“Comp is competitive — happy to discuss live! Can you do tomorrow at 3 for a quick 15-min call?”',
     traits: [
-      { label: 'Behavioral', tone: 'pink' },
-      { label: 'STAR drilldowns', tone: 'yellow' },
-      { label: 'Cultural fit', tone: 'lime' },
+      { label: 'LinkedIn DMs', tone: 'pink' },
+      { label: 'Level probes', tone: 'yellow' },
+      { label: 'Comp questions', tone: 'lime' },
     ],
     badge: 'Screen',
   },
   {
-    handle: 'KAI-COACH',
-    initials: 'KC',
-    name: 'Kai',
-    role: 'Coach · post-session feedback',
-    quote: '“Two things worked, two didn\u2019t. Let\u2019s rerun the moment your voice tightened up at minute four.”',
+    avatar: '/avatars/chloe-davis-anxious-junior.png',
+    handle: 'CHLOE-JR',
+    initials: 'CD',
+    name: 'Chloe Davis',
+    role: 'Junior · eager, anxious to please',
+    quote: '“Yes, absolutely! Sorry — just to be sure, you want me to take this all the way through to launch?”',
     traits: [
-      { label: 'Replay', tone: 'lime' },
-      { label: 'Drill mode', tone: 'blue' },
-      { label: 'Scorecards', tone: 'yellow' },
+      { label: 'Delegation', tone: 'lime' },
+      { label: 'Clarity checks', tone: 'blue' },
+      { label: 'Coaching', tone: 'yellow' },
     ],
-    badge: 'Review',
+    badge: '1:1',
   },
 ];
 
@@ -537,7 +567,19 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
               >
                 <div class="preview-body">
                   <aside class="persona-rail" aria-label="Active persona">
-                    <span class={`persona-avatar tone-${session.persona.tone}`} aria-hidden="true">{session.persona.initials}</span>
+                    {session.persona.avatar ? (
+                      <img
+                        class={`persona-avatar tone-${session.persona.tone}`}
+                        src={session.persona.avatar}
+                        alt={`${session.persona.name} — ${session.persona.role}`}
+                        width="56"
+                        height="56"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <span class={`persona-avatar tone-${session.persona.tone}`} aria-hidden="true">{session.persona.initials}</span>
+                    )}
                     <div>
                       <p class="persona-name">{session.persona.name}</p>
                       <p class="persona-role">{session.persona.role}</p>
@@ -679,7 +721,19 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
                 <span class="badge-mini">{p.badge}</span>
               </div>
               <div class="persona-head">
-                <span class="persona-avatar" aria-hidden="true">{p.initials}</span>
+                {p.avatar ? (
+                  <img
+                    class="persona-avatar"
+                    src={p.avatar}
+                    alt={`${p.name} — ${p.role}`}
+                    width="56"
+                    height="56"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  <span class="persona-avatar" aria-hidden="true">{p.initials}</span>
+                )}
                 <div>
                   <h3>{p.name}</h3>
                   <p class="persona-role">{p.role}</p>
