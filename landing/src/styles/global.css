@@ -377,13 +377,13 @@ h1 {
   color: var(--ink);
   display: inline-block;
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.6em;
+  font-size: 0.7em;
   font-weight: 400;
   letter-spacing: 0.06em;
-  line-height: 1;
+  line-height: 2;
   position: relative;
   text-transform: lowercase;
-  top: -0.06em;
+  top: 0.07em;
   white-space: nowrap;
 }
 
