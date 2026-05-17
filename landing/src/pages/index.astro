@@ -9,69 +9,348 @@ const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.local/regis
 const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
 const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
 
+const previewSessions = [
+  {
+    id: 'negotiation',
+    tabLabel: 'salary-negotiation',
+    sessionTitle: 'salary-negotiation.session',
+    persona: { initials: 'MH', tone: 1, name: 'Maya', role: 'Hiring manager' },
+    meta: { mode: 'Negotiation', difficulty: 4, round: '02 / 05', time: '04:12' },
+    messages: [
+      {
+        type: 'ai',
+        label: 'Maya · Hiring manager',
+        text: '“Your current offer is already at the top of our band. Why do you feel an adjustment is warranted?”',
+      },
+      {
+        type: 'user',
+        label: 'You',
+        text: '“I’m excited about the role. Based on scope and market data, I’d like to discuss a package closer to…”',
+      },
+    ],
+    typing: 'Maya is responding',
+    scores: [
+      { label: 'Clarity', value: 86 },
+      { label: 'Confidence', value: 78 },
+      { label: 'Evidence', value: 91 },
+    ],
+    tip: 'Try naming a specific range earlier, then pause. You justified the ask well.',
+    recording: '04:12',
+  },
+  {
+    id: 'behavioral',
+    tabLabel: 'behavioral-loop',
+    sessionTitle: 'behavioral-loop.session',
+    persona: { initials: 'NR', tone: 2, name: 'Nina', role: 'Recruiter' },
+    meta: { mode: 'Behavioral', difficulty: 3, round: '01 / 04', time: '02:47' },
+    messages: [
+      {
+        type: 'ai',
+        label: 'Nina · Recruiter',
+        text: '“Tell me about a time you took ownership of a project that wasn’t going well — and what specifically you did.”',
+      },
+      {
+        type: 'user',
+        label: 'You',
+        text: '“We had a launch slipping three weeks. I scoped the risk myself, called the two engineers blocking us, and rebuilt the timeline by Tuesday…”',
+      },
+    ],
+    typing: 'Nina is responding',
+    scores: [
+      { label: 'Structure', value: 72 },
+      { label: 'Specificity', value: 84 },
+      { label: 'Impact', value: 79 },
+    ],
+    tip: 'Lead with the outcome before the process. The “I did X” detail lands — keep it.',
+    recording: '02:47',
+  },
+  {
+    id: 'feedback',
+    tabLabel: '1on1-feedback',
+    sessionTitle: '1on1-feedback.session',
+    persona: { initials: 'SP', tone: 3, name: 'Sara', role: 'Peer' },
+    meta: { mode: '1:1 Repair', difficulty: 2, round: '01 / 03', time: '03:21' },
+    messages: [
+      {
+        type: 'ai',
+        label: 'Sara · Peer',
+        text: '“I just want to know — are we still good? I felt like that review came out of nowhere this morning.”',
+      },
+      {
+        type: 'user',
+        label: 'You',
+        text: '“I should have given you the heads-up before the meeting. That’s on me. What part landed worst for you?”',
+      },
+    ],
+    typing: 'Sara is responding',
+    scores: [
+      { label: 'Empathy', value: 91 },
+      { label: 'Clarity', value: 74 },
+      { label: 'Tone', value: 88 },
+    ],
+    tip: 'Solid repair opener. Don’t rush to solutions — let her name the worst part first.',
+    recording: '03:21',
+  },
+  {
+    id: 'pitch',
+    tabLabel: 'exec-pitch',
+    sessionTitle: 'exec-pitch.session',
+    persona: { initials: 'OE', tone: 4, name: 'Omar', role: 'VP' },
+    meta: { mode: 'Exec pitch', difficulty: 5, round: '03 / 03', time: '01:58' },
+    messages: [
+      {
+        type: 'ai',
+        label: 'Omar · VP',
+        text: '“I don’t need the journey. Tell me what changed, what it cost, and what you’d do differently next quarter.”',
+      },
+      {
+        type: 'user',
+        label: 'You',
+        text: '“Two things changed. Activation jumped 18% after the onboarding rebuild — that cost six engineer-weeks. Net positive…”',
+      },
+    ],
+    typing: 'Omar is responding',
+    scores: [
+      { label: 'Brevity', value: 81 },
+      { label: 'Outcomes', value: 93 },
+      { label: 'Tradeoffs', value: 70 },
+    ],
+    tip: 'Tight intro. Name the tradeoff explicitly — execs reward visible cost/benefit thinking.',
+    recording: '01:58',
+  },
+];
+
+const activeSessionId = previewSessions[0].id;
+
+const heroMeta = [
+  'No credit card',
+  'Voice + text',
+  'Scored coaching',
+];
+
+const marquee = [
+  'Behavioral interviews',
+  'Salary negotiation',
+  'Performance reviews',
+  'Layoff conversations',
+  'PIP discussions',
+  'Promotion case',
+  'Pitching to execs',
+  'Saying no at work',
+  'Skip-level 1:1s',
+  'Recruiter screens',
+  'System design loop',
+  'Difficult feedback',
+];
+
+const stats = [
+  { eyebrow: 'Scenarios', value: '12+', label: 'High-stakes career moments — new ones every week.' },
+  { eyebrow: 'Personas', value: '8', label: 'Adaptive AI characters from cautious to combative.' },
+  { eyebrow: 'Feedback signals', value: '6', label: 'Scored on clarity, evidence, confidence, structure, tone, pacing.' },
+  { eyebrow: 'Replays', value: '∞', label: 'Practice the same moment until you actually own it.' },
+];
+
 const useCases = [
   {
     number: '01',
+    tag: 'Interview',
     title: 'Behavioral interviews',
     body: 'Answer with structure, evidence, and calm under follow-up pressure.',
     tone: 'yellow',
+    bullets: ['STAR-style answers', 'Follow-up drilldowns', 'Cultural-fit traps'],
+    difficulty: 3,
+    duration: '20 min',
   },
   {
     number: '02',
+    tag: 'Compensation',
     title: 'Salary negotiation',
-    body: 'Practice making a clear ask without sounding defensive or vague.',
-    tone: 'blue',
+    body: 'Make a clear ask without sounding defensive, vague, or apologetic.',
+    tone: 'accent',
+    bullets: ['Counter-offers', 'Equity & sign-on', 'Stay-or-walk lines'],
+    difficulty: 4,
+    duration: '15 min',
   },
   {
     number: '03',
+    tag: '1:1',
     title: 'Difficult feedback',
-    body: 'Stay grounded while receiving criticism or giving direct feedback.',
-    tone: 'white',
+    body: 'Stay grounded while receiving criticism — or giving it directly.',
+    tone: 'pink',
+    bullets: ['Receiving a low review', 'Coaching a struggling peer', 'Calling out behavior'],
+    difficulty: 3,
+    duration: '18 min',
   },
   {
     number: '04',
+    tag: 'Leadership',
     title: 'Pitching ideas',
-    body: 'Sharpen executive-ready narratives and handle objections live.',
-    tone: 'accent',
+    body: 'Sharpen exec-ready narratives and handle pushback live.',
+    tone: 'blue',
+    bullets: ['Project kickoffs', 'Scope defenses', 'Skip-level pitches'],
+    difficulty: 4,
+    duration: '20 min',
   },
   {
     number: '05',
+    tag: 'Network',
     title: 'LinkedIn networking',
     body: 'Triage recruiter DMs and earn a second touchpoint with senior strangers.',
-    tone: 'blue',
+    tone: 'lime',
+    bullets: ['Cold intros', 'Recruiter screens', 'Coffee-chat prep'],
+    difficulty: 2,
+    duration: '12 min',
+  },
+  {
+    number: '06',
+    tag: 'Conflict',
+    title: 'Saying no at work',
+    body: 'Push back on scope creep without burning capital with stakeholders.',
+    tone: 'yellow',
+    bullets: ['Scope refusals', 'Capacity guardrails', 'Reprioritization'],
+    difficulty: 3,
+    duration: '14 min',
+  },
+];
+
+const personas = [
+  {
+    handle: 'MAYA-HM',
+    initials: 'MH',
+    name: 'Maya',
+    role: 'Hiring manager · skeptical',
+    quote: '“Walk me through the offer math one more time. Why exactly do you think the band should move for you?”',
+    traits: [
+      { label: 'Negotiation', tone: 'pink' },
+      { label: 'Pushback x3', tone: 'yellow' },
+      { label: 'Comp band data', tone: 'blue' },
+    ],
+    badge: 'L+1',
+  },
+  {
+    handle: 'DEV-PM',
+    initials: 'DP',
+    name: 'Dev',
+    role: 'PM · time-poor, blunt',
+    quote: '“You\u2019ve got three minutes. Sell me on this scope without a slide deck. What\u2019s the riskiest assumption?”',
+    traits: [
+      { label: 'Pitches', tone: 'lime' },
+      { label: 'Time pressure', tone: 'yellow' },
+      { label: 'Risk probing', tone: 'pink' },
+    ],
+    badge: 'Hard',
+  },
+  {
+    handle: 'SARA-PEER',
+    initials: 'SP',
+    name: 'Sara',
+    role: 'Peer · anxious about feedback',
+    quote: '“I just want to know — are we still good? I felt like that review came out of nowhere this morning.”',
+    traits: [
+      { label: 'Conflict', tone: 'blue' },
+      { label: 'Repair talks', tone: 'pink' },
+      { label: 'Active listening', tone: 'lime' },
+    ],
+    badge: 'Soft skills',
+  },
+  {
+    handle: 'OMAR-EXEC',
+    initials: 'OE',
+    name: 'Omar',
+    role: 'VP · cuts to outcomes',
+    quote: '“I don\u2019t need the journey. Tell me what changed, what it cost, and what you\u2019d do differently next quarter.”',
+    traits: [
+      { label: 'Skip-levels', tone: 'yellow' },
+      { label: 'Exec summary', tone: 'pink' },
+      { label: 'Outcome-focused', tone: 'blue' },
+    ],
+    badge: 'Exec',
+  },
+  {
+    handle: 'NINA-RCR',
+    initials: 'NR',
+    name: 'Nina',
+    role: 'Recruiter · scripted screen',
+    quote: '“Tell me about a time you took ownership of a project that wasn\u2019t going well — and what specifically you did.”',
+    traits: [
+      { label: 'Behavioral', tone: 'pink' },
+      { label: 'STAR drilldowns', tone: 'yellow' },
+      { label: 'Cultural fit', tone: 'lime' },
+    ],
+    badge: 'Screen',
+  },
+  {
+    handle: 'KAI-COACH',
+    initials: 'KC',
+    name: 'Kai',
+    role: 'Coach · post-session feedback',
+    quote: '“Two things worked, two didn\u2019t. Let\u2019s rerun the moment your voice tightened up at minute four.”',
+    traits: [
+      { label: 'Replay', tone: 'lime' },
+      { label: 'Drill mode', tone: 'blue' },
+      { label: 'Scorecards', tone: 'yellow' },
+    ],
+    badge: 'Review',
   },
 ];
 
 const steps = [
   {
     title: 'Choose a simulation',
-    body: 'Select a career moment and persona difficulty.',
+    body: 'Pick a career moment, persona archetype, and difficulty.',
+    mini: ['12+ scenarios', '8 personas', '3 difficulties'],
+    tone: 'yellow',
   },
   {
     title: 'Practice live',
-    body: 'Respond naturally while the AI probes, redirects, and escalates.',
+    body: 'Respond out loud or in text while the AI probes, redirects, and escalates.',
+    mini: ['Voice or text', 'Real follow-ups', 'Pause & resume'],
+    tone: 'cyan',
   },
   {
     title: 'Review feedback',
-    body: 'See scores, coaching notes, and suggested follow-up drills.',
+    body: 'See scored signals, transcript notes, and a suggested follow-up drill.',
+    mini: ['6 scored signals', 'Transcript review', 'Next drill'],
+    tone: 'pink',
+  },
+];
+
+const testimonials = [
+  {
+    quote: 'I walked into my Stripe loop already used to being interrupted. The negotiation rerun alone got me +$22k.',
+    name: 'Daniel R.',
+    role: 'Senior PM · ex-Booking',
+    initials: 'DR',
+    tone: 'yellow',
+  },
+  {
+    quote: 'The feedback scoring was the unlock. It told me exactly when my answers turned vague — which is when I always lose interviewers.',
+    name: 'Priya S.',
+    role: 'Engineering manager',
+    initials: 'PS',
+    tone: 'blue',
+  },
+  {
+    quote: 'Rehearsing the layoff conversation twice in private was 100× better than reading another article about it.',
+    name: 'Marcus T.',
+    role: 'Director of Operations',
+    initials: 'MT',
+    tone: 'pink',
   },
 ];
 
 const faqs = [
   {
     question: 'Who is it for?',
-    answer:
-      'People preparing for interviews, promotions, negotiations, and difficult workplace conversations.',
+    answer: 'People preparing for interviews, promotions, negotiations, and difficult workplace conversations.',
   },
   {
     question: 'What makes it different?',
-    answer:
-      'It creates realistic pressure, not static tips. The feedback is tied to what you actually said.',
+    answer: 'It creates realistic pressure, not static tips. The feedback is tied to what you actually said.',
   },
   {
     question: 'Is it free to use?',
-    answer:
-      `${siteName} is free during the public beta. Practice as many interviews, negotiations, and workplace conversations as you want, no credit card required.`,
+    answer: `${siteName} is free during the public beta. Practice as many interviews, negotiations, and workplace conversations as you want, no credit card required.`,
   },
   {
     question: 'What can I practice?',
@@ -85,10 +364,28 @@ const faqs = [
   },
   {
     question: 'Is my practice data private?',
-    answer:
-      `Your sessions are tied to your account and used to power your feedback and progress. ${siteName} doesn't sell your transcripts, and you can delete your account and data at any time.`,
+    answer: `Your sessions are tied to your account and used to power your feedback and progress. ${siteName} doesn't sell your transcripts, and you can delete your account and data at any time.`,
   },
 ];
+
+const footerLinks = {
+  product: [
+    { label: 'Simulations', href: simulationsUrl },
+    { label: 'How it works', href: '#how-it-works' },
+    { label: 'Personas', href: '#personas' },
+    { label: 'FAQ', href: '#faq' },
+  ],
+  resources: [
+    { label: 'GitHub', href: githubUrl },
+    { label: 'Public roadmap', href: githubUrl },
+    { label: 'Contact', href: `mailto:${contactEmail}` },
+  ],
+  legal: [
+    { label: 'Privacy', href: '#' },
+    { label: 'Terms', href: '#' },
+    { label: 'Security', href: '#' },
+  ],
+};
 
 const pageTitle = `${siteName} | AI interview practice and workplace conversation simulator`;
 const pageDescription =
@@ -97,10 +394,7 @@ const pageDescription =
 const faqJsonLdEntries = faqs.map((faq) => ({
   '@type': 'Question',
   name: faq.question,
-  acceptedAnswer: {
-    '@type': 'Answer',
-    text: faq.answer,
-  },
+  acceptedAnswer: { '@type': 'Answer', text: faq.answer },
 }));
 
 const jsonLd = {
@@ -136,6 +430,8 @@ const jsonLd = {
     },
   ],
 };
+
+const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>`;
 ---
 
 <!doctype html>
@@ -156,28 +452,28 @@ const jsonLd = {
     <meta name="twitter:description" content={pageDescription} />
     <meta name="theme-color" content="#fffdf5" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>{pageTitle}</title>
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
   <body>
     <header class="site-header">
-      <a class="wordmark" href={siteUrl} aria-label={`${siteName} home`}>{siteName}</a>
+      <a class="wordmark" href={siteUrl} aria-label={`${siteName} home`}>
+        {siteName}
+        <span class="status-pill">Beta</span>
+      </a>
 
       <nav class="nav-links" aria-label="Landing page sections">
         <a href="#use-cases">Use cases</a>
+        <a href="#personas">Personas</a>
         <a href="#how-it-works">How it works</a>
         <a href="#faq">FAQ</a>
       </nav>
 
       <div class="header-actions">
         <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill-rule="evenodd"
-              clip-rule="evenodd"
-              d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
-            ></path>
-          </svg>
+          <Fragment set:html={githubIcon} />
         </a>
         <a class="button button-accent header-cta" href={appUrl}>Start practicing</a>
       </div>
@@ -185,139 +481,406 @@ const jsonLd = {
 
     <main>
       <section class="hero section-paper" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <p class="badge">Free public beta · AI career simulator</p>
-          <h1 id="hero-title">AI interview, salary negotiation, and workplace conversation simulator.</h1>
+        <div class="hero-copy" data-reveal>
+          <p class="badge"><span class="badge-emoji" aria-hidden="true">🎮</span>Free public beta · AI career simulator</p>
+          <h1 id="hero-title">
+            Rehearse <span class="hl-yellow">interviews</span>, <span class="hl-cyan">negotiations</span>, and <span class="hl-pink">tough 1:1s</span> — before they happen.
+          </h1>
           <p class="hero-subhead">
-            <span class="hero-highlight">{siteName}</span> is an AI career practice simulator for behavioral interviews, salary negotiations, performance feedback, and high-stakes workplace conversations — with realistic personas and instant coaching feedback.
+            <span class="pixel-name">{siteName}</span> is an AI career practice simulator for behavioral interviews, salary negotiations, performance feedback, and high-stakes workplace conversations — with adaptive personas and instant scored coaching.
           </p>
           <div class="hero-actions">
             <a class="button button-dark" href={appUrl}>Start practicing</a>
             <a class="button button-light" href={simulationsUrl}>See simulations</a>
           </div>
-          <p class="proof-strip">12+ scenarios · AI interview, negotiation, and feedback personas · scored coaching after every session</p>
+          <ul class="hero-meta" aria-label="Beta features">
+            {heroMeta.map((item) => (
+              <li class="hero-meta-item"><span class="check">✓</span>{item}</li>
+            ))}
+          </ul>
         </div>
 
-        <aside class="product-preview" aria-label={`${siteName} product preview`}>
+        <aside class="product-preview" aria-label={`${siteName} product preview`} data-reveal>
           <div class="window-bar">
             <span class="window-dot dot-red"></span>
             <span class="window-dot dot-yellow"></span>
             <span class="window-dot dot-green"></span>
-            <span class="session-title">salary-negotiation.session</span>
+            <span class="session-title" data-session-title>{previewSessions[0].sessionTitle}</span>
           </div>
 
-          <div class="preview-body">
-            <article class="message-card message-ai">
-              <p class="message-label">Maya · Hiring manager</p>
-              <p>“Your current offer is already at the top of our band. Why do you feel an adjustment is warranted?”</p>
-            </article>
+          <div class="preview-tabs" role="tablist" aria-label="Simulation library">
+            {previewSessions.map((session) => (
+              <button
+                type="button"
+                role="tab"
+                class={`tab-button ${session.id === activeSessionId ? 'is-active' : ''}`}
+                data-target={session.id}
+                data-session-title={session.sessionTitle}
+                aria-selected={session.id === activeSessionId ? 'true' : 'false'}
+                aria-controls={`panel-${session.id}`}
+                id={`tab-${session.id}`}
+                tabindex={session.id === activeSessionId ? 0 : -1}
+              >
+                {session.tabLabel}
+              </button>
+            ))}
+          </div>
 
-            <article class="message-card message-user">
-              <p class="message-label">You</p>
-              <p>“I’m excited about the role. Based on scope and market data, I’d like to discuss a package closer to...”</p>
-            </article>
+          <div class="preview-panels">
+            {previewSessions.map((session) => (
+              <div
+                class={`preview-panel ${session.id === activeSessionId ? 'is-active' : ''}`}
+                data-panel={session.id}
+                role="tabpanel"
+                id={`panel-${session.id}`}
+                aria-labelledby={`tab-${session.id}`}
+              >
+                <div class="preview-body">
+                  <aside class="persona-rail" aria-label="Active persona">
+                    <span class={`persona-avatar tone-${session.persona.tone}`} aria-hidden="true">{session.persona.initials}</span>
+                    <div>
+                      <p class="persona-name">{session.persona.name}</p>
+                      <p class="persona-role">{session.persona.role}</p>
+                    </div>
+                    <div class="persona-meta">
+                      <div class="persona-meta-row">
+                        <span>Mode</span>
+                        <span>{session.meta.mode}</span>
+                      </div>
+                      <div class="persona-meta-row">
+                        <span>Difficulty</span>
+                        <span class="difficulty-dots" aria-label={`Difficulty ${session.meta.difficulty} of 5`}>
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <span class={i < session.meta.difficulty ? 'is-on' : ''}></span>
+                          ))}
+                        </span>
+                      </div>
+                      <div class="persona-meta-row">
+                        <span>Round</span>
+                        <span>{session.meta.round}</span>
+                      </div>
+                      <div class="persona-meta-row">
+                        <span>Time</span>
+                        <span>{session.meta.time}</span>
+                      </div>
+                    </div>
+                  </aside>
 
-            <article class="feedback-card">
-              <p class="message-label">Feedback snapshot</p>
-              <strong>Clarity 86 · Confidence 78 · Evidence 91</strong>
-              <p>Try naming a specific range earlier, then pause. You justified the ask well.</p>
-            </article>
+                  <div class="preview-chat">
+                    {session.messages.map((m) => (
+                      <article class={`message-card message-${m.type}`}>
+                        <p class="message-label">{m.label}</p>
+                        <p>{m.text}</p>
+                      </article>
+                    ))}
+
+                    <div class="typing" aria-live="polite">
+                      <span>{session.typing}</span>
+                      <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                    </div>
+
+                    <article class="feedback-card">
+                      <p class="message-label">Live feedback snapshot</p>
+                      <div class="score-row">
+                        {session.scores.map((s) => (
+                          <div class="score-cell">
+                            <p class="score-label">{s.label}</p>
+                            <p class="score-value">{s.value}<small>/100</small></p>
+                            <div class="score-bar"><div style={`--w: ${s.value}%`}></div></div>
+                          </div>
+                        ))}
+                      </div>
+                      <p class="feedback-tip">{session.tip}</p>
+                    </article>
+                  </div>
+                </div>
+
+                <div class="preview-footer">
+                  <span class="left"><span class="live-dot" aria-hidden="true"></span>Recording · {session.recording}</span>
+                  <span class="right">
+                    <span class="kbd">Space</span> Pause
+                    <span class="kbd">R</span> Rerun
+                    <span class="kbd">Esc</span> Quit
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </aside>
       </section>
 
-      <section id="use-cases" class="use-cases section-white" aria-labelledby="use-cases-title">
-        <div class="section-heading centered">
+      <section class="marquee-strip" aria-label="Career scenarios covered">
+        <div class="marquee-label">Practice for</div>
+        <div class="marquee-track">
+          <div class="marquee-row">
+            {marquee.map((item) => (
+              <span class="marquee-item">{item}<span class="sep" aria-hidden="true">★</span></span>
+            ))}
+            {marquee.map((item) => (
+              <span class="marquee-item" aria-hidden="true">{item}<span class="sep">★</span></span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="stats-strip section-white" aria-label="Beta stats">
+        {stats.map((stat) => (
+          <div class="stat-card">
+            <p class="stat-eyebrow">{stat.eyebrow}</p>
+            <p class="stat-value">{stat.value}</p>
+            <p class="stat-label">{stat.label}</p>
+          </div>
+        ))}
+      </section>
+
+      <section id="use-cases" class="use-cases section-paper" aria-labelledby="use-cases-title">
+        <div class="section-heading centered" data-reveal>
           <p class="eyebrow">Practice the hard moments</p>
-          <h2 id="use-cases-title">An AI simulator for the career conversations that actually move the needle — interviews, negotiations, feedback, and pitches.</h2>
+          <h2 id="use-cases-title">The career conversations that actually move the needle.</h2>
+          <p>Interviews, negotiations, feedback, pitches, and pushback — rehearsed with adaptive personas so the words feel familiar before the room ever gets tense.</p>
         </div>
 
-        <div class="card-grid">
-          {
-            useCases.map((item) => (
-              <article class={`retro-card use-case-card tone-${item.tone}`}>
+        <div class="card-grid" data-reveal-stagger>
+          {useCases.map((item) => (
+            <article class={`use-case-card tone-${item.tone}`}>
+              <div class="case-head">
                 <p class="case-number">{item.number}</p>
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </article>
-            ))
-          }
+                <span class="case-tag">{item.tag}</span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+              <ul class="case-list">
+                {item.bullets.map((b) => <li>{b}</li>)}
+              </ul>
+              <p class="case-meta">
+                <span>Difficulty {Array.from({ length: 5 }).map((_, i) => (i < item.difficulty ? '●' : '○')).join('')}</span>
+                <span>~{item.duration}</span>
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="personas" class="personas section-white" aria-labelledby="personas-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">Meet the cast</p>
+          <h2 id="personas-title">AI personas that push back like real humans.</h2>
+          <p>Eight adaptive characters from cautious to combative — each with their own questioning style, attention budget, and tolerance for vagueness.</p>
+        </div>
+
+        <div class="persona-grid" data-reveal-stagger>
+          {personas.map((p) => (
+            <article class="persona-card">
+              <div class="repo-bar">
+                <span class="folder-icon" aria-hidden="true">◆</span>
+                <span class="handle">{p.handle}</span>
+                <span class="slash">/</span>
+                <span class="readme">README.md</span>
+                <span class="badge-mini">{p.badge}</span>
+              </div>
+              <div class="persona-head">
+                <span class="persona-avatar" aria-hidden="true">{p.initials}</span>
+                <div>
+                  <h3>{p.name}</h3>
+                  <p class="persona-role">{p.role}</p>
+                </div>
+              </div>
+              <div class="persona-body">
+                <p class="persona-quote">{p.quote}</p>
+              </div>
+              <div class="persona-traits">
+                {p.traits.map((t) => (
+                  <span class={`persona-trait is-${t.tone}`}>{t.label}</span>
+                ))}
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
       <section id="how-it-works" class="how-it-works section-paper" aria-labelledby="how-title">
-        <div class="section-heading">
+        <div class="section-heading" data-reveal>
           <p class="eyebrow">How it works</p>
-          <h2 id="how-title">Deliberate practice, not generic advice.</h2>
-          <p>
-            Pick an AI interview, negotiation, or workplace conversation simulation, talk with an adaptive persona, then get scored feedback that explains what improved and what to try next.
-          </p>
+          <h2 id="how-title">Deliberate practice. Not generic advice.</h2>
+          <p>Pick a simulation, talk with an adaptive persona, then get scored feedback that explains what improved and what to try next. Replay the same moment until it stops feeling scary.</p>
         </div>
 
-        <div class="steps">
-          {
-            steps.map((step, index) => (
-              <article class={`step-card ${index === 1 ? 'step-card-blue' : ''}`}>
-                <span class="step-number">{index + 1}</span>
-                <div>
-                  <h3>{step.title}</h3>
-                  <p>{step.body}</p>
+        <div class="steps" data-reveal-stagger>
+          {steps.map((step, index) => (
+            <article class={`step-card step-card-${step.tone}`}>
+              <span class="step-number">{String(index + 1).padStart(2, '0')}</span>
+              <div>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+                <div class="step-mini">
+                  {step.mini.map((m) => <span>{m}</span>)}
                 </div>
-              </article>
-            ))
-          }
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="testimonials section-white" aria-labelledby="testimonials-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">From the beta</p>
+          <h2 id="testimonials-title">Practice in private. Show up like you’ve done this before.</h2>
+        </div>
+
+        <div class="testimonial-grid" data-reveal-stagger>
+          {testimonials.map((t) => (
+            <article class={`testimonial-card tone-${t.tone}`}>
+              <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
+              <blockquote>{t.quote}</blockquote>
+              <div class="testimonial-author">
+                <span class="persona-avatar" aria-hidden="true">{t.initials}</span>
+                <div>
+                  <p class="testimonial-name">{t.name}</p>
+                  <p class="testimonial-role">{t.role}</p>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       </section>
 
       <section id="faq" class="cta-section" aria-labelledby="cta-title">
-        <div class="cta-panel">
+        <div class="cta-panel" data-reveal>
+          <span class="countdown" aria-label="Beta status"><strong>BETA</strong> · open · no credit card</span>
           <h2 id="cta-title">Walk into your next interview, negotiation, or 1:1 with a sharper first impression.</h2>
-          <p>
-            Rehearse with cautious hiring managers, skeptical stakeholders, and anxious teammates before the real conversation is on the line.
-          </p>
-          <a class="button button-dark" href={appUrl}>Join public beta</a>
+          <p>Rehearse with cautious hiring managers, skeptical stakeholders, and anxious teammates before the real conversation is on the line.</p>
+          <div class="cta-actions">
+            <a class="button button-dark" href={appUrl}>Join free public beta</a>
+            <a class="button button-light" href={simulationsUrl}>Browse simulations</a>
+          </div>
         </div>
 
-        <div class="faq-grid">
-          {
-            faqs.map((item) => {
-              const segments = item.answer.split(siteName);
-              return (
-                <article class="faq-card">
-                  <h3>{item.question}</h3>
-                  <p>
-                    {segments.map((segment, index) => (
-                      <>
-                        {segment}
-                        {index < segments.length - 1 && (
-                          <span class="brand-mark">{siteName}</span>
-                        )}
-                      </>
-                    ))}
-                  </p>
-                </article>
-              );
-            })
-          }
+        <div class="faq-grid" data-reveal-stagger>
+          {faqs.map((item) => {
+            const segments = item.answer.split(siteName);
+            return (
+              <article class="faq-card">
+                <h3>{item.question}</h3>
+                <p>
+                  {segments.map((segment, index) => (
+                    <>
+                      {segment}
+                      {index < segments.length - 1 && <span class="pixel-name">{siteName}</span>}
+                    </>
+                  ))}
+                </p>
+              </article>
+            );
+          })}
         </div>
 
         <footer class="site-footer">
-          <a class="footer-wordmark" href={siteUrl} aria-label={`${siteName} home`}>{siteName}</a>
-          <p class="footer-contact">
-            Have any questions? Send an email to <a href={`mailto:${contactEmail}`}>{contactEmail}</a>
-          </p>
-          <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill-rule="evenodd"
-                clip-rule="evenodd"
-                d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
-              ></path>
-            </svg>
-          </a>
+          <div class="footer-brand">
+            <a class="footer-wordmark" href={siteUrl} aria-label={`${siteName} home`}>{siteName}</a>
+            <p class="footer-blurb">An AI career simulator for the conversations that actually move the needle — interviews, negotiations, 1:1s.</p>
+            <div class="footer-socials">
+              <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
+                <Fragment set:html={githubIcon} />
+              </a>
+            </div>
+          </div>
+
+          <div class="footer-col">
+            <h4>Product</h4>
+            <ul>
+              {footerLinks.product.map((link) => (
+                <li><a href={link.href}>{link.label}</a></li>
+              ))}
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Resources</h4>
+            <ul>
+              {footerLinks.resources.map((link) => (
+                <li><a href={link.href}>{link.label}</a></li>
+              ))}
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Legal</h4>
+            <ul>
+              {footerLinks.legal.map((link) => (
+                <li><a href={link.href}>{link.label}</a></li>
+              ))}
+            </ul>
+          </div>
         </footer>
+
+        <div class="footer-bottom">
+          <span>© 2026 {siteName} · All rights reserved</span>
+          <span>Built with care · <a href={`mailto:${contactEmail}`}>{contactEmail}</a></span>
+        </div>
       </section>
     </main>
+
+    <script is:inline>
+      (() => {
+        if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+          document.querySelectorAll('[data-reveal], [data-reveal-stagger]').forEach((el) => {
+            el.classList.add('is-visible');
+          });
+          return;
+        }
+
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                io.unobserve(entry.target);
+              }
+            }
+          },
+          { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+        );
+
+        document.querySelectorAll('[data-reveal], [data-reveal-stagger]').forEach((el) => {
+          io.observe(el);
+        });
+
+        const tabs = document.querySelectorAll('.tab-button');
+        const panels = document.querySelectorAll('.preview-panel');
+        const sessionTitleEl = document.querySelector('[data-session-title]');
+
+        const activateTab = (tab) => {
+          const target = tab.dataset.target;
+          if (!target) return;
+
+          tabs.forEach((t) => {
+            const isActive = t === tab;
+            t.classList.toggle('is-active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            t.setAttribute('tabindex', isActive ? '0' : '-1');
+          });
+
+          panels.forEach((panel) => {
+            panel.classList.toggle('is-active', panel.dataset.panel === target);
+          });
+
+          if (sessionTitleEl && tab.dataset.sessionTitle) {
+            sessionTitleEl.textContent = tab.dataset.sessionTitle;
+          }
+        };
+
+        tabs.forEach((tab, index) => {
+          tab.addEventListener('click', () => activateTab(tab));
+          tab.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+            event.preventDefault();
+            const direction = event.key === 'ArrowRight' ? 1 : -1;
+            const next = tabs[(index + direction + tabs.length) % tabs.length];
+            activateTab(next);
+            next.focus();
+          });
+        });
+      })();
+    </script>
+
     <Analytics />
   </body>
 </html>
