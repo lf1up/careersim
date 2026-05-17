@@ -1,4 +1,4 @@
-# CareerSIM — AI-Powered Career Skills Simulator
+# 🎮 CareerSIM — AI-Powered Career Skills Simulator
 
 **CareerSIM** is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
 
@@ -9,7 +9,7 @@ The platform empowers users to build confidence and competence for career-defini
 > [!NOTE]
 > **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
 
-## Architecture
+## 🏗️ Architecture
 
 CareerSIM runs as three first-party services plus shared infrastructure. The API owns all persistence; the agent is a pure function of its inputs (full state snapshot in, new messages + updated state out) — this makes replay, testing, and horizontal scaling straightforward.
 
@@ -50,7 +50,7 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
 | **redis**    | Redis 7                                                                  | Present in compose for future rate-limiting / pub-sub work.                                                                                                                                         |
 
 
-### Deprecated services (kept for reference)
+### 🪦 Deprecated services (kept for reference)
 
 
 | Legacy directory                                                       | Replaced by | Notes                                                                                                   |
@@ -63,7 +63,7 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
 
 Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top of its README. They are also commented out in `docker-compose.local.yml` under a deprecation block and will be removed in a future clean-up pass.
 
-## Project Structure
+## 📁 Project Structure
 
 ```text
 careersim/
@@ -95,16 +95,16 @@ careersim/
 └── README.md                   # (this file)
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
-### Prerequisites
+### 📋 Prerequisites
 
 - **Docker** + **Docker Compose** (for the one-shot path)
 - **Node.js ≥ 22.12** for `api/`; **Node.js ≥ 20** for `landing/` and `web/`; **pnpm ≥ 10**
 - **Python ≥ 3.11** + `[uv](https://docs.astral.sh/uv/)` (for running `agent/` outside Docker)
 - An **OpenAI-compatible API key** (OpenAI, OpenRouter, …) for the agent
 
-### Local development with Docker Compose
+### 🐳 Local development with Docker Compose
 
 ```bash
 # 1. Configure each service's .env (all three are required)
@@ -132,7 +132,7 @@ This starts:
 
 The `api` container runs Drizzle migrations on start; no manual seeding needed. Register a new user from the web UI (there is **no default admin account** — that concept belonged to the legacy `backend/`).
 
-### Running a service outside Docker
+### 💻 Running a service outside Docker
 
 Useful when you want a faster hot-reload loop for a single service. Each subdirectory has its own README with detailed flags.
 
@@ -155,17 +155,17 @@ cd agent && uv run python -m careersim_agent.main            # :7860
 
 When mixing Docker + host, point each service at the others via `host.docker.internal` / `localhost` as appropriate — see `docker-compose.local.yml` for the canonical wiring.
 
-## Core Features
+## ✨ Core Features
 
-### Simulation library
+### 📚 Simulation library
 
 Nine first-party simulations shipped in `agent/data/simulations.json`, each bound to a persona with its own hidden goals, difficulty, and success criteria. The web app lists them at `/simulations`.
 
-### Live chat with SSE streaming
+### 💬 Live chat with SSE streaming
 
 The `api` exposes `POST /sessions/:id/messages/stream`, which proxies the agent's SSE stream end-to-end. The web client shows an optimistic echo of the user's message, renders a typing indicator until the first AI chunk lands, then streams the reply token-by-token. Persistence happens exactly once when the upstream emits `done`.
 
-### LangGraph conversation engine
+### 🤖 LangGraph conversation engine
 
 Stateful graph inside `agent/`:
 
@@ -173,27 +173,27 @@ Stateful graph inside `agent/`:
 - Proactive messages are explicit graph branches: `start` (conversation opener, fired during session init), `followup` (multi-message burst, capped by `burstiness.max`), and `inactivity` (guardrailed nudge).
 - Fully stateless at the API boundary — the caller-owned `state_snapshot` is sent on every turn, mirroring the `TestStatelessness` suite in `agent/tests/test_api.py`.
 
-### Inactivity nudges (pull model)
+### 👋 Inactivity nudges (pull model)
 
 The `api` exposes `POST /sessions/:id/nudge`; the server decides idempotently whether to fire based on the persona's `inactivityNudgeDelaySec` window and `inactivityNudges.max` budget. The web client polls every 5 s while idle and stops automatically when the server returns `nudges_disabled` or `budget_exhausted`, re-arming on the next human reply. See `api/README.md` for the exact contract.
 
-### Follow-up bursts
+### 🔁 Follow-up bursts
 
 `POST /sessions/:id/proactive/stream` drives persona-initiated follow-ups capped by `burstiness.max - 1` additional messages. The web UI exposes this behind a "Follow up" button and surfaces the cap as a `{N} followups max` badge alongside typing speed and nudge count.
 
-### Retrieval-Augmented Generation (embedded)
+### 🔎 Retrieval-Augmented Generation (embedded)
 
 Per-simulation and per-persona Markdown under `agent/data/documents/` is indexed into a persisted Chroma store (volume `agent_chroma_db`). No separate HTTP hop.
 
-### Per-turn evaluation
+### 📊 Per-turn evaluation
 
 Sentiment and emotion for both sides of the conversation, plus per-goal progress with confidence scoring, computed by a cheaper eval model (`OPENAI_EVAL_MODEL`) on every turn. Results are persisted to the session's `analysis` + `goal_progress` columns and returned in `GET /sessions/:id`.
 
-### Authentication
+### 🔐 Authentication
 
 Email + password → JWT bearer (stored in `localStorage` on the web side; `Authorization: Bearer` on every request). Passwords hashed with argon2id. No refresh tokens, email verification, or Stripe billing — all of that lived in the deprecated `backend/` and has not been re-implemented.
 
-## AI Personas
+## 🎭 AI Personas
 
 Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that the runtime surfaces in `GET /sessions/:id.session_config` and the web UI badges.
 
@@ -213,7 +213,7 @@ Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that 
 
 See [PERSONAS.md](PERSONAS.md) for the full persona definitions, hidden goals, and success criteria.
 
-## End-to-end simulation testing
+## 🧪 End-to-end simulation testing
 
 `agent/test_simulation.py` is a CLI harness for running a complete simulation end-to-end against the agent's **Gradio dev console** — useful for sanity-checking a new persona, a tweaked goal, or an evaluation-threshold change without clicking through the UI turn-by-turn. Two modes: **interactive** (you type the user's side) or **`--auto`** (an OpenAI-driven candidate plays the user side using a per-simulation strategy prompt baked into the script). The full transcript and per-turn goal-progress snapshots can be written to `agent/logs/` with `--log` and exported as JSON with `--json`.
 
@@ -227,7 +227,7 @@ cd agent && uv run python test_simulation.py \
 
 See [agent/README.md](agent/README.md#end-to-end-simulation-runs-test_simulationpy) for the full flag table and the convention for adding `SIMULATION_PROMPTS` entries when introducing a new simulation.
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 
 | Layer          | Technology                                                                                                                                        |
@@ -242,20 +242,20 @@ See [agent/README.md](agent/README.md#end-to-end-simulation-runs-test_simulation
 | Infrastructure | Docker, Docker Compose; Terraform (AWS) and Kustomize (K8s) checked in but targeting the legacy layout                                            |
 
 
-## Infrastructure
+## ☁️ Infrastructure
 
-### AWS (Terraform) — `infrastructure/aws/`
+### 🟧 AWS (Terraform) — `infrastructure/aws/`
 
 Production-ready ECS Fargate topology with VPC, ALB, RDS PostgreSQL, ElastiCache Redis, EFS, Cloud Map service discovery, and optional GPU instances for the deprecated `transformers` service. Currently wired for the **legacy** `backend` + `frontend` + `transformers` + `rag` stack and has **not** been updated for `api` + `web` + `agent`.
 
-### Kubernetes (Kustomize) — `infrastructure/k8s/`
+### ⚓ Kubernetes (Kustomize) — `infrastructure/k8s/`
 
 Self-hosted deployment with dev and prod overlays, StatefulSets for databases, and GPU scheduling. Same caveat as above — it targets the legacy layout.
 
 > [!IMPORTANT]
 > Both infrastructure trees need a pass before a production deploy of the new stack. The local `docker-compose.local.yml` is the canonical topology in the meantime.
 
-## Development Loops
+## 🔄 Development Loops
 
 ```bash
 # From the repo root
@@ -287,7 +287,7 @@ cd agent && uv run python test_simulation.py \
   --sim recruiter-coldreach-vikram --auto --log --json
 ```
 
-## Roadmap
+## 🗺️ Roadmap
 
 - **Port infrastructure to the new stack** — Terraform + Kustomize for `api` / `web` / `agent`.
 - **Remove the deprecated directories** once the migration is considered complete and nothing still references them.
@@ -304,10 +304,10 @@ cd agent && uv run python test_simulation.py \
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License — see the [LICENSE.md](LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))
