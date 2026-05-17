@@ -1,8 +1,17 @@
-## AWS Infrastructure (Terraform) — Deployment Guide
+## ☁️ AWS Infrastructure (Terraform) — Deployment Guide
+
+> [!WARNING]
+> **OUTDATED — targets the legacy stack.**
+>
+> This Terraform module was authored for the deprecated [`backend/`](../../backend) + [`frontend/`](../../frontend) + [`rag/`](../../rag) + [`transformers/`](../../transformers) services and has **not** been updated for the current [`api/`](../../api) + [`web/`](../../web) + [`agent/`](../../agent) runtime. Task definitions, container images, service discovery names, env vars, and secrets all still assume the old service topology.
+>
+> - **Current runtime:** [`api/`](../../api) + [`web/`](../../web) + [`agent/`](../../agent)
+> - **Status:** kept as a reference template; needs a port before it can deploy the new stack
+> - **Do not deploy as-is to production.**
 
 This directory contains Terraform code to provision the production-ready AWS infrastructure for Careersim.
 
-### What gets created
+### 🛠️ What gets created
 - **Network**: VPC, 2 public subnets, 2 private subnets, Internet Gateway, NAT Gateway, routing
 - **Security**: Security groups for ALB, services (ECS tasks), RDS, Redis, EFS; IAM roles for ECS tasks and execution
 - **Storage**: RDS PostgreSQL, ElastiCache Redis, EFS with a dedicated Access Point for uploads
@@ -15,7 +24,7 @@ Outputs include the ALB DNS name and a convenience `backend_service_url`.
 
 ---
 
-## Prerequisites
+## 📋 Prerequisites
 - Terraform >= 1.6
 - AWS CLI v2, configured with credentials and default region having sufficient permissions
 - Docker (to build application images)
@@ -30,7 +39,7 @@ export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 ---
 
-## Build and push container images (ECR)
+## 📦 Build and push container images (ECR)
 You must push images to ECR, then reference the image URIs in Terraform.
 
 1) Create ECR repositories (idempotent):
@@ -77,7 +86,7 @@ Record the three image URIs for use in `terraform.tfvars`.
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 All configurable inputs live in `variables.tf`. Key settings include:
 - `project`, `environment`, `aws_region`, `vpc_cidr`, `public_subnet_cidrs`, `private_subnet_cidrs`
 - Container images and toggles: `container_image_backend`, `container_image_rag`, `container_image_transformers`, `enable_rag_service`, `enable_transformers_service`
@@ -87,7 +96,7 @@ All configurable inputs live in `variables.tf`. Key settings include:
 
 > Secrets are passed to the backend task as environment variables. This repo also includes a `secrets` module which stores them in AWS Secrets Manager for centralization, though the app tasks read from environment variables provided by Terraform.
 
-### Example terraform.tfvars
+### 📝 Example terraform.tfvars
 Create `infrastructure/aws/terraform.tfvars` (do not commit sensitive values):
 ```hcl
 project       = "careersim"
@@ -149,7 +158,7 @@ allowed_origins = "https://yourapp.vercel.app,https://*.vercel.app"
 
 ---
 
-## Deploy
+## 🚀 Deploy
 From this directory (`infrastructure/aws`):
 ```bash
 terraform init
@@ -168,7 +177,7 @@ Once applied, the backend should be reachable at the `backend_service_url` (ALB 
 
 ---
 
-## Post-deploy checks
+## ✅ Post-deploy checks
 - Confirm `aws ecs list-services` shows services as ACTIVE and healthy
 - In AWS Console → EC2 → Target Groups, verify targets are healthy
 - Check logs in CloudWatch Log Groups `/ecs/<project>-<env>-*`
@@ -177,14 +186,14 @@ Once applied, the backend should be reachable at the `backend_service_url` (ALB 
 
 ---
 
-## Operations
+## 🛠️ Operations
 - Scaling: Backend and Transformers services have target-tracking scaling (CPU 60%, min 1, max 2)
 - Service discovery: Backend resolves `transformers.local:8001` and `rag.local:8002` via Cloud Map if those services are enabled
 - File uploads: Backend mounts EFS via an Access Point at `/app/uploads`
 
 ---
 
-## Cleanup
+## 🧹 Cleanup
 Destroy the environment:
 ```bash
 terraform destroy
@@ -194,7 +203,7 @@ terraform destroy
 
 ---
 
-## Troubleshooting
+## 🐛 Troubleshooting
 - ALB 502/503: Check target group health, security groups, container logs
 - CORS errors: Update `allowed_origins`
 - Transformers cost: Set `transformers_use_gpu = false` to use Fargate instead of GPU EC2
@@ -202,10 +211,10 @@ terraform destroy
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

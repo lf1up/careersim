@@ -1,4 +1,4 @@
-# CareerSIM Frontend
+# 🪦 CareerSIM Frontend
 
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
@@ -11,12 +11,12 @@
 
 A React TypeScript frontend for the CareerSIM professional simulation platform, featuring a retro-themed UI with dark mode support.
 
-## Prerequisites
+## 📋 Prerequisites
 
 - Node.js >= 22.0.0
 - pnpm >= 10.0.0
 
-## Quick Start
+## 🚀 Quick Start
 
 1. **Install dependencies:**
    ```bash
@@ -35,7 +35,7 @@ A React TypeScript frontend for the CareerSIM professional simulation platform, 
 
 The frontend will run on `http://localhost:3000` by default.
 
-## Environment Configuration
+## ⚙️ Environment Configuration
 
 Copy `.env.example` to `.env` and configure the following variables:
 
@@ -43,7 +43,7 @@ Copy `.env.example` to `.env` and configure the following variables:
 - `VITE_API_URL=http://localhost:8000/api` -- Backend API URL
 - `VITE_SOCKET_URL=http://localhost:8000` -- Socket.IO server URL
 
-## Available Scripts
+## 🛠️ Available Scripts
 
 - `pnpm dev` -- Start development server
 - `pnpm build` -- Build for production (TypeScript compile + Vite build)
@@ -51,7 +51,7 @@ Copy `.env.example` to `.env` and configure the following variables:
 - `pnpm preview` -- Preview production build
 - `pnpm security` -- Run security-focused lint rules
 
-## Tech Stack
+## 🧱 Tech Stack
 
 - **React 18** with TypeScript
 - **React Router 6** for routing
@@ -63,7 +63,7 @@ Copy `.env.example` to `.env` and configure the following variables:
 - **React Hook Form + Yup** for form handling and validation
 - **React Markdown** for rendering markdown content
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/
@@ -119,13 +119,13 @@ src/
 └── App.tsx                      # Root component with routing
 ```
 
-## Routes
+## 🛣️ Routes
 
-### Public Routes
+### 🌍 Public Routes
 - `/login` -- Login page
 - `/register` -- Registration page
 
-### Protected Routes (authenticated users)
+### 🔐 Protected Routes (authenticated users)
 - `/dashboard` -- User home dashboard
 - `/simulations` -- Browse simulation library
 - `/simulations/:id` -- Simulation detail and chat
@@ -135,7 +135,7 @@ src/
 - `/analytics` -- Performance analytics
 - `/profile` -- User profile
 
-### Admin Routes (admin role required)
+### 👮 Admin Routes (admin role required)
 - `/admin` -- Admin dashboard
 - `/admin/users` -- User management
 - `/admin/simulations` -- Simulation management
@@ -144,7 +144,7 @@ src/
 - `/admin/export` -- Data export
 - `/admin/system` -- System configuration
 
-## Development
+## 🧑‍💻 Development
 
 Make sure the backend server is running on `http://localhost:8000` before starting the frontend development server.
 
@@ -152,10 +152,10 @@ The frontend will proxy API requests to the backend during development.
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

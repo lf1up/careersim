@@ -1,8 +1,17 @@
-# Standalone Transformers Service (AWS ECS + ALB)
+# ☁️ Standalone Transformers Service (AWS ECS + ALB)
+
+> [!WARNING]
+> **OUTDATED — deploys a deprecated service.**
+>
+> This Terraform module deploys the standalone [`transformers/`](../../transformers) microservice, which is itself **deprecated** and no longer part of the runtime architecture. Classification and inference concerns have been consolidated into the unified [`agent/`](../../agent) service.
+>
+> - **Replacement:** [`agent/`](../../agent) (handles model orchestration in-process; no separate deployment needed)
+> - **Status:** kept as a reference for spinning up legacy environments only
+> - **Do not deploy for new environments.**
 
 Deploy the Transformers microservice independently. This stack provisions (or reuses) a VPC, ECS Fargate cluster/task/service, and a public ALB that exposes port 80 → container port 8001.
 
-## Inputs
+## 📥 Inputs
 
 - `container_image_transformers` (required): ECR image URI, e.g. `123456789012.dkr.ecr.us-east-1.amazonaws.com/transformers:latest`
 - `transformers_auth_token` (required): Bearer token for the service
@@ -10,7 +19,7 @@ Deploy the Transformers microservice independently. This stack provisions (or re
 - Network reuse (optional): `vpc_id`, `public_subnet_ids`, `private_subnet_ids`
 - Or create new VPC via: `vpc_cidr`, `public_subnet_cidrs`, `private_subnet_cidrs`
 
-## Usage
+## 🔧 Usage
 
 ```hcl
 terraform {
@@ -50,21 +59,21 @@ terraform apply -auto-approve \
   -var transformers_auth_token=$AUTH_TOKEN
 ```
 
-## Outputs
+## 📤 Outputs
 
 - `alb_dns_name`: Public URL of the service, e.g. `http://<alb-dns-name>`
 
-## Notes
+## 📝 Notes
 
 - Container port is 8001; health check path is `/health`.
  - Fargate-only for simplicity; GPU support is not included in this module.
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

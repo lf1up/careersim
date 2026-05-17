@@ -185,3 +185,13 @@ challenge payload.
   a "pending assistant" buffer while rendering; when the `done` event arrives,
   the full `SessionDetail` from the API replaces local state — so persistence
   and canonical ordering come straight from the server.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## 👤 Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

@@ -1,4 +1,13 @@
-## K8S Infrastructure (Terraform) — Deployment Guide (self-hosted)
+## ⚓ K8S Infrastructure (Terraform) — Deployment Guide (self-hosted)
+
+> [!WARNING]
+> **OUTDATED — targets the legacy stack.**
+>
+> These Kustomize bases and overlays were authored for the deprecated [`backend/`](../../backend) + [`frontend/`](../../frontend) + [`rag/`](../../rag) + [`transformers/`](../../transformers) services and have **not** been updated for the current [`api/`](../../api) + [`web/`](../../web) + [`agent/`](../../agent) runtime. Deployments, services, env vars, and secrets all still assume the old service topology.
+>
+> - **Current runtime:** [`api/`](../../api) + [`web/`](../../web) + [`agent/`](../../agent)
+> - **Status:** kept as a reference template; needs a port before it can deploy the new stack
+> - **Do not deploy as-is to production.**
 
 This directory provides a plain Kubernetes setup using Kustomize, mirroring the AWS Terraform layout:
 
@@ -9,7 +18,7 @@ This directory provides a plain Kubernetes setup using Kustomize, mirroring the 
 - Persistent volume claim for uploads
 - Kustomize overlays for `dev` and `prod`
 
-### Structure
+### 📁 Structure
 
 ```
 infrastructure/k8s/
@@ -36,14 +45,14 @@ infrastructure/k8s/
       ingress.yaml              # TLS ingress for api.careersim.local (cert-manager)
 ```
 
-### Prereqs
+### 📋 Prereqs
 
 - A Kubernetes cluster (e.g., kind, k3d, k3s, GKE, EKS, etc.)
 - `kubectl` and `kustomize` (kubectl has `-k` built-in)
 - Ingress controller (for dev overlay paths): NGINX ingress or similar
 - Storage class available for PVCs
 
-### Quick start (dev)
+### 🚀 Quick start (dev)
 
 1. Apply dev overlay:
    ```bash
@@ -58,7 +67,7 @@ infrastructure/k8s/
    kubectl -n careersim port-forward svc/dev-backend 8000:8000
    ```
 
-### Production overlay
+### 🛡️ Production overlay
 
 The prod overlay uses GHCR container images (`ghcr.io/lf1up/careersim`), TLS ingress via cert-manager for `api.careersim.local`, and separate secret values. Before applying, update secrets and image tags in `overlays/prod/kustomization.yaml`.
 
@@ -66,7 +75,7 @@ The prod overlay uses GHCR container images (`ghcr.io/lf1up/careersim`), TLS ing
 kubectl apply -k infrastructure/k8s/overlays/prod
 ```
 
-### Notes
+### 📝 Notes
 
 - **LangGraph**: Enabled by default (`USE_LANGGRAPH=true`). This uses the embedded LangGraph conversation system for AI simulations.
   - Optional: Set `LANGCHAIN_TRACING_V2=true` to enable LangSmith tracing
@@ -78,10 +87,10 @@ kubectl apply -k infrastructure/k8s/overlays/prod
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

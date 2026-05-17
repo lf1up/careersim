@@ -52,3 +52,13 @@ The sync writes:
 
 The production page is intentionally hand-adapted from Figma in Astro + CSS
 rather than generated directly from Figma output.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## 👤 Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

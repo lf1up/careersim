@@ -313,3 +313,13 @@ simulation, also add a matching entry to `SIMULATION_PROMPTS` in
 - Graph-level nodes live in `src/careersim_agent/graph/nodes/` and are
   composed in `builder.py`; the flow is intentionally linear-with-branches so
   it's easy to trace in the dev console.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## 👤 Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

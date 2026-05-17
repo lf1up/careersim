@@ -1,8 +1,8 @@
-# LangGraph Conversation System
+# 🪦 LangGraph Conversation System
 
 This directory contains the LangGraph-based conversation agent system for CareerSIM, providing a stateful, multi-node graph architecture for managing AI conversations, proactive messages, and goal evaluation.
 
-## Standalone Server for Testing
+## 🧪 Standalone Server for Testing
 
 Test the LangGraph system independently with the standalone server:
 
@@ -16,7 +16,7 @@ pnpm --filter careersim-backend langgraph:test
 
 **Port Configuration**: The standalone server uses port **8123** by default (configurable via `LANGGRAPH_SERVER_PORT`) to avoid conflicts with the main backend server (port 8000). See `standalone-server.ts` for API details.
 
-## Architecture Overview
+## 🏗️ Architecture Overview
 
 The system is built as a **StateGraph** with multiple nodes handling different aspects of the conversation:
 
@@ -30,58 +30,58 @@ evaluate_goals → check_proactive_trigger → [conditional routing]
 [generate_proactive_message OR persist_and_emit] → schedule_inactivity → END
 ```
 
-## Key Components
+## 🧩 Key Components
 
-### State Management (`state.ts`)
+### 📦 State Management (`state.ts`)
 - `ConversationGraphState`: Main state schema tracking conversation, goals, persona, metadata
 - Helper functions for state conversion and metrics extraction
 - Supports checkpointing for conversation replay and debugging
 
-### Checkpointing (`checkpointer.ts`)
+### 💾 Checkpointing (`checkpointer.ts`)
 - Custom `DatabaseCheckpointSaver` that stores checkpoints in PostgreSQL
 - Integrates with existing `SimulationSession` table
 - Enables time-travel debugging and conversation replay
 
-### Prompt Templates (`prompts.ts`)
+### 📝 Prompt Templates (`prompts.ts`)
 - **Persona System Prompt**: Injects persona details, simulation context, RAG knowledge
 - **Proactive Prompts**: Specialized templates for start, inactivity, follow-up, backchannel messages
 - Anti-repetition guidance built-in
 
-### Graph Definition (`graph.ts`)
+### 🕸️ Graph Definition (`graph.ts`)
 - Main `StateGraph` with all nodes and edges
 - Conditional routing for proactive messages and follow-ups
 - Entry points: `invokeConversationGraph()`, `streamConversationGraph()`
 
-### Nodes
+### 🔘 Nodes
 
-#### Conversation Nodes (`nodes/conversation.ts`)
+#### 💬 Conversation Nodes (`nodes/conversation.ts`)
 1. **process_user_input**: Loads session, adds user message to state
 2. **fetch_rag_context**: Calls RAG microservice for grounding knowledge
 3. **generate_ai_response**: Uses ChatOpenAI to generate persona-based response
 4. **analyze_response**: Post-processes with Transformers (emotion, sentiment, quality)
 
-#### Proactive Nodes (`nodes/proactive.ts`)
+#### 📣 Proactive Nodes (`nodes/proactive.ts`)
 1. **check_proactive_trigger**: Determines if proactive message needed (backchannel, follow-up)
 2. **generate_proactive_message**: Creates proactive messages with anti-repetition checks
 
-#### Evaluation Node (`nodes/evaluation.ts`)
+#### 📊 Evaluation Node (`nodes/evaluation.ts`)
 - **evaluate_goals**: Uses tools to assess conversation goal achievement
 - Updates goal progress with evidence and confidence scores
 
-#### Persistence Nodes (`nodes/persistence.ts`)
+#### 💽 Persistence Nodes (`nodes/persistence.ts`)
 1. **persist_and_emit**: Saves messages to DB, emits via Socket.IO
 2. **schedule_inactivity**: Schedules next inactivity nudge
 
-### Tools (`tools/evaluation_tools.ts`)
+### 🛠️ Tools (`tools/evaluation_tools.ts`)
 LangChain tools for goal evaluation:
 - `analyze_user_behavior_tool`: Scores user message against key behaviors
 - `analyze_ai_indicators_tool`: Scores AI response against success indicators
 - `get_conversation_window_tool`: Retrieves recent messages
 - `get_goal_context_tool`: Retrieves goal definitions
 
-## Usage
+## 🔧 Usage
 
-### Basic Invocation
+### 🚀 Basic Invocation
 
 ```typescript
 import { invokeConversationGraph, ConversationInput } from '@/services/langgraph';
@@ -95,7 +95,7 @@ const input: ConversationInput = {
 const result = await invokeConversationGraph(input);
 ```
 
-### Streaming (Real-time)
+### 📡 Streaming (Real-time)
 
 ```typescript
 import { streamConversationGraph } from '@/services/langgraph';
@@ -106,7 +106,7 @@ for await (const chunk of streamConversationGraph(input)) {
 }
 ```
 
-### Proactive Messages
+### 📣 Proactive Messages
 
 ```typescript
 // Start message
@@ -126,7 +126,7 @@ const nudgeInput: ConversationInput = {
 await invokeConversationGraph(nudgeInput);
 ```
 
-## Configuration
+## ⚙️ Configuration
 
 Environment variables (see `backend/src/config/env.ts`):
 
@@ -145,9 +145,9 @@ LANGCHAIN_API_KEY=                    # LangSmith API key
 GRAPH_ASSISTANT_ID=                    # Assistant ID for deployed graph
 ```
 
-## Integration with Existing System
+## 🔌 Integration with Existing System
 
-### Routes Integration
+### 🛣️ Routes Integration
 
 The graph can be invoked from routes:
 
@@ -163,7 +163,7 @@ const result = await invokeConversationGraph({
 });
 ```
 
-### Inactivity Scheduler
+### ⏰ Inactivity Scheduler
 
 The existing scheduler can invoke the graph:
 
@@ -178,7 +178,7 @@ await invokeConversationGraph({
 });
 ```
 
-## Key Features
+## ✨ Key Features
 
 ✅ **Stateful Conversations**: Built-in state management with checkpointing  
 ✅ **Proactive Messages**: Start, follow-up, backchannel, inactivity nudges  
@@ -189,7 +189,7 @@ await invokeConversationGraph({
 ✅ **Database Persistence**: Saves to SessionMessage, emits via Socket.IO  
 ✅ **Observability**: LangSmith tracing support  
 
-## Next Steps
+## 👣 Next Steps
 
 1. **Install Dependencies**: Run `pnpm install` in backend directory
 2. **Test Compilation**: Run `pnpm debug:graph:compile` to verify setup
@@ -200,24 +200,24 @@ await invokeConversationGraph({
 7. **Feature Flag**: Enable `USE_LANGGRAPH=true` gradually
 8. **Monitor**: Use LangSmith for debugging and analytics
 
-## Deployment Options
+## 🚢 Deployment Options
 
-### Option A: LangGraph Cloud (Recommended)
+### ☁️ Option A: LangGraph Cloud (Recommended)
 - Deploy graph to LangGraph Cloud
 - Access via assistant ID
 - Built-in scaling, persistence, monitoring
 
-### Option B: Self-Hosted
+### 🏠 Option B: Self-Hosted
 - Run LangGraph server in Docker
 - More control, same API
 - Requires infrastructure setup
 
-### Option C: Direct Invocation (Current)
+### ⚡ Option C: Direct Invocation (Current)
 - Call graph directly from backend
 - No separate deployment needed
 - Good for development and testing
 
-## File Structure
+## 📁 File Structure
 
 ```
 backend/src/services/langgraph/
@@ -264,9 +264,9 @@ backend/src/services/langgraph/
 └── README.md                   # This file
 ```
 
-## Debugging
+## 🐛 Debugging
 
-### Standalone Debug Scripts
+### 🧪 Standalone Debug Scripts
 
 The LangGraph system includes standalone debugging scripts for testing and visualization without running the full backend:
 
@@ -289,7 +289,7 @@ pnpm debug:graph:visualize
 
 See `scripts/README.md` for detailed documentation on all debug scripts.
 
-### View Checkpoints
+### 👁️ View Checkpoints
 
 ```typescript
 import { getCheckpointer } from '@/services/langgraph';
@@ -299,7 +299,7 @@ const latest = await checkpointer.getLatestCheckpoint('session-123');
 console.log('Latest checkpoint:', latest);
 ```
 
-### Enable LangSmith Tracing
+### 🔭 Enable LangSmith Tracing
 
 Set environment variables:
 ```bash
@@ -310,7 +310,7 @@ LANGCHAIN_PROJECT=careersim-dev
 
 Then view traces at: https://smith.langchain.com
 
-## Migrating from Old AIService
+## 🚚 Migrating from Old AIService
 
 The old `AIService` can remain as a facade initially:
 
@@ -332,7 +332,7 @@ export class AIService {
 
 This allows gradual migration with A/B testing.
 
-## Performance Considerations
+## ⚡ Performance Considerations
 
 
 - **Checkpointing**: Adds ~50-100ms per save (async)
@@ -340,13 +340,13 @@ This allows gradual migration with A/B testing.
 - **Streaming**: Reduces perceived latency for long responses
 - **Caching**: Consider caching RAG contexts per session
 
-## Testing
+## 🧪 Testing
 
-### End-to-End Test Suite with DeepEval
+### 🔁 End-to-End Test Suite with DeepEval
 
 The LangGraph system includes a comprehensive end-to-end test suite using DeepEval's TypeScript SDK for automated conversation simulation and evaluation.
 
-#### Test Location
+#### 📍 Test Location
 
 ```
 backend/src/services/langgraph/tests/
@@ -355,7 +355,7 @@ backend/src/services/langgraph/tests/
 └── scenarios.ts          # ConversationalGolden scenario definitions
 ```
 
-#### Running Tests
+#### ▶️ Running Tests
 
 ```bash
 # Run full test suite (requires standalone server)
@@ -369,7 +369,7 @@ pnpm --filter careersim-backend run langgraph:test:deepeval -- --testNamePattern
 pnpm --filter careersim-backend run langgraph:test:deepeval -- --verbose
 ```
 
-#### Prerequisites
+#### 📋 Prerequisites
 
 1. **Database must be seeded:**
    ```bash
@@ -387,7 +387,7 @@ pnpm --filter careersim-backend run langgraph:test:deepeval -- --verbose
    CONFIDENT_API_KEY=your-api-key-here
    ```
 
-#### Test Coverage (13 Tests)
+#### ✅ Test Coverage (13 Tests)
 
 **✅ Core Functionality Tests (9 tests - No API key needed)**
 
@@ -437,7 +437,7 @@ pnpm --filter careersim-backend run langgraph:test:deepeval -- --verbose
     - Multiple conversation scenarios in sequence
     - Comprehensive integration testing
 
-#### Test Configuration
+#### ⚙️ Test Configuration
 
 **Timeouts** (due to LLM response times):
 - Basic tests: 8 minutes
@@ -454,7 +454,7 @@ LANGGRAPH_SERVER_URL=http://localhost:8123
 CONFIDENT_API_KEY=your-api-key-here
 ```
 
-#### Expected Test Duration
+#### ⏱️ Expected Test Duration
 
 - **Without DeepEval** (9 tests): ~10 minutes
 - **With DeepEval** (13 tests): ~20-25 minutes
@@ -462,7 +462,7 @@ CONFIDENT_API_KEY=your-api-key-here
   - Basic conversation: ~30 seconds - 2 minutes
   - DeepEval simulation: ~3-8 minutes per test
 
-#### Test Results
+#### 📊 Test Results
 
 ```bash
 Test Suites: 1 passed, 1 total
@@ -471,7 +471,7 @@ Snapshots:   0 total
 Time:        ~1400-1500 seconds (~23-25 minutes)
 ```
 
-#### What Gets Tested
+#### 🔬 What Gets Tested
 
 **Graph Execution:**
 - ✅ All node executions (process, fetch RAG, generate, analyze, evaluate)
@@ -497,7 +497,7 @@ Time:        ~1400-1500 seconds (~23-25 minutes)
 - ✅ Database persistence
 - ✅ Session management
 
-#### DeepEval Features
+#### 🤖 DeepEval Features
 
 When `CONFIDENT_API_KEY` is set, tests use DeepEval's conversation simulator to:
 
@@ -521,7 +521,7 @@ const testCases = await simulator.simulate({
 });
 ```
 
-#### Debugging Tests
+#### 🐛 Debugging Tests
 
 **View detailed logs:**
 ```bash
@@ -539,7 +539,7 @@ pnpm --filter careersim-backend run langgraph:test:deepeval -- --testNamePattern
 # Only 9 core tests will run
 ```
 
-#### Troubleshooting
+#### 🆘 Troubleshooting
 
 **Error: "No simulations available"**
 ```bash
@@ -566,7 +566,7 @@ CONFIDENT_API_KEY=your-api-key-here
 - Verify network connectivity
 - Consider reducing `maxUserSimulations` in tests
 
-#### CI/CD Integration
+#### 🔄 CI/CD Integration
 
 ```yaml
 # Example GitHub Actions workflow
@@ -580,7 +580,7 @@ CONFIDENT_API_KEY=your-api-key-here
     CONFIDENT_API_KEY: ${{ secrets.CONFIDENT_API_KEY }}
 ```
 
-#### Unit Testing Example
+#### 🧪 Unit Testing Example
 
 For unit testing individual components:
 
@@ -600,7 +600,7 @@ describe('ConversationGraph', () => {
 });
 ```
 
-#### Test Scenarios
+#### 🎬 Test Scenarios
 
 The test suite includes 10 predefined conversation scenarios:
 
@@ -617,7 +617,7 @@ The test suite includes 10 predefined conversation scenarios:
 
 See `tests/scenarios.ts` for scenario definitions and customization.
 
-## Contributing
+## 🤝 Contributing
 
 When adding new nodes:
 1. Create node function in appropriate `nodes/` file
@@ -626,7 +626,7 @@ When adding new nodes:
 4. Update state schema if needed
 5. Export from `index.ts`
 
-## Support
+## 🆘 Support
 
 For issues or questions:
 - Check LangSmith traces for debugging
@@ -635,10 +635,10 @@ For issues or questions:
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../../../../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

@@ -1,4 +1,4 @@
-# Transformer Models Microservice
+# 🪦 Transformer Models Microservice
 
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
@@ -13,7 +13,7 @@ A FastAPI-based microservice that serves four different Hugging Face transformer
 
 ## 🚀 Features
 
-### Supported Models
+### 🧠 Supported Models
 
 1. **Sentiment Analysis** (`/sentiment`)
    - Model: [cardiffnlp/twitter-roberta-base-sentiment-latest](https://huggingface.co/cardiffnlp/twitter-roberta-base-sentiment-latest)
@@ -52,7 +52,7 @@ The service uses **Bearer token authentication** for security:
 - **Header format**: `Authorization: Bearer YOUR_TOKEN`
 - **Environment variable**: `AUTH_TOKEN` in `.env` file
 
-### Setup Authentication
+### 🔑 Setup Authentication
 
 1. **Copy environment example**:
    ```bash
@@ -89,19 +89,19 @@ uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
 The service will be available at `http://localhost:8001`
 
-### API Documentation
+### 📖 API Documentation
 
 - **Interactive docs**: `http://localhost:8001/docs`
 - **OpenAPI schema**: `http://localhost:8001/openapi.json`
 
-### Endpoints
+### 🛣️ Endpoints
 
-#### Health Check
+#### ❤️ Health Check
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8001/health
 ```
 
-#### Sentiment Analysis
+#### 😊 Sentiment Analysis
 ```bash
 curl -X POST "http://localhost:8001/sentiment" \
   -H "Content-Type: application/json" \
@@ -109,7 +109,7 @@ curl -X POST "http://localhost:8001/sentiment" \
   -d '{"text": "I love this new feature!"}'
 ```
 
-#### Toxicity Detection
+#### ☣️ Toxicity Detection
 ```bash
 curl -X POST "http://localhost:8001/toxicity" \
   -H "Content-Type: application/json" \
@@ -117,7 +117,7 @@ curl -X POST "http://localhost:8001/toxicity" \
   -d '{"text": "This is a normal comment"}'
 ```
 
-#### Emotion Classification
+#### 💞 Emotion Classification
 ```bash
 curl -X POST "http://localhost:8001/emotion" \
   -H "Content-Type: application/json" \
@@ -125,7 +125,7 @@ curl -X POST "http://localhost:8001/emotion" \
   -d '{"text": "I am so excited about this!"}'
 ```
 
-#### Zero-shot Classification
+#### 🎯 Zero-shot Classification
 ```bash
 curl -X POST "http://localhost:8001/sequence" \
   -H "Content-Type: application/json" \
@@ -138,7 +138,7 @@ curl -X POST "http://localhost:8001/sequence" \
 
 ## 📊 Response Format
 
-### Simple Classification (Toxicity)
+### ✅ Simple Classification (Toxicity)
 ```json
 {
   "label": "Non-toxic",
@@ -147,7 +147,7 @@ curl -X POST "http://localhost:8001/sequence" \
 }
 ```
 
-### Detailed Classification (Sentiment, Emotion, Sequence)
+### 📊 Detailed Classification (Sentiment, Emotion, Sequence)
 ```json
 {
   "predictions": [
@@ -173,32 +173,32 @@ curl -X POST "http://localhost:8001/sequence" \
 
 ## 🔍 Model Details
 
-### Sentiment Analysis
+### 😊 Sentiment Analysis
 - Trained on ~124M tweets
 - Preprocessing: Converts @mentions to @user and URLs to http
 - Best for: Social media content, informal text
 
-### Toxicity Detection
+### ☣️ Toxicity Detection
 - Fine-tuned DistilBERT
 - 94% accuracy on test set
 - Note: May have bias for certain identity groups (see model documentation)
 
-### Emotion Classification
+### 💞 Emotion Classification
 - DistilRoBERTa-base fine-tuned on 6 datasets
 - Predicts Ekman's 6 basic emotions + neutral
 - 66% accuracy vs 14% random baseline
 
-### Zero-shot Classification
+### 🎯 Zero-shot Classification
 - BART-Large fine-tuned on MNLI
 - No training required for new labels
 - Flexible for various classification tasks
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

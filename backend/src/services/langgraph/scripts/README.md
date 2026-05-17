@@ -1,4 +1,4 @@
-# LangGraph Debug Scripts
+# 🪦 LangGraph Debug Scripts
 
 This directory contains standalone debugging and testing scripts for the LangGraph conversation system. These scripts can be run independently of the main backend application, making it easy to test, debug, and visualize the graph.
 
@@ -293,25 +293,25 @@ Before running these scripts, ensure:
 
 ## 🎨 Common Use Cases
 
-### Case 1: Quick Verification
+### ⚡ Case 1: Quick Verification
 ```bash
 # Just verify the graph compiles
 pnpm debug:graph:compile
 ```
 
-### Case 2: Test Basic Conversation
+### 💬 Case 2: Test Basic Conversation
 ```bash
 # Test a simple conversation
 pnpm debug:graph:invoke -- --message "Hello, I need interview help"
 ```
 
-### Case 3: Debug Streaming
+### 📡 Case 3: Debug Streaming
 ```bash
 # See step-by-step execution
 pnpm debug:graph:stream
 ```
 
-### Case 4: Test Proactive Features
+### 📣 Case 4: Test Proactive Features
 ```bash
 # Test all proactive types
 pnpm debug:graph:proactive -- --type start
@@ -320,7 +320,7 @@ pnpm debug:graph:proactive -- --type followup
 pnpm debug:graph:proactive -- --type backchannel
 ```
 
-### Case 5: Generate Documentation
+### 📚 Case 5: Generate Documentation
 ```bash
 # Get Mermaid diagram for docs
 pnpm debug:graph:visualize -- --format mermaid > graph.mmd
@@ -328,7 +328,7 @@ pnpm debug:graph:visualize -- --format mermaid > graph.mmd
 
 ## 🐛 Debugging Tips
 
-### Issue: Compilation Fails
+### 🚨 Issue: Compilation Fails
 ```bash
 # Check configuration
 pnpm debug:graph:compile
@@ -339,7 +339,7 @@ pnpm debug:graph:compile
 # - Missing dependencies
 ```
 
-### Issue: Graph Hangs During Execution
+### ⏸️ Issue: Graph Hangs During Execution
 ```bash
 # Disable LangSmith tracing (can cause hangs)
 export LANGCHAIN_TRACING_V2=false
@@ -348,12 +348,12 @@ export LANGCHAIN_TRACING_V2=false
 pnpm debug:graph:invoke
 ```
 
-### Issue: External Services Not Available
+### 🌐 Issue: External Services Not Available
 The scripts will attempt to call external services (RAG, Transformers) but should gracefully handle failures. Check:
 - RAG service: `curl http://localhost:8001/health`
 - Transformers: `curl http://localhost:8002/health`
 
-### Issue: Database Connection Failed
+### 🗄️ Issue: Database Connection Failed
 ```bash
 # Start local database
 docker compose -f docker-compose.local.yml up -d postgres
@@ -364,20 +364,20 @@ psql $DATABASE_URL -c "SELECT 1"
 
 ## 📊 Interpreting Results
 
-### Successful Compilation
+### ✅ Successful Compilation
 ```
 ✅ COMPILATION SUCCESSFUL!
 ```
 Graph is ready to use!
 
-### Successful Invocation
+### ✅ Successful Invocation
 ```
 ✅ TEST PASSED!
 Duration: 1234ms
 ```
 Graph executed without errors.
 
-### Node Execution Times
+### ⏱️ Node Execution Times
 - `process_user_input`: ~50-100ms (DB query)
 - `fetch_rag_context`: ~200-500ms (RAG service call)
 - `generate_ai_response`: ~1000-3000ms (OpenAI API)
@@ -385,7 +385,7 @@ Graph executed without errors.
 - `evaluate_goals`: ~500-1500ms (Tool calls)
 - `persist_and_emit`: ~50-100ms (DB write)
 
-### Goal Progress
+### 🎯 Goal Progress
 - `not_started`: Goal hasn't been addressed yet
 - `in_progress`: Goal is partially achieved
 - `achieved`: Goal fully met (confidence > 0.8)
@@ -433,10 +433,10 @@ Happy debugging!
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../../../../../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

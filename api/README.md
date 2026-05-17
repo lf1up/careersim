@@ -1,11 +1,11 @@
-# CareerSIM API
+# 🔌 CareerSIM API
 
 Fastify + Drizzle + TypeScript API gateway in front of the Python `agent/`
 service. The API owns all persistence (Postgres); the agent stays fully
 stateless and is called fresh with the caller-owned `state_snapshot` on every
 turn.
 
-## Stack
+## 🧱 Stack
 
 - **Runtime**: Node 20+, TypeScript (strict ESM), pnpm
 - **HTTP**: Fastify 5 + `fastify-type-provider-zod` (Zod schemas double as OpenAPI)
@@ -27,7 +27,7 @@ turn.
 - **Upstream client**: `undici` + `eventsource-parser` for SSE proxying
 - **Tests**: Vitest + Fastify `app.inject()` + `@electric-sql/pglite` + an in-process `FakeAgent` (ALTCHA and rate limits both run in off/bypass mode for the main suite, with dedicated suites that exercise them end-to-end)
 
-## Quick start
+## 🚀 Quick start
 
 ```bash
 cd api
@@ -43,7 +43,7 @@ pnpm dev
 
 Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 
-## Endpoints (v0)
+## 🛣️ Endpoints (v0)
 
 | Method | Path | Auth | CAPTCHA | Rate limit | Purpose |
 | --- | --- | --- | --- | --- | --- |
@@ -90,7 +90,7 @@ When a limit is exceeded the server responds `429 Too Many Requests` with
 keyers — IP, email-from-body, authenticated user id) lives in
 `src/plugins/rate-limit.ts`.
 
-## Layout
+## 📁 Layout
 
 ```text
 api/
@@ -135,7 +135,7 @@ api/
 └── tsconfig.json
 ```
 
-## Testing
+## 🧪 Testing
 
 ```bash
 pnpm test            # vitest run (pglite + FakeAgent, no network, no OpenAI)
@@ -143,7 +143,7 @@ pnpm test:watch
 pnpm typecheck
 ```
 
-### Interactive end-to-end flow
+### 🎬 Interactive end-to-end flow
 
 `pnpm e2e` runs an interactive CLI that exercises the full journey against a
 real stack (API + agent + Postgres, e.g. `docker compose -f
@@ -202,7 +202,7 @@ Tests cover:
 
 The agent contract is faked deterministically in `tests/helpers/fake-agent.ts` in the same style as `_FakeGraph` at `agent/tests/test_api.py:155`, so running the suite requires neither the Python agent nor an OpenAI key.
 
-## Proactive triggers
+## 📣 Proactive triggers
 
 The agent supports three proactive graph branches. The API maps them to three
 distinct endpoints with different semantics:
@@ -213,7 +213,7 @@ distinct endpoints with different semantics:
 | `followup` | `POST /sessions/:id/proactive` (batch) or `POST /sessions/:id/proactive/stream` (SSE). | The AI is choosing to continue speaking right after its own last message — we stream it so the frontend can replay each line with its `typing_delay_sec`. |
 | `inactivity` | `POST /sessions/:id/nudge` (batch only, guardrailed). | A timer fired while we're waiting for the human — the result is a single short message, there's no reason to stream it, and unbounded retries would spam the agent. |
 
-### Inactivity nudge contract
+### 👋 Inactivity nudge contract
 
 `/nudge` is idempotent and always returns 200. The server decides whether to
 dispatch to the agent based on per-session state:
@@ -258,7 +258,7 @@ clients can stop polling. The `e2e` script uses that signal to kill its
 auto-nudger. All first-party personas in `agent/data/personas.json` do
 declare both fields, so this is strictly an opt-out / defensive path.
 
-## Environment
+## 🌱 Environment
 
 See `.env.example` for the authoritative list. Required in production:
 
@@ -294,7 +294,7 @@ links straight from `pnpm dev` output):
 | `SMTP_PASS` | — | SMTP password |
 | `MAIL_FROM` | `CareerSIM <no-reply@careersim.local>` | `From:` header on outbound mail. In production, this must use a domain verified with the SMTP provider |
 
-## Docker
+## 🐳 Docker
 
 ```bash
 docker build -t careersim-api ./api
@@ -306,7 +306,7 @@ together. Point `AGENT_API_URL` at the host-side agent (run with
 `python -m careersim_agent.main --serve api --port 8001`) until the agent
 service is uncommented in compose.
 
-## Design notes
+## 🎨 Design notes
 
 - **The agent is a pure function of its inputs.** We persist the full
   `state_snapshot` (JSONB) on every turn and never assume the agent remembers
@@ -351,3 +351,13 @@ service is uncommented in compose.
   plugin falls back to a logger transport that prints the full rendered
   email, so registration / reset flows are usable locally without SMTP
   credentials.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## 👤 Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))
