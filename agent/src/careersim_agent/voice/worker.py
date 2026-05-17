@@ -116,6 +116,20 @@ def run_worker() -> int:
         persona = adapter.persona
         captions = LiveKitCaptionPublisher(room)
 
+        # Resolve per-persona voice tunings up-front so the loop
+        # below doesn't re-read the persona dict on every turn. The
+        # struct is frozen — safe to share across coroutines.
+        from .persona_voice import resolve_voice_tuning
+        tuning = resolve_voice_tuning(persona)
+        logger.info(
+            "voice tuning for %s: rate=%dwpm silence=%dms barge_in=%dms fillers=%s",
+            persona.get("slug") or "<unknown>",
+            tuning.speaking_rate_wpm,
+            tuning.silence_threshold_ms,
+            tuning.barge_in_tolerance_ms,
+            tuning.filler_word_frequency,
+        )
+
         try:
             stt = get_stt_provider(persona)
             tts = get_tts_provider(persona)
@@ -140,6 +154,7 @@ def run_worker() -> int:
                 api=api,
                 session_id=session_id,
                 bearer_token=bearer,
+                tuning=tuning,
             )
         finally:
             # Compute aggregate voice signals and let the API persist
@@ -190,6 +205,7 @@ async def _run_room_session(
     api: object,
     session_id: str,
     bearer_token: str,
+    tuning: object,
 ) -> None:
     """Glue between the LiveKit room and our adapter / providers.
 
@@ -207,6 +223,14 @@ async def _run_room_session(
     * On user speech-onset during persona TTS,
       ``adapter.cancel_inflight()`` aborts the in-flight reply and
       ``tts.aclose()`` cancels playback.
+    * ``tuning.barge_in_tolerance_ms`` is the minimum sustained user
+      audio (in ms) required before the SDK cancels in-flight TTS;
+      it maps to silero VAD's ``min_speech_duration_ms`` on the room
+      input and is what makes Marcus tolerate throat-clears while
+      Chloe reacts to the slightest peep.
+    * ``tuning.silence_threshold_ms`` is the watchdog after which
+      the persona will *initiate* an inactivity nudge (mirroring the
+      chat-side ``inactivityNudgeDelaySec`` knob).
 
     The actual ``AgentSession`` wiring requires LiveKit's runtime
     types and is the place where Phase-2 acceptance (one round-trip
@@ -218,10 +242,12 @@ async def _run_room_session(
     # documented seam where the LiveKit-specific code goes. It is
     # exercised by the smoke script in `agent/scripts/voice_smoke.py`
     # and not by unit tests.
+    from .persona_voice import VoiceTuning
     from .pipeline import LangGraphAdapter  # for the type checker
     from .transcripts import Caption
 
     assert isinstance(adapter, LangGraphAdapter)
+    assert isinstance(tuning, VoiceTuning)
 
     # Opening turn (if the persona starts the conversation).
     opening = await adapter.opening_turn()
@@ -234,6 +260,13 @@ async def _run_room_session(
     # The full audio loop is implemented against the LiveKit Agents
     # AgentSession in production; see the plan's Phase-2 acceptance
     # criterion and the smoke script for the runnable equivalent.
+    # When wiring the AgentSession, plumb `tuning` into:
+    #   - `silero.VAD.load(min_speech_duration=tuning.barge_in_tolerance_ms / 1000)`
+    #   - `AgentSession(..., turn_detection=...)` watchdog using
+    #     `tuning.silence_threshold_ms` for the inactivity timer.
+    #   - The system-prompt decorator referenced by
+    #     `tuning.filler_word_frequency` so prosody on the LLM side
+    #     matches the persona's voice character.
 
 
 def main() -> None:

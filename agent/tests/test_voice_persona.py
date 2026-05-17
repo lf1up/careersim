@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from careersim_agent.voice.persona_voice import (
+    VoiceTuning,
     get_barge_in_tolerance_ms,
     get_filler_word_frequency,
     get_silence_threshold_ms,
@@ -12,6 +13,7 @@ from careersim_agent.voice.persona_voice import (
     persona_supports_voice,
     resolve_active_tts_provider,
     resolve_voice_provider_config,
+    resolve_voice_tuning,
 )
 
 
@@ -155,3 +157,89 @@ class TestFillerWordFrequency:
 
     def test_default(self) -> None:
         assert get_filler_word_frequency({}) == "low"
+
+
+class TestResolveVoiceTuning:
+    def test_full_block_resolves_each_field(self) -> None:
+        tuning = resolve_voice_tuning(VIKRAM)
+        assert isinstance(tuning, VoiceTuning)
+        assert tuning.speaking_rate_wpm == 135
+        assert tuning.silence_threshold_ms == 30000
+        assert tuning.barge_in_tolerance_ms == 200
+        assert tuning.filler_word_frequency == "medium"
+
+    def test_persona_without_voice_uses_fallbacks(self) -> None:
+        tuning = resolve_voice_tuning(PERSONA_NO_VOICE)
+        # 110 wpm * 0.9 = 99
+        assert tuning.speaking_rate_wpm == 99
+        # 180s * 1000 = 180000
+        assert tuning.silence_threshold_ms == 180000
+        # default barge-in tolerance
+        assert tuning.barge_in_tolerance_ms == 400
+        assert tuning.filler_word_frequency == "low"
+
+    def test_struct_is_frozen(self) -> None:
+        tuning = resolve_voice_tuning(VIKRAM)
+        with pytest.raises((AttributeError, Exception)):
+            tuning.speaking_rate_wpm = 999  # type: ignore[misc]
+
+
+class TestVoiceTuningRolloutAcrossPersonas:
+    """Smoke check that all 9 shipping personas have valid voice tunings."""
+
+    @pytest.fixture(scope="class")
+    def all_personas(self) -> list[dict]:
+        import json
+        from pathlib import Path
+
+        personas_path = (
+            Path(__file__).parent.parent / "data" / "personas.json"
+        )
+        return json.loads(personas_path.read_text())
+
+    def test_every_persona_has_voice_block(self, all_personas: list[dict]) -> None:
+        missing = [p["slug"] for p in all_personas if not persona_supports_voice(p)]
+        assert missing == [], f"personas missing voice block: {missing}"
+
+    def test_every_persona_resolves_a_tuning(self, all_personas: list[dict]) -> None:
+        for persona in all_personas:
+            tuning = resolve_voice_tuning(persona)
+            assert tuning.speaking_rate_wpm > 0, persona["slug"]
+            assert tuning.silence_threshold_ms > 0, persona["slug"]
+            assert tuning.barge_in_tolerance_ms > 0, persona["slug"]
+            assert tuning.filler_word_frequency in {"low", "medium", "high"}, (
+                persona["slug"]
+            )
+
+    def test_every_persona_has_three_provider_options(
+        self, all_personas: list[dict]
+    ) -> None:
+        for persona in all_personas:
+            providers = persona.get("voice", {}).get("providers", {})
+            # Each persona should support all three providers so the
+            # global default + any persona override land somewhere
+            # regardless of operator choice.
+            assert set(providers.keys()) >= {
+                "piper_local",
+                "openai_tts",
+                "elevenlabs",
+            }, persona["slug"]
+
+    def test_speaking_rates_span_realistic_range(
+        self, all_personas: list[dict]
+    ) -> None:
+        # Slowest persona (Michael) ~110 wpm, fastest (Sarah) ~175 wpm.
+        # If somebody accidentally pastes a typing-speed value (~250+),
+        # this test catches it.
+        rates = [resolve_voice_tuning(p).speaking_rate_wpm for p in all_personas]
+        assert 80 <= min(rates) <= 200
+        assert 80 <= max(rates) <= 200
+
+    def test_barge_in_tolerance_within_sane_bounds(
+        self, all_personas: list[dict]
+    ) -> None:
+        # 50 ms - 1000 ms is the realistic range; outside that
+        # either VAD won't fire or the persona never gets cut off.
+        for persona in all_personas:
+            tol = resolve_voice_tuning(persona).barge_in_tolerance_ms
+            assert 50 <= tol <= 1000, f"{persona['slug']}: {tol}"

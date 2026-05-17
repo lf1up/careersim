@@ -10,7 +10,8 @@ The schema is documented in :class:`VoiceConfig` /
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any, Literal, Optional
 
 
 def persona_supports_voice(persona: dict[str, Any]) -> bool:
@@ -165,3 +166,54 @@ def get_filler_word_frequency(persona: dict[str, Any]) -> str:
         if isinstance(freq, str) and freq in {"low", "medium", "high"}:
             return freq
     return "low"
+
+
+# -----------------------------------------------------------------
+# Aggregate tuning struct
+# -----------------------------------------------------------------
+
+
+FillerFrequency = Literal["low", "medium", "high"]
+
+
+@dataclass(frozen=True)
+class VoiceTuning:
+    """All persona-level voice tunings flattened into one struct.
+
+    Built once at room start (cheap — a few dict reads) and passed
+    into the LiveKit ``AgentSession`` wiring so the per-persona
+    knobs reach VAD, barge-in detection, and the prompt-augment
+    hook without each call site re-reading the persona dict.
+
+    Mapping to LiveKit Agents (current SDK as of plan time):
+
+    * ``silence_threshold_ms`` -> caller-side watchdog that fires
+      a per-persona inactivity prompt; not the VAD's ``min_silence``.
+    * ``barge_in_tolerance_ms`` -> minimum user voice activity (ms)
+      the SDK must observe before it cancels in-flight TTS. Maps to
+      ``vad.min_speech_duration_ms`` (silero) on the room input.
+    * ``speaking_rate_wpm`` -> piped through to TTS providers that
+      accept a rate (Piper uses ``length_scale``; OpenAI ignores).
+    * ``filler_word_frequency`` -> consumed by a system-prompt
+      decorator (Phase-6 follow-up) that nudges the persona to add
+      more or fewer disfluencies.
+    """
+    speaking_rate_wpm: int
+    silence_threshold_ms: int
+    barge_in_tolerance_ms: int
+    filler_word_frequency: FillerFrequency
+
+
+def resolve_voice_tuning(persona: dict[str, Any]) -> VoiceTuning:
+    """Collapse per-persona voice knobs into a :class:`VoiceTuning`.
+
+    Pure read; defaults documented on the individual resolvers.
+    Returned struct is frozen so downstream code can pass it across
+    coroutines / threads without worrying about mutation.
+    """
+    return VoiceTuning(
+        speaking_rate_wpm=get_speaking_rate_wpm(persona),
+        silence_threshold_ms=get_silence_threshold_ms(persona),
+        barge_in_tolerance_ms=get_barge_in_tolerance_ms(persona),
+        filler_word_frequency=get_filler_word_frequency(persona),  # type: ignore[arg-type]
+    )

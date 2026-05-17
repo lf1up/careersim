@@ -69,6 +69,12 @@ class LangGraphAdapter:
         # `state-for-voice`) and deserialize on the way in so callers
         # don't need to know about LangChain message objects.
         self._state = deserialize_state(initial_state)
+        # Mark the state as voice-mode so the conversation graph's
+        # prompt builder can surface the voice-style guidance block
+        # (filler frequency, speak-don't-type reminder). Text-mode
+        # callers never go through this adapter, so the flag stays
+        # off in the persisted snapshot the API keeps reading.
+        self._state["voice_mode"] = True
         self._service = service or get_conversation_service()
         # Tracks the last in-flight turn so barge-in can cancel it.
         self._inflight: Optional[asyncio.Task[TurnResult]] = None

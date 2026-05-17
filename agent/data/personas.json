@@ -21,6 +21,27 @@
       "typingSpeedWpm": 110,
       "openingStyle": "Formal, structured opening suitable for HR; professional and measured.",
       "nudgeStyle": "Polite, gentle check-in asking to continue or clarify."
+    },
+    "voice": {
+      "speakingRateWpm": 130,
+      "silenceThresholdMs": 45000,
+      "bargeInToleranceMs": 250,
+      "fillerWordFrequency": "low",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-amy-medium"
+        },
+        "openai_tts": {
+          "voice": "shimmer",
+          "speed": 0.95
+        },
+        "elevenlabs": {
+          "voiceId": "21m00Tcm4TlvDq8ikWAM",
+          "stability": 0.6,
+          "styleExaggeration": 0.25
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -45,6 +66,27 @@
       "typingSpeedWpm": 140,
       "openingStyle": "Enthusiastic, casual opener that shares excitement about product/team.",
       "nudgeStyle": "Friendly energetic nudge to keep the momentum."
+    },
+    "voice": {
+      "speakingRateWpm": 165,
+      "silenceThresholdMs": 25000,
+      "bargeInToleranceMs": 150,
+      "fillerWordFrequency": "medium",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-joe-medium"
+        },
+        "openai_tts": {
+          "voice": "nova",
+          "speed": 1.1
+        },
+        "elevenlabs": {
+          "voiceId": "ErXwobaYiN019PkySvjV",
+          "stability": 0.35,
+          "styleExaggeration": 0.6
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -69,6 +111,27 @@
       "typingSpeedWpm": 120,
       "openingStyle": "Reserved, probing opener focusing on rationale and data.",
       "nudgeStyle": "Direct request for data or specifics."
+    },
+    "voice": {
+      "speakingRateWpm": 115,
+      "silenceThresholdMs": 60000,
+      "bargeInToleranceMs": 350,
+      "fillerWordFrequency": "low",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-hfc_male-medium"
+        },
+        "openai_tts": {
+          "voice": "onyx",
+          "speed": 0.9
+        },
+        "elevenlabs": {
+          "voiceId": "VR6AewLTigWG4xSOukaG",
+          "stability": 0.7,
+          "styleExaggeration": 0.2
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -93,6 +156,27 @@
       "typingSpeedWpm": 130,
       "openingStyle": "Warm but rushed opener seeking quick help.",
       "nudgeStyle": "Gentle, appreciative follow-up asking if you had a chance."
+    },
+    "voice": {
+      "speakingRateWpm": 175,
+      "silenceThresholdMs": 20000,
+      "bargeInToleranceMs": 120,
+      "fillerWordFrequency": "high",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-kathleen-low"
+        },
+        "openai_tts": {
+          "voice": "nova",
+          "speed": 1.15
+        },
+        "elevenlabs": {
+          "voiceId": "AZnzlk1XvdvUeBnXmlld",
+          "stability": 0.3,
+          "styleExaggeration": 0.65
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -117,6 +201,27 @@
       "typingSpeedWpm": 100,
       "openingStyle": "Minimal, guarded opener if needed.",
       "nudgeStyle": "Low-energy follow-up asking for thoughts."
+    },
+    "voice": {
+      "speakingRateWpm": 110,
+      "silenceThresholdMs": 50000,
+      "bargeInToleranceMs": 300,
+      "fillerWordFrequency": "low",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-ryan-high"
+        },
+        "openai_tts": {
+          "voice": "onyx",
+          "speed": 0.95
+        },
+        "elevenlabs": {
+          "voiceId": "yoZ06aMxZJJ28mfd3POQ",
+          "stability": 0.65,
+          "styleExaggeration": 0.2
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -141,6 +246,27 @@
       "typingSpeedWpm": 135,
       "openingStyle": "Eager but slightly nervous opener when prompted to start.",
       "nudgeStyle": "Kind, clarifying follow-up asking for specifics."
+    },
+    "voice": {
+      "speakingRateWpm": 170,
+      "silenceThresholdMs": 18000,
+      "bargeInToleranceMs": 100,
+      "fillerWordFrequency": "high",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-amy-medium"
+        },
+        "openai_tts": {
+          "voice": "shimmer",
+          "speed": 1.1
+        },
+        "elevenlabs": {
+          "voiceId": "MF3mGyEYCl7XYWbV9V6O",
+          "stability": 0.3,
+          "styleExaggeration": 0.55
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -165,6 +291,27 @@
       "typingSpeedWpm": 125,
       "openingStyle": "Structured, problem-focused opener describing a dataset and task.",
       "nudgeStyle": "Direct, data-oriented prompt to proceed or clarify."
+    },
+    "voice": {
+      "speakingRateWpm": 140,
+      "silenceThresholdMs": 35000,
+      "bargeInToleranceMs": 220,
+      "fillerWordFrequency": "low",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-libritts_r-medium"
+        },
+        "openai_tts": {
+          "voice": "shimmer",
+          "speed": 1.0
+        },
+        "elevenlabs": {
+          "voiceId": "EXAVITQu4vr4xnSDxMaL",
+          "stability": 0.55,
+          "styleExaggeration": 0.3
+        }
+      },
+      "providerOverride": null
     }
   },
   {
@@ -244,6 +391,27 @@
       "typingSpeedWpm": 95,
       "openingStyle": "Brief, slightly perfunctory opener — 'Hi. Got 15 minutes. What's up?' — that puts the burden of structuring the conversation entirely on the user.",
       "nudgeStyle": "Single dry prompt — 'Still there?' — only after a long pause, and only once."
+    },
+    "voice": {
+      "speakingRateWpm": 125,
+      "silenceThresholdMs": 15000,
+      "bargeInToleranceMs": 600,
+      "fillerWordFrequency": "low",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-hfc_male-medium"
+        },
+        "openai_tts": {
+          "voice": "onyx",
+          "speed": 1.0
+        },
+        "elevenlabs": {
+          "voiceId": "TxGEqnHWrfWFTfGW9XjX",
+          "stability": 0.7,
+          "styleExaggeration": 0.15
+        }
+      },
+      "providerOverride": null
     }
   }
 ]

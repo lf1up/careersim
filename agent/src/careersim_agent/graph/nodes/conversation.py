@@ -120,6 +120,7 @@ def generate_ai_response(state: ConversationState) -> dict[str, Any]:
             simulation=state.get("simulation", {}),
             goal_progress=state.get("goal_progress", []),
             retrieved_context=state.get("retrieved_context"),
+            voice_mode=bool(state.get("voice_mode")),
         )
         
         # Initialize model with full config
