@@ -194,6 +194,27 @@
       "typingSpeedWpm": 150,
       "openingStyle": "Warm, slightly generic LinkedIn InMail-style opener with a vague hook and a quick call-to-action.",
       "nudgeStyle": "Light bump message — 'hey just floating this back up' — possibly with a smiley."
+    },
+    "voice": {
+      "speakingRateWpm": 135,
+      "silenceThresholdMs": 30000,
+      "bargeInToleranceMs": 200,
+      "fillerWordFrequency": "medium",
+      "providers": {
+        "piper_local": {
+          "voiceModel": "en_US-ryan-high"
+        },
+        "openai_tts": {
+          "voice": "echo",
+          "speed": 1.05
+        },
+        "elevenlabs": {
+          "voiceId": "pNInz6obpgDQGcFmaJgB",
+          "stability": 0.4,
+          "styleExaggeration": 0.55
+        }
+      },
+      "providerOverride": null
     }
   },
   {
