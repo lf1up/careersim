@@ -639,8 +639,6 @@ h1 {
   }
 
   .wordmark {
-    font-size: clamp(0.72rem, 3.3vw, 0.88rem);
-    letter-spacing: 0.06em;
     max-width: none;
     min-width: 0;
     overflow: hidden;
