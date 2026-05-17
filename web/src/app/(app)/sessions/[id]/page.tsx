@@ -27,6 +27,9 @@ import {
   GoalProgressChips,
   GoalProgressSummary,
 } from '@/components/chat/GoalProgressTracker';
+import { VoiceCallButton } from '@/components/voice/VoiceCallButton';
+import { VoiceCallSurface } from '@/components/voice/VoiceCallSurface';
+import { isVoiceEnabledClientSide } from '@/lib/voice';
 
 // Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
 // the persona's typing pause between burst messages without leaving a dead
@@ -165,6 +168,15 @@ export default function SessionDetailPage() {
   const [nudgesPausedUntilHumanReply, setNudgesPausedUntilHumanReply] = useState(false);
   const [goalsExpanded, setGoalsExpanded] = useState(false);
   const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+
+  // Voice mode — `inCall` flips on while a LiveKit room is active. The
+  // chat surface is hidden in this state so the user has an
+  // unambiguous "I'm in a call" mode. `voiceAvailable` derives from
+  // both the build-time kill switch and a session-level guard (we
+  // don't show the button on a still-loading or errored session).
+  const [inCall, setInCall] = useState(false);
+  const [startingCall, setStartingCall] = useState(false);
+  const voiceAvailable = isVoiceEnabledClientSide() && session !== null;
 
   const abortRef = useRef<AbortController | null>(null);
   // Busy flag read *inside* the nudge-polling interval. Stored as a ref so the
@@ -438,6 +450,32 @@ export default function SessionDetailPage() {
     [runStream, sessionId],
   );
 
+  const handleStartCall = useCallback(() => {
+    // Optimistically flip into call mode so the surface mounts and
+    // can call /voice/start itself; the surface handles errors and
+    // calls back through `onCallEnded` to flip us back if anything
+    // fails before we get a live LiveKit connection.
+    setStartingCall(true);
+    setInCall(true);
+    // Cancel any in-flight chat stream so we don't get text-mode
+    // bubbles arriving while the call is up.
+    abortRef.current?.abort();
+    setStartingCall(false);
+  }, []);
+
+  const handleCallEnded = useCallback(async () => {
+    setInCall(false);
+    // Refetch the session so any persona turns that happened during
+    // the call (persisted by the agent-voice worker) show up in the
+    // chat transcript as soon as we go back to text mode.
+    try {
+      const latest = await apiClient.getSession(sessionId);
+      applySessionUpdate(latest, { notify: false });
+    } catch {
+      // Ignore — the next normal action (send / nudge) will refresh.
+    }
+  }, [applySessionUpdate, sessionId]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -521,9 +559,16 @@ export default function SessionDetailPage() {
           </span>
         }
         actions={
-          // Right-aligned compact progress bar in the header. Hidden on phone
-          // widths so the title/subtitle can use the full card width.
+          // Right-aligned compact progress bar + voice-call button in the
+          // header. Hidden on phone widths so the title/subtitle can use
+          // the full card width.
           <div className="hidden sm:flex items-center gap-2">
+            <VoiceCallButton
+              available={voiceAvailable}
+              isCalling={inCall}
+              starting={startingCall}
+              onStart={handleStartCall}
+            />
             <GoalProgressSummary
               className="self-center"
               progress={session.goal_progress}
@@ -551,32 +596,47 @@ export default function SessionDetailPage() {
         </div>
       </RetroCard>
 
-      <RetroPanel
-        className="flex-1 min-h-0 flex flex-col"
-        bodyClassName="flex-1 min-h-0 flex flex-col"
-      >
-        <ChatTranscript
-          messages={session.messages}
-          pendingHuman={pendingHuman}
-          burstedAssistant={committedBurst}
-          pendingAssistant={streamingAssistant}
-          isWaiting={isWaiting}
-          persona={
-            simulation?.persona_name
-              ? {
-                  name: simulation.persona_name,
-                  avatarUrl: simulation.avatar_url,
-                  slug: simulation.persona_slug,
-                  role: simulation.persona_role,
-                }
-              : undefined
-          }
-        />
-      </RetroPanel>
+      {inCall ? (
+        <RetroPanel
+          className="flex-1 min-h-0 flex flex-col"
+          bodyClassName="flex-1 min-h-0 flex flex-col"
+        >
+          <VoiceCallSurface
+            sessionId={sessionId}
+            personaName={simulation?.persona_name}
+            onCallEnded={handleCallEnded}
+          />
+        </RetroPanel>
+      ) : (
+        <>
+          <RetroPanel
+            className="flex-1 min-h-0 flex flex-col"
+            bodyClassName="flex-1 min-h-0 flex flex-col"
+          >
+            <ChatTranscript
+              messages={session.messages}
+              pendingHuman={pendingHuman}
+              burstedAssistant={committedBurst}
+              pendingAssistant={streamingAssistant}
+              isWaiting={isWaiting}
+              persona={
+                simulation?.persona_name
+                  ? {
+                      name: simulation.persona_name,
+                      avatarUrl: simulation.avatar_url,
+                      slug: simulation.persona_slug,
+                      role: simulation.persona_role,
+                    }
+                  : undefined
+              }
+            />
+          </RetroPanel>
 
-      <RetroCard className="shrink-0" bodyClassName="!p-3 sm:!p-6">
-        <ChatComposer sending={sending} onSend={handleSend} />
-      </RetroCard>
+          <RetroCard className="shrink-0" bodyClassName="!p-3 sm:!p-6">
+            <ChatComposer sending={sending} onSend={handleSend} />
+          </RetroCard>
+        </>
+      )}
 
       <RetroDialog
         open={completionDialogOpen}

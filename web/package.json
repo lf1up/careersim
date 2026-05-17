@@ -17,6 +17,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "eventsource-parser": "^3.0.8",
+    "livekit-client": "^2.19.0",
     "next": "^16.2.6",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

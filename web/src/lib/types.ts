@@ -195,3 +195,32 @@ export type StreamErrorEvent = {
 };
 
 export type StreamEvent = StreamMessageEvent | StreamDoneEvent | StreamErrorEvent;
+
+// ---- Voice mode -----------------------------------------------------
+
+export interface VoiceStartResponse {
+  token: string;
+  livekit_url: string;
+  room: string;
+  expires_at: string;
+  /** Remaining seconds in the user's daily voice budget; null = unlimited. */
+  quota_remaining_seconds: number | null;
+}
+
+export interface VoiceEndResponse {
+  /** Seconds actually persisted to `voice_minute_usage`. */
+  seconds_recorded: number;
+  quota_remaining_seconds: number | null;
+}
+
+/**
+ * Caption frame published by the agent-voice worker on the LiveKit
+ * data channel. Mirrors `Caption` in
+ * `agent/src/careersim_agent/voice/transcripts.py`.
+ */
+export interface VoiceCaption {
+  role: 'user' | 'ai';
+  text: string;
+  is_final: boolean;
+  confidence?: number | null;
+}
