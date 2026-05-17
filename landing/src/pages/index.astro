@@ -371,28 +371,34 @@ const testimonials = [
 
 const faqs = [
   {
+    emoji: '🎯',
     question: 'Who is it for?',
     answer: 'People preparing for interviews, promotions, negotiations, and difficult workplace conversations.',
   },
   {
+    emoji: '⚡',
     question: 'What makes it different?',
     answer: 'It creates realistic pressure, not static tips. The feedback is tied to what you actually said.',
   },
   {
+    emoji: '🎟️',
     question: 'Is it free to use?',
     answer: `${siteName} is free during the public beta. Practice as many interviews, negotiations, and workplace conversations as you want, no credit card required.`,
   },
   {
+    emoji: '🎮',
     question: 'What can I practice?',
     answer:
       'Behavioral interviews, technical and cultural-fit interviews, salary negotiations, performance feedback, delegating, saying no to extra work, pitching ideas, and other high-stakes 1:1s — with new scenarios added regularly.',
   },
   {
+    emoji: '📊',
     question: 'How does the feedback work?',
     answer:
       'Every session is scored on signals like clarity, confidence, and evidence using your actual responses. You get specific coaching notes after the conversation so you know exactly what to try next.',
   },
   {
+    emoji: '🔒',
     question: 'Is my practice data private?',
     answer: `Your sessions are tied to your account and used to power your feedback and progress. ${siteName} doesn't sell your transcripts, and you can delete your account and data at any time.`,
   },
@@ -512,7 +518,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
     <main>
       <section class="hero section-paper" aria-labelledby="hero-title">
         <div class="hero-copy" data-reveal>
-          <p class="badge"><span class="badge-emoji" aria-hidden="true">🎮</span>Free public beta · AI career simulator</p>
+          <p class="badge"><span class="badge-emoji" aria-hidden="true">🦄</span>Free public beta · AI career simulator</p>
           <h1 id="hero-title">
             Rehearse <span class="hl-yellow">interviews</span>, <span class="hl-cyan">negotiations</span>, and <span class="hl-pink">tough 1:1s</span> — before they happen.
           </h1>
@@ -814,7 +820,10 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             const segments = item.answer.split(siteName);
             return (
               <article class="faq-card">
-                <h3>{item.question}</h3>
+                <h3>
+                  <span class="faq-emoji" aria-hidden="true">{item.emoji}</span>
+                  <span class="faq-question-text">{item.question}</span>
+                </h3>
                 <p>
                   {segments.map((segment, index) => (
                     <>
