@@ -54,26 +54,37 @@ const nextConfig = {
   async rewrites() {
     if (!landingOrigin) return [];
 
+    // Routes served by the Astro landing project that should proxy through
+    // the Next.js apex (`careersim.ai`) instead of being handled by Next.
+    // Anything not listed here falls through to the Next.js app.
+    const landingRoutes = [
+      // Marketing pages.
+      '/',
+      '/privacy',
+      '/terms',
+      '/security',
+    ];
+
+    const landingAssetPrefixes = [
+      // Astro bundle output.
+      '/_astro/:path*',
+      // Static assets under landing/public/...
+      '/avatars/:path*',
+    ];
+
     return {
       beforeFiles: [
+        ...landingRoutes.map((source) => ({
+          source,
+          destination: `${landingOrigin}${source === '/' ? '/' : source}`,
+        })),
+        ...landingAssetPrefixes.map((source) => ({
+          source,
+          destination: `${landingOrigin}${source}`,
+        })),
         {
-          source: '/',
-          destination: `${landingOrigin}/`,
-        },
-        {
-          source: '/_astro/:path*',
-          destination: `${landingOrigin}/_astro/:path*`,
-        },
-        {
-          // Landing-page static assets (favicon, persona avatar PNGs, etc.)
-          // live in `landing/public/...`. The Astro deploy serves them at
-          // root paths, so we proxy the matching paths through the apex.
           source: '/favicon.svg',
           destination: `${landingOrigin}/favicon.svg`,
-        },
-        {
-          source: '/avatars/:path*',
-          destination: `${landingOrigin}/avatars/:path*`,
         },
       ],
     };
