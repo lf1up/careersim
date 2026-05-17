@@ -11,7 +11,7 @@ export function Footer() {
   if (isSessionChatPage) return null;
 
   return (
-    <footer className="pb-4 pt-1 text-center text-xs leading-5 text-secondary-600 dark:text-secondary-400">
+    <footer className="pb-10 pt-1 text-center text-xs leading-5 text-secondary-600 dark:text-secondary-400">
       Have any questions? Send an email to{' '}
       <a
         href={`mailto:${CONTACT_EMAIL}`}
