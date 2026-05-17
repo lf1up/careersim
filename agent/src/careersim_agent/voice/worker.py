@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from typing import Any
 
 from ..config import get_settings
 
@@ -126,6 +127,9 @@ def run_worker() -> int:
         # AgentSession and is the substantial part of the worker.
         # We keep that wiring in :func:`_run_room_session` so this
         # entrypoint stays focused on bootstrap + teardown.
+        import time
+
+        call_started_monotonic = time.monotonic()
         try:
             await _run_room_session(
                 ctx=ctx,
@@ -138,6 +142,30 @@ def run_worker() -> int:
                 bearer_token=bearer,
             )
         finally:
+            # Compute aggregate voice signals and let the API persist
+            # them alongside the quota debit. We finalize *before*
+            # closing providers so any last buffered turn has already
+            # been recorded via `adapter.record_voice_turn`.
+            voice_analysis: dict[str, Any] | None = None
+            try:
+                voice_analysis = adapter.finalize_voice_analysis().get("voice")
+            except Exception:
+                logger.exception(
+                    "finalize_voice_analysis failed for %s; skipping persistence",
+                    session_id,
+                )
+
+            elapsed = max(0, int(time.monotonic() - call_started_monotonic))
+            try:
+                await api.report_call_end(
+                    session_id,
+                    elapsed,
+                    bearer_token=bearer,
+                    voice_analysis=voice_analysis,
+                )
+            except Exception:
+                logger.exception("voice/end report failed for %s", session_id)
+
             await stt.aclose()
             await tts.aclose()
             await api.aclose()

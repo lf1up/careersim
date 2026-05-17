@@ -186,6 +186,50 @@ describe('voice mode — daily quota', () => {
     expect(res.json()).toMatchObject({ error: 'voice_quota_exhausted' });
   });
 
+  it('persists voice_analysis into state_snapshot.analysis.voice', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+
+    const end = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/end`,
+      headers: authHeader,
+      payload: {
+        seconds_used: 12,
+        voice_analysis: {
+          user_avg_wpm: 142.5,
+          user_filler_count: 3,
+          longest_silence_sec: 4.2,
+          turns: [
+            { role: 'human', transcript_preview: 'hi', duration_sec: 1.0 },
+          ],
+        },
+      },
+    });
+    expect(end.statusCode, end.body).toBe(200);
+
+    // Pull the snapshot back via the internal endpoint and confirm
+    // the analytics landed under analysis.voice.
+    const fetched = await h.app.inject({
+      method: 'GET',
+      url: `/internal/sessions/${session.id}/state-for-voice`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+    });
+    expect(fetched.statusCode).toBe(200);
+    const snapshot = fetched.json();
+    expect(snapshot.analysis?.voice).toMatchObject({
+      user_avg_wpm: 142.5,
+      user_filler_count: 3,
+      longest_silence_sec: 4.2,
+    });
+  });
+
   it('clamps absurdly large seconds_used at 1 hour', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);

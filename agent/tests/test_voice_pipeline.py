@@ -14,6 +14,7 @@ from typing import Any, Optional
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
+from careersim_agent.services.eval_service import VoiceTurnMetadata
 from careersim_agent.voice.pipeline import LangGraphAdapter, stream_chunks
 
 
@@ -217,3 +218,53 @@ async def test_stream_chunks_empty_input() -> None:
     assert out == []
     out = [c async for c in stream_chunks("   ")]
     assert out == []
+
+
+# -----------------------------------------------------------------
+# Voice turn metadata + finalize_voice_analysis
+# -----------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_finalize_voice_analysis_merges_signals_into_state() -> None:
+    svc = FakeConversationService()
+    adapter = LangGraphAdapter(_wire_state(), service=svc)
+
+    adapter.record_voice_turn(
+        VoiceTurnMetadata(
+            role="ai",
+            transcript="Hi there, how are you doing today?",
+            audio_start_sec=0.0,
+            audio_end_sec=2.0,
+        )
+    )
+    adapter.record_voice_turn(
+        VoiceTurnMetadata(
+            role="human",
+            transcript="Um, I'm doing fine, thanks.",
+            audio_start_sec=2.5,
+            audio_end_sec=4.0,
+            prior_turn_ended_sec=2.0,
+        )
+    )
+    adapter.record_voice_turn(
+        VoiceTurnMetadata(
+            role="ai",
+            transcript="Great. Tell me about your last project.",
+            audio_start_sec=4.5,
+            audio_end_sec=6.5,
+            barge_in_count=1,
+        )
+    )
+
+    analysis = adapter.finalize_voice_analysis()
+    assert "voice" in analysis
+    voice = analysis["voice"]
+    assert voice["user_filler_count"] >= 1
+    assert voice["user_interrupt_count"] == 1
+    assert voice["user_avg_response_latency_sec"] == 0.5
+    assert len(voice["turns"]) == 3
+    assert voice["turns"][0]["role"] == "ai"
+    assert voice["turns"][1]["role"] == "human"
+    # The state on the adapter should also carry the merged analysis.
+    assert adapter.current_state_wire().get("analysis", {}).get("voice")

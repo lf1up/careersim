@@ -131,14 +131,26 @@ class APIClient:
         seconds_used: int,
         *,
         bearer_token: str,
+        voice_analysis: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Notify the API that a voice call ended; debits quota."""
+        """Notify the API that a voice call ended; debits quota.
+
+        ``voice_analysis`` is an optional aggregate payload (the
+        ``VoiceSignals`` produced by ``LangGraphAdapter.finalize_voice_analysis``).
+        When provided, the API merges it into the session's
+        ``state_snapshot.analysis.voice`` so the post-session feedback
+        view can render pacing / fillers / latency without re-running
+        any analytics on the worker.
+        """
         client = await self._ensure_client()
         url = f"{self._base_url}/sessions/{session_id}/voice/end"
+        body: dict[str, Any] = {"seconds_used": seconds_used}
+        if voice_analysis:
+            body["voice_analysis"] = voice_analysis
         try:
             await client.post(
                 url,
-                json={"seconds_used": seconds_used},
+                json=body,
                 headers={"Authorization": f"Bearer {bearer_token}"},
             )
         except httpx.HTTPError:  # best-effort; we logged the call

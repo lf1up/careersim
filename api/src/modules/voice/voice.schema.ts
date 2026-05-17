@@ -13,6 +13,19 @@ import { z } from 'zod';
 export const voiceEndSchema = z.object({
   /** Seconds the call lasted; must be a non-negative integer. */
   seconds_used: z.coerce.number().int().nonnegative().max(60 * 60),
+  /**
+   * Optional aggregate voice analytics produced by the agent-voice
+   * worker (pacing, fillers, latency, silences, interrupts). When
+   * present the API merges it into `state_snapshot.analysis.voice`
+   * so the post-session feedback view can render it without needing
+   * to re-derive metrics from raw audio.
+   *
+   * The shape mirrors `agent.services.eval_service.VoiceSignals`
+   * minus a couple of derived booleans; we keep it open-ended
+   * (`record(unknown)`) so the worker can extend the contract
+   * without forcing a coordinated API release for every new metric.
+   */
+  voice_analysis: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type VoiceEndBody = z.infer<typeof voiceEndSchema>;

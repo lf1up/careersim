@@ -102,6 +102,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
         userId: request.user.sub,
         sessionId: request.params.id,
         secondsUsed: request.body.seconds_used,
+        voiceAnalysis: request.body.voice_analysis,
       });
       return {
         seconds_recorded: result.secondsRecorded,

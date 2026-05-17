@@ -68,6 +68,13 @@ export interface VoiceService {
     userId: string;
     sessionId: string;
     secondsUsed: number;
+    /**
+     * Optional aggregate voice analytics produced by the worker. When
+     * present, merged into `state_snapshot.analysis.voice` so the
+     * feedback view can surface pacing / filler / latency signals
+     * without re-deriving them.
+     */
+    voiceAnalysis?: Record<string, unknown>;
   }): Promise<VoiceEndResult>;
 
   /**
@@ -103,6 +110,28 @@ export function roomNameForSession(sessionId: string): string {
 export function formatUsageDate(d: Date): string {
   // toISOString -> 2026-05-17T..., split off the date component.
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Merge a worker-supplied `voice_analysis` payload into the session's
+ * wire-format snapshot under `analysis.voice`. Pure / immutable: the
+ * input snapshot is not mutated. Exported for tests.
+ */
+export function mergeVoiceAnalysis(
+  snapshot: AgentWireState,
+  voiceAnalysis: Record<string, unknown>,
+): AgentWireState {
+  const existingAnalysis =
+    snapshot.analysis && typeof snapshot.analysis === 'object'
+      ? (snapshot.analysis as Record<string, unknown>)
+      : {};
+  return {
+    ...snapshot,
+    analysis: {
+      ...existingAnalysis,
+      voice: voiceAnalysis,
+    },
+  };
 }
 
 export function createVoiceService(
@@ -246,7 +275,7 @@ export function createVoiceService(
       };
     },
 
-    async endCall({ userId, sessionId, secondsUsed }) {
+    async endCall({ userId, sessionId, secondsUsed, voiceAnalysis }) {
       ensureEnabled();
 
       const [session] = await db
@@ -270,11 +299,23 @@ export function createVoiceService(
         void updatedTotal;
       }
 
+      // Merge the worker-supplied voice analytics into the existing
+      // wire-state snapshot. We do this in-process (not via a JSONB
+      // path update) because the analysis envelope already round-trips
+      // through `state_snapshot` on every text turn — keeping the
+      // merge here means there's exactly one place that mutates the
+      // snapshot from the API side.
+      const updatedSnapshot =
+        voiceAnalysis && Object.keys(voiceAnalysis).length > 0
+          ? mergeVoiceAnalysis(session.stateSnapshot, voiceAnalysis)
+          : null;
+
       await db
         .update(sessions)
         .set({
           voiceCallEndedAt: endedAt,
           updatedAt: endedAt,
+          ...(updatedSnapshot ? { stateSnapshot: updatedSnapshot } : {}),
         })
         .where(eq(sessions.id, sessionId));
 

@@ -27,6 +27,11 @@ from ..services.conversation_service import (
     get_conversation_service,
     serialize_state,
 )
+from ..services.eval_service import (
+    VoiceTurnMetadata,
+    compute_voice_signals,
+    voice_signals_to_dict,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +72,11 @@ class LangGraphAdapter:
         self._service = service or get_conversation_service()
         # Tracks the last in-flight turn so barge-in can cancel it.
         self._inflight: Optional[asyncio.Task[TurnResult]] = None
+        # Per-call list of voice-turn metadata; the worker appends
+        # each turn's audio timing here as it ends. The aggregate
+        # rolls into `state.analysis.voice` at call end via
+        # :meth:`finalize_voice_analysis`.
+        self._voice_turns: list[VoiceTurnMetadata] = []
 
     # -- Public API used by the LiveKit worker ---------------------------------
 
@@ -110,6 +120,47 @@ class LangGraphAdapter:
         finally:
             if self._inflight is task:
                 self._inflight = None
+
+    def record_voice_turn(self, turn: VoiceTurnMetadata) -> None:
+        """Append a per-turn audio metadata record.
+
+        Called by the voice worker after each finalised turn (both
+        sides). Decoupled from :meth:`user_turn` because the audio
+        timing is only known once VAD has flushed — which can happen
+        a few hundred ms after the LangGraph reply has already been
+        composed.
+        """
+        self._voice_turns.append(turn)
+
+    def finalize_voice_analysis(self) -> dict[str, Any]:
+        """Compute aggregate voice signals and merge them into state.
+
+        Returns the merged ``analysis`` block so the worker can post
+        it back to the API. Idempotent: calling twice will simply
+        recompute against the current ``_voice_turns`` list.
+        """
+        signals = compute_voice_signals(self._voice_turns)
+        analysis_dict = self._state.get("analysis") or {}
+        if not isinstance(analysis_dict, dict):
+            analysis_dict = {}
+        analysis_dict["voice"] = voice_signals_to_dict(signals)
+        # Persist a redacted turn-level breakdown alongside the
+        # aggregate so the feedback view can render a per-turn timeline
+        # without needing the raw audio metadata schema.
+        analysis_dict["voice"]["turns"] = [
+            {
+                "role": t.role,
+                "transcript_preview": t.transcript[:120],
+                "duration_sec": round(
+                    max(0.0, t.audio_end_sec - t.audio_start_sec), 2
+                ),
+                "was_interrupted": t.was_interrupted,
+                "barge_in_count": t.barge_in_count,
+            }
+            for t in self._voice_turns
+        ]
+        self._state["analysis"] = analysis_dict
+        return analysis_dict
 
     async def cancel_inflight(self) -> None:
         """Cancel any in-flight turn; safe to call multiple times.
