@@ -50,6 +50,20 @@ export interface BuildTestAppOptions {
   rateLimitGlobalMax?: number;
   rateLimitGlobalTimeWindow?: string;
   corsAllowedOrigins?: string[];
+  /**
+   * Voice mode config injected into `buildApp`. The default leaves
+   * voice disabled so existing tests stay unaffected; the dedicated
+   * voice suite flips `enabled: true` and provides matching LiveKit
+   * dev credentials.
+   */
+  voice?: {
+    enabled: boolean;
+    livekitUrl?: string;
+    livekitApiKey?: string;
+    livekitApiSecret?: string;
+    dailyMinutesPerUser?: number;
+    internalKey?: string;
+  };
 }
 
 export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestHarness> {
@@ -87,6 +101,17 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
       globalMax: options?.rateLimitGlobalMax,
       globalTimeWindow: options?.rateLimitGlobalTimeWindow,
     },
+    voice: options?.voice
+      ? {
+          enabled: options.voice.enabled,
+          livekitUrl: options.voice.livekitUrl ?? 'ws://livekit.test:7880',
+          livekitApiKey: options.voice.livekitApiKey ?? 'test-livekit-key',
+          livekitApiSecret:
+            options.voice.livekitApiSecret ?? 'test-livekit-secret-min-32-chars-test',
+          dailyMinutesPerUser: options.voice.dailyMinutesPerUser ?? 20,
+          internalKey: options.voice.internalKey ?? 'test-internal-key',
+        }
+      : undefined,
   });
 
   return {

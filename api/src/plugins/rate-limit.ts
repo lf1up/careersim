@@ -121,6 +121,14 @@ export const rateLimitPolicy = {
   sendMessage: () => limit(60, '1 minute', byUser),
   proactive: () => limit(30, '1 minute', byUser),
   nudge: () => limit(120, '1 minute', byUser),
+  /**
+   * Voice-call start. Each call mints a LiveKit join token and burns a
+   * room slot on the SFU; we cap legitimate users to a few starts per
+   * minute so a runaway client (or a genuine attacker) can't churn
+   * tokens and exhaust the room budget. The hard daily ceiling lives
+   * in `voice_minute_usage` — this is just churn protection.
+   */
+  voiceStart: () => limit(10, '1 minute', byUser),
 } as const;
 
 export type RateLimitPolicyName = keyof typeof rateLimitPolicy;

@@ -37,6 +37,7 @@
     "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^6.1.0",
     "ioredis": "^5.10.1",
+    "livekit-server-sdk": "^2.15.3",
     "nodemailer": "^8.0.7",
     "pg": "^8.20.0",
     "pino": "^10.3.1",
