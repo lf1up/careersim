@@ -538,23 +538,31 @@ export default function SessionDetailPage() {
                 messages
               </span>
             </span>
-            <span className="flex items-end justify-end gap-3 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
-              <GoalProgressSummary
-                align="end"
-                progress={session.goal_progress}
-                goals={simulation?.conversation_goals}
+            <span className="flex items-end gap-3 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
+              <VoiceCallButton
+                available={voiceAvailable}
+                isCalling={inCall}
+                starting={startingCall}
+                onStart={handleStartCall}
               />
-              {hasTrackedGoals && (
-                <button
-                  type="button"
-                  className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
-                  aria-expanded={goalsExpanded}
-                  aria-controls="session-goals"
-                  onClick={() => setGoalsExpanded((open) => !open)}
-                >
-                  {goalsExpanded ? 'Hide' : 'Show'}
-                </button>
-              )}
+              <span className="ml-auto flex items-end gap-3">
+                <GoalProgressSummary
+                  align="end"
+                  progress={session.goal_progress}
+                  goals={simulation?.conversation_goals}
+                />
+                {hasTrackedGoals && (
+                  <button
+                    type="button"
+                    className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
+                    aria-expanded={goalsExpanded}
+                    aria-controls="session-goals"
+                    onClick={() => setGoalsExpanded((open) => !open)}
+                  >
+                    {goalsExpanded ? 'Hide' : 'Show'}
+                  </button>
+                )}
+              </span>
             </span>
           </span>
         }
