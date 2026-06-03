@@ -26,9 +26,19 @@ logger = logging.getLogger(__name__)
 
 
 PIPER_VOICES = (
-    # (voice_id, base download URL).  See
-    # https://github.com/rhasspy/piper/blob/master/VOICES.md
-    "en_US-libritts_r-medium",
+    # Every Piper voice referenced by `agent/data/personas.json`
+    # (`voice.providers.piper_local.voiceModel`) plus the global
+    # default. The worker loads a persona's pinned voice on call start,
+    # so a model that's missing here crashes the *entire* job (TTS init
+    # happens before the mic pipeline is wired up) — taking STT and the
+    # transcript down with it. Keep this in sync with personas.json.
+    # See https://github.com/rhasspy/piper/blob/master/VOICES.md
+    "en_US-libritts_r-medium",  # global default (VOICE_PIPER_DEFAULT_VOICE)
+    "en_US-amy-medium",
+    "en_US-joe-medium",
+    "en_US-hfc_male-medium",
+    "en_US-kathleen-low",
+    "en_US-ryan-high",
 )
 
 WHISPER_MODEL = os.environ.get("VOICE_WHISPER_MODEL", "base.en")

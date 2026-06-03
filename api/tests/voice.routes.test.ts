@@ -87,7 +87,10 @@ describe('voice mode — token mint + ownership', () => {
     expect(body.token).toEqual(expect.any(String));
     expect(body.token.length).toBeGreaterThan(20);
     expect(body.livekit_url).toBe('wss://livekit.test:443');
-    expect(body.room).toBe(`sess_${session.id}`);
+    // Room name is unique per call (stable `sess_<id>` prefix + nonce)
+    // so an immediate end+restart never collides on the room and always
+    // gets a fresh agent dispatch.
+    expect(body.room).toMatch(new RegExp(`^sess_${session.id}__[0-9a-f]{8}$`));
     expect(body.quota_remaining_seconds).toBe(20 * 60);
   });
 

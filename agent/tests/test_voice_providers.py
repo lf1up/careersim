@@ -102,7 +102,16 @@ class TestTTSFactory:
         provider = get_tts_provider(PERSONA, settings_override=_settings())
         assert isinstance(provider, PiperLocalTTS)
         assert provider.name == "piper_local"
-        assert provider.output_sample_rate() == 22050
+        # `output_sample_rate()` reads the rate off the loaded model, so it
+        # needs both piper-tts installed *and* the voice file on disk —
+        # neither is guaranteed in this lightweight suite (see module
+        # docstring). Only assert it when the runtime is actually present.
+        piper = pytest.importorskip("piper", reason="piper-tts not installed")
+        del piper
+        try:
+            assert provider.output_sample_rate() == 22050
+        except FileNotFoundError:
+            pytest.skip("piper voice model not present in test environment")
 
     def test_openai_tts(self) -> None:
         s = _settings(voice_tts_provider="openai_tts")

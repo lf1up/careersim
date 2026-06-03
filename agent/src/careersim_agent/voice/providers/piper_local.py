@@ -66,7 +66,27 @@ class PiperLocalTTS:
                 ) from exc
 
             voice_id = self._persona_voice
-            model_path = self._resolve_model_path(voice_id)
+            try:
+                model_path = self._resolve_model_path(voice_id)
+            except FileNotFoundError:
+                # A persona pinned a voice whose model isn't on disk.
+                # Rather than crash the whole job (which happens *before*
+                # the mic pipeline is wired, so it also kills STT and the
+                # transcript), degrade to the default voice — which is
+                # prefetched into the image and therefore always present.
+                # Only a missing *default* is a hard error worth raising.
+                if voice_id == self._default_voice:
+                    raise
+                logger.warning(
+                    "piper voice %s missing; falling back to default %s. "
+                    "Run agent/scripts/prefetch_voice_models.py to restore "
+                    "the persona's intended voice.",
+                    voice_id,
+                    self._default_voice,
+                )
+                voice_id = self._default_voice
+                self._persona_voice = voice_id
+                model_path = self._resolve_model_path(voice_id)
             logger.info("loading piper voice %s from %s", voice_id, model_path)
             self._voice = PiperVoice.load(str(model_path))
             # piper-tts >= 1.3 exposes the model sample rate on the voice

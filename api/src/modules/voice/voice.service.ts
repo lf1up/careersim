@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { and, eq } from 'drizzle-orm';
 import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
 
@@ -97,13 +99,28 @@ export interface VoiceService {
 const ROOM_NAME_PREFIX = 'sess_';
 
 /**
- * Build the LiveKit room name for a session. Stable + reversible so
- * ops can correlate room IDs in the SFU logs back to a session row.
- * The 8-char prefix on the UUID keeps things searchable while staying
- * short enough for LiveKit's 64-char limit.
+ * Build the LiveKit room name for a single voice call.
+ *
+ * The name MUST be unique *per call*, not per session. LiveKit's
+ * automatic agent dispatch fires once when a room is first created; if
+ * we reused a stable `sess_<id>` name, ending a call and immediately
+ * restarting the same session would rejoin the *same* room while the
+ * previous call's agent is still tearing down. The SFU then sees the
+ * room as already-occupied-by-an-agent and never dispatches a fresh
+ * worker — so the new call connects but nothing transcribes the user's
+ * mic (the lingering agent has already stopped reading frames). Adding
+ * a per-call nonce guarantees every `startCall` creates a brand-new
+ * room and therefore always gets its own agent.
+ *
+ * The `sess_<sessionId>` prefix is preserved so ops can still grep all
+ * rooms for a session; the `__<nonce>` suffix disambiguates calls. The
+ * worker discovers the session from participant metadata (not the room
+ * name), and `endCall` keys off `sessionId`, so the nonce is inert
+ * everywhere except LiveKit room identity.
  */
-export function roomNameForSession(sessionId: string): string {
-  return `${ROOM_NAME_PREFIX}${sessionId}`;
+export function roomNameForSession(sessionId: string, nonce?: string): string {
+  const base = `${ROOM_NAME_PREFIX}${sessionId}`;
+  return nonce ? `${base}__${nonce}` : base;
 }
 
 /** Format a JS `Date` as a UTC `YYYY-MM-DD` string for the quota bucket. */
@@ -241,7 +258,10 @@ export function createVoiceService(
       // 4. Mint the LiveKit join token. The user joins as
       //    `participant_<userId-prefix>` so SFU logs are scrubbable
       //    without correlating IDs.
-      const room = roomNameForSession(sessionId);
+      // Per-call nonce — see `roomNameForSession`. Without it, an
+      // immediate end+restart of the same session collides on the room
+      // name and the new call never gets an agent dispatched.
+      const room = roomNameForSession(sessionId, randomUUID().slice(0, 8));
       const expiresAt = new Date(startedAt.getTime() + tokenTtl * 1000);
       const at = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
         identity: `user_${userId.slice(0, 8)}`,
