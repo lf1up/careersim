@@ -77,7 +77,6 @@ class Settings(BaseSettings):
     # behavior on the same flag.
     # -------------------------------------------------------------------
     voice_enabled: bool = True
-    voice_daily_minutes_per_user: int = 20
 
     # LiveKit (self-hosted by default; cloud just swaps the URL + keys)
     livekit_url: str = "ws://livekit:7880"
