@@ -262,7 +262,15 @@ services:
     # `--dev` enables a permissive WebRTC config (no TURN, accepts loopback)
     # which matches the local docker-compose topology. Production deploys
     # MUST swap this for a real config file with a TLS cert.
-    command: ["--dev", "--bind", "0.0.0.0"]
+    #
+    # `--node-ip 127.0.0.1` is REQUIRED for local Docker: without it, `--dev`
+    # auto-advertises the container's bridge IP (172.x) and a STUN-resolved
+    # public IP as ICE candidates — neither is reachable from a browser on the
+    # host, so media (ICE) negotiation fails and the call drops right after the
+    # room is joined. Since 7882/udp is published to the host below, the browser
+    # reaches the SFU via localhost. `--udp-port 7882` pins media to the single
+    # published port.
+    command: ["--dev", "--bind", "0.0.0.0", "--node-ip", "127.0.0.1", "--udp-port", "7882"]
     ports:
       # 7880 — websocket signalling (browser <-> SFU)
       - "7880:7880"

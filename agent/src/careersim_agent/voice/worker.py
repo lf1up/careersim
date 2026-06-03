@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Any
+from typing import Any, AsyncIterator
 
 from ..config import get_settings
 
@@ -51,7 +51,6 @@ def run_worker() -> int:
 
     try:
         from livekit.agents import (  # lazy
-            JobContext,
             WorkerOptions,
             cli,
         )
@@ -63,136 +62,227 @@ def run_worker() -> int:
         )
         return 2
 
-    async def entrypoint(ctx: "JobContext") -> None:
-        """Per-room entry point invoked by the LiveKit Agents runtime.
-
-        Each call mints a brand-new :class:`LangGraphAdapter` for the
-        room from the wire-format state pulled out of the API. The
-        room's metadata is expected to carry ``session_id`` (set when
-        the API mints the join token in :file:`api/src/modules/voice`).
-        """
-        from .pipeline import LangGraphAdapter  # local import (depends on agent code)
-        from .providers import get_stt_provider, get_tts_provider
-        from .state_bridge import APIClient
-        from .transcripts import (
-            Caption,
-            LiveKitCaptionPublisher,
-        )
-
-        await ctx.connect()
-        room = ctx.room
-
-        # Session ID + bearer token come in via the room metadata,
-        # which the API populates when minting the LiveKit token.
-        meta = (room.metadata or "").strip()
-        if not meta:
-            logger.warning("room %s has no metadata; cannot resolve session", room.name)
-            return
-
-        import json
-        try:
-            meta_json = json.loads(meta)
-        except json.JSONDecodeError:
-            logger.warning("room %s metadata not JSON: %r", room.name, meta[:120])
-            return
-
-        session_id = str(meta_json.get("session_id") or "")
-        bearer = str(meta_json.get("bearer_token") or "")
-        if not session_id or not bearer:
-            logger.warning(
-                "room %s metadata missing session_id/bearer_token; refusing",
-                room.name,
-            )
-            return
-
-        api = APIClient.from_env()
-        try:
-            wire_state = await api.fetch_state_for_voice(session_id)
-        except Exception:
-            logger.exception("failed to fetch state-for-voice; aborting room")
-            return
-
-        adapter = LangGraphAdapter(wire_state)
-        persona = adapter.persona
-        captions = LiveKitCaptionPublisher(room)
-
-        # Resolve per-persona voice tunings up-front so the loop
-        # below doesn't re-read the persona dict on every turn. The
-        # struct is frozen — safe to share across coroutines.
-        from .persona_voice import resolve_voice_tuning
-        tuning = resolve_voice_tuning(persona)
-        logger.info(
-            "voice tuning for %s: rate=%dwpm silence=%dms barge_in=%dms fillers=%s",
-            persona.get("slug") or "<unknown>",
-            tuning.speaking_rate_wpm,
-            tuning.silence_threshold_ms,
-            tuning.barge_in_tolerance_ms,
-            tuning.filler_word_frequency,
-        )
-
-        try:
-            stt = get_stt_provider(persona)
-            tts = get_tts_provider(persona)
-        except Exception as exc:
-            logger.error("provider init failed for %s: %s", session_id, exc)
-            return
-
-        # The actual room <-> stt/tts wiring uses livekit-agents'
-        # AgentSession and is the substantial part of the worker.
-        # We keep that wiring in :func:`_run_room_session` so this
-        # entrypoint stays focused on bootstrap + teardown.
-        import time
-
-        call_started_monotonic = time.monotonic()
-        try:
-            await _run_room_session(
-                ctx=ctx,
-                adapter=adapter,
-                stt=stt,
-                tts=tts,
-                captions=captions,
-                api=api,
-                session_id=session_id,
-                bearer_token=bearer,
-                tuning=tuning,
-            )
-        finally:
-            # Compute aggregate voice signals and let the API persist
-            # them alongside the quota debit. We finalize *before*
-            # closing providers so any last buffered turn has already
-            # been recorded via `adapter.record_voice_turn`.
-            voice_analysis: dict[str, Any] | None = None
-            try:
-                voice_analysis = adapter.finalize_voice_analysis().get("voice")
-            except Exception:
-                logger.exception(
-                    "finalize_voice_analysis failed for %s; skipping persistence",
-                    session_id,
-                )
-
-            elapsed = max(0, int(time.monotonic() - call_started_monotonic))
-            try:
-                await api.report_call_end(
-                    session_id,
-                    elapsed,
-                    bearer_token=bearer,
-                    voice_analysis=voice_analysis,
-                )
-            except Exception:
-                logger.exception("voice/end report failed for %s", session_id)
-
-            await stt.aclose()
-            await tts.aclose()
-            await api.aclose()
-            # Issue an opening caption so the web client always sees
-            # *something* on the data channel even if the call ended
-            # before any utterance was produced.
-            await captions.publish(Caption(role="ai", text="", is_final=True))
-
+    # ``cli.run_app`` is LiveKit Agents' own Click-based CLI; it
+    # re-parses ``sys.argv`` and expects one of its subcommands
+    # (start/dev/connect/...). Our process was launched as
+    # ``python -m careersim_agent.main --serve voice``, so we must
+    # replace argv with a LiveKit-compatible invocation or it dies
+    # with "No such option '--serve'". ``start`` is the production
+    # mode that registers the worker with the SFU and waits for the
+    # API to dispatch rooms.
+    sys.argv = [sys.argv[0], "start"]
     cli.run_app(  # blocks until SIGINT
-        WorkerOptions(entrypoint_fnc=entrypoint),
+        WorkerOptions(entrypoint_fnc=_voice_entrypoint),
     )
     return 0
+
+
+def _extract_ai_reply(detail: Any) -> str:
+    """Pull the persona's freshly-appended reply out of a SessionDetail.
+
+    ``POST /sessions/:id/messages`` returns the full message list; the new
+    persona burst is the run of trailing ``ai`` messages after the last
+    ``human`` message. Multi-bubble bursts are joined with an ellipsis to
+    mirror the chat transcript's visual cadence (and so we don't talk over
+    ourselves between bubbles).
+    """
+    if not isinstance(detail, dict):
+        return ""
+    messages = detail.get("messages")
+    if not isinstance(messages, list):
+        return ""
+    msgs = [m for m in messages if isinstance(m, dict)]
+    try:
+        msgs.sort(key=lambda m: m.get("order_index", 0))
+    except Exception:
+        pass
+    trailing: list[str] = []
+    for msg in reversed(msgs):
+        role = msg.get("role")
+        if role == "ai":
+            content = msg.get("content")
+            if isinstance(content, str) and content.strip():
+                trailing.append(content.strip())
+        elif role == "human":
+            break
+    trailing.reverse()
+    return " … ".join(trailing)
+
+
+async def _resolve_session_metadata(room: Any) -> tuple[str, str] | None:
+    """Pull ``(session_id, bearer_token)`` out of room/participant metadata.
+
+    The API encodes both values as JSON when minting the LiveKit join
+    token. Because that metadata is attached to the *participant* (LiveKit
+    scopes ``AccessToken.metadata`` to the participant, not the room), we
+    look there first — falling back to ``room.metadata`` in case a future
+    deploy sets room-level metadata via the RoomService API.
+
+    Returns ``None`` if neither carries a usable payload (after a short
+    grace period waiting for the user participant to connect).
+    """
+    import asyncio
+    import json
+
+    def _parse(raw: str | None) -> tuple[str, str] | None:
+        raw = (raw or "").strip()
+        if not raw:
+            return None
+        try:
+            obj = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        sid = str(obj.get("session_id") or "")
+        tok = str(obj.get("bearer_token") or "")
+        return (sid, tok) if sid and tok else None
+
+    def _scan() -> tuple[str, str] | None:
+        # Room first (forward-compat), then any remote participant.
+        found = _parse(getattr(room, "metadata", None))
+        if found:
+            return found
+        for participant in list(room.remote_participants.values()):
+            found = _parse(getattr(participant, "metadata", None))
+            if found:
+                return found
+        return None
+
+    # The user usually joins before the agent is dispatched, but poll for a
+    # few seconds to absorb any ordering race without hanging the worker.
+    for _ in range(25):
+        found = _scan()
+        if found:
+            return found
+        await asyncio.sleep(0.2)
+    return None
+
+
+async def _voice_entrypoint(ctx: Any) -> None:
+    """Per-room entry point invoked by the LiveKit Agents runtime.
+
+    Each call mints a brand-new :class:`LangGraphAdapter` for the
+    room from the wire-format state pulled out of the API. The join
+    token's metadata carries ``session_id`` + ``bearer_token`` (set
+    when the API mints the token in :file:`api/src/modules/voice`);
+    LiveKit attaches it to the user *participant*, so we read it via
+    :func:`_resolve_session_metadata`.
+
+    NOTE: this MUST stay a module-level function (not a closure inside
+    :func:`run_worker`). LiveKit Agents runs each job in a separate
+    process and pickles the entrypoint by qualified name to hand it to
+    the worker subprocess; a local closure fails with
+    ``Can't pickle local object``.
+    """
+    from .pipeline import LangGraphAdapter  # local import (depends on agent code)
+    from .providers import get_stt_provider, get_tts_provider
+    from .state_bridge import APIClient
+    from .transcripts import (
+        Caption,
+        LiveKitCaptionPublisher,
+    )
+
+    await ctx.connect()
+    room = ctx.room
+
+    # Session ID + bearer token arrive as JSON metadata minted by the API
+    # when it issues the join token. LiveKit's ``AccessToken.metadata`` is
+    # *participant*-scoped, so this JSON lands on the user participant's
+    # ``.metadata`` — not ``room.metadata``. We read it off the participant
+    # (with a room-metadata fallback for forward compatibility), waiting a
+    # few seconds for the user to connect if the agent got here first.
+    resolved = await _resolve_session_metadata(room)
+    if resolved is None:
+        logger.warning(
+            "room %s: no session metadata on room or participants; "
+            "cannot resolve session",
+            room.name,
+        )
+        return
+    session_id, bearer = resolved
+
+    api = APIClient.from_env()
+    try:
+        wire_state = await api.fetch_state_for_voice(session_id)
+    except Exception:
+        logger.exception("failed to fetch state-for-voice; aborting room")
+        return
+
+    adapter = LangGraphAdapter(wire_state)
+    persona = adapter.persona
+    captions = LiveKitCaptionPublisher(room)
+
+    # Resolve per-persona voice tunings up-front so the loop
+    # below doesn't re-read the persona dict on every turn. The
+    # struct is frozen — safe to share across coroutines.
+    from .persona_voice import resolve_voice_tuning
+    tuning = resolve_voice_tuning(persona)
+    logger.info(
+        "voice tuning for %s: rate=%dwpm silence=%dms barge_in=%dms fillers=%s",
+        persona.get("slug") or "<unknown>",
+        tuning.speaking_rate_wpm,
+        tuning.silence_threshold_ms,
+        tuning.barge_in_tolerance_ms,
+        tuning.filler_word_frequency,
+    )
+
+    try:
+        stt = get_stt_provider(persona)
+        tts = get_tts_provider(persona)
+    except Exception as exc:
+        logger.error("provider init failed for %s: %s", session_id, exc)
+        return
+
+    # The actual room <-> stt/tts wiring uses livekit-agents'
+    # AgentSession and is the substantial part of the worker.
+    # We keep that wiring in :func:`_run_room_session` so this
+    # entrypoint stays focused on bootstrap + teardown.
+    import time
+
+    call_started_monotonic = time.monotonic()
+    try:
+        await _run_room_session(
+            ctx=ctx,
+            adapter=adapter,
+            stt=stt,
+            tts=tts,
+            captions=captions,
+            api=api,
+            session_id=session_id,
+            bearer_token=bearer,
+            tuning=tuning,
+        )
+    finally:
+        # Compute aggregate voice signals and let the API persist
+        # them alongside the quota debit. We finalize *before*
+        # closing providers so any last buffered turn has already
+        # been recorded via `adapter.record_voice_turn`.
+        voice_analysis: dict[str, Any] | None = None
+        try:
+            voice_analysis = adapter.finalize_voice_analysis().get("voice")
+        except Exception:
+            logger.exception(
+                "finalize_voice_analysis failed for %s; skipping persistence",
+                session_id,
+            )
+
+        elapsed = max(0, int(time.monotonic() - call_started_monotonic))
+        try:
+            await api.report_call_end(
+                session_id,
+                elapsed,
+                bearer_token=bearer,
+                voice_analysis=voice_analysis,
+            )
+        except Exception:
+            logger.exception("voice/end report failed for %s", session_id)
+
+        await stt.aclose()
+        await tts.aclose()
+        await api.aclose()
+        # Issue an opening caption so the web client always sees
+        # *something* on the data channel even if the call ended
+        # before any utterance was produced.
+        await captions.publish(Caption(role="ai", text="", is_final=True))
 
 
 async def _run_room_session(
@@ -232,41 +322,308 @@ async def _run_room_session(
       the persona will *initiate* an inactivity nudge (mirroring the
       chat-side ``inactivityNudgeDelaySec`` knob).
 
-    The actual ``AgentSession`` wiring requires LiveKit's runtime
-    types and is the place where Phase-2 acceptance (one round-trip
-    against Vikram) gets exercised. Because that wiring depends on
-    pieces of livekit-agents that vary by minor version, we keep it
-    in this single function so future SDK upgrades land in one place.
+    Implementation notes:
+
+    * Agent → room audio is an :class:`rtc.AudioSource` published as a
+      microphone track; TTS PCM chunks are captured straight into it.
+    * Room → agent audio is read via :class:`rtc.AudioStream` (resampled
+      to the STT provider's rate) and segmented into utterances by a
+      silero VAD. Each utterance is handed to ``stt.transcribe`` — our
+      providers buffer-then-transcribe, so VAD segmentation is what gives
+      them an utterance boundary.
+    * ``tuning.barge_in_tolerance_ms`` maps to the VAD's
+      ``min_speech_duration``; when the user starts speaking over the
+      persona we cancel the in-flight reply + playback (barge-in).
+    * Turn handling runs in its own task so the VAD loop stays responsive
+      for barge-in while the persona is talking.
     """
-    # NOTE: implementation lives behind the SDK; this method is the
-    # documented seam where the LiveKit-specific code goes. It is
-    # exercised by the smoke script in `agent/scripts/voice_smoke.py`
-    # and not by unit tests.
+    import asyncio
+    import contextlib
+    import time
+
+    import livekit.rtc as rtc
+    from livekit.agents import vad as vad_module
+    from livekit.plugins import silero
+
+    from ..services.eval_service import VoiceTurnMetadata
     from .persona_voice import VoiceTuning
-    from .pipeline import LangGraphAdapter  # for the type checker
+    from .pipeline import LangGraphAdapter
     from .transcripts import Caption
 
     assert isinstance(adapter, LangGraphAdapter)
     assert isinstance(tuning, VoiceTuning)
 
-    # Opening turn (if the persona starts the conversation).
-    opening = await adapter.opening_turn()
-    if opening is not None and opening.text:
-        await captions.publish(Caption(role="ai", text=opening.text, is_final=True))  # type: ignore[attr-defined]
-        # Speak via TTS — left to the SDK-specific wiring.
-        async for _chunk in tts.synthesize(opening.text):  # type: ignore[attr-defined]
-            pass
+    room = ctx.room  # type: ignore[attr-defined]
+    loop = asyncio.get_running_loop()
 
-    # The full audio loop is implemented against the LiveKit Agents
-    # AgentSession in production; see the plan's Phase-2 acceptance
-    # criterion and the smoke script for the runnable equivalent.
-    # When wiring the AgentSession, plumb `tuning` into:
-    #   - `silero.VAD.load(min_speech_duration=tuning.barge_in_tolerance_ms / 1000)`
-    #   - `AgentSession(..., turn_detection=...)` watchdog using
-    #     `tuning.silence_threshold_ms` for the inactivity timer.
-    #   - The system-prompt decorator referenced by
-    #     `tuning.filler_word_frequency` so prosody on the LLM side
-    #     matches the persona's voice character.
+    # ---- agent -> room audio output ---------------------------------------
+    # WebRTC audio sources only accept sample rates that divide into clean
+    # 10 ms frames (8k / 16k / 24k / 48k). Piper emits 22050 Hz, which does
+    # NOT (220.5 samples per 10 ms), so capturing it directly fails with
+    # "InvalidState - failed to capture frame". We therefore publish a 48 kHz
+    # source (Opus's native rate) and resample the TTS output into it.
+    OUT_RATE = 48000
+    tts_rate = tts.output_sample_rate()  # type: ignore[attr-defined]
+    source = rtc.AudioSource(OUT_RATE, 1)
+    out_track = rtc.LocalAudioTrack.create_audio_track("agent-voice", source)
+    await room.local_participant.publish_track(
+        out_track,
+        rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE),
+    )
+
+    # Shared mutable state between the playback and VAD coroutines.
+    speak_state: dict[str, Any] = {
+        "speaking": False,
+        "task": None,        # asyncio.Task | None — current TTS pump
+        "ai_audio_sec": 0.0,  # duration of the last AI utterance
+        "last_turn_end": None,  # monotonic ts when the last turn finished
+        "interrupted": False,
+    }
+
+    async def _pump(text: str) -> None:
+        played = 0.0
+        # Resample provider PCM up to the 48 kHz source rate when needed.
+        # The resampler also re-frames into capturable 10 ms blocks.
+        resampler = (
+            rtc.AudioResampler(tts_rate, OUT_RATE, num_channels=1)
+            if tts_rate != OUT_RATE
+            else None
+        )
+
+        async def _capture(pcm: bytes) -> None:
+            nonlocal played
+            samples = len(pcm) // 2  # 16-bit mono
+            if samples <= 0:
+                return
+            in_frame = rtc.AudioFrame(pcm, tts_rate, 1, samples)
+            if resampler is None:
+                played += samples / float(tts_rate)
+                await source.capture_frame(in_frame)
+                return
+            for out_frame in resampler.push(in_frame):
+                played += out_frame.samples_per_channel / float(OUT_RATE)
+                await source.capture_frame(out_frame)
+
+        async for chunk in tts.synthesize(text):  # type: ignore[attr-defined]
+            if chunk.audio:
+                await _capture(chunk.audio)
+        if resampler is not None:
+            for out_frame in resampler.flush():
+                played += out_frame.samples_per_channel / float(OUT_RATE)
+                await source.capture_frame(out_frame)
+        await source.wait_for_playout()
+        speak_state["ai_audio_sec"] = played
+
+    async def speak(text: str) -> None:
+        text = (text or "").strip()
+        if not text:
+            return
+        await captions.publish(Caption(role="ai", text=text, is_final=True))  # type: ignore[attr-defined]
+        speak_state["speaking"] = True
+        speak_state["interrupted"] = False
+        task = loop.create_task(_pump(text))
+        speak_state["task"] = task
+        try:
+            await task
+        except asyncio.CancelledError:
+            speak_state["interrupted"] = True
+        finally:
+            speak_state["speaking"] = False
+            speak_state["task"] = None
+            speak_state["last_turn_end"] = time.monotonic()
+
+    async def barge_in() -> None:
+        await adapter.cancel_inflight()  # type: ignore[attr-defined]
+        task = speak_state.get("task")
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        with contextlib.suppress(Exception):
+            source.clear_queue()
+        speak_state["speaking"] = False
+
+    # ---- opening turn (persona speaks first, if configured) ----------------
+    opening = await adapter.opening_turn()  # type: ignore[attr-defined]
+    if opening is not None and opening.text:
+        await speak(opening.text)
+        adapter.record_voice_turn(  # type: ignore[attr-defined]
+            VoiceTurnMetadata(
+                role="ai",
+                transcript=opening.text,
+                audio_start_sec=0.0,
+                audio_end_sec=speak_state["ai_audio_sec"],
+            )
+        )
+
+    # ---- locate the user's (auto-subscribed) microphone track --------------
+    user_track = None
+    for _ in range(50):  # up to ~10s
+        for participant in list(room.remote_participants.values()):
+            for pub in list(participant.track_publications.values()):
+                trk = getattr(pub, "track", None)
+                if trk is not None and trk.kind == rtc.TrackKind.KIND_AUDIO:
+                    user_track = trk
+                    break
+            if user_track is not None:
+                break
+        if user_track is not None:
+            break
+        await asyncio.sleep(0.2)
+
+    if user_track is None:
+        logger.warning(
+            "session %s: no user audio track subscribed; ending room",
+            session_id,
+        )
+        return
+
+    # ---- input pipeline: AudioStream -> silero VAD -> STT -> LangGraph ------
+    stt_rate = stt.input_sample_rate()  # type: ignore[attr-defined]
+    vad = silero.VAD.load(
+        min_speech_duration=max(0.05, tuning.barge_in_tolerance_ms / 1000.0),
+        min_silence_duration=0.55,
+        sample_rate=16000,
+    )
+    vad_stream = vad.stream()
+    audio_stream = rtc.AudioStream(user_track, sample_rate=stt_rate, num_channels=1)
+
+    done = asyncio.Event()
+
+    def _on_disconnected(*_args: Any) -> None:
+        done.set()
+
+    def _on_participant_left(*_args: Any) -> None:
+        # End promptly when the human hangs up rather than waiting for the
+        # SFU's empty-room departure timeout.
+        if not room.remote_participants:
+            done.set()
+
+    room.on("disconnected", _on_disconnected)
+    room.on("participant_disconnected", _on_participant_left)
+
+    async def _forward_frames() -> None:
+        try:
+            async for ev in audio_stream:
+                vad_stream.push_frame(ev.frame)
+        except Exception:
+            logger.exception("session %s: audio forward loop crashed", session_id)
+        finally:
+            done.set()
+
+    async def _handle_utterance(frames: list[Any]) -> None:
+        if not frames:
+            return
+
+        async def _pcm() -> AsyncIterator[bytes]:
+            for f in frames:
+                yield bytes(f.data)
+
+        speech_start = time.monotonic()
+        prior_end = speak_state.get("last_turn_end")
+        finals: list[str] = []
+        try:
+            async for r in stt.transcribe(_pcm()):  # type: ignore[attr-defined]
+                await captions.publish(  # type: ignore[attr-defined]
+                    Caption(
+                        role="user",
+                        text=r.text,
+                        is_final=r.is_final,
+                        confidence=r.confidence,
+                    )
+                )
+                if r.is_final and r.text.strip():
+                    finals.append(r.text.strip())
+        except Exception:
+            logger.exception("session %s: STT failed", session_id)
+            return
+
+        text = " ".join(finals).strip()
+        if not text:
+            return
+
+        spoken = sum(
+            f.samples_per_channel / float(getattr(f, "sample_rate", stt_rate) or stt_rate)
+            for f in frames
+        )
+        adapter.record_voice_turn(  # type: ignore[attr-defined]
+            VoiceTurnMetadata(
+                role="human",
+                transcript=text,
+                audio_start_sec=0.0,
+                audio_end_sec=spoken,
+                prior_turn_ended_sec=(
+                    None if prior_end is None else max(0.0, speech_start - prior_end)
+                ),
+            )
+        )
+
+        # Persist + generate the reply through the SAME path as text chat:
+        # POST /sessions/:id/messages runs `agent.turn` server-side. Using it
+        # as the single source of truth means the spoken reply equals the
+        # saved transcript (so the chat view updates), and goal eval /
+        # sentiment / nudges all run exactly once. We deliberately do NOT
+        # also run the graph locally via the adapter — that would double the
+        # LLM cost and let the spoken reply drift from what's persisted.
+        try:
+            detail = await api.post_user_message(  # type: ignore[attr-defined]
+                session_id, text, bearer_token=bearer_token
+            )
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.exception("session %s: post_user_message failed", session_id)
+            return
+
+        reply = _extract_ai_reply(detail)
+        if reply:
+            await speak(reply)
+            adapter.record_voice_turn(  # type: ignore[attr-defined]
+                VoiceTurnMetadata(
+                    role="ai",
+                    transcript=reply,
+                    audio_start_sec=0.0,
+                    audio_end_sec=speak_state["ai_audio_sec"],
+                    was_interrupted=speak_state["interrupted"],
+                )
+            )
+
+    async def _consume_vad() -> None:
+        turn_task: asyncio.Task[None] | None = None
+        try:
+            async for ev in vad_stream:
+                if ev.type == vad_module.VADEventType.START_OF_SPEECH:
+                    if speak_state["speaking"]:
+                        await barge_in()
+                elif ev.type == vad_module.VADEventType.END_OF_SPEECH:
+                    # Serialize turns: a new utterance supersedes any
+                    # still-running prior turn.
+                    if turn_task is not None and not turn_task.done():
+                        turn_task.cancel()
+                        with contextlib.suppress(asyncio.CancelledError, Exception):
+                            await turn_task
+                    turn_task = loop.create_task(_handle_utterance(list(ev.frames)))
+        except Exception:
+            logger.exception("session %s: VAD consume loop crashed", session_id)
+        finally:
+            done.set()
+
+    forward_task = loop.create_task(_forward_frames())
+    consume_task = loop.create_task(_consume_vad())
+    try:
+        await done.wait()
+    finally:
+        for task in (forward_task, consume_task):
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+        with contextlib.suppress(Exception):
+            await vad_stream.aclose()
+        with contextlib.suppress(Exception):
+            await audio_stream.aclose()
+        with contextlib.suppress(Exception):
+            await source.aclose()
 
 
 def main() -> None:

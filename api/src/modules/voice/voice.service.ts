@@ -49,8 +49,8 @@ export interface VoiceService {
   /**
    * Start a voice call for `sessionId`. Verifies ownership, checks the
    * daily quota, marks the session as call-in-progress, and mints a
-   * LiveKit join token whose room metadata carries `session_id` +
-   * `bearer_token` so the agent-voice worker can re-enter the API.
+   * LiveKit join token whose participant metadata carries `session_id`
+   * + `bearer_token` so the agent-voice worker can re-enter the API.
    */
   startCall(args: {
     userId: string;
@@ -246,9 +246,11 @@ export function createVoiceService(
       const at = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
         identity: `user_${userId.slice(0, 8)}`,
         ttl: tokenTtl,
-        // LiveKit accepts arbitrary JSON in `metadata`. The agent-voice
-        // worker reads this on `room.metadata` to discover which
-        // session to load and which bearer token to forward back to
+        // LiveKit accepts arbitrary JSON in `metadata`. NOTE: this is
+        // *participant*-scoped metadata (it rides on the user's
+        // participant, not `room.metadata`). The agent-voice worker
+        // reads it off the remote participant to discover which session
+        // to load and which bearer token to forward back to
         // /sessions/:id/messages on each turn.
         metadata: JSON.stringify({
           session_id: sessionId,

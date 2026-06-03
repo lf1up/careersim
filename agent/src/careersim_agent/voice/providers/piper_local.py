@@ -46,9 +46,15 @@ class PiperLocalTTS:
             (persona_config or {}).get("voiceModel") or default_voice
         )
         self._voice: Optional[Any] = None  # piper.PiperVoice
+        # Resolved from the loaded voice's config (falls back to the
+        # libritts_r-medium default). Set in `_ensure_voice`.
+        self._sample_rate = self.SAMPLE_RATE
 
     def output_sample_rate(self) -> int:
-        return self.SAMPLE_RATE
+        # Make sure the voice (and thus its real sample rate) is loaded so
+        # callers publishing an audio track size their source correctly.
+        self._ensure_voice()
+        return self._sample_rate
 
     def _ensure_voice(self) -> Any:
         if self._voice is None:
@@ -63,6 +69,13 @@ class PiperLocalTTS:
             model_path = self._resolve_model_path(voice_id)
             logger.info("loading piper voice %s from %s", voice_id, model_path)
             self._voice = PiperVoice.load(str(model_path))
+            # piper-tts >= 1.3 exposes the model sample rate on the voice
+            # config; older constants were hard-coded. Read it so voices
+            # that aren't 22050 Hz don't get pitch-shifted on playback.
+            config = getattr(self._voice, "config", None)
+            rate = getattr(config, "sample_rate", None)
+            if isinstance(rate, int) and rate > 0:
+                self._sample_rate = rate
         return self._voice
 
     def _resolve_model_path(self, voice_id: str) -> Path:
@@ -95,18 +108,24 @@ class PiperLocalTTS:
             self._voice = None  # force reload
 
         voice = self._ensure_voice()
+        rate = self._sample_rate
         loop = asyncio.get_running_loop()
 
-        # Piper's `synthesize_stream_raw` is a sync generator yielding
-        # chunks of int16 PCM. Run it in an executor and bridge each
-        # chunk back into the async caller.
+        # piper-tts >= 1.3 replaced the old `synthesize_stream_raw` byte
+        # generator with `synthesize(text)`, which yields `AudioChunk`
+        # objects exposing the int16 PCM via `.audio_int16_bytes`. Run the
+        # sync generator in an executor and bridge each chunk back into the
+        # async caller.
         queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue(maxsize=8)
 
         def producer() -> None:
             try:
-                for chunk in voice.synthesize_stream_raw(text):
+                for chunk in voice.synthesize(text):
+                    pcm = getattr(chunk, "audio_int16_bytes", None)
+                    if pcm is None:  # very old API fallback
+                        pcm = bytes(chunk)
                     asyncio.run_coroutine_threadsafe(
-                        queue.put(bytes(chunk)), loop
+                        queue.put(bytes(pcm)), loop
                     ).result()
             finally:
                 asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
@@ -120,14 +139,14 @@ class PiperLocalTTS:
                 if last is not None:
                     yield TTSAudioChunk(
                         audio=last,
-                        sample_rate=self.SAMPLE_RATE,
+                        sample_rate=rate,
                         is_final=True,
                     )
                 return
             if last is not None:
                 yield TTSAudioChunk(
                     audio=last,
-                    sample_rate=self.SAMPLE_RATE,
+                    sample_rate=rate,
                     is_final=False,
                 )
             last = item
