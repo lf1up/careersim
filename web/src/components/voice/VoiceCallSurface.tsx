@@ -116,11 +116,21 @@ export function VoiceCallSurface({
             onCallEnded();
             return;
           }
-          // Otherwise this was an unsolicited disconnect — flip to
-          // `reconnecting` briefly, then end.
+          // Otherwise this was an unsolicited disconnect (network drop,
+          // or the agent worker died mid-call). Flip to `reconnecting`
+          // briefly, then end. We also fire a best-effort `/voice/end`
+          // so the server-side single-active-call guard clears — a
+          // killed worker never reports its own end, which would
+          // otherwise leave the session marked "in progress" and block
+          // the next /voice/start until the staleness window expires.
           setStatus('reconnecting');
           window.setTimeout(() => {
             if (!endingRef.current) {
+              endingRef.current = true;
+              const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              void apiClient.endVoiceCall(sessionId, seconds).catch(() => {
+                // Best-effort — the staleness window is the backstop.
+              });
               setStatus('ended');
               onCallEnded();
             }

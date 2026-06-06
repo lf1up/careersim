@@ -124,15 +124,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install the voice extras on top of the editable chat install.
 RUN uv pip install --no-cache -e ".[voice]"
 
+# Pin the HuggingFace cache to a fixed, appuser-owned path. faster-whisper
+# resolves its model cache from HF_HOME; without this it falls back to the
+# *running user's* ~/.cache/huggingface. The bug that motivated this: the
+# prefetch used to run as root (-> /root/.cache/huggingface) while the
+# runtime runs as `appuser` (-> /home/appuser/.cache/huggingface), so the
+# baked-in model was invisible at runtime and got re-downloaded on the first
+# call. That download blocks long enough that LiveKit kills the job as
+# "unresponsive" (no audio, no transcript). Setting HF_HOME, prefetching as
+# appuser, and mounting the compose `voice_whisper_cache` volume here keeps
+# build-time, runtime, and the persistent volume all pointing at one cache.
+ENV HF_HOME=/app/.hf_cache
+
 # Copy the prefetch script and warm both Piper + Whisper caches into
 # the image. Failures are logged but non-fatal — the runtime falls
 # back to on-demand downloads when the cache is cold.
 COPY --chown=appuser:appuser scripts/ ./scripts/
-RUN mkdir -p /app/.piper_models \
-    && chown -R appuser:appuser /app/.piper_models /app/scripts \
-    && python /app/scripts/prefetch_voice_models.py || true
+RUN mkdir -p /app/.piper_models /app/.hf_cache \
+    && chown -R appuser:appuser /app/.piper_models /app/.hf_cache /app/scripts
 
+# Prefetch as the SAME user that runs the worker so cache ownership +
+# location match at runtime.
 USER appuser
+RUN python /app/scripts/prefetch_voice_models.py || true
 
 # Voice worker entry point — joins LiveKit rooms minted by the API.
 CMD ["python", "-m", "careersim_agent.main", "--serve", "voice"]

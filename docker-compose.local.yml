@@ -321,8 +321,12 @@ services:
       - ./agent/data:/app/data
       # Persist Piper voices + faster-whisper / HuggingFace caches so
       # `docker compose down -v` doesn't force a re-download every time.
+      # NOTE: the whisper cache mount path MUST match `HF_HOME` in
+      # agent/Dockerfile (voice-runtime). If you change one, change both,
+      # and recreate the `voice_whisper_cache` volume so the baked-in
+      # model is copied into the fresh volume.
       - voice_piper_models:/app/.piper_models
-      - voice_whisper_cache:/root/.cache/huggingface
+      - voice_whisper_cache:/app/.hf_cache
       - ./agent/logs:/app/logs
     networks:
       - careersim-network
