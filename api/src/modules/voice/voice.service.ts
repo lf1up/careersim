@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, gt, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, ne } from 'drizzle-orm';
 import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
 
 import type { AgentWireState } from '../../agent/types.js';
@@ -297,6 +297,14 @@ export function createVoiceService(
       //     `activeCallStaleSeconds` and never ended as "in progress".
       //     The staleness window means a worker that crashed without
       //     reporting end can't lock the user out forever.
+      //
+      //     The guard deliberately EXCLUDES the session being started:
+      //     re-starting the same session supersedes its own prior row
+      //     (we overwrite `voiceCallStartedAt` below), so a duplicate
+      //     start — e.g. React Strict Mode double-invoking the mount
+      //     effect, a double-click, or reconnecting the same tab — is
+      //     idempotent rather than a 409. Only an active call on a
+      //     *different* session (the real multi-tab abuse vector) blocks.
       const staleCutoff = new Date(now().getTime() - activeCallStaleSeconds * 1000);
       const [activeCall] = await db
         .select({ id: sessions.id })
@@ -304,6 +312,7 @@ export function createVoiceService(
         .where(
           and(
             eq(sessions.userId, userId),
+            ne(sessions.id, sessionId),
             isNotNull(sessions.voiceCallStartedAt),
             isNull(sessions.voiceCallEndedAt),
             gt(sessions.voiceCallStartedAt, staleCutoff),

@@ -46,6 +46,10 @@ export function VoiceCallSurface({
   const [aiCaption, setAiCaption] = useState<VoiceCaption | null>(null);
   const [userCaption, setUserCaption] = useState<VoiceCaption | null>(null);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
+  // True while the persona's reply is being generated — i.e. the user
+  // finished an utterance but the AI caption hasn't landed yet. Drives
+  // the "cooking a reply" animation so the call never looks frozen.
+  const [isThinking, setIsThinking] = useState(false);
 
   // Keep the connection + start-time around in refs so unmount cleanup
   // can disconnect synchronously without going through React state.
@@ -85,8 +89,24 @@ export function VoiceCallSurface({
 
         // Listen for caption frames published by the agent worker.
         const unsubscribe = conn.onCaption((c) => {
-          if (c.role === 'ai') setAiCaption(c);
-          else setUserCaption(c);
+          if (c.role === 'ai') {
+            setAiCaption(c);
+            // A non-empty AI caption means the reply is ready and the
+            // persona has started speaking — stop the "cooking" animation.
+            if (c.text && c.text.trim()) setIsThinking(false);
+          } else {
+            setUserCaption(c);
+            if (c.is_final && c.text.trim()) {
+              // The user just finished an utterance; the server is now
+              // generating the reply (POST /messages -> agent.turn). Show
+              // the "cooking" indicator until the AI caption lands.
+              setIsThinking(true);
+            } else if (!c.is_final) {
+              // Fresh interim user speech — they're talking again, not
+              // waiting on a reply.
+              setIsThinking(false);
+            }
+          }
         });
 
         // Listen for budget control events (warning + hard cutoff).
@@ -164,6 +184,19 @@ export function VoiceCallSurface({
     return () => window.clearInterval(id);
   }, [status]);
 
+  // Keep the "cooking" indicator honest: clear it whenever the call
+  // leaves the live state, and never let it hang past ~45s if a reply
+  // never arrives (LLM error, dropped/superseded turn).
+  useEffect(() => {
+    if (status !== 'live') {
+      setIsThinking(false);
+      return;
+    }
+    if (!isThinking) return;
+    const id = window.setTimeout(() => setIsThinking(false), 45000);
+    return () => window.clearTimeout(id);
+  }, [status, isThinking]);
+
   // Cleanup: disconnect on unmount.
   useEffect(() => {
     return () => {
@@ -225,13 +258,18 @@ export function VoiceCallSurface({
         </div>
 
         <div className="w-full max-w-xl space-y-3" aria-live="polite">
-          {aiCaption && aiCaption.text && (
-            <div className="border-2 border-black dark:border-retro-ink-dark bg-retro-paper dark:bg-retro-paper-dark p-3">
-              <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">
-                {personaLabel}
+          {isThinking ? (
+            <ThinkingIndicator personaLabel={personaLabel} />
+          ) : (
+            aiCaption &&
+            aiCaption.text && (
+              <div className="border-2 border-black dark:border-retro-ink-dark bg-retro-paper dark:bg-retro-paper-dark p-3">
+                <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">
+                  {personaLabel}
+                </div>
+                <div className="text-sm leading-snug">{aiCaption.text}</div>
               </div>
-              <div className="text-sm leading-snug">{aiCaption.text}</div>
-            </div>
+            )
           )}
           {userCaption && userCaption.text && (
             <div className="border-2 border-black dark:border-retro-ink-dark bg-retro-accent/30 dark:bg-retro-accent-dark/30 p-3">
@@ -258,6 +296,38 @@ export function VoiceCallSurface({
         onToggleMute={handleToggleMute}
         onEndCall={handleEnd}
       />
+    </div>
+  );
+}
+
+/**
+ * Animated placeholder shown in the persona's caption slot while the
+ * reply is being generated (between the user's final transcript and the
+ * AI caption). Mirrors the AI caption bubble's chrome so the reply text
+ * lands in the exact same spot the "cooking" dots occupied.
+ */
+function ThinkingIndicator({ personaLabel }: { personaLabel: string }) {
+  return (
+    <div
+      className="border-2 border-black dark:border-retro-ink-dark bg-retro-paper dark:bg-retro-paper-dark p-3"
+      role="status"
+      aria-live="polite"
+      aria-label={`${personaLabel} is typing`}
+    >
+      <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">
+        {personaLabel}
+      </div>
+      {/* Same three-dot "typing" wave as the chat TypingIndicator so the
+          two surfaces feel consistent. */}
+      <span className="flex items-center gap-1.5" aria-hidden="true">
+        {['0ms', '150ms', '300ms'].map((delay) => (
+          <span
+            key={delay}
+            className="inline-block w-2 h-2 rounded-full bg-retro-ink dark:bg-retro-ink-dark animate-bounce motion-reduce:animate-none"
+            style={{ animationDelay: delay }}
+          />
+        ))}
+      </span>
     </div>
   );
 }

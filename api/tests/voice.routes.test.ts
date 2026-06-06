@@ -328,7 +328,30 @@ describe('voice mode — single-active-call guard', () => {
     await h.close();
   });
 
-  it('refuses a second concurrent /voice/start with 409 voice_call_in_progress', async () => {
+  it('refuses a concurrent /voice/start on a different session with 409 voice_call_in_progress', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const sessionA = await createSession(h, authHeader);
+    const sessionB = await createSession(h, authHeader);
+
+    const first = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${sessionA.id}/voice/start`,
+      headers: authHeader,
+    });
+    expect(first.statusCode, first.body).toBe(200);
+
+    // sessionA's call is still active -> starting a *different* session is
+    // the real multi-tab abuse vector and must be blocked.
+    const second = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${sessionB.id}/voice/start`,
+      headers: authHeader,
+    });
+    expect(second.statusCode).toBe(409);
+    expect(second.json()).toMatchObject({ error: 'voice_call_in_progress' });
+  });
+
+  it('allows a duplicate /voice/start on the SAME session (idempotent)', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
 
@@ -339,14 +362,15 @@ describe('voice mode — single-active-call guard', () => {
     });
     expect(first.statusCode, first.body).toBe(200);
 
-    // No end yet -> the call is still "active" -> second start is blocked.
+    // Re-starting the same session supersedes its own prior row rather
+    // than 409-ing — this is what makes React Strict Mode's double-invoked
+    // mount effect / double-clicks / same-tab reconnects safe.
     const second = await h.app.inject({
       method: 'POST',
       url: `/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
-    expect(second.statusCode).toBe(409);
-    expect(second.json()).toMatchObject({ error: 'voice_call_in_progress' });
+    expect(second.statusCode, second.body).toBe(200);
   });
 
   it('allows a new /voice/start after the previous call is ended', async () => {
@@ -389,17 +413,19 @@ describe('voice mode — single-active-call guard', () => {
     });
     try {
       const { authHeader } = await registerAndAuth(stale.app);
-      const session = await createSession(stale, authHeader);
+      const sessionA = await createSession(stale, authHeader);
+      const sessionB = await createSession(stale, authHeader);
 
       await stale.app.inject({
         method: 'POST',
-        url: `/sessions/${session.id}/voice/start`,
+        url: `/sessions/${sessionA.id}/voice/start`,
         headers: authHeader,
       });
-      // No end, but the stale window has effectively expired -> allowed.
+      // sessionA never ended, but with a 0s staleness window its row is no
+      // longer considered active, so a *different* session may start.
       const second = await stale.app.inject({
         method: 'POST',
-        url: `/sessions/${session.id}/voice/start`,
+        url: `/sessions/${sessionB.id}/voice/start`,
         headers: authHeader,
       });
       expect(second.statusCode, second.body).toBe(200);
