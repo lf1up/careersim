@@ -89,15 +89,11 @@ class FakeTTS:
 
     async def synthesize(self, text: str) -> AsyncIterator[TTSAudioChunk]:
         self.synthesised.append(text)
-
-        async def _gen() -> AsyncIterator[TTSAudioChunk]:
-            yield TTSAudioChunk(
-                audio=b"\x00\x00" * 1024,
-                sample_rate=22050,
-                is_final=True,
-            )
-
-        return _gen()
+        yield TTSAudioChunk(
+            audio=b"\x00\x00" * 1024,
+            sample_rate=22050,
+            is_final=True,
+        )
 
     async def aclose(self) -> None:
         self.closed = True
@@ -177,8 +173,7 @@ async def _run_call(
     if opening is not None and opening.text:
         await captions.publish(Caption(role="ai", text=opening.text, is_final=True))
         async for chunk in stream_chunks(opening.text):
-            stream = await tts.synthesize(chunk)
-            async for _audio in stream:
+            async for _audio in tts.synthesize(chunk):
                 pass
         adapter.record_voice_turn(
             VoiceTurnMetadata(
@@ -213,8 +208,7 @@ async def _run_call(
         turn = await adapter.user_turn(result.text)
         await captions.publish(Caption(role="ai", text=turn.text, is_final=True))
         async for chunk in stream_chunks(turn.text):
-            stream = await tts.synthesize(chunk)
-            async for _audio in stream:
+            async for _audio in tts.synthesize(chunk):
                 pass
         adapter.record_voice_turn(
             VoiceTurnMetadata(
