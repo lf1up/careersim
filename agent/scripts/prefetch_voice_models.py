@@ -71,9 +71,16 @@ def _prefetch_piper(model_dir: Path) -> None:
                 continue
             url = f"{url_prefix}/{voice_id}{suffix}"
             logger.info("downloading %s -> %s", url, target)
+            # Download to a sibling temp file and atomically promote it on
+            # success so a mid-download failure never leaves a partial file
+            # that the `target.exists()` check above would mistake for a
+            # complete model.
+            tmp_path = target.with_name(f"{target.name}.tmp")
             try:
-                urllib.request.urlretrieve(url, target)
+                urllib.request.urlretrieve(url, tmp_path)
+                os.replace(tmp_path, target)
             except Exception as exc:
+                tmp_path.unlink(missing_ok=True)
                 logger.warning("piper prefetch failed for %s: %s", url, exc)
 
 
