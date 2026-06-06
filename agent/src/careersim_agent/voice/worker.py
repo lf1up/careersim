@@ -205,6 +205,7 @@ async def _voice_entrypoint(ctx: Any) -> None:
         wire_state = await api.fetch_state_for_voice(session_id)
     except Exception:
         logger.exception("failed to fetch state-for-voice; aborting room")
+        await api.aclose()
         return
 
     # Authoritative remaining budget for the mid-call cutoff. Best-effort:
@@ -250,11 +251,20 @@ async def _voice_entrypoint(ctx: Any) -> None:
         tuning.filler_word_frequency,
     )
 
+    stt = None
     try:
         stt = get_stt_provider(persona)
         tts = get_tts_provider(persona)
     except Exception as exc:
         logger.error("provider init failed for %s: %s", session_id, exc)
+        # Close anything already constructed so a failed init doesn't
+        # leak the API client or a half-initialized STT provider.
+        if stt is not None:
+            try:
+                await stt.aclose()
+            except Exception:
+                logger.exception("stt cleanup failed after provider init error")
+        await api.aclose()
         return
 
     # The actual room <-> stt/tts wiring uses livekit-agents'
