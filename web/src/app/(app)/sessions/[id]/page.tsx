@@ -299,6 +299,11 @@ export default function SessionDetailPage() {
     if (!nudgesEnabled) return;
     if (nudgesPermanentlyDisabled) return;
     if (nudgesPausedUntilHumanReply) return;
+    // Don't poll while a voice call is live: the agent-voice worker owns
+    // the conversation in that mode, and a background nudge would append
+    // stray persona turns mid-call. The effect re-runs (and resumes
+    // polling) when `inCall` flips back to false.
+    if (inCall) return;
 
     let cancelled = false;
     const tick = async () => {
@@ -334,6 +339,7 @@ export default function SessionDetailPage() {
     nudgesEnabled,
     nudgesPermanentlyDisabled,
     nudgesPausedUntilHumanReply,
+    inCall,
   ]);
 
   const runStream = useCallback(
