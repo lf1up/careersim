@@ -136,7 +136,18 @@ class PiperLocalTTS:
         # objects exposing the int16 PCM via `.audio_int16_bytes`. Run the
         # sync generator in an executor and bridge each chunk back into the
         # async caller.
-        queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue(maxsize=8)
+        #
+        # The queue is unbounded and the producer enqueues via
+        # `call_soon_threadsafe` rather than blocking on
+        # `run_coroutine_threadsafe(...).result()`. A blocking put would
+        # hang the executor thread forever if the consumer is cancelled
+        # while the queue is full (nothing drains it, so the future never
+        # resolves), leaking a thread per cancelled call. A bounded queue
+        # with drop-on-full isn't an option either: piper synthesises
+        # faster than real-time playback, so the buffer fills on nearly
+        # every utterance and we'd drop audio. Buffering a single
+        # utterance's PCM (~44 KB/s) is cheap, so stay unbounded.
+        queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
 
         def producer() -> None:
             try:
@@ -144,11 +155,9 @@ class PiperLocalTTS:
                     pcm = getattr(chunk, "audio_int16_bytes", None)
                     if pcm is None:  # very old API fallback
                         pcm = bytes(chunk)
-                    asyncio.run_coroutine_threadsafe(
-                        queue.put(bytes(pcm)), loop
-                    ).result()
+                    loop.call_soon_threadsafe(queue.put_nowait, bytes(pcm))
             finally:
-                asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
+                loop.call_soon_threadsafe(queue.put_nowait, None)
 
         loop.run_in_executor(None, producer)
 
