@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from careersim_agent.voice.persona_voice import (
@@ -180,7 +182,7 @@ class TestResolveVoiceTuning:
 
     def test_struct_is_frozen(self) -> None:
         tuning = resolve_voice_tuning(VIKRAM)
-        with pytest.raises((AttributeError, Exception)):
+        with pytest.raises(FrozenInstanceError):
             tuning.speaking_rate_wpm = 999  # type: ignore[misc]
 
 
