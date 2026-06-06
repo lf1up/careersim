@@ -134,8 +134,7 @@ class WhisperLocalSTT:
         )
 
         out: list[STTResult] = []
-        seg_list = list(segments)  # iterator -> list (cheap; few segments per utterance)
-        for i, seg in enumerate(seg_list):
+        for seg in segments:
             words: list[tuple[str, float, float]] = []
             for w in getattr(seg, "words", None) or []:
                 start = float(getattr(w, "start", 0.0) or 0.0)
@@ -146,10 +145,15 @@ class WhisperLocalSTT:
             text = (seg.text or "").strip()
             if not text:
                 continue
+            # Every segment here is a piece of the *same* completed
+            # utterance (faster-whisper splits one batch transcribe on
+            # pauses), so each must be final. The worker only promotes
+            # is_final results into the LangGraph turn; marking only the
+            # last segment final would drop all earlier text.
             out.append(
                 STTResult(
                     text=text,
-                    is_final=(i == len(seg_list) - 1),
+                    is_final=True,
                     confidence=float(getattr(seg, "avg_logprob", 0.0) or 0.0),
                     words=words,
                 )
