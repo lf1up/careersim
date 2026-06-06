@@ -29,6 +29,7 @@ class CaptionPublisher(Protocol):
     """Tiny Protocol so tests don't need a LiveKit room."""
 
     async def publish(self, caption: Caption) -> None: ...
+    async def publish_control(self, payload: dict[str, Any]) -> None: ...
     async def aclose(self) -> None: ...
 
 
@@ -42,6 +43,10 @@ class LiveKitCaptionPublisher:
     """
 
     TOPIC = "voice-captions"
+    # Out-of-band control messages (e.g. quota warning / cutoff) ride a
+    # separate topic so the client can dispatch them without parsing
+    # them as captions.
+    CONTROL_TOPIC = "voice-control"
 
     def __init__(self, room: Any) -> None:
         self._room = room
@@ -64,6 +69,18 @@ class LiveKitCaptionPublisher:
         except Exception:
             logger.exception("failed to publish caption")
 
+    async def publish_control(self, payload: dict[str, Any]) -> None:
+        """Publish a control event (quota warning / exhaustion) to the client."""
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            await self._room.local_participant.publish_data(
+                data,
+                topic=self.CONTROL_TOPIC,
+                reliable=True,
+            )
+        except Exception:
+            logger.exception("failed to publish control event")
+
     async def aclose(self) -> None:  # pragma: no cover - rooms manage lifetime
         return None
 
@@ -73,6 +90,9 @@ class NullCaptionPublisher:
 
     async def publish(self, caption: Caption) -> None:
         logger.debug("caption(null): role=%s text=%r final=%s", caption.role, caption.text, caption.is_final)
+
+    async def publish_control(self, payload: dict[str, Any]) -> None:
+        logger.debug("control(null): %r", payload)
 
     async def aclose(self) -> None:
         return None

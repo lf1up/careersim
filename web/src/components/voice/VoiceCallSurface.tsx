@@ -55,6 +55,10 @@ export function VoiceCallSurface({
   const connRef = useRef<VoiceConnection | null>(null);
   const startTimeRef = useRef<number>(0);
   const endingRef = useRef<boolean>(false);
+  // Set when the agent worker signals the daily budget is spent, so the
+  // subsequent room disconnect is shown as a clean "limit reached" end
+  // rather than the unsolicited-drop "reconnecting" path.
+  const quotaEndedRef = useRef<boolean>(false);
 
   const personaLabel = useMemo(() => personaName ?? 'persona', [personaName]);
 
@@ -85,26 +89,47 @@ export function VoiceCallSurface({
           else setUserCaption(c);
         });
 
+        // Listen for budget control events (warning + hard cutoff).
+        const unsubscribeControl = conn.onControl((event) => {
+          if (event.type === 'quota_warning') {
+            toast('About a minute of daily voice time left.', { icon: '\u23F3' });
+          } else if (event.type === 'quota_exhausted') {
+            // Mark this so the imminent room disconnect is presented as a
+            // clean limit-reached end instead of a reconnect attempt.
+            quotaEndedRef.current = true;
+            const message = formatLimitReached(event.cap_seconds);
+            setError(message);
+            toast.error(message);
+          }
+        });
+
         // The Room emits `Disconnected` either on a clean end-call or
         // an unexpected drop; either way we leave the surface.
         const lk = await import('livekit-client');
         conn.room.on(lk.RoomEvent.Disconnected, () => {
           // If the user pressed End call, the cleanup path handles it.
-          // If we got here without that flag set, this was an unsolicited
-          // disconnect — flip to `reconnecting` briefly, then end.
-          if (!endingRef.current) {
-            setStatus('reconnecting');
-            window.setTimeout(() => {
-              if (!endingRef.current) {
-                setStatus('ended');
-                onCallEnded();
-              }
-            }, 1500);
+          if (endingRef.current) return;
+          // Budget cutoff: the worker tore the room down on purpose.
+          // Skip the "reconnecting" dance and end cleanly.
+          if (quotaEndedRef.current) {
+            setStatus('ended');
+            onCallEnded();
+            return;
           }
+          // Otherwise this was an unsolicited disconnect — flip to
+          // `reconnecting` briefly, then end.
+          setStatus('reconnecting');
+          window.setTimeout(() => {
+            if (!endingRef.current) {
+              setStatus('ended');
+              onCallEnded();
+            }
+          }, 1500);
         });
 
         return () => {
           unsubscribe();
+          unsubscribeControl();
         };
       } catch (err) {
         if (cancelled) return;
@@ -243,6 +268,9 @@ function formatStartError(err: unknown): string {
     if (err.code === 'voice_quota_exhausted') {
       return 'Daily voice budget reached. The quota resets at midnight UTC.';
     }
+    if (err.code === 'voice_call_in_progress') {
+      return 'You already have a voice call in progress. End it before starting another.';
+    }
     return err.message;
   }
   if (err instanceof Error && err.message.toLowerCase().includes('permission')) {
@@ -250,4 +278,17 @@ function formatStartError(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return 'Failed to start the voice call.';
+}
+
+/**
+ * Copy for the daily-budget hard cutoff. Derives the minutes figure
+ * from the worker-supplied `cap_seconds` when available so it always
+ * reflects the configured limit rather than a hardcoded number.
+ */
+function formatLimitReached(capSeconds?: number | null): string {
+  if (typeof capSeconds === 'number' && capSeconds > 0) {
+    const minutes = Math.round(capSeconds / 60);
+    return `Daily ${minutes}-minute voice limit reached. Resets at midnight UTC.`;
+  }
+  return 'Daily voice limit reached. Resets at midnight UTC.';
 }

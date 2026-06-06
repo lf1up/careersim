@@ -103,7 +103,13 @@ const EnvSchema = z
     LIVEKIT_URL: z.string().default(''),
     LIVEKIT_API_KEY: z.string().default(''),
     LIVEKIT_API_SECRET: z.string().default(''),
-    VOICE_DAILY_MINUTES_PER_USER: z.coerce.number().int().positive().default(20),
+    VOICE_DAILY_MINUTES_PER_USER: z.coerce.number().int().positive().default(60),
+    // How long an un-ended voice-call row stays "active" for the
+    // single-active-call guard (seconds). Past this we assume the
+    // worker crashed without reporting end and allow a fresh call so a
+    // user can't be locked out. Set to 0 to disable the guard
+    // entirely. Default ~70 min mirrors the `cap + 10 min` token TTL.
+    VOICE_ACTIVE_CALL_STALE_SECONDS: z.coerce.number().int().nonnegative().default(70 * 60),
   })
   .superRefine((env, ctx) => {
     if (

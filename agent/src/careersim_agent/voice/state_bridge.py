@@ -125,15 +125,39 @@ class APIClient:
             )
         return resp.json()
 
+    async def fetch_voice_budget(self, session_id: str) -> dict[str, Any]:
+        """Read the session owner's remaining daily voice budget.
+
+        Returns ``{"remaining_seconds": int | None, "cap_seconds": int |
+        None}``. ``None`` values mean quota tracking is disabled, in
+        which case the worker enforces no mid-call cutoff. Authenticated
+        via the ``X-Internal-Key`` default header — this is part of the
+        worker<->API trust boundary, not a user action.
+        """
+        client = await self._ensure_client()
+        url = f"{self._base_url}/internal/sessions/{session_id}/voice-budget"
+        resp = await client.get(url)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"voice-budget fetch failed for {session_id}: "
+                f"{resp.status_code} {resp.text[:200]}"
+            )
+        return resp.json()
+
     async def report_call_end(
         self,
         session_id: str,
         seconds_used: int,
         *,
-        bearer_token: str,
         voice_analysis: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Notify the API that a voice call ended; debits quota.
+        """Authoritatively notify the API that a voice call ended.
+
+        Hits the *internal* end route (``X-Internal-Key`` auth) rather
+        than the user-facing one: the worker measures the call duration
+        with a server-side monotonic clock, so it — not the browser —
+        is the source of truth for the quota debit. The user-facing
+        ``/voice/end`` no longer debits at all.
 
         ``voice_analysis`` is an optional aggregate payload (the
         ``VoiceSignals`` produced by ``LangGraphAdapter.finalize_voice_analysis``).
@@ -143,15 +167,11 @@ class APIClient:
         any analytics on the worker.
         """
         client = await self._ensure_client()
-        url = f"{self._base_url}/sessions/{session_id}/voice/end"
+        url = f"{self._base_url}/internal/sessions/{session_id}/voice/end"
         body: dict[str, Any] = {"seconds_used": seconds_used}
         if voice_analysis:
             body["voice_analysis"] = voice_analysis
         try:
-            await client.post(
-                url,
-                json=body,
-                headers={"Authorization": f"Bearer {bearer_token}"},
-            )
+            await client.post(url, json=body)
         except httpx.HTTPError:  # best-effort; we logged the call
             logger.exception("voice/end notification failed for %s", session_id)

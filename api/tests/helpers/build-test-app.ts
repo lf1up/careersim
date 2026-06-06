@@ -62,6 +62,7 @@ export interface BuildTestAppOptions {
     livekitApiKey?: string;
     livekitApiSecret?: string;
     dailyMinutesPerUser?: number;
+    activeCallStaleSeconds?: number;
     internalKey?: string;
   };
 }
@@ -109,6 +110,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
           livekitApiSecret:
             options.voice.livekitApiSecret ?? 'test-livekit-secret-min-32-chars-test',
           dailyMinutesPerUser: options.voice.dailyMinutesPerUser ?? 20,
+          activeCallStaleSeconds: options.voice.activeCallStaleSeconds,
           internalKey: options.voice.internalKey ?? 'test-internal-key',
         }
       : undefined,

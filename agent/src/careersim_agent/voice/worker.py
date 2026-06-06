@@ -207,6 +207,31 @@ async def _voice_entrypoint(ctx: Any) -> None:
         logger.exception("failed to fetch state-for-voice; aborting room")
         return
 
+    # Authoritative remaining budget for the mid-call cutoff. Best-effort:
+    # if the lookup fails (or quota is disabled) we proceed without a cap
+    # rather than blocking the call — the API start gate already vetted it.
+    max_duration_sec: float | None = None
+    cap_seconds: float | None = None
+    try:
+        budget = await api.fetch_voice_budget(session_id)
+        remaining = budget.get("remaining_seconds")
+        cap = budget.get("cap_seconds")
+        if isinstance(remaining, (int, float)):
+            max_duration_sec = max(0.0, float(remaining))
+        if isinstance(cap, (int, float)):
+            cap_seconds = float(cap)
+        logger.info(
+            "session %s: voice budget remaining=%ss cap=%ss",
+            session_id,
+            max_duration_sec,
+            cap_seconds,
+        )
+    except Exception:
+        logger.exception(
+            "failed to fetch voice budget for %s; no mid-call cutoff armed",
+            session_id,
+        )
+
     adapter = LangGraphAdapter(wire_state)
     persona = adapter.persona
     captions = LiveKitCaptionPublisher(room)
@@ -250,6 +275,8 @@ async def _voice_entrypoint(ctx: Any) -> None:
             session_id=session_id,
             bearer_token=bearer,
             tuning=tuning,
+            max_duration_sec=max_duration_sec,
+            cap_seconds=cap_seconds,
         )
     finally:
         # Compute aggregate voice signals and let the API persist
@@ -270,7 +297,6 @@ async def _voice_entrypoint(ctx: Any) -> None:
             await api.report_call_end(
                 session_id,
                 elapsed,
-                bearer_token=bearer,
                 voice_analysis=voice_analysis,
             )
         except Exception:
@@ -296,6 +322,8 @@ async def _run_room_session(
     session_id: str,
     bearer_token: str,
     tuning: object,
+    max_duration_sec: float | None = None,
+    cap_seconds: float | None = None,
 ) -> None:
     """Glue between the LiveKit room and our adapter / providers.
 
@@ -321,6 +349,11 @@ async def _run_room_session(
     * ``tuning.silence_threshold_ms`` is the watchdog after which
       the persona will *initiate* an inactivity nudge (mirroring the
       chat-side ``inactivityNudgeDelaySec`` knob).
+    * ``max_duration_sec`` (when not ``None``) is the hard daily-budget
+      cutoff. A watchdog warns the user ~60s out (control event +
+      spoken heads-up) and then ends the room when the budget is spent.
+      ``cap_seconds`` is the configured daily cap, forwarded to the
+      client so its alert copy reflects the real limit.
 
     Implementation notes:
 
@@ -608,13 +641,57 @@ async def _run_room_session(
         finally:
             done.set()
 
+    async def _budget_watchdog(cap: float) -> None:
+        """Hard daily-budget cutoff: warn ~60s out, then end the room.
+
+        Reuses the same ``done`` event the disconnect/VAD paths use, so
+        the existing teardown (and the authoritative ``report_call_end``
+        in the entrypoint's ``finally``) runs unchanged.
+        """
+        cap_total = int(cap_seconds) if cap_seconds else None
+        try:
+            warn_at = max(0.0, cap - 60.0)
+            await asyncio.sleep(warn_at)
+            await captions.publish_control(  # type: ignore[attr-defined]
+                {
+                    "type": "quota_warning",
+                    "remaining_seconds": max(0, int(round(cap - warn_at))),
+                    "cap_seconds": cap_total,
+                }
+            )
+            # A short spoken heads-up, but only if we're not mid-utterance
+            # so we don't clobber an in-flight reply.
+            if not speak_state["speaking"]:
+                with contextlib.suppress(Exception):
+                    await speak(
+                        "Heads up — you have about a minute of voice time "
+                        "left for today."
+                    )
+            await asyncio.sleep(max(0.0, cap - warn_at))
+            await captions.publish_control(  # type: ignore[attr-defined]
+                {"type": "quota_exhausted", "cap_seconds": cap_total}
+            )
+            # Give the client a beat to render the alert before teardown.
+            await asyncio.sleep(1.5)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("session %s: budget watchdog crashed", session_id)
+        finally:
+            done.set()
+
     forward_task = loop.create_task(_forward_frames())
     consume_task = loop.create_task(_consume_vad())
+    watchdog_task = (
+        loop.create_task(_budget_watchdog(max_duration_sec))
+        if max_duration_sec is not None
+        else None
+    )
     try:
         await done.wait()
     finally:
-        for task in (forward_task, consume_task):
-            if not task.done():
+        for task in (forward_task, consume_task, watchdog_task):
+            if task is not None and not task.done():
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task

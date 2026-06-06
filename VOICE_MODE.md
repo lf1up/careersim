@@ -28,8 +28,34 @@ smoke-test checklist that has to pass before the branch is mergeable.
   careersim_agent.main --serve voice`) that joins the same room, runs
   STT → LangGraph → TTS, and posts user messages back through the
   public API on the user's bearer token.
-* **`api`** owns ownership checks, daily quota, and persists the
-  voice analytics into `state_snapshot.analysis.voice` on `voice/end`.
+* **`api`** owns ownership checks and the daily quota. The quota debit
+  is authoritative from the worker via the internal end route
+  (`POST /internal/sessions/:id/voice/end`), using a server-side clock
+  the browser can't influence; the user-facing `voice/end` only marks
+  the call ended (clearing the single-active-call guard). Voice
+  analytics are merged into `state_snapshot.analysis.voice` on that
+  internal end.
+
+### Daily-budget enforcement (authoritative)
+
+`VOICE_DAILY_MINUTES_PER_USER` (default **60**) is a true per-user
+per-day ceiling, not just a start gate:
+
+* At call start the worker reads the owner's remaining budget from
+  `GET /internal/sessions/:id/voice-budget` and arms a watchdog.
+* ~60s before the budget is spent it publishes a `quota_warning`
+  control event (web client shows a banner) and a brief spoken
+  heads-up; at zero it publishes `quota_exhausted` and disconnects the
+  room. The client renders "Daily N-minute voice limit reached" using
+  the `cap_seconds` carried in the event.
+* `VOICE_ACTIVE_CALL_STALE_SECONDS` backs a single-active-call guard at
+  start (`409 voice_call_in_progress`) so a user can't open N tabs and
+  run N concurrent calls past the cap. An un-ended call row older than
+  this window is treated as a crashed worker so the user isn't locked
+  out; `0` disables the guard.
+* The minted LiveKit token TTL defaults to `cap + 10 min`, so the
+  token always outlives the longest possible call and the watchdog
+  (not token expiry) is what ends a maxed-out call.
 
 ## Kill switches (no rebuild required)
 
@@ -140,10 +166,16 @@ For each of the 9 personas, start a 30s call and confirm the voice
 
 ### G. Quota enforcement
 
-- [ ] Set `VOICE_DAILY_MINUTES_PER_USER=1`, restart the api.
-- [ ] Make a call lasting ~70s and end it.
+- [ ] Set `VOICE_DAILY_MINUTES_PER_USER=1`, restart the api + agent-voice.
+- [ ] Start a call and just keep talking. Around ~60s in you should
+      hear/see the `quota_warning` (banner + spoken heads-up), and the
+      call should be **hard-disconnected** at the cap with a "Daily
+      1-minute voice limit reached" alert — without pressing End call.
 - [ ] Try to start a second call → `429 voice_quota_exhausted`.
-- [ ] DB: `voice_minute_usage.seconds_used >= 60` for today.
+- [ ] DB: `voice_minute_usage.seconds_used >= 60` for today (debited by
+      the worker's authoritative internal end report).
+- [ ] Concurrency: start a call, then (without ending it) `POST
+      /sessions/:id/voice/start` again → `409 voice_call_in_progress`.
 
 ### H. Regression sweep (text mode unchanged)
 

@@ -113,6 +113,7 @@ export interface BuildAppOptions {
     livekitApiKey: string;
     livekitApiSecret: string;
     dailyMinutesPerUser: number;
+    activeCallStaleSeconds?: number;
     internalKey: string;
   };
 }
@@ -280,6 +281,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         livekitApiKey: opts.voice.livekitApiKey,
         livekitApiSecret: opts.voice.livekitApiSecret,
         dailyMinutesPerUser: opts.voice.dailyMinutesPerUser,
+        // Pass through as-is: `undefined` lets the service default to
+        // the token TTL; `0` is an explicit "disable the guard" escape
+        // hatch (nothing is ever considered an active call).
+        ...(opts.voice.activeCallStaleSeconds !== undefined
+          ? { activeCallStaleSeconds: opts.voice.activeCallStaleSeconds }
+          : {}),
       }
     : {
         enabled: false,

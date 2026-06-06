@@ -8,9 +8,10 @@
  * unaffected when voice is disabled.
  */
 
-import type { VoiceCaption } from './types';
+import type { VoiceCaption, VoiceControlEvent } from './types';
 
 const CAPTION_TOPIC = 'voice-captions';
+const CONTROL_TOPIC = 'voice-control';
 
 export function isVoiceEnabledClientSide(): boolean {
   // Both server- and client-side calls hit the same flag — `process.env`
@@ -29,6 +30,11 @@ export interface VoiceConnection {
    * Returns an unsubscribe function.
    */
   onCaption: (cb: (caption: VoiceCaption) => void) => () => void;
+  /**
+   * Subscribe to control events (quota warning / exhaustion) published
+   * by the agent-voice worker. Returns an unsubscribe function.
+   */
+  onControl: (cb: (event: VoiceControlEvent) => void) => () => void;
 }
 
 export interface CreateVoiceConnectionArgs {
@@ -73,15 +79,20 @@ export async function createVoiceConnection(
   await room.localParticipant.setMicrophoneEnabled(true);
 
   const captionListeners = new Set<(caption: VoiceCaption) => void>();
+  const controlListeners = new Set<(event: VoiceControlEvent) => void>();
 
   room.on(lk.RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
-    if (topic !== CAPTION_TOPIC) return;
+    if (topic !== CAPTION_TOPIC && topic !== CONTROL_TOPIC) return;
     try {
       const text = new TextDecoder().decode(payload);
-      const parsed = JSON.parse(text) as VoiceCaption;
-      for (const cb of captionListeners) cb(parsed);
+      const parsed = JSON.parse(text);
+      if (topic === CONTROL_TOPIC) {
+        for (const cb of controlListeners) cb(parsed as VoiceControlEvent);
+      } else {
+        for (const cb of captionListeners) cb(parsed as VoiceCaption);
+      }
     } catch {
-      // Drop malformed frames silently — captions are best-effort UX.
+      // Drop malformed frames silently — captions/control are best-effort UX.
     }
   });
 
@@ -116,5 +127,10 @@ export async function createVoiceConnection(
     return () => captionListeners.delete(cb);
   };
 
-  return { room, disconnect, onCaption };
+  const onControl = (cb: (event: VoiceControlEvent) => void) => {
+    controlListeners.add(cb);
+    return () => controlListeners.delete(cb);
+  };
+
+  return { room, disconnect, onCaption, onControl };
 }

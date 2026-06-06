@@ -49,6 +49,7 @@ async function main(): Promise<void> {
       livekitApiKey: env.LIVEKIT_API_KEY,
       livekitApiSecret: env.LIVEKIT_API_SECRET,
       dailyMinutesPerUser: env.VOICE_DAILY_MINUTES_PER_USER,
+      activeCallStaleSeconds: env.VOICE_ACTIVE_CALL_STALE_SECONDS,
       internalKey: env.AGENT_INTERNAL_KEY,
     },
     logger: {

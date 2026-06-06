@@ -11,8 +11,12 @@ import { z } from 'zod';
  * `VOICE_DAILY_MINUTES_PER_USER` anyway.
  */
 export const voiceEndSchema = z.object({
-  /** Seconds the call lasted; must be a non-negative integer. */
-  seconds_used: z.coerce.number().int().nonnegative().max(60 * 60),
+  /**
+   * Seconds the call lasted; must be a non-negative integer. Clamped
+   * to a 2-hour ceiling here as a coarse anti-replay guard — the
+   * service applies a tighter, token-TTL-based clamp before debiting.
+   */
+  seconds_used: z.coerce.number().int().nonnegative().max(2 * 60 * 60),
   /**
    * Optional aggregate voice analytics produced by the agent-voice
    * worker (pacing, fillers, latency, silences, interrupts). When
@@ -76,3 +80,17 @@ export type VoiceEndResponse = z.infer<typeof voiceEndResponseSchema>;
 export const stateForVoiceResponseSchema = z
   .record(z.string(), z.unknown())
   .describe('Frozen wire-format state snapshot; identical to sessions.state_snapshot.');
+
+/**
+ * Response from the internal `GET /internal/sessions/:id/voice-budget`
+ * route. The agent-voice worker reads this at call start to arm its
+ * mid-call cutoff watchdog. Both fields are `null` when quota tracking
+ * is disabled (`VOICE_DAILY_MINUTES_PER_USER <= 0`), in which case the
+ * worker enforces no cap.
+ */
+export const voiceBudgetResponseSchema = z.object({
+  remaining_seconds: z.number().int().nonnegative().nullable(),
+  cap_seconds: z.number().int().nonnegative().nullable(),
+});
+
+export type VoiceBudgetResponse = z.infer<typeof voiceBudgetResponseSchema>;

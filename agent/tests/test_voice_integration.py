@@ -102,9 +102,13 @@ class FakeTTS:
 @dataclass
 class FakeCaptions:
     published: list[Caption] = field(default_factory=list)
+    controls: list[dict[str, Any]] = field(default_factory=list)
 
     async def publish(self, caption: Caption) -> None:
         self.published.append(caption)
+
+    async def publish_control(self, payload: dict[str, Any]) -> None:
+        self.controls.append(payload)
 
 
 @dataclass
@@ -117,8 +121,15 @@ class FakeAPI:
         default_factory=list
     )
 
+    budget_response: dict[str, Any] = field(
+        default_factory=lambda: {"remaining_seconds": None, "cap_seconds": None}
+    )
+
     async def fetch_state_for_voice(self, session_id: str) -> dict[str, Any]:
         return dict(self.state_response)
+
+    async def fetch_voice_budget(self, session_id: str) -> dict[str, Any]:
+        return dict(self.budget_response)
 
     async def post_user_message(
         self, session_id: str, user_text: str, *, bearer_token: str
@@ -131,9 +142,9 @@ class FakeAPI:
         session_id: str,
         seconds_used: int,
         *,
-        bearer_token: str,
         voice_analysis: Optional[dict[str, Any]] = None,
     ) -> None:
+        # Authoritative end is internal-key authenticated — no bearer.
         self.end_reports.append((session_id, seconds_used, voice_analysis))
 
     async def aclose(self) -> None:
@@ -225,7 +236,6 @@ async def _run_call(
     await api.report_call_end(
         session_id,
         seconds_used=int(last_audio_end),
-        bearer_token=bearer_token,
         voice_analysis=analysis,
     )
     await stt.aclose()

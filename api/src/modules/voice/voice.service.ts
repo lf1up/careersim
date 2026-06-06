@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull } from 'drizzle-orm';
 import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
 
 import type { AgentWireState } from '../../agent/types.js';
@@ -25,8 +25,21 @@ export interface VoiceServiceConfig {
   livekitApiSecret: string;
   /** Per-user-per-day quota in minutes (0 = quota disabled). */
   dailyMinutesPerUser: number;
-  /** TTL for minted tokens; defaults to 1 hour. */
+  /**
+   * TTL for minted tokens. Defaults to the daily cap plus a 10-minute
+   * buffer (so the join token always outlives the longest possible
+   * call and the agent-side watchdog stays the sole call-ender), or
+   * 1 hour when the quota is disabled.
+   */
   tokenTtlSeconds?: number;
+  /**
+   * How long (seconds) an un-ended call row is considered "active" for
+   * the single-active-call guard. Past this window we assume the
+   * worker crashed without reporting end and allow a new call rather
+   * than locking the user out. Defaults to `tokenTtlSeconds`; `0`
+   * disables the guard (nothing is ever considered active).
+   */
+  activeCallStaleSeconds?: number;
   /**
    * Date provider — defaults to `() => new Date()`. Tests pass a fixed
    * clock so the rolling per-day bucket is deterministic.
@@ -47,6 +60,13 @@ export interface VoiceEndResult {
   quotaRemainingSeconds: number | null;
 }
 
+export interface VoiceBudget {
+  /** Remaining daily voice seconds; `null` when quota is disabled. */
+  remainingSeconds: number | null;
+  /** The configured daily cap in seconds; `null` when quota is disabled. */
+  capSeconds: number | null;
+}
+
 export interface VoiceService {
   /**
    * Start a voice call for `sessionId`. Verifies ownership, checks the
@@ -61,13 +81,22 @@ export interface VoiceService {
   }): Promise<VoiceStartResult>;
 
   /**
-   * End a voice call and debit the user's daily quota by
-   * `secondsUsed`. Idempotent — a duplicate `end` for an
-   * already-ended session is a no-op (returns the previously-recorded
-   * delta).
+   * User-facing call end. Does NOT debit the quota — that is the
+   * agent-voice worker's job via {@link endCallInternal}, which uses a
+   * server-side authoritative clock the client can't influence. This
+   * only stamps `voiceCallEndedAt` (so the single-active-call guard
+   * clears the moment the user hangs up) and echoes the remaining
+   * budget back for the UI.
    */
-  endCall(args: {
-    userId: string;
+  endCall(args: { userId: string; sessionId: string }): Promise<VoiceEndResult>;
+
+  /**
+   * Authoritative call end, invoked only by the agent-voice worker
+   * (internal-key authenticated). Debits the session owner's daily
+   * quota by the worker-measured `secondsUsed`, merges any aggregate
+   * `voiceAnalysis`, and stamps `voiceCallEndedAt`.
+   */
+  endCallInternal(args: {
     sessionId: string;
     secondsUsed: number;
     /**
@@ -78,6 +107,14 @@ export interface VoiceService {
      */
     voiceAnalysis?: Record<string, unknown>;
   }): Promise<VoiceEndResult>;
+
+  /**
+   * Internal-only budget lookup keyed by session (the worker only
+   * knows the session id, not the user). Resolves the owner and
+   * returns the remaining daily seconds + configured cap so the
+   * worker can arm its mid-call cutoff watchdog.
+   */
+  getBudgetForSession(sessionId: string): Promise<VoiceBudget>;
 
   /**
    * Internal-only state-for-voice fetch.
@@ -156,9 +193,17 @@ export function createVoiceService(
   config: VoiceServiceConfig,
 ): VoiceService {
   const now = config.now ?? (() => new Date());
-  const tokenTtl = config.tokenTtlSeconds ?? 60 * 60; // 1 hour
   const dailySecondsCap =
     config.dailyMinutesPerUser > 0 ? config.dailyMinutesPerUser * 60 : 0;
+  // Token must outlive the longest possible call. With a configured
+  // cap that's `cap + 10 min`; with quota disabled we fall back to 1h.
+  const tokenTtl =
+    config.tokenTtlSeconds ?? (dailySecondsCap > 0 ? dailySecondsCap + 10 * 60 : 60 * 60);
+  const activeCallStaleSeconds = config.activeCallStaleSeconds ?? tokenTtl;
+  // Upper bound on a single authoritative debit — guards against a
+  // bogus/replayed value blowing the bucket. A real call can't exceed
+  // the token TTL, so clamp to that.
+  const maxDebitSeconds = tokenTtl;
 
   function ensureEnabled(): void {
     if (!config.enabled) {
@@ -244,6 +289,35 @@ export function createVoiceService(
         }
       }
 
+      // 2b. Single-active-call guard. Each concurrent call passes the
+      //     start-time quota check independently (the debit only lands
+      //     when the call ends), so without this a user could open N
+      //     tabs and run N simultaneous calls to bypass the daily cap.
+      //     We treat a call whose row was started within
+      //     `activeCallStaleSeconds` and never ended as "in progress".
+      //     The staleness window means a worker that crashed without
+      //     reporting end can't lock the user out forever.
+      const staleCutoff = new Date(now().getTime() - activeCallStaleSeconds * 1000);
+      const [activeCall] = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.userId, userId),
+            isNotNull(sessions.voiceCallStartedAt),
+            isNull(sessions.voiceCallEndedAt),
+            gt(sessions.voiceCallStartedAt, staleCutoff),
+          ),
+        )
+        .limit(1);
+      if (activeCall) {
+        throw new HttpError(
+          409,
+          'A voice call is already in progress. End it before starting another.',
+          'voice_call_in_progress',
+        );
+      }
+
       // 3. Mark the session as voice-active for the eval node + UI.
       const startedAt = now();
       await db
@@ -297,7 +371,7 @@ export function createVoiceService(
       };
     },
 
-    async endCall({ userId, sessionId, secondsUsed, voiceAnalysis }) {
+    async endCall({ userId, sessionId }) {
       ensureEnabled();
 
       const [session] = await db
@@ -308,17 +382,39 @@ export function createVoiceService(
       if (!session) throw notFound('Session not found');
       if (session.userId !== userId) throw forbidden('You do not own this session');
 
+      // No debit here — the worker is authoritative (see
+      // `endCallInternal`). We only stamp the end time so the
+      // single-active-call guard clears immediately when the user
+      // hangs up, rather than waiting for the worker's `finally`.
       const endedAt = now();
-      const clamped = Math.max(0, Math.min(secondsUsed, 60 * 60));
+      await db
+        .update(sessions)
+        .set({ voiceCallEndedAt: endedAt, updatedAt: endedAt })
+        .where(eq(sessions.id, sessionId));
+
+      const remaining = await quotaRemaining(userId);
+      return { secondsRecorded: 0, quotaRemainingSeconds: remaining };
+    },
+
+    async endCallInternal({ sessionId, secondsUsed, voiceAnalysis }) {
+      ensureEnabled();
+
+      const [session] = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, sessionId))
+        .limit(1);
+      if (!session) throw notFound('Session not found');
+
+      const endedAt = now();
+      const clamped = Math.max(0, Math.min(secondsUsed, maxDebitSeconds));
       let recorded = 0;
       if (clamped > 0) {
-        const updatedTotal = await debitUsage(userId, clamped);
+        // We debit regardless of whether the user is over quota *now* —
+        // the mid-call watchdog already cut the call at the budget, so
+        // a small overshoot from teardown is expected and fine.
+        await debitUsage(session.userId, clamped);
         recorded = clamped;
-        // We update the session row regardless of whether the user is
-        // over quota *now* — a fair-share design would let ongoing
-        // calls finish their turn even if they slightly exceed; the
-        // quota check at start time is the gate.
-        void updatedTotal;
       }
 
       // Merge the worker-supplied voice analytics into the existing
@@ -341,11 +437,26 @@ export function createVoiceService(
         })
         .where(eq(sessions.id, sessionId));
 
-      const remaining = await quotaRemaining(userId);
+      const remaining = await quotaRemaining(session.userId);
       return {
         secondsRecorded: recorded,
         quotaRemainingSeconds: remaining,
       };
+    },
+
+    async getBudgetForSession(sessionId) {
+      ensureEnabled();
+      const [session] = await db
+        .select({ userId: sessions.userId })
+        .from(sessions)
+        .where(eq(sessions.id, sessionId))
+        .limit(1);
+      if (!session) throw notFound('Session not found');
+      if (dailySecondsCap === 0) {
+        return { remainingSeconds: null, capSeconds: null };
+      }
+      const remaining = await quotaRemaining(session.userId);
+      return { remainingSeconds: remaining, capSeconds: dailySecondsCap };
     },
 
     async fetchStateForVoice(sessionId) {

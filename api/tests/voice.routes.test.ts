@@ -138,7 +138,7 @@ describe('voice mode — daily quota', () => {
     await h.close();
   });
 
-  it('debits seconds_used on /voice/end and exposes remaining quota', async () => {
+  it('user /voice/end marks ended but does NOT debit (worker is authoritative)', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
 
@@ -155,17 +155,54 @@ describe('voice mode — daily quota', () => {
       payload: { seconds_used: 30 },
     });
     expect(end.statusCode).toBe(200);
+    // No debit from the client path — the full cap remains.
+    expect(end.json()).toMatchObject({
+      seconds_recorded: 0,
+      quota_remaining_seconds: 60,
+    });
+  });
+
+  it('internal /voice/end debits the quota authoritatively', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+
+    const end = await h.app.inject({
+      method: 'POST',
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+      payload: { seconds_used: 30 },
+    });
+    expect(end.statusCode, end.body).toBe(200);
     expect(end.json()).toMatchObject({
       seconds_recorded: 30,
       quota_remaining_seconds: 30, // 60 cap - 30 used
     });
   });
 
+  it('internal /voice/end requires the X-Internal-Key header', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const noHeader = await h.app.inject({
+      method: 'POST',
+      url: `/internal/sessions/${session.id}/voice/end`,
+      payload: { seconds_used: 10 },
+    });
+    expect(noHeader.statusCode).toBe(401);
+  });
+
   it('refuses /voice/start once the daily cap is exhausted', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
 
-    // Start + end a 60-second call to exhaust the 1-minute cap.
+    // Start, then debit 60s authoritatively via the worker route to
+    // exhaust the 1-minute cap.
     await h.app.inject({
       method: 'POST',
       url: `/sessions/${session.id}/voice/start`,
@@ -173,8 +210,8 @@ describe('voice mode — daily quota', () => {
     });
     const end = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/end`,
-      headers: authHeader,
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 60 },
     });
     expect(end.statusCode).toBe(200);
@@ -189,7 +226,7 @@ describe('voice mode — daily quota', () => {
     expect(res.json()).toMatchObject({ error: 'voice_quota_exhausted' });
   });
 
-  it('persists voice_analysis into state_snapshot.analysis.voice', async () => {
+  it('persists voice_analysis into state_snapshot.analysis.voice (internal end)', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
 
@@ -201,8 +238,8 @@ describe('voice mode — daily quota', () => {
 
     const end = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/end`,
-      headers: authHeader,
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
       payload: {
         seconds_used: 12,
         voice_analysis: {
@@ -233,7 +270,7 @@ describe('voice mode — daily quota', () => {
     });
   });
 
-  it('clamps absurdly large seconds_used at 1 hour', async () => {
+  it('rejects out-of-range seconds_used at the schema boundary', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
     await h.app.inject({
@@ -244,12 +281,229 @@ describe('voice mode — daily quota', () => {
 
     const end = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/end`,
-      headers: authHeader,
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 999_999 },
     });
-    // The schema rejects > 3600, so it should fail validation.
+    // The schema rejects > 2 hours, so this fails validation.
     expect(end.statusCode).toBe(400);
+  });
+
+  it('clamps an in-range-but-implausible debit to the token TTL', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+
+    // 7000s passes the 2h schema bound but exceeds the token TTL for a
+    // 1-minute cap (60 + 600 = 660s), so the service clamps the debit.
+    const end = await h.app.inject({
+      method: 'POST',
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+      payload: { seconds_used: 7000 },
+    });
+    expect(end.statusCode, end.body).toBe(200);
+    expect(end.json()).toMatchObject({ seconds_recorded: 660 });
+  });
+});
+
+describe('voice mode — single-active-call guard', () => {
+  let h: TestHarness;
+  beforeEach(async () => {
+    h = await buildTestApp({
+      voice: {
+        enabled: true,
+        livekitApiKey: 'unit-key',
+        livekitApiSecret: 'unit-secret-min-32-chars-unit-secret-min-32-chars',
+        dailyMinutesPerUser: 60,
+        internalKey: INTERNAL_KEY,
+      },
+    });
+  });
+  afterEach(async () => {
+    await h.close();
+  });
+
+  it('refuses a second concurrent /voice/start with 409 voice_call_in_progress', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const first = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+    expect(first.statusCode, first.body).toBe(200);
+
+    // No end yet -> the call is still "active" -> second start is blocked.
+    const second = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+    expect(second.statusCode).toBe(409);
+    expect(second.json()).toMatchObject({ error: 'voice_call_in_progress' });
+  });
+
+  it('allows a new /voice/start after the previous call is ended', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+    // User end clears the active-call marker immediately.
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/end`,
+      headers: authHeader,
+      payload: { seconds_used: 5 },
+    });
+
+    const restart = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+    expect(restart.statusCode, restart.body).toBe(200);
+  });
+
+  it('does not lock out a new call once the active row is stale', async () => {
+    // A 0-second staleness window means no un-ended row is ever
+    // considered active, mimicking a worker that crashed long ago.
+    const stale = await buildTestApp({
+      voice: {
+        enabled: true,
+        livekitApiKey: 'unit-key',
+        livekitApiSecret: 'unit-secret-min-32-chars-unit-secret-min-32-chars',
+        dailyMinutesPerUser: 60,
+        activeCallStaleSeconds: 0,
+        internalKey: INTERNAL_KEY,
+      },
+    });
+    try {
+      const { authHeader } = await registerAndAuth(stale.app);
+      const session = await createSession(stale, authHeader);
+
+      await stale.app.inject({
+        method: 'POST',
+        url: `/sessions/${session.id}/voice/start`,
+        headers: authHeader,
+      });
+      // No end, but the stale window has effectively expired -> allowed.
+      const second = await stale.app.inject({
+        method: 'POST',
+        url: `/sessions/${session.id}/voice/start`,
+        headers: authHeader,
+      });
+      expect(second.statusCode, second.body).toBe(200);
+    } finally {
+      await stale.close();
+    }
+  });
+});
+
+describe('voice mode — internal voice-budget', () => {
+  let h: TestHarness;
+  beforeEach(async () => {
+    h = await buildTestApp({
+      voice: {
+        enabled: true,
+        livekitApiKey: 'unit-key',
+        livekitApiSecret: 'unit-secret-min-32-chars-unit-secret-min-32-chars',
+        dailyMinutesPerUser: 60,
+        internalKey: INTERNAL_KEY,
+      },
+    });
+  });
+  afterEach(async () => {
+    await h.close();
+  });
+
+  it('returns remaining + cap seconds for the session owner', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const res = await h.app.inject({
+      method: 'GET',
+      url: `/internal/sessions/${session.id}/voice-budget`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({
+      remaining_seconds: 60 * 60,
+      cap_seconds: 60 * 60,
+    });
+
+    // After an authoritative 10-minute debit the remaining drops.
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+    await h.app.inject({
+      method: 'POST',
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+      payload: { seconds_used: 600 },
+    });
+    const after = await h.app.inject({
+      method: 'GET',
+      url: `/internal/sessions/${session.id}/voice-budget`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+    });
+    expect(after.json()).toMatchObject({
+      remaining_seconds: 60 * 60 - 600,
+      cap_seconds: 60 * 60,
+    });
+  });
+
+  it('requires the X-Internal-Key header', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const res = await h.app.inject({
+      method: 'GET',
+      url: `/internal/sessions/${session.id}/voice-budget`,
+    });
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('voice mode — budget with quota disabled', () => {
+  let h: TestHarness;
+  beforeEach(async () => {
+    h = await buildTestApp({
+      voice: {
+        enabled: true,
+        livekitApiKey: 'unit-key',
+        livekitApiSecret: 'unit-secret-min-32-chars-unit-secret-min-32-chars',
+        dailyMinutesPerUser: 0,
+        internalKey: INTERNAL_KEY,
+      },
+    });
+  });
+  afterEach(async () => {
+    await h.close();
+  });
+
+  it('reports null remaining + cap when the quota is disabled', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const res = await h.app.inject({
+      method: 'GET',
+      url: `/internal/sessions/${session.id}/voice-budget`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toEqual({ remaining_seconds: null, cap_seconds: null });
   });
 });
 

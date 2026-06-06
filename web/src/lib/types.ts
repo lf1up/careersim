@@ -224,3 +224,15 @@ export interface VoiceCaption {
   is_final: boolean;
   confidence?: number | null;
 }
+
+/**
+ * Out-of-band control event published by the agent-voice worker on the
+ * `voice-control` data-channel topic. Used to warn about and enforce
+ * the daily voice budget. `cap_seconds` lets the UI render the actual
+ * configured limit instead of hardcoding a number.
+ */
+export interface VoiceControlEvent {
+  type: 'quota_warning' | 'quota_exhausted';
+  remaining_seconds?: number | null;
+  cap_seconds?: number | null;
+}
