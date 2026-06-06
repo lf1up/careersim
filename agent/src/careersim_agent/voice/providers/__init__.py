@@ -59,6 +59,11 @@ def get_stt_provider(
     if name == "whisper_openai":
         from .whisper_openai import WhisperOpenAISTT
 
+        if not settings.openai_api_key and not settings.openai_base_url:
+            raise UnsupportedProviderError(
+                "whisper_openai STT selected but neither OPENAI_API_KEY nor "
+                "OPENAI_BASE_URL is set"
+            )
         return WhisperOpenAISTT(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
@@ -112,6 +117,11 @@ def get_tts_provider(
     if name == "openai_tts":
         from .openai_tts import OpenAITTS
 
+        if not settings.openai_api_key and not settings.openai_base_url:
+            raise UnsupportedProviderError(
+                "openai_tts selected but neither OPENAI_API_KEY nor "
+                "OPENAI_BASE_URL is set"
+            )
         return OpenAITTS(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
