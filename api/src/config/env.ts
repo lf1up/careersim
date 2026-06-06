@@ -78,6 +78,38 @@ const EnvSchema = z
     // string like '1 hour' / '30 minutes' / '6 hours', or a number of ms.
     SESSIONS_CREATE_MAX: z.coerce.number().int().positive().default(2),
     SESSIONS_CREATE_WINDOW: z.string().default('6 hours'),
+
+    // ------------------------------------------------------------------
+    // Voice mode (browser-native LiveKit + chained pipeline)
+    //
+    // `VOICE_ENABLED=false` is the kill switch — voice routes register
+    // unconditionally so the OpenAPI surface is stable, but they
+    // return `503 voice_disabled` until the flag is flipped on. Mirrors
+    // the agent-side `VOICE_ENABLED` so both should usually be flipped
+    // together.
+    //
+    // `LIVEKIT_*` is the self-hosted SFU's signalling URL + key/secret
+    // pair used to mint short-lived join tokens for the web client.
+    // The defaults match `docker-compose.local.yml`.
+    //
+    // `VOICE_DAILY_MINUTES_PER_USER` is the per-user-per-day quota
+    // enforced by the `voice_minute_usage` table; layered on top of
+    // the `voiceStart` rate-limit policy.
+    // ------------------------------------------------------------------
+    VOICE_ENABLED: z
+      .string()
+      .default('false')
+      .transform((v) => v !== 'false' && v !== '0'),
+    LIVEKIT_URL: z.string().default(''),
+    LIVEKIT_API_KEY: z.string().default(''),
+    LIVEKIT_API_SECRET: z.string().default(''),
+    VOICE_DAILY_MINUTES_PER_USER: z.coerce.number().int().nonnegative().default(60),
+    // How long an un-ended voice-call row stays "active" for the
+    // single-active-call guard (seconds). Past this we assume the
+    // worker crashed without reporting end and allow a fresh call so a
+    // user can't be locked out. Set to 0 to disable the guard
+    // entirely. Default ~70 min mirrors the `cap + 10 min` token TTL.
+    VOICE_ACTIVE_CALL_STALE_SECONDS: z.coerce.number().int().nonnegative().default(70 * 60),
   })
   .superRefine((env, ctx) => {
     if (

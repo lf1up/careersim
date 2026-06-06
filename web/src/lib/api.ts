@@ -9,6 +9,8 @@ import type {
   SimulationDetail,
   StreamEvent,
   User,
+  VoiceEndResponse,
+  VoiceStartResponse,
 } from './types';
 import { readSse } from './sse';
 
@@ -383,6 +385,34 @@ export const apiClient = {
       headers,
       body: JSON.stringify({ trigger_type: 'followup' }),
       signal,
+    });
+  },
+
+  // ---------- voice ----------
+
+  /**
+   * Start a voice call for a session. Returns the LiveKit join token
+   * + SFU URL the client uses to connect. May reject with:
+   *   - 503 voice_disabled (kill switch)
+   *   - 429 voice_quota_exhausted (daily budget used up)
+   *   - 403 / 404 (ownership / missing session)
+   */
+  async startVoiceCall(id: string): Promise<VoiceStartResponse> {
+    return request<VoiceStartResponse>(`/sessions/${id}/voice/start`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * End a voice call and debit the daily quota. Idempotent — safe to
+   * call from disconnect / unload paths even if the user already
+   * pressed "End call" once. `seconds_used` is server-clamped at 1
+   * hour.
+   */
+  async endVoiceCall(id: string, seconds_used: number): Promise<VoiceEndResponse> {
+    return request<VoiceEndResponse>(`/sessions/${id}/voice/end`, {
+      method: 'POST',
+      body: { seconds_used },
     });
   },
 };

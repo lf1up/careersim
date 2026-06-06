@@ -4,50 +4,60 @@
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
-<img src="./docs/assets/careersim-negotiation-arcade.png" alt="CareerSIM salary negotiation practice shown as a retro pixel art arcade battle" width="960" />
-
 > [!NOTE]
-> **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
+> **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, plus `livekit` + `agent-voice` for the browser-native voice surface, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
 
 ## 🏗️ Architecture
 
-CareerSIM runs as three first-party services plus shared infrastructure. The API owns all persistence; the agent is a pure function of its inputs (full state snapshot in, new messages + updated state out) — this makes replay, testing, and horizontal scaling straightforward.
+CareerSIM runs as three first-party services plus shared infrastructure. The API owns all persistence; the agent is a pure function of its inputs (full state snapshot in, new messages + updated state out) — this makes replay, testing, and horizontal scaling straightforward. Voice mode adds two more processes — a self-hosted **LiveKit** SFU and a dedicated **agent-voice** worker — that reuse the same LangGraph engine over a WebRTC audio path.
 
 ```
-                      ┌──────────────────────┐
-                      │   Web (Next.js 16)   │
-                      │   App Router + RSC   │
-                      │   :3000              │
-                      └──────────┬───────────┘
-                                 │  REST + SSE (JWT Bearer)
-                      ┌──────────▼───────────┐
-                      │  API (Fastify 5 +    │
-                      │  Drizzle + Zod)      │
-                      │  :8000               │
-                      └───┬──────────────┬───┘
+                      ┌──────────────────────┐                           ┌──────────────┐
+                      │   Web (Next.js 16)   │ ───── WebRTC (mic) ─────► │  LiveKit SFU │
+                      │   App Router + RSC   │ ◄──── agent audio ─────── │  :7880/:7882 │
+                      │   :3000              │                           └──────┬───────┘
+                      └──────────┬───────────┘                                  │ PCM
+                                 │  REST + SSE (JWT Bearer)                     │
+                                 │  text chat · sessions · auth · nudges        │
+                      ┌──────────▼───────────┐                           ┌──────▼───────┐
+                      │  API (Fastify 5 +    │ ◄── internal + voice ──── │  agent-voice │
+                      │  Drizzle + Zod)      │     turns over REST       │  worker      │
+                      │  :8000               │                           │  STT→LG→TTS  │
+                      └───┬──────────────┬───┘                           └──────────────┘
                           │              │
              POST /conv/* │              │ SQL
             (batch + SSE) │              │
-                      ┌───▼──────┐   ┌───▼──────────┐
-                      │  Agent   │   │ PostgreSQL 17│
-                      │ FastAPI +│   │ + Redis 7    │
-                      │ LangGraph│   │ :5432 / :6379│
-                      │  :8001   │   └──────────────┘
-                      │          │
-                      │  embedded│
-                      │  Chroma  │
-                      └──────────┘
+                      ┌───▼───────┐  ┌───▼───────────┐
+                      │  Agent    │  │ PostgreSQL 17 │
+                      │ FastAPI + │  │ + Redis 7     │
+                      │ LangGraph │  │ :5432 / :6379 │
+                      │  :8001    │  └───────────────┘
+                      │           │
+                      │  embedded │
+                      │  Chroma   │
+                      └───────────┘
 ```
 
+The text-chat path (**Web → API → Agent → Postgres**) is unchanged from the
+non-voice runtime. Voice adds a parallel audio lane: the browser streams mic
+audio to the **LiveKit** SFU, the **agent-voice** worker runs STT → the same
+LangGraph turn → TTS, and it loops every spoken turn back through the **API**'s
+existing message/internal routes — so persistence, goal eval, and quota all run
+through one engine, not a second copy.
 
-| Service      | Stack                                                                    | Description                                                                                                                                                                                         |
-| ------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **landing**  | Astro 6 static site, TypeScript, plain CSS                               | Public `careersim.local` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                      |
-| **web**      | Next.js 16 (App Router, React 19), TypeScript 6, Tailwind 3              | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                   |
-| **api**      | Node.js 22, Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod 4 | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                 |
-| **agent**    | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter | Stateless conversation engine. One binary serves either a Gradio dev console or a FastAPI production server (`--serve api`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |
-| **postgres** | PostgreSQL 17                                                            | Source of truth for users, sessions, messages, and state snapshots.                                                                                                                                 |
-| **redis**    | Redis 7                                                                  | Present in compose for future rate-limiting / pub-sub work.                                                                                                                                         |
+> Voice mode has its own operator runbook — see [VOICE_MODE.md](VOICE_MODE.md) for the end-to-end architecture, kill switches, provider selection, daily-budget enforcement, and the pre-merge smoke checklist.
+
+
+| Service         | Stack                                                                           | Description                                                                                                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **landing**     | Astro 6 static site, TypeScript, plain CSS                                      | Public `careersim.local` marketing page generated from the Figma landing design. Includes a manual Figma sync script for reference screenshots and node metadata.                                                                     |
+| **web**         | Next.js 16 (App Router, React 19), TypeScript 6, Tailwind 3                     | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                                                     |
+| **api**         | Node.js 22, Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod 4 | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                                                   |
+| **agent**       | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter        | Stateless conversation engine. One binary serves a Gradio dev console, a FastAPI production server (`--serve api`), **or** the voice worker (`--serve voice`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |
+| **agent-voice** | Python 3.11+, LiveKit Agents SDK, faster-whisper / Piper (self-hosted defaults) | Dedicated voice worker. Joins LiveKit rooms minted by the API, runs STT → the same LangGraph turn → TTS, streams captions, and posts transcripts back through the public API on the user's bearer.                                    |
+| **livekit**     | LiveKit Server (WebRTC SFU)                                                     | Self-hosted SFU routing audio between the browser and `agent-voice`. Runs in `--dev` mode locally; needs a real config + TLS in production.                                                                                           |
+| **postgres**    | PostgreSQL 17                                                                   | Source of truth for users, sessions, messages, state snapshots, and daily voice-minute usage.                                                                                                                                         |
+| **redis**       | Redis 7                                                                         | Shared rate-limit buckets (`@fastify/rate-limit`); falls back to per-process LRU when `REDIS_URL` is unset.                                                                                                                           |
 
 
 ### 🪦 Deprecated services (kept for reference)
@@ -79,6 +89,8 @@ careersim/
 │   └── src/{app,components,contexts,lib}
 ├── agent/                      # Python LangGraph agent (active)
 │   ├── src/careersim_agent/
+│   │   └── voice/              # voice worker, STT/TTS providers, persona voice
+│   ├── scripts/                # voice_smoke.py, voice_perf.py, prefetch_voice_models.py
 │   ├── data/{personas.json,simulations.json,documents/}
 │   └── tests/
 ├── backend/                    # DEPRECATED — superseded by api/
@@ -89,8 +101,9 @@ careersim/
 │   ├── aws/                    # Terraform: ECS/Fargate, RDS, ElastiCache, ALB
 │   ├── aws-transformers/       # Standalone Transformers deployment
 │   └── k8s/                    # Kustomize (dev + prod overlays)
-├── docker-compose.local.yml    # Local dev stack (api + web + agent + postgres + redis)
+├── docker-compose.local.yml    # Local dev stack (api + web + agent + agent-voice + livekit + postgres + redis)
 ├── PERSONAS.md                 # AI persona definitions
+├── VOICE_MODE.md               # Voice-mode operator guide + pre-merge smoke checklist
 ├── LICENSE.md                  # MIT
 └── README.md                   # (this file)
 ```
@@ -126,9 +139,17 @@ This starts:
 | [http://localhost:8000/docs](http://localhost:8000/docs) | API Swagger UI (zod schemas → OpenAPI)          |
 | [http://localhost:8001](http://localhost:8001)           | `agent` — FastAPI (stateless)                   |
 | [http://localhost:8001/docs](http://localhost:8001/docs) | Agent Swagger UI                                |
+| ws://localhost:7880                                      | `livekit` — WebRTC SFU signalling (voice mode)  |
 | localhost:5432                                           | PostgreSQL (`careersim` / `careersim_password`) |
 | localhost:6379                                           | Redis                                           |
 
+
+The compose stack also starts the `agent-voice` worker (no published port — it
+joins LiveKit rooms outbound). The first `--build` is slower than the others
+because the voice image prefetches the default faster-whisper + Piper models
+into the image / a named volume. Set `VOICE_ENABLED=false` in `agent/.env` +
+`api/.env` to skip voice entirely (the worker exits cleanly and the Call button
+is hidden) — see [VOICE_MODE.md](VOICE_MODE.md).
 
 The `api` container runs Drizzle migrations on start; no manual seeding needed. Register a new user from the web UI (there is **no default admin account** — that concept belonged to the legacy `backend/`).
 
@@ -151,6 +172,9 @@ cd agent && uv sync && uv run python -m careersim_agent.main --serve api --port 
 
 # Agent (Gradio dev console — stateful, good for prompt iteration)
 cd agent && uv run python -m careersim_agent.main            # :7860
+
+# Agent voice worker (joins LiveKit rooms; needs a running livekit + api)
+cd agent && uv run python -m careersim_agent.main --serve voice
 ```
 
 When mixing Docker + host, point each service at the others via `host.docker.internal` / `localhost` as appropriate — see `docker-compose.local.yml` for the canonical wiring.
@@ -181,6 +205,10 @@ The `api` exposes `POST /sessions/:id/nudge`; the server decides idempotently wh
 
 `POST /sessions/:id/proactive/stream` drives persona-initiated follow-ups capped by `burstiness.max - 1` additional messages. The web UI exposes this behind a "Follow up" button and surfaces the cap as a `{N} followups max` badge alongside typing speed and nudge count.
 
+### 🎙️ Voice mode (browser-native)
+
+Real-time spoken practice with the same personas, no install required. The web client mints a short-lived LiveKit token via `POST /sessions/:id/voice/start`, joins a self-hosted WebRTC SFU, and the `agent-voice` worker runs **STT → the existing LangGraph turn → TTS** in the room — captions stream over a data channel and transcripts persist back through the public API on the user's bearer (audio itself is never stored). Defaults are fully self-hosted (`faster-whisper` + Piper); OpenAI, Deepgram, and ElevenLabs are opt-in per provider. Each persona declares a `voice` block (speaking rate, barge-in tolerance, filler-word density, per-provider voice IDs) so characters sound distinct. A daily per-user minute budget (`VOICE_DAILY_MINUTES_PER_USER`) is enforced authoritatively by the worker, and a single `VOICE_ENABLED=false` flag is a full kill switch. See [VOICE_MODE.md](VOICE_MODE.md) for the operator runbook.
+
 ### 🔎 Retrieval-Augmented Generation (embedded)
 
 Per-simulation and per-persona Markdown under `agent/data/documents/` is indexed into a persisted Chroma store (volume `agent_chroma_db`). No separate HTTP hop.
@@ -198,8 +226,8 @@ Email + password → JWT bearer (stored in `localStorage` on the web side; `Auth
 Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that the runtime surfaces in `GET /sessions/:id.session_config` and the web UI badges.
 
 
-| Persona           | Role                               | Simulation slug                          | Typing (wpm) | Nudges max | Burst max |
-| ----------------- | ---------------------------------- | ---------------------------------------- | ------------ | ---------- | --------- |
+| Persona              | Role                               | Simulation slug                          | Typing (wpm) | Nudges max | Burst max |
+| -------------------- | ---------------------------------- | ---------------------------------------- | ------------ | ---------- | --------- |
 | **Brenda Vance**     | By-the-Book HR Manager             | `behavioral-interview-brenda`            | 110          | 2          | 3         |
 | **Alex Chen**        | Passionate Tech Lead               | `tech-cultural-interview-alex`           | 140          | 3          | 3         |
 | **David Miller**     | Senior Analyst / Skeptical Veteran | `pitching-idea-david`                    | 120          | 2          | 1         |
@@ -211,11 +239,13 @@ Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that 
 | **Marcus Whitfield** | Time-Boxed VP of Engineering       | `informational-chat-marcus`              | 95           | 1          | 1         |
 
 
+Each persona also declares a `voice` block (`speakingRateWpm`, `bargeInToleranceMs`, `fillerWordFrequency`, `silenceThresholdMs`, and per-provider voice settings for `piper_local` / `openai_tts` / `elevenlabs`) that drives how it sounds in voice mode — so Vikram is rapid-fire and barges in quickly while Marcus is slow, dry, and tolerant of silence.
+
 See [PERSONAS.md](PERSONAS.md) for the full persona definitions, hidden goals, and success criteria.
 
 ## 🧪 End-to-end simulation testing
 
-`agent/test_simulation.py` is a CLI harness for running a complete simulation end-to-end against the agent's **Gradio dev console** — useful for sanity-checking a new persona, a tweaked goal, or an evaluation-threshold change without clicking through the UI turn-by-turn. Two modes: **interactive** (you type the user's side) or **`--auto`** (an OpenAI-driven candidate plays the user side using a per-simulation strategy prompt baked into the script). The full transcript and per-turn goal-progress snapshots can be written to `agent/logs/` with `--log` and exported as JSON with `--json`.
+`agent/test_simulation.py` is a CLI harness for running a complete simulation end-to-end against the agent's **Gradio dev console** — useful for sanity-checking a new persona, a tweaked goal, or an evaluation-threshold change without clicking through the UI turn-by-turn. Two modes: **interactive** (you type the user's side) or `**--auto`** (an OpenAI-driven candidate plays the user side using a per-simulation strategy prompt baked into the script). The full transcript and per-turn goal-progress snapshots can be written to `agent/logs/` with `--log` and exported as JSON with `--json`.
 
 ```bash
 # Requires the Gradio dev console running on :7860 and OPENAI_API_KEY for --auto.
@@ -230,16 +260,17 @@ See [agent/README.md](agent/README.md#end-to-end-simulation-runs-test_simulation
 ## 🛠️ Tech Stack
 
 
-| Layer          | Technology                                                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Landing        | Astro 6 static output, TypeScript 5.9, plain CSS, Figma reference sync                                                                            |
-| Web            | Next.js 16 (App Router, Turbopack), React 19, TypeScript 6, Tailwind CSS 3, `eventsource-parser`                                                  |
-| API            | Node.js 22.12+, Fastify 5, TypeScript 6 (strict ESM), Drizzle ORM + drizzle-kit, `@fastify/jwt`, argon2id, Zod 4 + `fastify-type-provider-zod`, `undici` |
-| Agent          | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI SDK, Gradio 5, `uv`                                                                   |
-| Data           | PostgreSQL 17, Redis 7                                                                                                                            |
-| LLM / models   | OpenAI-compatible chat + embeddings (OpenAI, OpenRouter, …); in-process LLM eval                                                                  |
-| Testing        | Vitest 4 + `@electric-sql/pglite` + `FakeAgent` (api), `pytest` + `_FakeGraph` (agent)                                                            |
-| Infrastructure | Docker, Docker Compose; Terraform (AWS) and Kustomize (K8s) checked in but targeting the legacy layout                                            |
+| Layer          | Technology                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Landing        | Astro 6 static output, TypeScript 5.9, plain CSS, Figma reference sync                                                                                                         |
+| Web            | Next.js 16 (App Router, Turbopack), React 19, TypeScript 6, Tailwind CSS 3, `eventsource-parser`, `livekit-client` (lazy)                                                      |
+| API            | Node.js 22.12+, Fastify 5, TypeScript 6 (strict ESM), Drizzle ORM + drizzle-kit, `@fastify/jwt`, argon2id, Zod 4 + `fastify-type-provider-zod`, `undici`, `livekit-server-sdk` |
+| Agent          | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI SDK, Gradio 5, `uv`                                                                                                |
+| Voice          | LiveKit Server (SFU) + LiveKit Agents SDK; `faster-whisper` + Piper self-hosted defaults; OpenAI Whisper/TTS, Deepgram, ElevenLabs opt-in                                      |
+| Data           | PostgreSQL 17, Redis 7                                                                                                                                                         |
+| LLM / models   | OpenAI-compatible chat + embeddings (OpenAI, OpenRouter, …); in-process LLM eval                                                                                               |
+| Testing        | Vitest 4 + `@electric-sql/pglite` + `FakeAgent` (api), `pytest` + `_FakeGraph` (agent)                                                                                         |
+| Infrastructure | Docker, Docker Compose; Terraform (AWS) and Kustomize (K8s) checked in but targeting the legacy layout                                                                         |
 
 
 ## ☁️ Infrastructure
@@ -289,14 +320,9 @@ cd agent && uv run python test_simulation.py \
 
 ## 🗺️ Roadmap
 
-- **Port infrastructure to the new stack** — Terraform + Kustomize for `api` / `web` / `agent`.
+- **Port infrastructure to the new stack** — Terraform + Kustomize for `api` / `web` / `agent` / `agent-voice` / `livekit`.
 - **Remove the deprecated directories** once the migration is considered complete and nothing still references them.
-- **Voice / phone-call practice with AI personas** — real-time spoken simulations for the moments where text doesn't cut it (recruiter screens, salary calls, informational interviews, difficult 1:1s). Targeted scope:
-  - **Browser-native voice mode** in `web/` using WebRTC mic capture, low-latency STT (e.g., Whisper / Deepgram streaming), and TTS playback (e.g., ElevenLabs / OpenAI tts) — no install required.
-  - **Real phone calls** for higher-stakes practice — outbound (the persona calls the user at a scheduled time) and inbound (the user dials a number and gets connected to the persona) via Twilio Voice or LiveKit, with the same LangGraph engine driving the conversation.
-  - **Per-persona voice + speech style** — extends `conversationStyle` in `agent/data/personas.json` with voice ID, speaking pace (wpm), filler-word frequency, accent, and barge-in tolerance so Vikram sounds rapid-fire and salesy while Marcus is dry, slow, and tolerant of silence.
-  - **Voice-aware evaluation** — the existing per-turn eval is extended to score **spoken-only signals**: pacing, filler words ("um", "like"), interruptions, time-to-respond, vocal confidence, and silence handling — surfaced in the post-session feedback alongside the text-based goal scores.
-  - **Realistic interruption mechanics** — wire the agent's existing `burstiness` / `inactivityNudges` config to voice-side barge-in so a recruiter can talk over you mid-answer and a senior stranger can let a 6-second silence sit.
+- **Real phone-call practice with AI personas** — building on the shipped [browser-native voice mode](VOICE_MODE.md), extend to outbound (the persona calls the user at a scheduled time) and inbound (the user dials a number) calls via Twilio Voice / LiveKit SIP, with the same LangGraph engine driving the conversation.
 - **Community features** — public leaderboards and discussion forums.
 - **Certification paths** — structured learning programs with shareable certificates.
 - **AI persona builder** — user-created custom personas for specialized practice.

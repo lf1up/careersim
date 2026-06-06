@@ -27,6 +27,39 @@ class ConversationStyle(TypedDict, total=False):
     nudgeStyle: str
 
 
+class VoiceProviderConfig(TypedDict, total=False):
+    """Free-form per-TTS-provider settings.
+
+    Different providers consume different keys (Piper wants
+    ``voiceModel``, OpenAI wants ``voice`` + ``speed``, ElevenLabs wants
+    ``voiceId`` + ``stability`` + ``styleExaggeration``); we keep it
+    open so adding a provider doesn't require a schema bump.
+    """
+    voiceModel: str        # piper_local
+    voice: str             # openai_tts
+    speed: float           # openai_tts
+    voiceId: str           # elevenlabs
+    stability: float       # elevenlabs
+    styleExaggeration: float  # elevenlabs
+
+
+class VoiceConfig(TypedDict, total=False):
+    """Per-persona voice-mode configuration.
+
+    Optional — personas without this block are not eligible for voice
+    sessions. The shape is provider-agnostic: every supported TTS
+    backend gets its own entry under ``providers`` so swapping the
+    runtime provider doesn't change which persona the user is talking
+    to. See PERSONAS.md / agent/data/personas.json for examples.
+    """
+    speakingRateWpm: int
+    silenceThresholdMs: int
+    bargeInToleranceMs: int
+    fillerWordFrequency: str  # "low" | "medium" | "high"
+    providers: dict[str, VoiceProviderConfig]
+    providerOverride: Optional[str]
+
+
 class Persona(TypedDict, total=False):
     """Persona definition."""
     slug: str
@@ -38,6 +71,7 @@ class Persona(TypedDict, total=False):
     hiddenMotivation: str
     difficultyLevel: int
     conversationStyle: ConversationStyle
+    voice: VoiceConfig  # Optional; presence gates voice-session eligibility
 
 
 class EvaluationConfig(TypedDict, total=False):

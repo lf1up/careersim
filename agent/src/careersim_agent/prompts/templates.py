@@ -115,11 +115,75 @@ def _pick_current_goal(
     return None
 
 
+def _format_voice_style(persona: dict[str, Any]) -> str:
+    """Append voice-mode guidance read from ``persona.voice``.
+
+    Surfaces filler-word frequency, speaking pace, and a generic
+    "you are speaking, not typing" reminder. Only emitted when the
+    persona has a ``voice`` block — text-mode personas (and personas
+    without per-voice tuning) get an empty string back.
+
+    The wording is phrased so the LLM produces *transcribable* speech:
+    no markdown, no bullet lists, no parenthetical asides — those all
+    sound bizarre when read aloud by a TTS engine.
+    """
+    voice = persona.get("voice")
+    if not isinstance(voice, dict):
+        return ""
+
+    rate = voice.get("speakingRateWpm")
+    fillers = voice.get("fillerWordFrequency", "low")
+    filler_guidance = {
+        "low": (
+            "Almost no fillers — at most one casual disfluency every "
+            "3-4 turns, and only when it fits the persona's mood."
+        ),
+        "medium": (
+            "Sprinkle natural fillers (\"um\", \"you know\", \"so\") "
+            "occasionally — roughly one or two per medium-length reply, "
+            "never as a verbal tic."
+        ),
+        "high": (
+            "Use frequent natural fillers and self-corrections "
+            "(\"um\", \"like\", \"I mean\", restart a sentence "
+            "mid-thought) to convey a flustered or anxious cadence."
+        ),
+    }.get(fillers, "")
+
+    parts = ["**Voice-mode style**:"]
+    parts.append(
+        "- This reply will be SPOKEN, not typed. Avoid markdown, "
+        "bullet points, parentheses, lists, headings, or anything that "
+        "sounds awkward read aloud."
+    )
+    if filler_guidance:
+        parts.append(f"- Disfluency: {filler_guidance}")
+    if isinstance(rate, int) and rate > 0:
+        # The TTS handles literal pacing; this is a *prosody* hint to
+        # the LLM so sentence rhythm matches the rate. Slow personas
+        # write longer, more deliberate sentences; fast personas
+        # write short, choppy clauses with occasional run-on energy.
+        parts.append(
+            "- Cadence: aim for natural rhythm at "
+            f"~{rate} words per minute — "
+            + (
+                "longer, more deliberate sentences."
+                if rate < 130
+                else "short, energetic clauses."
+                if rate >= 160
+                else "balanced, conversational sentences."
+            )
+        )
+
+    return "\n".join(parts)
+
+
 def build_persona_system_prompt(
     persona: dict[str, Any],
     simulation: dict[str, Any],
     goal_progress: list[dict] = None,
     retrieved_context: Optional[str] = None,
+    voice_mode: bool = False,
 ) -> str:
     """Build the main system prompt for persona conversation.
     
@@ -175,7 +239,14 @@ def build_persona_system_prompt(
 **Reference Materials** (use these to inform your responses — do not quote them directly):
 {retrieved_context}
 """
-    
+
+    # Voice-mode guidance (only present when the worker flips the flag).
+    voice_section = ""
+    if voice_mode:
+        voice_block = _format_voice_style(persona)
+        if voice_block:
+            voice_section = f"\n\n{voice_block}\n"
+
     return f"""You are {persona.get('name', 'Unknown')}, a {persona.get('role', 'professional')} with the following characteristics:
 
 **Personality**: {persona.get('personality', 'Professional and courteous')}
@@ -206,7 +277,7 @@ def build_persona_system_prompt(
 - Ask questions / shape the interaction to elicit the key behaviors.
 
 **Conversation Style**: {conv_style}
-{rag_section}
+{rag_section}{voice_section}
 **Style Guidelines**:
 - Stay completely in character at all times
 - Respond naturally and authentically to the user's messages
