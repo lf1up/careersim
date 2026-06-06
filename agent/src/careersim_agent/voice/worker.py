@@ -639,8 +639,13 @@ async def _run_room_session(
                 )
             )
 
+    # Hoisted to the enclosing scope so the outer teardown can join the
+    # last in-flight utterance task before closing the shared
+    # vad_stream/audio_stream/source it may still be writing into.
+    turn_task: asyncio.Task[None] | None = None
+
     async def _consume_vad() -> None:
-        turn_task: asyncio.Task[None] | None = None
+        nonlocal turn_task
         try:
             async for ev in vad_stream:
                 if ev.type == vad_module.VADEventType.START_OF_SPEECH:
@@ -713,6 +718,13 @@ async def _run_room_session(
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
+        # Join the last in-flight utterance task (spawned by _consume_vad)
+        # before tearing down shared resources — _handle_utterance may
+        # still be writing TTS PCM into `source` via speak().
+        if turn_task is not None and not turn_task.done():
+            turn_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await turn_task
         with contextlib.suppress(Exception):
             await vad_stream.aclose()
         with contextlib.suppress(Exception):
