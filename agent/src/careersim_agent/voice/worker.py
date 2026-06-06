@@ -608,12 +608,20 @@ async def _run_room_session(
         # sentiment / nudges all run exactly once. We deliberately do NOT
         # also run the graph locally via the adapter — that would double the
         # LLM cost and let the spoken reply drift from what's persisted.
+        # Shield the POST so a barge-in cancellation (``turn_task.cancel()``
+        # in ``_consume_vad``) can't tear down the connection mid-request.
+        # ``post_user_message`` runs ``agent.turn`` server-side — appending
+        # the human turn and generating the AI reply — and that mutation
+        # must complete atomically so the persisted transcript stays
+        # consistent. On cancel we let ``CancelledError`` propagate (the
+        # shielded request still finishes server-side); we simply don't
+        # speak the now-superseded reply.
         try:
-            detail = await api.post_user_message(  # type: ignore[attr-defined]
-                session_id, text, bearer_token=bearer_token
+            detail = await asyncio.shield(
+                api.post_user_message(  # type: ignore[attr-defined]
+                    session_id, text, bearer_token=bearer_token
+                )
             )
-        except asyncio.CancelledError:
-            return
         except Exception:
             logger.exception("session %s: post_user_message failed", session_id)
             return
