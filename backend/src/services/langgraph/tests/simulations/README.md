@@ -1,8 +1,8 @@
-# End-to-End Simulation Tests
+# 🪦 End-to-End Simulation Tests
 
 Comprehensive test suite for all 7 CareerSIM simulations with detailed evaluation and eloquent console logging.
 
-## Overview
+## 🗺️ Overview
 
 This directory contains end-to-end tests for each simulation, with:
 - **Up to 50 turns** per simulation (stops early when all goals achieved)
@@ -12,7 +12,7 @@ This directory contains end-to-end tests for each simulation, with:
 - **Evaluation against success criteria** (communication, problem-solving, emotional)
 - **Comprehensive logging** to follow every step in console output
 
-## Test Files
+## 📄 Test Files
 
 | Test File | Simulation | Persona | Difficulty | Max Turns | Stops Early? |
 |-----------|------------|---------|------------|-----------|--------------|
@@ -24,9 +24,9 @@ This directory contains end-to-end tests for each simulation, with:
 | `reengaging-employee.spec.ts` | Re-engaging Employee | Michael Reyes | Expert | 50 | ✅ Yes |
 | `delegating-task.spec.ts` | Delegating a Task | Chloe Davis | Intermediate | 50 | ✅ Yes |
 
-## Running Tests
+## ▶️ Running Tests
 
-### Prerequisites
+### 📋 Prerequisites
 
 1. **Seed the database:**
    ```bash
@@ -38,13 +38,13 @@ This directory contains end-to-end tests for each simulation, with:
    export OPENAI_API_KEY=your-key-here
    ```
 
-### Run All Simulations
+### 🎬 Run All Simulations
 
 ```bash
 pnpm --filter careersim-backend run test:sim:all
 ```
 
-### Run Individual Simulations
+### 🎯 Run Individual Simulations
 
 ```bash
 # Behavioral Interview (Brenda Vance)
@@ -69,13 +69,13 @@ pnpm --filter careersim-backend run test:sim:reengaging
 pnpm --filter careersim-backend run test:sim:delegating
 ```
 
-## Console Output
+## 🖥️ Console Output
 
-### Logging Highlights
+### 📢 Logging Highlights
 
 The tests feature **eloquent, step-by-step logging** so you can follow the entire test execution:
 
-#### 1. Test Suite Setup
+#### 🚀 1. Test Suite Setup
 ```
 ═══════════════════════════════════════════════════════════════════════════════
 🚀 BEHAVIORAL INTERVIEW TEST SUITE - SETUP
@@ -94,14 +94,14 @@ Setting up test environment...
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
-#### 2. Individual Test Header
+#### 🪧 2. Individual Test Header
 ```
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║ TEST 1: Complete Behavioral Interview Simulation                            ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
-#### 3. Simulation Loading
+#### 📥 3. Simulation Loading
 ```
 📥 Loading simulation from database...
    Slug: behavioral-interview-brenda
@@ -112,7 +112,7 @@ Setting up test environment...
    Goals: 5
 ```
 
-#### 4. Session Creation
+#### 🔧 4. Session Creation
 ```
 🔧 Creating test session...
    Simulation ID: abc-123
@@ -122,7 +122,7 @@ Setting up test environment...
    Thread ID: thread-456
 ```
 
-#### 5. Test Execution
+#### 🎬 5. Test Execution
 ```
 ════════════════════════════════════════════════════════════════════════════════
 🎬 STARTING SIMULATION TEST
@@ -147,7 +147,7 @@ Setting up test environment...
    Please wait, this may take several minutes...
 ```
 
-#### 6. Conversation Completion
+#### ✅ 6. Conversation Completion
 ```
 ────────────────────────────────────────────────────────────────────────────────
 ✅ CONVERSATION COMPLETED
@@ -157,7 +157,7 @@ Setting up test environment...
 ────────────────────────────────────────────────────────────────────────────────
 ```
 
-#### 7. Evaluation Phase
+#### 📊 7. Evaluation Phase
 ```
 📊 EVALUATING CONVERSATION QUALITY
 ────────────────────────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ Setting up test environment...
    ✅ Report generated
 ```
 
-#### 8. Conversation Sample
+#### 💬 8. Conversation Sample
 ```
 💬 CONVERSATION SAMPLE (First 10 Turns)
 ────────────────────────────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ Good afternoon. Thank you for coming in. Let's get started. Can you walk me
 through your most recent position and what brought you here today?
 ```
 
-#### 9. Detailed Evaluation Report
+#### 📈 9. Detailed Evaluation Report
 ```
 ═══════════════════════════════════════════════════════════════════════════════
 📊 EVALUATION REPORT
@@ -268,7 +268,7 @@ Goal Achievement:
       Progress: [█████░░░░░] 55%
 ```
 
-#### 10. Validation
+#### 🔍 10. Validation
 ```
 🔍 VALIDATING TEST RESULTS
 ────────────────────────────────────────────────────────────────────────────────
@@ -288,25 +288,25 @@ Goal Achievement:
 ────────────────────────────────────────────────────────────────────────────────
 ```
 
-## Evaluation Metrics
+## 📊 Evaluation Metrics
 
-### Overall Score Calculation
+### 🧮 Overall Score Calculation
 - **40%** Success Criteria (communication + problem-solving + emotional)
 - **60%** Goal Achievement (required goals weighted 80%, optional goals 20%)
 
-### Pass Threshold
+### 🏁 Pass Threshold
 - **Overall Score:** ≥ 70%
 - **Goal Achievement:** ≥ 70% of required goals
 
-## Test Structure
+## 🏗️ Test Structure
 
 Each test file contains:
 1. **Main test** - Complete N-turn simulation with full evaluation
 2. **Focused tests** - 2-3 tests targeting specific goals or criteria
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
-### Server Connection Issues
+### 🔌 Server Connection Issues
 If you see connection errors:
 ```bash
 # Check if server is already running
@@ -316,18 +316,18 @@ lsof -i :8123
 kill -9 $(lsof -t -i:8123)
 ```
 
-### Database Not Seeded
+### 🌱 Database Not Seeded
 ```bash
 # Force reset and seed
 pnpm --filter careersim-backend run db:seed:force
 ```
 
-### Long Test Duration
+### ⏳ Long Test Duration
 - Each simulation can take **2-10 minutes** depending on turn count
 - Total test suite runtime: **30-60 minutes** for all 7 simulations
 - Use individual test scripts for faster iteration
 
-## Architecture
+## 🏛️ Architecture
 
 ```
 tests/simulations/
@@ -348,7 +348,7 @@ tests/
 └── helpers.ts                         # Base test helpers
 ```
 
-## Contributing
+## 🤝 Contributing
 
 When adding new tests:
 1. Use the existing test files as templates
@@ -357,7 +357,7 @@ When adding new tests:
 4. Add comprehensive assertions for goals and criteria
 5. Document the expected turn count and difficulty
 
-## Notes
+## 📝 Notes
 
 - Tests use **OpenAI GPT-4.1** to generate realistic, contextual user messages
 - The AI persona responses are generated by the actual LangGraph conversation system
@@ -369,10 +369,10 @@ When adding new tests:
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../../../../../../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

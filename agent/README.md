@@ -1,10 +1,10 @@
-# CareerSIM Agent
+# 🤖 CareerSIM Agent
 
 A standalone Python LangGraph agent for career-simulation conversations. Ships
 with a Gradio developer console, a stateless FastAPI production server, **and**
 a browser-native voice worker — all from one binary.
 
-## Features
+## ✨ Features
 
 - **LangGraph conversation flow** with persona-driven AI responses,
   configurable via `data/personas.json` + `data/simulations.json`.
@@ -29,7 +29,7 @@ a browser-native voice worker — all from one binary.
   - Voice worker (`--serve voice`) — joins LiveKit rooms minted by the API and
     drives spoken conversations through the same engine.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 # From agent/
@@ -69,13 +69,13 @@ Useful flags:
 Interactive API docs (Swagger UI) are available at `http://<host>:<port>/docs`
 when running in API mode.
 
-## Production API (`--serve api`)
+## 🚦 Production API (`--serve api`)
 
 The server is fully **stateless** — the backend sends the full
 `ConversationState` + a command on every request, the graph runs, and the
 updated state is returned. No sessions are held in memory on the agent.
 
-### Endpoints
+### 🛣️ Endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ SSE endpoints emit one `event: message` per generated AI message (with a
 persona-aware `typing_delay_sec` for realistic replay on the frontend) and a
 final `event: done` carrying the complete updated state.
 
-### Authentication
+### 🔐 Authentication
 
 Every route except `/health` is gated on a shared secret. Callers must
 send the configured `AGENT_INTERNAL_KEY` in an `X-Internal-Key` header;
@@ -124,7 +124,7 @@ curl -H "X-Internal-Key: $AGENT_INTERNAL_KEY" \
      http://localhost:8001/simulations
 ```
 
-### Minimal client example
+### 🧰 Minimal client example
 
 ```python
 import os
@@ -153,7 +153,7 @@ print(turn["messages"][-1])
 print(turn["goal_progress"])
 ```
 
-## Gradio Dev Console (`--serve gradio`)
+## 🎛️ Gradio Dev Console (`--serve gradio`)
 
 Browser UI at http://localhost:7860 with:
 
@@ -211,7 +211,7 @@ uv run python -m careersim_agent.main --serve voice
 # see docker-compose.local.yml and ../VOICE_MODE.md.
 ```
 
-## Docker
+## 🐳 Docker
 
 The `Dockerfile` builds a self-contained image that runs the agent. By
 default it starts the Gradio console on `7860`; override the command to run
@@ -235,7 +235,7 @@ built from the `voice-runtime` Dockerfile target, which prefetches the default
 faster-whisper + Piper models). `docker compose -f docker-compose.local.yml up`
 brings up both alongside `livekit`, `api`, `web`, `postgres`, and `redis`.
 
-## Configuration
+## ⚙️ Configuration
 
 Configuration is loaded from environment variables (or `.env`). See
 `.env.example` for the authoritative list; the most important knobs are:
@@ -275,7 +275,7 @@ Simulations and personas are pure data — edit `data/simulations.json`,
 `data/personas.json`, and the Markdown files under `data/documents/` to add or
 tune scenarios. No code changes required.
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 agent/
@@ -332,9 +332,9 @@ agent/
 └── .env.example
 ```
 
-## Testing
+## 🧪 Testing
 
-### Unit / contract tests
+### ✅ Unit / contract tests
 
 ```bash
 uv run pytest                 # Full suite
@@ -364,7 +364,7 @@ faster-whisper + Piper models into the `voice-runtime` Docker image. The full
 manual voice checklist (cold start, kill switch, per-persona rollout, barge-in,
 quota enforcement) lives in [VOICE_MODE.md](../VOICE_MODE.md).
 
-### End-to-end simulation runs (`test_simulation.py`)
+### 🎬 End-to-end simulation runs (`test_simulation.py`)
 
 `test_simulation.py` is a CLI harness that drives a complete simulation
 against the **running Gradio dev console** (`--serve gradio`, port 7860). It's
@@ -420,7 +420,7 @@ resistance instead of giving up at the first deflection. When you add a new
 simulation, also add a matching entry to `SIMULATION_PROMPTS` in
 `test_simulation.py` so `--auto` can drive it sensibly.
 
-## Development Notes
+## 📝 Development Notes
 
 - Both run modes share the same `ConversationService`, which is the single
   source of truth for graph invocation, (de)serialisation, and typing-delay
@@ -430,3 +430,13 @@ simulation, also add a matching entry to `SIMULATION_PROMPTS` in
 - Graph-level nodes live in `src/careersim_agent/graph/nodes/` and are
   composed in `builder.py`; the flow is intentionally linear-with-branches so
   it's easy to trace in the dev console.
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
+
+## 👤 Author
+
+Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

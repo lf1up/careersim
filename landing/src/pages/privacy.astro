@@ -1,0 +1,134 @@
+---
+import LegalLayout from '../layouts/LegalLayout.astro';
+
+const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
+const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
+---
+
+<LegalLayout
+  title="Privacy policy"
+  kicker="Legal · Privacy"
+  description={`How ${siteName} collects, uses, and protects the data you share when you practice interviews, negotiations, and workplace conversations.`}
+  lastUpdated="May 17, 2026"
+  pagePath="/privacy"
+>
+  <p>
+    {siteName} (“we”, “our”) helps you rehearse career conversations — interviews, salary negotiations, 1:1s, and exec
+    pitches — with AI personas. This page explains what data we collect, why we collect it, and what control you
+    have over it. We aim for plain English. If anything is unclear, write to <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.
+  </p>
+
+  <div class="legal-callout">
+    <strong>TL;DR</strong> · We collect the account info and session transcripts needed to give you feedback. We
+    don't sell your transcripts. You can delete your account and data at any time.
+  </div>
+
+  <h2>1. What we collect</h2>
+  <h3>Account data</h3>
+  <ul>
+    <li>Email address, display name, and password hash when you register.</li>
+    <li>Authentication metadata (last login, IP for security alerts, session tokens).</li>
+    <li>Optional profile inputs you choose to share — target role, industry, seniority — used to tailor scenarios.</li>
+  </ul>
+
+  <h3>Session data</h3>
+  <ul>
+    <li>Transcripts of every message you and the AI persona exchange during a simulation.</li>
+    <li>Scores, scorecards, and coaching notes generated from those transcripts.</li>
+    <li>Metadata such as simulation type, persona slug, duration, and completion status.</li>
+  </ul>
+
+  <h3>Technical data</h3>
+  <ul>
+    <li>Pages visited, basic browser/device info, and approximate region — through privacy-respecting analytics.</li>
+    <li>Error reports and performance traces, with personal identifiers stripped where possible.</li>
+  </ul>
+
+  <h2>2. How we use it</h2>
+  <ul>
+    <li><strong>Run the service.</strong> Render conversations, generate AI responses, and store your session history.</li>
+    <li><strong>Generate feedback.</strong> Score your performance and produce coaching notes you can revisit.</li>
+    <li><strong>Improve the product.</strong> Aggregate, de-identified usage trends help us debug, prioritize new
+      scenarios, and tune persona difficulty.</li>
+    <li><strong>Keep you signed in safely.</strong> Detect unusual login patterns and notify you about account events.</li>
+    <li><strong>Communicate.</strong> Send service-related emails (password resets, security alerts) and — only if
+      you opt in — product updates.</li>
+  </ul>
+
+  <p>
+    We do <strong>not</strong> sell your transcripts. We do <strong>not</strong> share individual session data with
+    third parties for advertising. We do not train third-party models on your private transcripts.
+  </p>
+
+  <h2>3. Processors we rely on</h2>
+  <p>
+    To run a modern web product we share narrowly-scoped data with the providers below. Each is a “processor”
+    acting on our instructions under a data-processing agreement.
+  </p>
+  <ul>
+    <li><strong>AI model providers</strong> — to generate persona replies and feedback. Messages are sent in-flight
+      and are not used to train their public models when the API setting permits it.</li>
+    <li><strong>Hosting & CDN</strong> — to serve the site and run our backend.</li>
+    <li><strong>Email delivery</strong> — to send transactional emails (signup, password reset, alerts).</li>
+    <li><strong>Analytics & error monitoring</strong> — to measure usage and catch bugs, with IP truncation where
+      offered.</li>
+  </ul>
+
+  <h2>4. Cookies and similar tech</h2>
+  <p>
+    We use a small number of cookies and equivalent local storage entries:
+  </p>
+  <ul>
+    <li><strong>Session cookies</strong> — keep you signed in. Required for the app to work.</li>
+    <li><strong>Preference storage</strong> — remember UI choices like theme.</li>
+    <li><strong>Aggregate analytics</strong> — measure page-level usage. No cross-site tracking.</li>
+  </ul>
+
+  <h2>5. Your rights</h2>
+  <p>Whatever jurisdiction you live in, you can:</p>
+  <ul>
+    <li><strong>Access</strong> the data tied to your account.</li>
+    <li><strong>Correct</strong> profile fields you control.</li>
+    <li><strong>Delete</strong> your account, which removes your transcripts, scores, and account record from our
+      primary systems within 30 days, except where retention is legally required.</li>
+    <li><strong>Export</strong> a machine-readable copy of your sessions on request.</li>
+    <li><strong>Opt out</strong> of non-essential emails at any time.</li>
+  </ul>
+  <p>
+    To exercise any of these, write to <a href={`mailto:${contactEmail}`}>{contactEmail}</a> from the email
+    associated with your account. We respond within 30 days.
+  </p>
+
+  <h2>6. Data retention</h2>
+  <ul>
+    <li>Active accounts: kept until you delete the account.</li>
+    <li>Deleted accounts: purged from primary databases within 30 days; encrypted backups age out within 90 days.</li>
+    <li>Anonymized, aggregate usage data may be retained indefinitely for product analytics.</li>
+  </ul>
+
+  <h2>7. Security</h2>
+  <p>
+    We encrypt data in transit (HTTPS) and at rest, hash passwords with modern algorithms, scope access
+    on a need-to-know basis, and review our practices regularly. See our <a href="/security">Security page</a> for
+    more detail.
+  </p>
+
+  <h2>8. International transfers</h2>
+  <p>
+    {siteName} is operated from the United States. If you access the service from elsewhere, your data is
+    transferred to and processed in the U.S. and other countries where our processors operate, under standard
+    contractual safeguards.
+  </p>
+
+  <h2>9. Children</h2>
+  <p>
+    {siteName} is intended for users aged 16 and older. We do not knowingly collect data from children under 16.
+    If you believe a child has provided us data, contact us and we will delete it.
+  </p>
+
+  <h2>10. Changes to this policy</h2>
+  <p>
+    We may update this policy as the product evolves. Material changes will be announced via email or an in-app
+    notice. The “Last updated” date at the top of the page always reflects the most recent revision.
+  </p>
+</LegalLayout>

@@ -1,0 +1,128 @@
+---
+import LegalLayout from '../layouts/LegalLayout.astro';
+
+const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
+const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
+const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
+const securityEmail = import.meta.env.LANDING_SECURITY_EMAIL ?? `security@${contactEmail.split('@')[1] ?? 'careersim.local'}`;
+---
+
+<LegalLayout
+  title="Security"
+  kicker="Legal · Security"
+  description={`How ${siteName} protects your account, your transcripts, and the systems that run the service — plus how to report a vulnerability.`}
+  lastUpdated="May 17, 2026"
+  pagePath="/security"
+>
+  <p>
+    Career conversations are personal. Salary numbers, performance worries, and rehearsal mistakes shouldn't leak.
+    This page describes how we protect them — at the network, application, and operational layers — and how to
+    report a problem if you find one.
+  </p>
+
+  <div class="legal-callout">
+    <strong>Report a vulnerability</strong> · Email <a href={`mailto:${securityEmail}`}>{securityEmail}</a>. We
+    respond within 2 business days and won't pursue legal action against good-faith research.
+  </div>
+
+  <h2>1. Account security</h2>
+  <ul>
+    <li><strong>Password hashing.</strong> Passwords are hashed with a modern, memory-hard algorithm (bcrypt /
+      Argon2-class) with a per-user salt. We never store or log plaintext passwords.</li>
+    <li><strong>Session tokens.</strong> Sessions use signed, short-lived tokens. Tokens are invalidated on logout
+      and rotated on password change.</li>
+    <li><strong>Email-link sign-in.</strong> Magic links are single-use, expire quickly, and are bound to the
+      requesting browser.</li>
+    <li><strong>Rate limiting.</strong> Authentication and password-reset endpoints are rate-limited to slow brute
+      force.</li>
+    <li><strong>Security alerts.</strong> We email you when a new device signs in or sensitive account changes
+      occur.</li>
+  </ul>
+
+  <h2>2. Data protection</h2>
+  <ul>
+    <li><strong>Encryption in transit.</strong> All traffic uses TLS 1.2+ with HSTS. HTTP requests are redirected
+      to HTTPS.</li>
+    <li><strong>Encryption at rest.</strong> Databases, backups, and object storage are encrypted with provider-
+      managed keys (AES-256 or equivalent).</li>
+    <li><strong>Backups.</strong> Production databases are backed up daily; backups are encrypted and age out on a
+      rolling 30-day window.</li>
+    <li><strong>Data minimization.</strong> We collect only what we need to run sessions and generate feedback,
+      and we drop unnecessary identifiers from analytics events.</li>
+  </ul>
+
+  <h2>3. Infrastructure</h2>
+  <ul>
+    <li><strong>Managed hosting.</strong> The app runs on reputable cloud providers with SOC 2 / ISO 27001
+      attestations.</li>
+    <li><strong>Network isolation.</strong> Application servers and databases run in private networks. Only the
+      public web tier is internet-exposed.</li>
+    <li><strong>Secrets management.</strong> API keys and credentials are stored in a secrets manager, not in
+      source code, and are rotated on incident.</li>
+    <li><strong>Least privilege.</strong> Production access is restricted to a small operations group with
+      auditable SSO logins and MFA enforced.</li>
+  </ul>
+
+  <h2>4. Application security</h2>
+  <ul>
+    <li><strong>Authentication & authorization.</strong> Every API call is authenticated and authorized server-
+      side. Object-level checks ensure you can only access your own sessions.</li>
+    <li><strong>Input handling.</strong> Inputs are validated and parameterized; we use ORM/query builders to
+      mitigate injection. Outputs are escaped to prevent XSS.</li>
+    <li><strong>Dependency hygiene.</strong> We track upstream advisories and apply security patches promptly.
+      CI runs vulnerability scans on every pull request.</li>
+    <li><strong>Code review.</strong> Changes to security-sensitive paths require review before they reach
+      production.</li>
+    <li><strong>Open source.</strong> Significant portions of our stack are public on <a href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>,
+      making review easier for the community.</li>
+  </ul>
+
+  <h2>5. AI and third-party processors</h2>
+  <ul>
+    <li>Persona replies and scoring run through model providers under data-processing agreements. We disable
+      training-on-your-data settings where the provider exposes them.</li>
+    <li>Only the messages needed to produce the next response are sent — we don't push your whole history with
+      every call.</li>
+    <li>We log enough request metadata to debug failures, but redact obvious sensitive fields.</li>
+  </ul>
+
+  <h2>6. Monitoring and incident response</h2>
+  <ul>
+    <li>Production services emit metrics, structured logs, and error traces to a centralized observability stack.</li>
+    <li>Alerts page the on-call when error rates, latency, or auth-failure rates breach thresholds.</li>
+    <li>Confirmed security incidents follow a documented response process: contain, eradicate, recover, and a
+      post-incident review.</li>
+    <li>If a confirmed incident affects your data, we'll notify you without undue delay — and in any case within
+      the timelines required by applicable law.</li>
+  </ul>
+
+  <h2>7. Account hygiene tips for you</h2>
+  <ul>
+    <li>Use a unique, strong password — ideally generated by a password manager.</li>
+    <li>Sign in only on devices you trust. Sign out from shared machines.</li>
+    <li>Keep your email account itself secure (it's the root of your {siteName} access).</li>
+    <li>Watch for emails from us — we'll never ask you to share your password.</li>
+  </ul>
+
+  <h2>8. Responsible disclosure</h2>
+  <p>
+    If you believe you've found a vulnerability, please report it privately before disclosing it publicly. We
+    welcome research that follows these guidelines:
+  </p>
+  <ul>
+    <li>Test only against your own account or accounts you have explicit permission to test.</li>
+    <li>Don't access, modify, or delete other users' data. Don't run denial-of-service tests against production.</li>
+    <li>Give us a reasonable window — typically 90 days — to investigate and remediate before public disclosure.</li>
+  </ul>
+  <p>
+    Send reports to <a href={`mailto:${securityEmail}`}>{securityEmail}</a> with reproduction steps and impact.
+    We'll acknowledge within 2 business days, keep you informed of progress, and credit you on request after the
+    issue is resolved.
+  </p>
+
+  <h2>9. Limits</h2>
+  <p>
+    No system is perfectly secure. We invest continuously in detection, remediation, and engineering practice,
+    but we can't guarantee absolute security. We commit to being honest with you when something goes wrong.
+  </p>
+</LegalLayout>

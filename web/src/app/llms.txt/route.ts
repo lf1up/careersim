@@ -38,6 +38,15 @@ export async function GET(): Promise<Response> {
     }
   }
 
+  lines.push(
+    '',
+    '## Legal',
+    '',
+    `- [Privacy policy](${absoluteUrl('/privacy')}): How ${SITE_NAME} collects, uses, and protects the data shared during practice sessions.`,
+    `- [Terms of service](${absoluteUrl('/terms')}): Rules for using ${SITE_NAME}, including acceptable use, AI-generated output, and the limits of an AI practice tool.`,
+    `- [Security](${absoluteUrl('/security')}): How accounts, transcripts, and infrastructure are protected, plus how to report a vulnerability.`,
+  );
+
   return new Response(`${lines.join('\n')}\n`, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',

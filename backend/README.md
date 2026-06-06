@@ -1,4 +1,4 @@
-# CareerSIM Backend
+# 🪦 CareerSIM Backend
 
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
@@ -83,7 +83,7 @@ src/
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### 📋 Prerequisites
 
 - Node.js 22+ 
 - PostgreSQL 17+
@@ -92,7 +92,7 @@ src/
 - Stripe account (for payments)
 - Transformers microservice (for advanced NLP)
 
-### Installation
+### 🔧 Installation
 
 1. **Clone and install dependencies**:
 ```bash
@@ -285,7 +285,7 @@ All personas from `PERSONAS.md` are implemented:
 
 ## 🔧 API Endpoints
 
-### Authentication (`/api/auth`)
+### 🔐 Authentication (`/api/auth`)
 - `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - User login
 - `POST /api/auth/refresh` - Refresh access tokens
@@ -295,7 +295,7 @@ All personas from `PERSONAS.md` are implemented:
 - `POST /api/auth/verify-email` - Verify email address
 - `POST /api/auth/logout` - Logout user (clear tokens)
 
-### Admin Panel (`/api/admin`)
+### 👮 Admin Panel (`/api/admin`)
 **Dashboard & Analytics:**
 - `GET /api/admin/dashboard` - Get admin dashboard statistics
 - `GET /api/admin/analytics` - Get comprehensive analytics overview
@@ -333,7 +333,7 @@ All personas from `PERSONAS.md` are implemented:
 - `GET /api/admin/export/users` - Export user data for analysis
 - `GET /api/admin/export/sessions` - Export session data for analysis
 
-### Simulations (`/api/simulations`)
+### 🎮 Simulations (`/api/simulations`)
 - `GET /api/simulations` - Get all published simulations with pagination and filtering
 - `GET /api/simulations/{idOrSlug}` - Get simulation by ID or slug
 - `GET /api/simulations/{id}/sessions` - Get sessions for a specific simulation
@@ -345,26 +345,26 @@ All personas from `PERSONAS.md` are implemented:
 - `POST /api/simulations/{id}/sessions/{sessionId}/messages` - Add a new message to a session
 - `PATCH /api/simulations/{id}/sessions/{sessionId}/messages/{messageId}/highlight` - Highlight/unhighlight a message
 
-### Sessions (`/api/sessions`)
+### 🗂️ Sessions (`/api/sessions`)
 - `GET /api/sessions` - Get user's simulation sessions with filtering and pagination
 - `POST /api/sessions` - Start a new simulation session
 - `GET /api/sessions/{id}` - Get specific session details with messages
 - `PATCH /api/sessions/{id}/status` - Update a session's status
 - `PATCH /api/sessions/{id}/complete` - Mark a session as completed
 
-### Analytics (`/api/analytics`)
+### 📈 Analytics (`/api/analytics`)
 - `GET /api/analytics/performance` - Get user's performance analytics overview
 - `GET /api/analytics/session/{sessionId}` - Get analytics for a specific session
 
-### Categories (`/api/categories`)
+### 🏷️ Categories (`/api/categories`)
 - `GET /api/categories` - Get all simulation categories
 - `GET /api/categories/{id}` - Get category by ID with associated simulations
 
-### Personas (`/api/personas`)
+### 🎭 Personas (`/api/personas`)
 - `GET /api/personas` - Get all active personas
 - `GET /api/personas/{id}` - Get persona by ID with associated simulations
 
-### User Profile (`/api/users`)
+### 👤 User Profile (`/api/users`)
 - `GET /api/users/profile` - Get current user profile
 - `PATCH /api/users/profile` - Update user profile information
 
@@ -467,18 +467,18 @@ The system includes 9 main entities:
 
 The backend integrates with a local transformers microservice for advanced NLP processing:
 
-### Features
+### ✨ Features
 - **Sentiment Analysis**: Twitter RoBERTa-based sentiment detection (Positive/Neutral/Negative)
 - **Emotion Classification**: Multi-class emotion detection (joy, anger, sadness, fear, surprise, disgust, neutral)
 - **Toxicity Detection**: Automatic content moderation and toxicity screening
 - **Zero-shot Classification**: Custom label classification for specialized use cases
 
-### Configuration
+### ⚙️ Configuration
 The microservice requires two environment variables:
 - `TRANSFORMERS_API_URL`: URL of the transformers microservice (default: `http://localhost:8001`)
 - `TRANSFORMERS_API_KEY`: Authentication token for the microservice
 
-### Fallback Behavior
+### 🛟 Fallback Behavior
 If the transformers microservice is unavailable, the backend automatically falls back to:
 - Keyword-based sentiment analysis
 - Rule-based emotion detection
@@ -486,7 +486,7 @@ If the transformers microservice is unavailable, the backend automatically falls
 
 This ensures the application remains functional even when advanced NLP features are temporarily unavailable.
 
-### Starting the Transformers Service
+### ▶️ Starting the Transformers Service
 To start the transformers microservice:
 ```bash
 # From the project root (if the rag service is enabled in docker-compose.yml)
@@ -499,21 +499,21 @@ The service will be available at `http://localhost:8001` with API documentation 
 
 The backend integrates with a local RAG (Retrieval-Augmented Generation) microservice backed by ChromaDB for storing and retrieving knowledge snippets per Persona and per Simulation.
 
-### Features
+### ✨ Features
 - Document storage and semantic retrieval with persistent ChromaDB
 - Separate collections for persona and simulation knowledge: `persona_docs`, `simulation_docs`
 - FastAPI endpoints: `GET /health`, `GET/POST/DELETE /collections`, `POST /upsert`, `POST /query`, `POST /delete`
 - Bearer token authentication (can be disabled in development)
 
-### Configuration
+### ⚙️ Configuration
 The microservice requires two environment variables:
   - `RAG_API_URL`: (default: `http://localhost:8002`)
   - `RAG_API_KEY`: (Bearer token used by the backend when calling the service)
 
-### Fallback Behavior
+### 🛟 Fallback Behavior
 If the RAG microservice is unavailable, the backend automatically skips RAG context retrieval. Conversations still proceed using LLM responses without RAG grounding.
 
-### Starting the RAG Service
+### ▶️ Starting the RAG Service
 To start the RAG microservice:
 
 ```bash
@@ -525,10 +525,10 @@ The service will be available at `http://localhost:8002` with API documentation 
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))

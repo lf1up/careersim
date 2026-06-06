@@ -1,4 +1,4 @@
-# RAG (ChromaDB) Microservice
+# 🪦 RAG (ChromaDB) Microservice
 
 > [!WARNING]
 > **DEPRECATED — no longer maintained.**
@@ -13,7 +13,7 @@ A FastAPI-based microservice that serves a local ChromaDB vector store for text 
 
 ## 🚀 Features
 
-### Capabilities
+### 🧰 Capabilities
 
 1. **Collections Management** (`/collections`)
    - Create or ensure a collection exists
@@ -52,7 +52,7 @@ The service uses **Bearer token authentication** for security:
 - **Header format**: `Authorization: Bearer YOUR_TOKEN`
 - **Environment variable**: `AUTH_TOKEN` in `.env`
 
-### Setup Authentication
+### 🔑 Setup Authentication
 
 1. **Create environment file** (if present):
    ```bash
@@ -89,19 +89,19 @@ uvicorn main:app --host 0.0.0.0 --port 8002 --reload
 
 The service will be available at `http://localhost:8002`
 
-### API Documentation
+### 📖 API Documentation
 
 - **Interactive docs**: `http://localhost:8002/docs`
 - **OpenAPI schema**: `http://localhost:8002/openapi.json`
 
-### Endpoints
+### 🛣️ Endpoints
 
-#### Health Check
+#### ❤️ Health Check
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8002/health
 ```
 
-#### Create or Ensure Collection
+#### ➕ Create or Ensure Collection
 ```bash
 curl -X POST "http://localhost:8002/collections" \
   -H "Content-Type: application/json" \
@@ -112,18 +112,18 @@ curl -X POST "http://localhost:8002/collections" \
   }'
 ```
 
-#### List Collections
+#### 📚 List Collections
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8002/collections
 ```
 
-#### Delete Collection
+#### 🗑️ Delete Collection
 ```bash
 curl -X DELETE "http://localhost:8002/collections/my_collection" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-#### Upsert Documents
+#### ⬆️ Upsert Documents
 ```bash
 curl -X POST "http://localhost:8002/upsert" \
   -H "Content-Type: application/json" \
@@ -142,7 +142,7 @@ curl -X POST "http://localhost:8002/upsert" \
   }'
 ```
 
-#### Query Collection
+#### 🔎 Query Collection
 ```bash
 curl -X POST "http://localhost:8002/query" \
   -H "Content-Type: application/json" \
@@ -155,7 +155,7 @@ curl -X POST "http://localhost:8002/query" \
   }'
 ```
 
-#### List Documents
+#### 📄 List Documents
 ```bash
 curl -X POST "http://localhost:8002/list" \
   -H "Content-Type: application/json" \
@@ -168,7 +168,7 @@ curl -X POST "http://localhost:8002/list" \
   }'
 ```
 
-#### Delete Documents
+#### 🧹 Delete Documents
 ```bash
 curl -X POST "http://localhost:8002/delete" \
   -H "Content-Type: application/json" \
@@ -181,7 +181,7 @@ curl -X POST "http://localhost:8002/delete" \
 
 ## 📊 Response Format
 
-### Query Result
+### 🔎 Query Result
 ```json
 {
   "ids": ["doc_2"],
@@ -195,7 +195,7 @@ curl -X POST "http://localhost:8002/delete" \
 }
 ```
 
-### Upsert Response
+### ⬆️ Upsert Response
 ```json
 {
   "upserted": 2,
@@ -203,7 +203,7 @@ curl -X POST "http://localhost:8002/delete" \
 }
 ```
 
-### List Result
+### 📄 List Result
 ```json
 {
   "ids": ["doc_1", "doc_2"],
@@ -218,7 +218,7 @@ curl -X POST "http://localhost:8002/delete" \
 }
 ```
 
-### Collections List
+### 📚 Collections List
 ```json
 [
   {"name": "my_collection", "metadata": {"source": "docs"}}
@@ -234,10 +234,10 @@ curl -X POST "http://localhost:8002/delete" \
 
 ---
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.
 
-## Author
+## 👤 Author
 
 Pavel Vdovenko ([reactivecake@gmail.com](mailto:reactivecake@gmail.com))
