@@ -127,6 +127,8 @@ export function VoiceCallSurface({
         // an unexpected drop; either way we leave the surface.
         const lk = await import('livekit-client');
         conn.room.on(lk.RoomEvent.Disconnected, () => {
+          // The persona can't be "cooking" once the room is gone.
+          setIsThinking(false);
           // If the user pressed End call, the cleanup path handles it.
           if (endingRef.current) return;
           // Budget cutoff: the worker tore the room down on purpose.
@@ -184,15 +186,13 @@ export function VoiceCallSurface({
     return () => window.clearInterval(id);
   }, [status]);
 
-  // Keep the "cooking" indicator honest: clear it whenever the call
-  // leaves the live state, and never let it hang past ~45s if a reply
-  // never arrives (LLM error, dropped/superseded turn).
+  // Safety net: never let the "cooking" indicator hang past ~45s if a
+  // reply never arrives (LLM error, dropped/superseded turn). Only arms
+  // while live + thinking, and only mutates state from the timeout
+  // callback (not synchronously in the effect body). Transitions away
+  // from `live` clear `isThinking` at their source (end/disconnect).
   useEffect(() => {
-    if (status !== 'live') {
-      setIsThinking(false);
-      return;
-    }
-    if (!isThinking) return;
+    if (status !== 'live' || !isThinking) return;
     const id = window.setTimeout(() => setIsThinking(false), 45000);
     return () => window.clearTimeout(id);
   }, [status, isThinking]);
@@ -209,6 +209,7 @@ export function VoiceCallSurface({
   const handleEnd = useCallback(async () => {
     if (endingRef.current) return;
     endingRef.current = true;
+    setIsThinking(false);
     setStatus('ended');
     const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
     try {
