@@ -295,10 +295,23 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         livekitApiSecret: '',
         dailyMinutesPerUser: 0,
       };
+  // Voice mode is useless without the shared internal key: the
+  // agent-voice worker calls back into the internal routes to read the
+  // budget and report usage, and those routes 503 when the key is
+  // blank. Fail fast at startup rather than letting a misconfigured
+  // deployment accept calls that can never complete.
+  const internalKey = opts.voice?.internalKey ?? '';
+  if (voiceConfig.enabled && !internalKey) {
+    throw new Error(
+      'Voice mode is enabled but AGENT_INTERNAL_KEY is empty. ' +
+        'Set a matching internal key on the API and the agent-voice worker, ' +
+        'or disable voice mode (VOICE_ENABLED=false).',
+    );
+  }
   await app.register(voiceRoutes, {
     db: opts.db,
     config: voiceConfig,
-    internalKey: opts.voice?.internalKey ?? '',
+    internalKey,
   });
 
   return app;
