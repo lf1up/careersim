@@ -98,7 +98,7 @@ const EnvSchema = z
     // ------------------------------------------------------------------
     VOICE_ENABLED: z
       .string()
-      .default('true')
+      .default('false')
       .transform((v) => v !== 'false' && v !== '0'),
     LIVEKIT_URL: z.string().default(''),
     LIVEKIT_API_KEY: z.string().default(''),

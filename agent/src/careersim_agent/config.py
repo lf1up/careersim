@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     # one info line and exits 0 at startup, matching the API's 503
     # behavior on the same flag.
     # -------------------------------------------------------------------
-    voice_enabled: bool = True
+    voice_enabled: bool = False
 
     # LiveKit (self-hosted by default; cloud just swaps the URL + keys)
     livekit_url: str = "ws://livekit:7880"
