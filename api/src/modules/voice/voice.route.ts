@@ -92,6 +92,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
     '/sessions/:id/voice/end',
     {
       onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.voiceEnd() },
       schema: {
         tags: ['voice'],
         summary: 'End a voice call (marks ended; quota debit is worker-authoritative)',
@@ -124,6 +125,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
   app.get(
     '/internal/sessions/:id/state-for-voice',
     {
+      config: { rateLimit: rateLimitPolicy.voiceInternal() },
       schema: {
         tags: ['voice'],
         summary: 'Internal: fetch wire-state snapshot for a voice session',
@@ -149,6 +151,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
   app.get(
     '/internal/sessions/:id/voice-budget',
     {
+      config: { rateLimit: rateLimitPolicy.voiceInternal() },
       schema: {
         tags: ['voice'],
         summary: 'Internal: remaining daily voice budget for a session owner',
@@ -178,6 +181,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
   app.post(
     '/internal/sessions/:id/voice/end',
     {
+      config: { rateLimit: rateLimitPolicy.voiceInternal() },
       schema: {
         tags: ['voice'],
         summary: 'Internal: authoritative voice-call end + quota debit',

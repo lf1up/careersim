@@ -51,6 +51,21 @@ const byUser: RateLimitKeyGenerator = (req) => {
   return sub ? `user:${sub}` : `ip:${byIp(req)}`;
 };
 
+/**
+ * Key by the `:id` (session) route param. Used by the internal
+ * worker<->API voice routes, which authenticate via `X-Internal-Key`
+ * (no `req.user`) and are all called by the single agent-voice worker
+ * IP. Keying by IP there would force every session through one shared
+ * bucket; keying by session bounds per-session abuse (e.g. a leaked
+ * internal key hammering one session) without throttling the worker
+ * across unrelated concurrent calls. Falls back to IP for safety.
+ */
+const bySessionParam: RateLimitKeyGenerator = (req) => {
+  const params = (req.params ?? {}) as Record<string, unknown>;
+  const id = typeof params.id === 'string' ? params.id : '';
+  return id ? `vsession:${id}` : `ip:${byIp(req)}`;
+};
+
 // -- Policy catalogue --------------------------------------------------
 
 export interface RouteRateLimit {
@@ -129,6 +144,23 @@ export const rateLimitPolicy = {
    * in `voice_minute_usage` — this is just churn protection.
    */
   voiceStart: () => limit(10, '1 minute', byUser),
+  /**
+   * Voice-call end (user-facing). Only flips the single-active-call
+   * marker — cheap — but a couple of these fire per call (explicit End
+   * plus the client's disconnect self-heal), so we allow a bit more
+   * headroom than `voiceStart` while still capping churn. Keyed by user.
+   */
+  voiceEnd: () => limit(20, '1 minute', byUser),
+  /**
+   * Internal worker<->API voice routes (`state-for-voice`,
+   * `voice-budget`, authoritative `voice/end`). Behind `X-Internal-Key`
+   * and called only by the agent-voice worker, so this is a damage-cap
+   * for a leaked key / runaway worker rather than a user-facing limit.
+   * Keyed PER SESSION (see `bySessionParam`) — a single call makes ~3
+   * internal requests total, so 30/min/session is generous while still
+   * bounding abuse against any one session.
+   */
+  voiceInternal: () => limit(30, '1 minute', bySessionParam),
 } as const;
 
 export type RateLimitPolicyName = keyof typeof rateLimitPolicy;
