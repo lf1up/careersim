@@ -6,7 +6,8 @@ turn -> TTS pipeline alongside the existing chat surface. The
 verbatim; this package adds *only* the audio I/O and persona-driven
 voice configuration.
 
-Public entry points:
+Public entry points (available under their respective submodules, not
+re-exported at the package root to keep module load import-light):
 
 - :func:`careersim_agent.voice.persona_voice.persona_supports_voice`
   and :func:`resolve_voice_provider_config` — read-only helpers used by
