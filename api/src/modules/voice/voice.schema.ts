@@ -5,18 +5,18 @@ import { z } from 'zod';
  *
  * The web client (or, more realistically, the agent-voice worker) sends
  * the elapsed call seconds so the API can debit the per-user daily
- * voice quota. Clamped to a 1-hour ceiling per call to keep an
- * accidental clock-drift / replay from blowing the bucket in one shot;
- * legitimate calls cap out at ~20 minutes via
- * `VOICE_DAILY_MINUTES_PER_USER` anyway.
+ * voice quota. The anti-replay/overshoot clamp lives in the service
+ * layer, which caps the debit at the token TTL (derived from
+ * `VOICE_DAILY_MINUTES_PER_USER`); we deliberately do NOT hard-code a
+ * ceiling here so a higher configured quota isn't rejected at the edge.
  */
 export const voiceEndSchema = z.object({
   /**
-   * Seconds the call lasted; must be a non-negative integer. Clamped
-   * to a 2-hour ceiling here as a coarse anti-replay guard — the
-   * service applies a tighter, token-TTL-based clamp before debiting.
+   * Seconds the call lasted; must be a non-negative integer. The
+   * service applies the authoritative, token-TTL-based clamp before
+   * debiting, so no fixed upper bound is enforced here.
    */
-  seconds_used: z.coerce.number().int().nonnegative().max(2 * 60 * 60),
+  seconds_used: z.coerce.number().int().nonnegative(),
   /**
    * Optional aggregate voice analytics produced by the agent-voice
    * worker (pacing, fillers, latency, silences, interrupts). When

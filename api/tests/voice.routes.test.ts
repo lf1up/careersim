@@ -270,7 +270,7 @@ describe('voice mode — daily quota', () => {
     });
   });
 
-  it('rejects out-of-range seconds_used at the schema boundary', async () => {
+  it('rejects a negative seconds_used at the schema boundary', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
     await h.app.inject({
@@ -283,10 +283,33 @@ describe('voice mode — daily quota', () => {
       method: 'POST',
       url: `/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
+      payload: { seconds_used: -1 },
+    });
+    // The schema requires a non-negative integer; there is no fixed
+    // upper bound — the service clamps large values to the token TTL.
+    expect(end.statusCode).toBe(400);
+  });
+
+  it('accepts a very large seconds_used and clamps it to the token TTL', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+    await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/voice/start`,
+      headers: authHeader,
+    });
+
+    // Previously the schema rejected anything over 2h; now the value is
+    // accepted and the service clamps the debit to the token TTL
+    // (1-minute cap -> 60 + 600 = 660s).
+    const end = await h.app.inject({
+      method: 'POST',
+      url: `/internal/sessions/${session.id}/voice/end`,
+      headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 999_999 },
     });
-    // The schema rejects > 2 hours, so this fails validation.
-    expect(end.statusCode).toBe(400);
+    expect(end.statusCode, end.body).toBe(200);
+    expect(end.json()).toMatchObject({ seconds_recorded: 660 });
   });
 
   it('clamps an in-range-but-implausible debit to the token TTL', async () => {
