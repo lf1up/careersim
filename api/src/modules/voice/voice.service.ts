@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, gt, isNotNull, isNull, ne } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
 
 import type { AgentWireState } from '../../agent/types.js';
@@ -237,31 +237,27 @@ export function createVoiceService(
 
   async function debitUsage(userId: string, seconds: number): Promise<number> {
     const day = formatUsageDate(now());
-    const [existing] = await db
-      .select()
-      .from(voiceMinuteUsage)
-      .where(
-        and(eq(voiceMinuteUsage.userId, userId), eq(voiceMinuteUsage.usageDate, day)),
-      )
-      .limit(1);
-
-    if (existing) {
-      await db
-        .update(voiceMinuteUsage)
-        .set({
-          secondsUsed: existing.secondsUsed + seconds,
+    // Atomic upsert: insert a fresh bucket or, on conflict with the
+    // existing (user_id, usage_date) row, increment in-place at the DB
+    // level. This keeps concurrent debits from clobbering each other
+    // (read-modify-write would lose increments under contention). The
+    // updated total is returned in the same statement.
+    const [row] = await db
+      .insert(voiceMinuteUsage)
+      .values({
+        userId,
+        usageDate: day,
+        secondsUsed: seconds,
+      })
+      .onConflictDoUpdate({
+        target: [voiceMinuteUsage.userId, voiceMinuteUsage.usageDate],
+        set: {
+          secondsUsed: sql`${voiceMinuteUsage.secondsUsed} + ${seconds}`,
           updatedAt: new Date(),
-        })
-        .where(eq(voiceMinuteUsage.id, existing.id));
-      return existing.secondsUsed + seconds;
-    }
-
-    await db.insert(voiceMinuteUsage).values({
-      userId,
-      usageDate: day,
-      secondsUsed: seconds,
-    });
-    return seconds;
+        },
+      })
+      .returning();
+    return row?.secondsUsed ?? seconds;
   }
 
   return {
