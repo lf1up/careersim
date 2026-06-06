@@ -1,7 +1,8 @@
 # CareerSIM Agent
 
 A standalone Python LangGraph agent for career-simulation conversations. Ships
-with a Gradio developer console **and** a stateless FastAPI production server.
+with a Gradio developer console, a stateless FastAPI production server, **and**
+a browser-native voice worker — all from one binary.
 
 ## Features
 
@@ -9,17 +10,24 @@ with a Gradio developer console **and** a stateless FastAPI production server.
   configurable via `data/personas.json` + `data/simulations.json`.
 - **LLM-based evaluation** for user/AI sentiment + emotion and per-goal
   progress tracking, using a separate (cheaper) eval model configurable via
-  `OPENAI_EVAL_MODEL`.
+  `OPENAI_EVAL_MODEL`. Voice sessions add spoken-only signals (pacing,
+  filler-word density, silence handling) merged into the session analysis.
 - **Retrieval-Augmented Generation (RAG)** using Chroma + OpenAI embeddings,
   indexing per-simulation and per-persona Markdown documents from
   `data/documents/`.
 - **Proactive messaging** — start, inactivity, and follow-up bursts are
   modelled as explicit graph branches.
-- **Two run modes from one binary:**
+- **Voice mode** — a LiveKit-based worker that runs STT → the same LangGraph
+  turn → TTS, with self-hosted defaults (`faster-whisper` + Piper) and
+  per-persona voice characters. See [Voice worker](#voice-worker---serve-voice)
+  below and the repo-level [VOICE_MODE.md](../VOICE_MODE.md) operator guide.
+- **Three run modes from one binary:**
   - Gradio developer console (default) — state inspector, node tracing, goal
     dashboard, manual proactive triggers.
   - FastAPI production server (`--serve api`) — stateless JSON API with both
     batch and Server-Sent Events streaming endpoints.
+  - Voice worker (`--serve voice`) — joins LiveKit rooms minted by the API and
+    drives spoken conversations through the same engine.
 
 ## Quick Start
 
@@ -45,15 +53,18 @@ python -m careersim_agent.main
 
 # FastAPI production server (port 8000)
 python -m careersim_agent.main --serve api
+
+# Voice worker (joins LiveKit rooms; needs a running livekit + api)
+python -m careersim_agent.main --serve voice
 ```
 
 Useful flags:
 
 | Flag | Default | Notes |
 | --- | --- | --- |
-| `--serve gradio\|api` | `gradio` | Selects which server to run |
+| `--serve gradio\|api\|voice` | `gradio` | Selects which server / worker to run |
 | `--host` | `0.0.0.0` | API-mode bind host |
-| `--port` | `7860` (gradio) / `8000` (api) | Server port |
+| `--port` | `7860` (gradio) / `8000` (api) | Server port (ignored for `voice`) |
 
 Interactive API docs (Swagger UI) are available at `http://<host>:<port>/docs`
 when running in API mode.
@@ -154,6 +165,52 @@ Browser UI at http://localhost:7860 with:
 Intended for developers iterating on personas, prompts, and graph behaviour —
 not as the backend's runtime target.
 
+## Voice worker (`--serve voice`)
+
+The voice worker turns the same LangGraph engine into a real-time spoken
+conversation. It is a **separate process** from the FastAPI server — it doesn't
+listen on an HTTP port; instead it connects outbound to a self-hosted LiveKit
+SFU and picks up rooms that the Fastify API mints for authenticated users.
+
+Per call it:
+
+1. Reads the freshest wire-format `state_snapshot` from the API
+   (`GET /internal/sessions/:id/state-for-voice`) and arms a daily-budget
+   watchdog (`GET /internal/sessions/:id/voice-budget`).
+2. Runs **STT → `ConversationService.invoke_turn` (the existing LangGraph
+   turn) → TTS** in the room, streaming captions over a `voice-captions`
+   data-channel topic and budget warnings over `voice-control`.
+3. Posts captured user/AI turns back through the **public** API on the user's
+   bearer token, and reports authoritative call duration + aggregate voice
+   analytics via `POST /internal/sessions/:id/voice/end`.
+
+The engine, prompts, and persona data are reused verbatim — `src/careersim_agent/voice/`
+adds *only* the audio I/O, provider adapters, and persona-driven voice config.
+
+**Kill switch.** With `VOICE_ENABLED=false` the worker logs a single line and
+exits `0` cleanly (so docker-compose's restart policy doesn't loop) — the
+FastAPI server and text chat path are unaffected.
+
+**Providers.** Defaults are fully self-hosted so no third-party keys are needed:
+
+| Layer | Default (`*_PROVIDER`)            | Cloud opt-ins                       |
+| ----- | --------------------------------- | ----------------------------------- |
+| STT   | `whisper_local` (`faster-whisper`) | `whisper_openai`, `deepgram`        |
+| TTS   | `piper_local`                      | `openai_tts`, `elevenlabs`          |
+
+A persona can override the TTS provider via `voice.providerOverride` in
+`data/personas.json`; each persona's `voice` block carries `speakingRateWpm`,
+`bargeInToleranceMs`, `fillerWordFrequency`, `silenceThresholdMs`, and
+per-provider voice settings.
+
+```bash
+# Local (host) — point at a running livekit + api
+uv run python -m careersim_agent.main --serve voice
+
+# In Docker the dedicated `agent-voice` service runs this automatically;
+# see docker-compose.local.yml and ../VOICE_MODE.md.
+```
+
 ## Docker
 
 The `Dockerfile` builds a self-contained image that runs the agent. By
@@ -172,9 +229,11 @@ docker run --rm -p 8000:8000 --env-file agent/.env careersim-agent \
   python -m careersim_agent.main --serve api --port 8000
 ```
 
-> The top-level `docker-compose.local.yml` currently has the `agent` service
-> commented out; run it standalone via `docker run` (above) until it's wired
-> back into the compose stack.
+The top-level `docker-compose.local.yml` wires this image into the stack as two
+services: `agent` (`--serve api` on `:8001`) and `agent-voice` (`--serve voice`,
+built from the `voice-runtime` Dockerfile target, which prefetches the default
+faster-whisper + Piper models). `docker compose -f docker-compose.local.yml up`
+brings up both alongside `livekit`, `api`, `web`, `postgres`, and `redis`.
 
 ## Configuration
 
@@ -193,6 +252,25 @@ Configuration is loaded from environment variables (or `.env`). See
 | `GRADIO_SERVER_PORT` | `7860` | Dev console port. |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR`. |
 
+### Voice mode
+
+Only consulted by `--serve voice`. Defaults are self-hosted, so an
+`OPENAI_API_KEY` is the only required key out of the box.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VOICE_ENABLED` | `false` | Master kill switch. `false` ⇒ worker logs one line and exits `0`. (The provided `.env.example` ships `true`.) |
+| `LIVEKIT_URL` | `ws://livekit:7880` | SFU signalling URL. Use `ws://localhost:7880` on the host, `wss://` behind TLS. |
+| `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | _(required when enabled)_ | Must match the `livekit` server + `api/.env`. |
+| `VOICE_STT_PROVIDER` | `whisper_local` | `whisper_local` / `whisper_openai` / `deepgram`. |
+| `VOICE_WHISPER_MODEL` | `base.en` | faster-whisper model (e.g. `base.en`, `small.en`). |
+| `VOICE_WHISPER_DEVICE` | `cpu` | `cpu` / `cuda`. |
+| `VOICE_WHISPER_COMPUTE_TYPE` | `int8` | faster-whisper compute type. |
+| `VOICE_TTS_PROVIDER` | `piper_local` | `piper_local` / `openai_tts` / `elevenlabs`. |
+| `VOICE_PIPER_MODEL_DIR` | `/app/.piper_models` | Where Piper voice models live (named volume in compose). |
+| `VOICE_PIPER_DEFAULT_VOICE` | `en_US-libritts_r-medium` | Default Piper voice; personas can override per-provider. |
+| `DEEPGRAM_API_KEY` / `ELEVENLABS_API_KEY` | _(empty)_ | Only needed when the matching cloud provider is selected. OpenAI providers reuse `OPENAI_API_KEY` / `OPENAI_BASE_URL`. |
+
 Simulations and personas are pure data — edit `data/simulations.json`,
 `data/personas.json`, and the Markdown files under `data/documents/` to add or
 tune scenarios. No code changes required.
@@ -209,8 +287,8 @@ agent/
 │       ├── personas/<slug>/      #   Per-persona background
 │       └── simulations/<slug>/   #   Per-simulation context
 ├── src/careersim_agent/
-│   ├── main.py                   # CLI entry (--serve gradio|api)
-│   ├── config.py                 # pydantic-settings
+│   ├── main.py                   # CLI entry (--serve gradio|api|voice)
+│   ├── config.py                 # pydantic-settings (incl. voice_* knobs)
 │   ├── api/app.py                # FastAPI app factory
 │   ├── graph/
 │   │   ├── builder.py            # StateGraph wiring
@@ -221,14 +299,34 @@ agent/
 │   ├── services/
 │   │   ├── conversation_service.py  # Stateless orchestration layer
 │   │   ├── data_loader.py           # Simulation + persona loader
-│   │   ├── eval_service.py          # LLM-based evaluation
+│   │   ├── eval_service.py          # LLM-based evaluation (+ voice signals)
 │   │   └── retrieval_service.py     # Chroma / RAG
+│   ├── voice/
+│   │   ├── worker.py             # --serve voice entry (run_worker)
+│   │   ├── pipeline.py           # LangGraphAdapter plugged into LiveKit
+│   │   ├── persona_voice.py      # voice eligibility + provider resolution
+│   │   ├── state_bridge.py       # API client (state-for-voice, post turns, end)
+│   │   ├── transcripts.py        # caption framing
+│   │   └── providers/            # base + whisper_local/openai, deepgram,
+│   │                             # piper_local, openai_tts, elevenlabs
 │   └── ui/gradio_app.py          # Dev console
+├── scripts/
+│   ├── voice_smoke.py            # end-to-end voice smoke (stub-friendly)
+│   ├── voice_perf.py             # latency baseline (user_turn / stream_chunks)
+│   └── prefetch_voice_models.py  # bake faster-whisper + Piper into the image
 ├── tests/
 │   ├── test_api.py                   # FastAPI + statelessness contract
 │   ├── test_conversation_service.py  # Service + serialisation + typing delay
 │   ├── test_graph.py                 # Graph construction
-│   └── test_data_consistency.py      # Persona/simulation data integrity
+│   ├── test_data_consistency.py      # Persona/simulation data integrity
+│   ├── test_voice_providers.py       # STT/TTS provider factory + adapters
+│   ├── test_voice_pipeline.py        # LangGraphAdapter turn behaviour
+│   ├── test_voice_persona.py         # persona voice resolution + overrides
+│   ├── test_voice_prompt.py          # voice-aware prompt shaping
+│   ├── test_voice_eval.py            # spoken-signal evaluation
+│   ├── test_state_bridge.py          # API client contract
+│   ├── test_voice_worker.py          # worker bootstrap + kill switch
+│   └── test_voice_integration.py     # end-to-end pipeline wiring
 ├── Dockerfile
 ├── pyproject.toml
 └── .env.example
@@ -245,7 +343,26 @@ uv run pytest tests/test_api.py::TestStatelessness -v
 ```
 
 The tests mock the LangGraph runnable where appropriate, so the suite runs
-without an OpenAI API key.
+without an OpenAI API key. The voice suites (`test_voice_*`, `test_state_bridge`)
+use stub STT/TTS adapters and a fake API client, so they need neither LiveKit,
+the audio model wheels, nor a network connection.
+
+### Voice smoke + performance scripts
+
+Two helper scripts under `scripts/` exercise the voice path without a browser:
+
+```bash
+# End-to-end pipeline smoke against stub adapters (no LiveKit / models needed)
+uv run python scripts/voice_smoke.py
+
+# Latency baseline — paste the output into the merge PR for reference
+uv run python scripts/voice_perf.py --runs 50
+```
+
+`prefetch_voice_models.py` is the build-time helper that bakes the default
+faster-whisper + Piper models into the `voice-runtime` Docker image. The full
+manual voice checklist (cold start, kill switch, per-persona rollout, barge-in,
+quota enforcement) lives in [VOICE_MODE.md](../VOICE_MODE.md).
 
 ### End-to-end simulation runs (`test_simulation.py`)
 

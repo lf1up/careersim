@@ -20,6 +20,9 @@ the legacy `frontend/` app and are not backed by the new API.
   party
 - **Streaming**: `fetch` + `ReadableStream` + `eventsource-parser` (the native
   `EventSource` can't set bearer headers, and the API is POST-based)
+- **Voice**: browser-native WebRTC call surface over `livekit-client` (lazy
+  dynamic import so it only loads when a call starts), gated by
+  `NEXT_PUBLIC_VOICE_ENABLED`
 
 ## Quick start
 
@@ -53,7 +56,7 @@ Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
 | `/simulations` | List simulations from `GET /simulations` |
 | `/simulations/[slug]` | Confirm + start a session (`POST /sessions`) |
 | `/sessions` | List caller's sessions (`GET /sessions`) |
-| `/sessions/[id]` | Chat: `GET /sessions/:id`, send via `POST /sessions/:id/messages/stream`, optional follow-up + nudge |
+| `/sessions/[id]` | Chat: `GET /sessions/:id`, send via `POST /sessions/:id/messages/stream`, optional follow-up + nudge. Voice: a **Call** button (when `NEXT_PUBLIC_VOICE_ENABLED` is on and the persona supports voice) opens an in-page WebRTC call surface |
 
 ## Auth flows
 
@@ -91,6 +94,31 @@ without a page reload. No client-side throttling is needed — the server
 is the single source of truth and the 429 body already carries everything
 the UI needs to display.
 
+## Voice mode
+
+On `/sessions/[id]`, a **Call** button opens a browser-native voice call with
+the persona — no install required. The flow:
+
+1. `POST /sessions/:id/voice/start` (via `api.startVoiceCall`) mints a
+   short-lived LiveKit token + SFU URL.
+2. `createVoiceConnection` (`src/lib/voice.ts`) **lazy-imports** `livekit-client`,
+   joins the room, publishes the mic, and subscribes to the agent's audio.
+3. The `VoiceCallSurface` renders a live **caption strip** (from the
+   `voice-captions` data-channel topic) and listens for `voice-control` events
+   — a `quota_warning` banner ~60s before the daily budget is spent and a
+   `quota_exhausted` cutoff that hard-ends the call with a "Daily N-minute
+   voice limit reached" alert.
+4. On hang-up `api.endVoiceCall` marks the call ended; the authoritative
+   quota debit and transcript persistence happen server-side via the
+   `agent-voice` worker, so the chat transcript reflects the spoken turns when
+   you return to text mode.
+
+The whole feature is behind a build-time kill switch: when
+`NEXT_PUBLIC_VOICE_ENABLED=false`, `isVoiceEnabledClientSide()` returns `false`,
+the Call button renders nothing, and `livekit-client` is never imported. The
+button is also hidden for personas that don't declare a `voice` block. See the
+repo-level [VOICE_MODE.md](../VOICE_MODE.md) for the end-to-end picture.
+
 ## Layout
 
 ```text
@@ -122,12 +150,14 @@ web/
 │   │   │                                    # VerifyCodeCard, CheckYourInboxCard, AltchaWidget,
 │   │   │                                    # RequireAuth
 │   │   ├── layout/                          # Navbar, Providers
-│   │   └── chat/                            # ChatTranscript, ChatComposer
+│   │   ├── chat/                            # ChatTranscript, ChatComposer
+│   │   └── voice/                           # VoiceCallButton, VoiceCallSurface, VoiceControls
 │   ├── contexts/                            # AuthContext, ThemeContext
 │   └── lib/
-│       ├── api.ts                           # typed client for the api/ surface
+│       ├── api.ts                           # typed client for the api/ surface (incl. start/endVoiceCall)
 │       ├── sse.ts                           # fetch-based SSE reader
-│       └── types.ts                         # mirrors api/src/modules/**/*.schema.ts
+│       ├── voice.ts                         # livekit-client wrapper (lazy import) + kill-switch helper
+│       └── types.ts                         # mirrors api/src/modules/**/*.schema.ts (incl. Voice* types)
 └── tailwind.config.ts
 ```
 
@@ -147,6 +177,8 @@ pnpm typecheck  # tsc --noEmit
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Base URL of the `api/` service. Also used by `AltchaWidget` to fetch `/auth/challenge` |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@careersim.local` | Public support/contact email displayed in the app footer |
+| `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
+| `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
 | `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door |
 
 `NEXT_PUBLIC_API_URL` is inlined into the client bundle at build time (note the
@@ -185,3 +217,9 @@ challenge payload.
   a "pending assistant" buffer while rendering; when the `done` event arrives,
   the full `SessionDetail` from the API replaces local state — so persistence
   and canonical ordering come straight from the server.
+- **Voice never bloats the base bundle.** `livekit-client` is imported lazily
+  inside `createVoiceConnection`, so a build with `NEXT_PUBLIC_VOICE_ENABLED=false`
+  (or a user who never starts a call) never pays its wheel cost. Captions and
+  budget banners are best-effort UX driven by LiveKit data-channel frames; the
+  authoritative transcript + quota live on the server, mirroring the chat
+  surface.

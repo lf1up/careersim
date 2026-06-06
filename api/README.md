@@ -70,6 +70,22 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 | POST | `/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
 | POST | `/sessions/:id/proactive/stream` | jwt (owner) | — | 30/min per user | SSE followup (`trigger_type: "followup"` only) |
 | POST | `/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
+| POST | `/sessions/:id/voice/start` | jwt (owner) | — | 10/min per user | Mint a LiveKit join token. `503 voice_disabled`, `429 voice_quota_exhausted`, `409 voice_call_in_progress` |
+| POST | `/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | Mark the call ended (clears the active-call guard). Quota debit is worker-authoritative, not here |
+
+### Internal voice routes (worker ⇄ API)
+
+These three are part of the `agent-voice` worker trust boundary, **not** the
+public surface. They authenticate via `X-Internal-Key` (the shared
+`AGENT_INTERNAL_KEY`), are hidden from the OpenAPI docs, keyed per-session for
+rate limiting (30/min), and honour the `VOICE_ENABLED` kill switch before the
+key check so the worker gets a clear `503` to stop polling on.
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET  | `/internal/sessions/:id/state-for-voice` | `X-Internal-Key` | Freshest wire-format `state_snapshot` for a room join |
+| GET  | `/internal/sessions/:id/voice-budget` | `X-Internal-Key` | Remaining daily voice seconds for the session owner (arms the worker's cutoff watchdog) |
+| POST | `/internal/sessions/:id/voice/end` | `X-Internal-Key` | **Authoritative** call-end: debits `voice_minute_usage` by the worker-measured seconds and merges aggregate voice analytics into `state_snapshot.analysis.voice` |
 
 The CAPTCHA-gated endpoints accept an optional `altcha` field (the solved
 challenge payload) in the JSON body. It is **required in production** and
@@ -100,9 +116,9 @@ api/
 │   ├── config/env.ts           # Zod-validated env
 │   ├── db/
 │   │   ├── client.ts           # createPgClient / createPgliteClient
-│   │   ├── schema.ts           # users (nullable password + emailVerifiedAt), authTokens, sessions, messages
+│   │   ├── schema.ts           # users, authTokens, sessions (+ voice_call_* cols), messages, voiceMinuteUsage
 │   │   ├── migrate.ts          # drizzle-orm migrator (node-postgres)
-│   │   └── migrations/         # drizzle-kit output (0002 adds email verification + authTokens)
+│   │   └── migrations/         # drizzle-kit output (0002 email verification + authTokens; 0003 voice mode)
 │   ├── agent/
 │   │   ├── types.ts            # Wire types mirroring agent/src/careersim_agent/api/app.py
 │   │   └── client.ts           # HttpAgentClient + parseAgentSSE
@@ -116,7 +132,8 @@ api/
 │       ├── auth/               # register, verify, login, magic-link, forgot/reset, profile (change pw/email)
 │       ├── health/             # /health with db + agent probes
 │       ├── simulations/        # agent passthrough
-│       └── sessions/           # create, list, get, turn (batch + SSE), proactive
+│       ├── sessions/           # create, list, get, turn (batch + SSE), proactive
+│       └── voice/              # voice.route.ts (start/end + internal), voice.service.ts (LiveKit token + quota), voice.schema.ts
 ├── tests/
 │   ├── helpers/
 │   │   ├── build-test-app.ts   # pglite + FakeAgent + ALTCHA bypass wiring (exports TEST_ALTCHA)
@@ -128,7 +145,8 @@ api/
 │   ├── simulations.test.ts
 │   ├── sessions.batch.test.ts
 │   ├── sessions.stream.test.ts
-│   └── sessions.statelessness.test.ts
+│   ├── sessions.statelessness.test.ts
+│   └── voice.routes.test.ts    # token mint, ownership, kill switch, quota debit + concurrency guard
 ├── Dockerfile
 ├── drizzle.config.ts
 ├── vitest.config.ts
@@ -199,6 +217,7 @@ Tests cover:
 - Nudge guardrails: `no_human_activity`, `not_enough_idle`, `budget_exhausted`, counter reset on human reply, override floor honoured
 - Proactive followup: batch + streaming paths, rejection of non-followup triggers
 - Statelessness contract: two users do not bleed, DB as single source of truth, exactly one agent call per turn, deterministic replay across sessions
+- Voice: token mint shape + ownership/404, `503 voice_disabled` kill switch on both public and internal routes, `429 voice_quota_exhausted` at the daily cap, `409 voice_call_in_progress` concurrency guard, internal-key enforcement, and the worker-authoritative `voice/end` debit + analytics merge
 
 The agent contract is faked deterministically in `tests/helpers/fake-agent.ts` in the same style as `_FakeGraph` at `agent/tests/test_api.py:155`, so running the suite requires neither the Python agent nor an OpenAI key.
 
@@ -281,6 +300,18 @@ See `.env.example` for the authoritative list. Required in production:
 | `PORT` | `8000` | Fastify bind port |
 | `LOG_LEVEL` | `info` | pino level |
 
+Voice mode (the `/voice/*` surface — mirrors `VOICE_ENABLED` on the agent;
+flip both together). Routes always register so the kill switch works without
+a redeploy:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VOICE_ENABLED` | `true` | When `false`, every `/voice/*` route returns `503 voice_disabled` and the web Call button is hidden |
+| `VOICE_DAILY_MINUTES_PER_USER` | `60` | True per-user-per-day ceiling enforced via `voice_minute_usage`; debited authoritatively by the worker, which hard-disconnects a call once the budget is spent |
+| `VOICE_ACTIVE_CALL_STALE_SECONDS` | `4200` | Single-active-call guard window. An un-ended call row older than this is treated as a crashed worker (so the user isn't locked out); `0` disables the guard |
+| `LIVEKIT_URL` | — | SFU URL the API mints tokens against. Must match the `livekit` + `agent` services |
+| `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | LiveKit credentials used to sign short-lived join tokens (TTL defaults to `cap + 10 min`) |
+
 Outbound email (optional in dev — leave `SMTP_HOST` blank to log rendered
 emails through the Fastify logger and read verification codes / magic
 links straight from `pnpm dev` output):
@@ -301,10 +332,11 @@ docker build -t careersim-api ./api
 docker run --rm -p 8000:8000 --env-file api/.env careersim-api
 ```
 
-The top-level `docker-compose.local.yml` wires `api` + `postgres` + `redis`
-together. Point `AGENT_API_URL` at the host-side agent (run with
-`python -m careersim_agent.main --serve api --port 8001`) until the agent
-service is uncommented in compose.
+The top-level `docker-compose.local.yml` wires `api` + `web` + `agent` +
+`agent-voice` + `livekit` + `postgres` + `redis` together; on the compose
+network `AGENT_API_URL` is rewritten to `http://agent:8001`. When running the
+API on the host instead, point `AGENT_API_URL` at the host-published agent
+port (`http://localhost:8001`).
 
 ## Design notes
 
@@ -351,3 +383,16 @@ service is uncommented in compose.
   plugin falls back to a logger transport that prints the full rendered
   email, so registration / reset flows are usable locally without SMTP
   credentials.
+- **Voice quota is worker-authoritative.** The API only mints a
+  short-lived LiveKit token and enforces ownership + a start-time gate;
+  the user-facing `POST /voice/end` deliberately does **not** debit the
+  quota. The `agent-voice` worker measures call duration on a server-side
+  clock the browser can't influence and reports it via the internal
+  `POST /internal/sessions/:id/voice/end`, which is the single source of
+  truth for the `voice_minute_usage` debit and the
+  `state_snapshot.analysis.voice` merge. A single-active-call guard
+  (`VOICE_ACTIVE_CALL_STALE_SECONDS`) stops a user opening N tabs to run N
+  concurrent calls past the daily cap. Audio is never persisted — only the
+  transcribed turns (through the existing chat-message path) and aggregate
+  voice analytics. See [VOICE_MODE.md](../VOICE_MODE.md) for the full
+  budget-enforcement design.
