@@ -103,7 +103,7 @@ const EnvSchema = z
     LIVEKIT_URL: z.string().default(''),
     LIVEKIT_API_KEY: z.string().default(''),
     LIVEKIT_API_SECRET: z.string().default(''),
-    VOICE_DAILY_MINUTES_PER_USER: z.coerce.number().int().positive().default(60),
+    VOICE_DAILY_MINUTES_PER_USER: z.coerce.number().int().nonnegative().default(60),
     // How long an un-ended voice-call row stays "active" for the
     // single-active-call guard (seconds). Past this we assume the
     // worker crashed without reporting end and allow a fresh call so a
