@@ -26,6 +26,16 @@ export interface VoiceCallSurfaceProps {
 
 type Status = 'connecting' | 'live' | 'reconnecting' | 'ended';
 
+// Elapsed call seconds, guarded against a missing live start. When the
+// call ends before the LiveKit connection comes up, `startMs` is still
+// 0; subtracting that from `Date.now()` would yield a bogus multi-billion
+// second debit, so treat the duration as 0 in that case (and clamp any
+// negative skew to 0).
+function elapsedCallSeconds(startMs: number): number {
+  if (startMs <= 0) return 0;
+  return Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+}
+
 /**
  * Full-bleed surface that takes over the chat area while a voice call
  * is active. Replaces (not overlays) the transcript so the user has
@@ -149,7 +159,7 @@ export function VoiceCallSurface({
           window.setTimeout(() => {
             if (!endingRef.current) {
               endingRef.current = true;
-              const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              const seconds = elapsedCallSeconds(startTimeRef.current);
               void apiClient.endVoiceCall(sessionId, seconds).catch(() => {
                 // Best-effort — the staleness window is the backstop.
               });
@@ -181,7 +191,7 @@ export function VoiceCallSurface({
   useEffect(() => {
     if (status !== 'live' && status !== 'reconnecting') return;
     const id = window.setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setElapsed(elapsedCallSeconds(startTimeRef.current));
     }, 1000);
     return () => window.clearInterval(id);
   }, [status]);
@@ -211,7 +221,7 @@ export function VoiceCallSurface({
     endingRef.current = true;
     setIsThinking(false);
     setStatus('ended');
-    const seconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    const seconds = elapsedCallSeconds(startTimeRef.current);
     try {
       await connRef.current?.disconnect();
     } catch {
