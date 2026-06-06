@@ -71,7 +71,7 @@ def _percentile(samples: list[float], pct: float) -> float:
 
 def _summary_ms(samples: list[float]) -> dict[str, float]:
     if not samples:
-        return {"p50_ms": 0.0, "p95_ms": 0.0, "max_ms": 0.0, "n": 0}
+        return {"p50_ms": 0.0, "p95_ms": 0.0, "max_ms": 0.0, "mean_ms": 0.0, "n": 0}
     return {
         "p50_ms": round(_percentile(samples, 50) * 1000, 2),
         "p95_ms": round(_percentile(samples, 95) * 1000, 2),
