@@ -112,8 +112,13 @@ RUN pip install --no-cache-dir uv
 
 # Re-add the build deps we stripped in the slim runtime stage so
 # transitively-built voice wheels (e.g. piper-phonemize) link cleanly.
+# `ffmpeg` + `libsndfile1` are also needed at runtime by faster-whisper
+# (audio I/O) and Piper — the slim runtime stage doesn't carry them, so
+# re-install here to match the builder's audio libs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    ffmpeg \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the voice extras on top of the editable chat install.
