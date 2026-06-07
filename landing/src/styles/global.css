@@ -543,6 +543,12 @@ h1 {
   display: flex;
   gap: 0;
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.preview-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-button {
