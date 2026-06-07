@@ -1,8 +1,14 @@
 # Voice Mode — Operator Guide
 
-Single-source-of-truth doc for the **`feat/voice-mode`** branch. Covers
-how to enable/disable voice mode, what services run, and a manual
-smoke-test checklist that has to pass before the branch is mergeable.
+Single-source-of-truth doc for **voice mode**, now shipped on `main`.
+Covers how to enable/disable voice mode, what services run, and a manual
+smoke-test checklist to re-run before a release or after any change that
+touches the voice path (worker, providers, LiveKit, or the `/voice/*`
+routes).
+
+> Voice mode landed via `feat/voice-mode`. This doc has outlived the
+> merge — treat the checklist below as an acceptance / regression suite,
+> not a one-time merge gate.
 
 ## Architecture in 30 seconds
 
@@ -88,8 +94,9 @@ the per-persona voice blocks.
 
 ## Smoke checklist
 
-Run through this list **before merging** `feat/voice-mode`. Each step
-should leave a green check (or a documented reason for skipping).
+Run through this list **before a release** and **after any change that
+touches the voice path**. Each step should leave a green check (or a
+documented reason for skipping).
 
 ### A. Cold-start with all defaults
 
@@ -179,20 +186,23 @@ For each of the 9 personas, start a 30s call and confirm the voice
 
 ### H. Regression sweep (text mode unchanged)
 
-- [ ] `cd agent && uv run pytest -q` → all green (158 tests).
-- [ ] `cd api && pnpm test --run` → all green (115 tests).
+- [ ] `cd agent && uv run pytest -q` → all green (~158 tests at merge).
+- [ ] `cd api && pnpm test --run` → all green (~115 tests at merge).
 - [ ] `cd web && pnpm lint && pnpm typecheck` → clean.
 - [ ] Manual: open a fresh **text** session against Brenda and finish
       one short conversation. State persistence, goal eval, and
-      analysis on the post-session page must work *exactly* as on
-      `main` (text mode is unaffected by the voice flag).
+      analysis on the post-session page must work *exactly* as they did
+      before voice mode existed (text chat is unaffected by the voice
+      flag, on or off).
 
 ### I. Performance baseline
 
 - [ ] `cd agent && uv run python scripts/voice_perf.py --runs 50` →
       `user_turn` p95 within 50ms (stub adapter), `stream_chunks` p95
       within 5ms. Numbers should be roughly stable across re-runs;
-      paste output into the merge PR description for reference.
+      keep the output as a baseline and compare it after any change to
+      the pipeline or providers (attach it to the relevant PR / release
+      notes if it shifts materially).
 
 ## Known limitations (not blockers)
 
