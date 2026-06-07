@@ -62,6 +62,24 @@ def run_worker() -> int:
         )
         return 2
 
+    import os
+
+    # LiveKit Agents runs a small HTTP status server (used here as the
+    # container's readiness/liveness endpoint). It defaults to :8081, but
+    # most managed platforms inject ``$PORT`` and point their readiness
+    # probe at that same port — so bind to ``$PORT`` when present and fall
+    # back to 8081 for local/compose. ``HEALTH_HOST`` lets you pin the bind
+    # address if the platform probes a specific interface.
+    health_port = int(os.environ.get("PORT") or os.environ.get("HEALTH_PORT") or 8081)
+    health_host = os.environ.get("HEALTH_HOST", "0.0.0.0")
+
+    # Cold-start of the job subprocess imports the full voice stack
+    # (onnxruntime / CTranslate2 / silero / av), which routinely exceeds
+    # the SDK's 10s default on small instances — the framework then kills
+    # and respawns the process (the SIGUSR1 / exit -10 churn). Give it more
+    # headroom so startup is clean. Override via ``VOICE_INIT_TIMEOUT``.
+    init_timeout = float(os.environ.get("VOICE_INIT_TIMEOUT") or 30.0)
+
     # ``cli.run_app`` is LiveKit Agents' own Click-based CLI; it
     # re-parses ``sys.argv`` and expects one of its subcommands
     # (start/dev/connect/...). Our process was launched as
@@ -72,7 +90,12 @@ def run_worker() -> int:
     # API to dispatch rooms.
     sys.argv = [sys.argv[0], "start"]
     cli.run_app(  # blocks until SIGINT
-        WorkerOptions(entrypoint_fnc=_voice_entrypoint),
+        WorkerOptions(
+            entrypoint_fnc=_voice_entrypoint,
+            host=health_host,
+            port=health_port,
+            initialize_process_timeout=init_timeout,
+        ),
     )
     return 0
 
