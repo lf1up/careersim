@@ -1,4 +1,4 @@
-# Voice Mode — Operator Guide
+# 🎙️ Voice Mode — Operator Guide
 
 Single-source-of-truth doc for **voice mode**, now shipped on `main`.
 Covers how to enable/disable voice mode, what services run, and a manual
@@ -10,7 +10,7 @@ routes).
 > merge — treat the checklist below as an acceptance / regression suite,
 > not a one-time merge gate.
 
-## Architecture in 30 seconds
+## 🏗️ Architecture in 30 seconds
 
 ```
 ┌────────┐   WebRTC   ┌──────────┐   PCM    ┌─────────────┐
@@ -42,7 +42,7 @@ routes).
   analytics are merged into `state_snapshot.analysis.voice` on that
   internal end.
 
-### Daily-budget enforcement (authoritative)
+### 💰 Daily-budget enforcement (authoritative)
 
 `VOICE_DAILY_MINUTES_PER_USER` (default **60**) is a true per-user
 per-day ceiling, not just a start gate:
@@ -63,7 +63,7 @@ per-day ceiling, not just a start gate:
   token always outlives the longest possible call and the watchdog
   (not token expiry) is what ends a maxed-out call.
 
-## Kill switches (no rebuild required)
+## 🛑 Kill switches (no rebuild required)
 
 Setting `VOICE_ENABLED=false` in **either** the `api` or the
 `agent-voice` env disables voice end-to-end:
@@ -78,7 +78,7 @@ You only need to flip **one** of these to turn the feature off; flipping
 all three is the cleanest revert if you want to remove the UI affordance
 on top of disabling the backend.
 
-## Provider selection
+## 🔀 Provider selection
 
 The defaults are self-hosted:
 
@@ -92,13 +92,13 @@ Personas can override the TTS provider via
 `persona.voice.providerOverride`; see `agent/data/personas.json` for
 the per-persona voice blocks.
 
-## Smoke checklist
+## ✅ Smoke checklist
 
 Run through this list **before a release** and **after any change that
 touches the voice path**. Each step should leave a green check (or a
 documented reason for skipping).
 
-### A. Cold-start with all defaults
+### ❄️ A. Cold-start with all defaults
 
 - [ ] `docker compose -f docker-compose.local.yml up --build` starts
       `livekit`, `agent`, `agent-voice`, `api`, `web`, `postgres`,
@@ -107,7 +107,7 @@ documented reason for skipping).
       "voice enabled" and the worker registered with LiveKit.
 - [ ] `curl -fsS http://localhost:7880` returns the LiveKit health page.
 
-### B. Token mint + ownership
+### 🎫 B. Token mint + ownership
 
 - [ ] `POST /sessions/:id/voice/start` (with valid bearer) returns
       `200` with a non-empty `token`, `livekit_url`, `room`, and a
@@ -117,7 +117,7 @@ documented reason for skipping).
 - [ ] `POST /sessions/:id/voice/start` for an unknown session returns
       `404`.
 
-### C. Kill-switch
+### 🛑 C. Kill-switch
 
 - [ ] Restart api with `VOICE_ENABLED=false` →
       `POST /sessions/:id/voice/start` returns `503 voice_disabled`.
@@ -126,7 +126,7 @@ documented reason for skipping).
 - [ ] `web` with `NEXT_PUBLIC_VOICE_ENABLED=false` does **not** render
       the "Call" button on `/sessions/:id`.
 
-### D. End-to-end call against Vikram
+### 📞 D. End-to-end call against Vikram
 
 1. Open `http://localhost:3000/sessions/<a fresh session for
    `vikram-shah-pipeline-recruiter`>`.
@@ -146,7 +146,7 @@ documented reason for skipping).
     `user_avg_wpm`, `user_filler_count`, `longest_silence_sec`,
     and a `turns` array with both roles.
 
-### E. Persona rollout (sanity)
+### 🎭 E. Persona rollout (sanity)
 
 For each of the 9 personas, start a 30s call and confirm the voice
 *character* feels right (subjective check):
@@ -161,7 +161,7 @@ For each of the 9 personas, start a 30s call and confirm the voice
 - [ ] **vikram** — friendly, slightly fast, slightly evasive.
 - [ ] **marcus** — slow, dry; interrupts much less than the others.
 
-### F. Barge-in mechanics
+### ✋ F. Barge-in mechanics
 
 - [ ] Start a call where the persona is in the middle of a long reply.
       Speak; persona TTS should stop within ~300ms (Vikram defaults
@@ -171,7 +171,7 @@ For each of the 9 personas, start a 30s call and confirm the voice
       throat-clear (his `bargeInToleranceMs: 600` is intentionally
       tolerant).
 
-### G. Quota enforcement
+### ⏱️ G. Quota enforcement
 
 - [ ] Set `VOICE_DAILY_MINUTES_PER_USER=1`, restart the api + agent-voice.
 - [ ] Start a call and just keep talking. Around ~60s in you should
@@ -184,7 +184,7 @@ For each of the 9 personas, start a 30s call and confirm the voice
 - [ ] Concurrency: start a call, then (without ending it) `POST
       /sessions/:id/voice/start` again → `409 voice_call_in_progress`.
 
-### H. Regression sweep (text mode unchanged)
+### 🧪 H. Regression sweep (text mode unchanged)
 
 - [ ] `cd agent && uv run pytest -q` → all green (~158 tests at merge).
 - [ ] `cd api && pnpm test --run` → all green (~115 tests at merge).
@@ -195,7 +195,7 @@ For each of the 9 personas, start a 30s call and confirm the voice
       before voice mode existed (text chat is unaffected by the voice
       flag, on or off).
 
-### I. Performance baseline
+### 📊 I. Performance baseline
 
 - [ ] `cd agent && uv run python scripts/voice_perf.py --runs 50` →
       `user_turn` p95 within 50ms (stub adapter), `stream_chunks` p95
@@ -204,7 +204,7 @@ For each of the 9 personas, start a 30s call and confirm the voice
       the pipeline or providers (attach it to the relevant PR / release
       notes if it shifts materially).
 
-## Known limitations (not blockers)
+## ⚠️ Known limitations (not blockers)
 
 * **One worker, one room** — the LiveKit Agents SDK lets a single
   worker process pick up many rooms; we ship with the SDK's default
