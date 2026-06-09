@@ -1,8 +1,14 @@
-"""OpenAI TTS via ``/v1/audio/speech`` (cloud).
+"""OpenAI-compatible TTS via ``/v1/audio/speech`` (cloud).
 
 Streams 24 kHz mono PCM as the response body arrives. Reuses the
 chat-side ``OPENAI_API_KEY`` / ``OPENAI_BASE_URL`` so flipping
 ``VOICE_TTS_PROVIDER=openai_tts`` doesn't require any new account.
+
+OpenRouter's ``/audio/speech`` is OpenAI-SDK-compatible, so the only
+quirk is that it needs an OpenRouter model slug (e.g.
+``openai/gpt-4o-mini-tts``) rather than a bare OpenAI model id. When
+``OPENAI_BASE_URL`` points at OpenRouter we swap in ``openrouter_model``;
+everything else (the SDK call, the PCM streaming) is unchanged.
 """
 
 from __future__ import annotations
@@ -10,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any, AsyncIterator, Optional
 
-from .base import TTSAudioChunk
+from .base import TTSAudioChunk, is_openrouter_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +35,17 @@ class OpenAITTS:
         base_url: Optional[str] = None,
         persona_config: Optional[dict[str, Any]] = None,
         model: str = "gpt-4o-mini-tts",
+        openrouter_model: str = "openai/gpt-4o-mini-tts",
         default_headers: Optional[dict] = None,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
         self._persona_voice = (persona_config or {}).get("voice") or "alloy"
         self._persona_speed = float((persona_config or {}).get("speed") or 1.0)
-        self._model = model
+        # OpenRouter needs a namespaced model slug; real OpenAI a bare id.
+        self._model = (
+            openrouter_model if is_openrouter_base_url(base_url) else model
+        )
         self._default_headers = default_headers or {}
         self._client = None
 

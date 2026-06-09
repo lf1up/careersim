@@ -19,6 +19,20 @@ from dataclasses import dataclass, field
 from typing import AsyncIterable, AsyncIterator, Optional, Protocol, runtime_checkable
 
 
+def is_openrouter_base_url(base_url: Optional[str]) -> bool:
+    """True when an OpenAI-compatible base URL actually targets OpenRouter.
+
+    OpenRouter's audio API isn't byte-for-byte OpenAI-compatible — STT
+    wants a JSON + base64 body rather than the SDK's multipart upload
+    (which it 400s on), and TTS needs an OpenRouter model slug. The
+    OpenAI-compatible providers (:mod:`.whisper_openai`,
+    :mod:`.openai_tts`) use this to switch on those quirks when the chat
+    ``OPENAI_BASE_URL`` already points at OpenRouter, so there's no
+    separate "openrouter" provider to select.
+    """
+    return "openrouter.ai" in (base_url or "").lower()
+
+
 class UnsupportedProviderError(RuntimeError):
     """Raised by the factory when a provider is selected but unusable.
 
@@ -132,4 +146,5 @@ __all__ = [
     "TTSAudioChunk",
     "TTSProvider",
     "UnsupportedProviderError",
+    "is_openrouter_base_url",
 ]

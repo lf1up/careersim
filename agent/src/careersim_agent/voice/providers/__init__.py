@@ -5,6 +5,11 @@ concrete implementations behind lazy imports — ``whisper_local`` /
 ``whisper_openai`` / ``deepgram`` for STT, ``piper_local`` /
 ``openai_tts`` / ``elevenlabs`` for TTS.
 
+OpenRouter has no provider name of its own: it isn't OpenAI-SDK-compatible
+for audio, so the ``whisper_openai`` / ``openai_tts`` providers detect an
+OpenRouter ``OPENAI_BASE_URL`` and adapt their request shape internally
+(see :func:`.base.is_openrouter_base_url`).
+
 The factory functions :func:`get_stt_provider` and
 :func:`get_tts_provider` are the only public way to instantiate a
 provider in production code: they read the env-level provider
@@ -64,6 +69,9 @@ def get_stt_provider(
                 "whisper_openai STT selected but neither OPENAI_API_KEY nor "
                 "OPENAI_BASE_URL is set"
             )
+        # WhisperOpenAISTT internally switches to OpenRouter's JSON+base64
+        # contract when the base URL points at OpenRouter (the SDK's
+        # multipart upload is rejected there).
         return WhisperOpenAISTT(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
@@ -124,10 +132,14 @@ def get_tts_provider(
                 "openai_tts selected but neither OPENAI_API_KEY nor "
                 "OPENAI_BASE_URL is set"
             )
+        # OpenAITTS swaps in the OpenRouter model slug automatically when
+        # the base URL points at OpenRouter (its `/audio/speech` is
+        # otherwise OpenAI-SDK-compatible).
         return OpenAITTS(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
             persona_config=persona_cfg,
+            openrouter_model=settings.voice_openai_tts_model,
             default_headers=settings.openai_default_headers,
         )
     if name == "elevenlabs":

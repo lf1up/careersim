@@ -114,6 +114,15 @@ class Settings(BaseSettings):
     # OpenRouter) to match your configured base URL.
     voice_whisper_openai_model: str = "whisper-1"
 
+    # openai_tts model. The OpenAI-compatible TTS provider (`openai_tts`)
+    # adapts its request shape to the configured `openai_base_url`: real
+    # OpenAI uses a bare model id, while OpenRouter needs a namespaced slug
+    # (e.g. `openai/gpt-4o-mini-tts`). This value is used on the OpenRouter
+    # path, where the slug must be namespaced — the OpenAI SDK's own
+    # transcription multipart upload, by contrast, OpenRouter 400s on, so
+    # STT handles that separately via `voice_whisper_openai_model`.
+    voice_openai_tts_model: str = "openai/gpt-4o-mini-tts"
+
     # Piper (default TTS) tuning. Voice models live in a named volume.
     voice_piper_model_dir: str = "/app/.piper_models"
     voice_piper_default_voice: str = "en_US-libritts_r-medium"

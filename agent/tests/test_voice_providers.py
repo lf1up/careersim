@@ -39,6 +39,7 @@ def _settings(**overrides: Any) -> SimpleNamespace:
         voice_whisper_device="cpu",
         voice_whisper_compute_type="int8",
         voice_whisper_openai_model="whisper-1",
+        voice_openai_tts_model="openai/gpt-4o-mini-tts",
         voice_piper_model_dir="/tmp/piper",
         voice_piper_default_voice="en_US-libritts_r-medium",
         deepgram_api_key="",
@@ -89,6 +90,19 @@ class TestSTTFactory:
         assert isinstance(provider, WhisperOpenAISTT)
         assert provider._model == "openai/whisper-large-v3"
 
+    def test_whisper_openai_with_openrouter_base_url(self) -> None:
+        # whisper_openai stays the same provider class; it just adapts its
+        # request shape internally when the base URL is OpenRouter.
+        s = _settings(
+            voice_stt_provider="whisper_openai",
+            openai_base_url="https://openrouter.ai/api/v1",
+            voice_whisper_openai_model="openai/whisper-large-v3",
+        )
+        provider = get_stt_provider(PERSONA, settings_override=s)
+        assert isinstance(provider, WhisperOpenAISTT)
+        assert provider._model == "openai/whisper-large-v3"
+        assert provider._base_url == "https://openrouter.ai/api/v1"
+
     def test_deepgram_requires_key(self) -> None:
         s = _settings(voice_stt_provider="deepgram")
         with pytest.raises(UnsupportedProviderError, match="DEEPGRAM_API_KEY"):
@@ -131,6 +145,27 @@ class TestTTSFactory:
         assert isinstance(provider, OpenAITTS)
         assert provider.output_sample_rate() == 24000
 
+    def test_openai_tts_with_openrouter_base_url_uses_slug(self) -> None:
+        # Same provider class; it just swaps in the OpenRouter model slug.
+        s = _settings(
+            voice_tts_provider="openai_tts",
+            openai_base_url="https://openrouter.ai/api/v1",
+        )
+        provider = get_tts_provider(PERSONA, settings_override=s)
+        assert isinstance(provider, OpenAITTS)
+        assert provider._model == "openai/gpt-4o-mini-tts"
+        # persona's openai_tts voice carries over unchanged
+        assert provider._persona_voice == "echo"
+
+    def test_openai_tts_with_openai_base_url_uses_bare_model(self) -> None:
+        s = _settings(
+            voice_tts_provider="openai_tts",
+            openai_base_url="https://api.openai.com/v1",
+        )
+        provider = get_tts_provider(PERSONA, settings_override=s)
+        assert isinstance(provider, OpenAITTS)
+        assert provider._model == "gpt-4o-mini-tts"
+
     def test_elevenlabs_requires_key(self) -> None:
         s = _settings(voice_tts_provider="elevenlabs")
         with pytest.raises(UnsupportedProviderError, match="ELEVENLABS_API_KEY"):
@@ -170,6 +205,64 @@ class TestTTSFactory:
 # is `runtime_checkable`-compatible with the Protocols. Catches
 # accidental method renames before they reach the worker.
 # -----------------------------------------------------------------
+
+# -----------------------------------------------------------------
+# OpenRouter request-shape — the whole reason whisper_openai branches:
+# OpenRouter rejects the SDK's multipart upload, so against an
+# OpenRouter base URL the provider must POST JSON + base64 instead.
+# -----------------------------------------------------------------
+
+class _FakeResponse:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self._payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+
+class _FakeHttpClient:
+    """Records the last POST so the test can assert on the wire shape."""
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self._payload = payload
+        self.last_url: Any = None
+        self.last_json: Any = None
+
+    async def post(self, url: str, *, json: dict[str, Any]) -> _FakeResponse:
+        self.last_url = url
+        self.last_json = json
+        return _FakeResponse(self._payload)
+
+
+class TestOpenRouterRequestShape:
+    async def test_openrouter_stt_posts_json_base64(self) -> None:
+        provider = WhisperOpenAISTT(
+            api_key="sk-or-fake",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/whisper-1",
+        )
+        fake = _FakeHttpClient({"text": "hello world"})
+        provider._ensure_http = lambda: fake  # type: ignore[method-assign]
+
+        async def _frames():
+            yield b"\x00\x01" * 800  # 1600 bytes of fake PCM
+
+        results = [r async for r in provider.transcribe(_frames(), language="en")]
+
+        assert len(results) == 1
+        assert results[0].text == "hello world"
+        assert results[0].is_final is True
+        # Wire shape: JSON body with base64 audio under input_audio, NOT a
+        # multipart file upload.
+        assert fake.last_url == "/audio/transcriptions"
+        assert fake.last_json["model"] == "openai/whisper-1"
+        assert fake.last_json["input_audio"]["format"] == "wav"
+        assert isinstance(fake.last_json["input_audio"]["data"], str)
+        assert fake.last_json["language"] == "en"
+
 
 class TestProtocolConformance:
     def test_stt_impls_satisfy_protocol(self) -> None:
