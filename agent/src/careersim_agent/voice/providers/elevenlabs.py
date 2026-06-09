@@ -26,6 +26,23 @@ from .base import TTSAudioChunk
 logger = logging.getLogger(__name__)
 
 
+async def _ws_connect(websockets_mod: Any, url: str, api_key: str) -> Any:
+    """Open the ElevenLabs websocket, tolerating the websockets API rename.
+
+    websockets >= 14 (the new ``websockets.asyncio`` client) renamed the
+    request-header kwarg from ``extra_headers`` to ``additional_headers``;
+    passing the old name now blows up deep in ``loop.create_connection``
+    with ``unexpected keyword argument 'extra_headers'``. We try the new
+    name first and fall back to the legacy one so the provider works
+    across the pinned ``websockets>=12.0`` range.
+    """
+    headers = {"xi-api-key": api_key}
+    try:
+        return await websockets_mod.connect(url, additional_headers=headers)
+    except TypeError:
+        return await websockets_mod.connect(url, extra_headers=headers)
+
+
 class ElevenLabsTTS:
     """ElevenLabs Flash v2.5 streaming TTS provider."""
 
@@ -72,10 +89,8 @@ class ElevenLabsTTS:
             "&output_format=pcm_22050"
         )
 
-        async with websockets.connect(
-            url,
-            extra_headers={"xi-api-key": self._api_key},
-        ) as ws:
+        ws = await _ws_connect(websockets, url, self._api_key)
+        try:
             # Init message — one-shot per connection.
             await ws.send(json.dumps({
                 "text": " ",
@@ -118,6 +133,8 @@ class ElevenLabsTTS:
                     sample_rate=self.SAMPLE_RATE,
                     is_final=True,
                 )
+        finally:
+            await ws.close()
 
     async def aclose(self) -> None:
         # The websocket context manager handles teardown; nothing

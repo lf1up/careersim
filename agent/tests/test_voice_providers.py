@@ -8,6 +8,9 @@ metadata without those wheels installed in the test environment.
 
 from __future__ import annotations
 
+import base64
+import json
+import sys
 from types import SimpleNamespace
 from typing import Any
 
@@ -262,6 +265,91 @@ class TestOpenRouterRequestShape:
         assert fake.last_json["input_audio"]["format"] == "wav"
         assert isinstance(fake.last_json["input_audio"]["data"], str)
         assert fake.last_json["language"] == "en"
+
+
+# -----------------------------------------------------------------
+# ElevenLabs websockets header kwarg — websockets >= 14 renamed
+# `extra_headers` to `additional_headers`; passing the old name to the
+# new client 500s deep in create_connection. The provider must use the
+# new name (with a legacy fallback).
+# -----------------------------------------------------------------
+
+class _FakeElevenWS:
+    def __init__(self, frames: list[str]) -> None:
+        self._frames = frames
+        self.sent: list[str] = []
+        self.closed = False
+
+    async def send(self, msg: str) -> None:
+        self.sent.append(msg)
+
+    async def close(self) -> None:
+        self.closed = True
+
+    def __aiter__(self):
+        return self._aiter()
+
+    async def _aiter(self):
+        for f in self._frames:
+            yield f
+
+
+class _FakeWebsocketsModule:
+    """Stand-in for the `websockets` package injected via sys.modules."""
+
+    def __init__(self, *, accepts: str) -> None:
+        # `accepts` is the only header kwarg this fake tolerates;
+        # the other raises TypeError like the real version mismatch.
+        self._accepts = accepts
+        self.connect_kwargs: list[dict[str, Any]] = []
+        self.last_ws: _FakeElevenWS | None = None
+
+    async def connect(self, url: str, **kwargs: Any) -> _FakeElevenWS:
+        self.connect_kwargs.append(kwargs)
+        if self._accepts not in kwargs:
+            raise TypeError(
+                f"unexpected keyword argument "
+                f"{next(iter(kwargs)) if kwargs else 'headers'!r}"
+            )
+        frames = [
+            json.dumps({"audio": base64.b64encode(b"\x01\x02\x03\x04").decode()}),
+            json.dumps({"isFinal": True}),
+        ]
+        self.last_ws = _FakeElevenWS(frames)
+        return self.last_ws
+
+
+class TestElevenLabsWebsocketHeaders:
+    async def test_uses_additional_headers(self, monkeypatch: Any) -> None:
+        fake = _FakeWebsocketsModule(accepts="additional_headers")
+        monkeypatch.setitem(sys.modules, "websockets", fake)
+
+        provider = ElevenLabsTTS(
+            api_key="el-fake", persona_config={"voiceId": "vid-123"}
+        )
+        chunks = [c async for c in provider.synthesize("hello")]
+
+        assert len(chunks) == 1
+        assert chunks[0].audio == b"\x01\x02\x03\x04"
+        assert chunks[0].is_final is True
+        # New API kwarg used, carrying the auth header, and ws closed.
+        assert fake.connect_kwargs[-1] == {"additional_headers": {"xi-api-key": "el-fake"}}
+        assert fake.last_ws is not None and fake.last_ws.closed is True
+
+    async def test_falls_back_to_extra_headers(self, monkeypatch: Any) -> None:
+        # Simulate an older websockets that only knows `extra_headers`.
+        fake = _FakeWebsocketsModule(accepts="extra_headers")
+        monkeypatch.setitem(sys.modules, "websockets", fake)
+
+        provider = ElevenLabsTTS(
+            api_key="el-fake", persona_config={"voiceId": "vid-123"}
+        )
+        chunks = [c async for c in provider.synthesize("hello")]
+
+        assert len(chunks) == 1
+        # Tried the new name first, then fell back to the legacy one.
+        assert "additional_headers" in fake.connect_kwargs[0]
+        assert fake.connect_kwargs[-1] == {"extra_headers": {"xi-api-key": "el-fake"}}
 
 
 class TestProtocolConformance:
