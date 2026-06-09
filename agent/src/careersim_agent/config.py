@@ -103,6 +103,13 @@ class Settings(BaseSettings):
     voice_whisper_device: Literal["cpu", "cuda"] = "cpu"
     voice_whisper_compute_type: str = "int8"
 
+    # whisper_openai (cloud STT) model. Posted to
+    # `/v1/audio/transcriptions` and reuses `openai_api_key` /
+    # `openai_base_url`. Defaults to OpenAI's `whisper-1`; set to a
+    # provider-specific id (e.g. `openai/whisper-large-v3` on
+    # OpenRouter) to match your configured base URL.
+    voice_whisper_openai_model: str = "whisper-1"
+
     # Piper (default TTS) tuning. Voice models live in a named volume.
     voice_piper_model_dir: str = "/app/.piper_models"
     voice_piper_default_voice: str = "en_US-libritts_r-medium"

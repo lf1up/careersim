@@ -67,6 +67,7 @@ def get_stt_provider(
         return WhisperOpenAISTT(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
+            model=settings.voice_whisper_openai_model,
         )
     if name == "deepgram":
         from .deepgram import DeepgramSTT

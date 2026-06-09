@@ -38,6 +38,7 @@ def _settings(**overrides: Any) -> SimpleNamespace:
         voice_whisper_model="base.en",
         voice_whisper_device="cpu",
         voice_whisper_compute_type="int8",
+        voice_whisper_openai_model="whisper-1",
         voice_piper_model_dir="/tmp/piper",
         voice_piper_default_voice="en_US-libritts_r-medium",
         deepgram_api_key="",
@@ -76,6 +77,16 @@ class TestSTTFactory:
         s = _settings(voice_stt_provider="whisper_openai")
         provider = get_stt_provider(PERSONA, settings_override=s)
         assert isinstance(provider, WhisperOpenAISTT)
+        assert provider._model == "whisper-1"
+
+    def test_whisper_openai_model_configurable(self) -> None:
+        s = _settings(
+            voice_stt_provider="whisper_openai",
+            voice_whisper_openai_model="openai/whisper-large-v3",
+        )
+        provider = get_stt_provider(PERSONA, settings_override=s)
+        assert isinstance(provider, WhisperOpenAISTT)
+        assert provider._model == "openai/whisper-large-v3"
 
     def test_deepgram_requires_key(self) -> None:
         s = _settings(voice_stt_provider="deepgram")
