@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { config } from '@/config/env';
+import { config, getOpenRouterHeaders } from '@/config/env';
 import { AppDataSource } from '@/config/database';
 import { SystemConfiguration } from '@/entities/SystemConfiguration';
 import { Persona } from '@/entities/Persona';
@@ -65,6 +65,7 @@ export class AIService {
     this.openai = new OpenAI({
       baseURL: config.ai.openai.baseUrl,
       apiKey: config.ai.openai.apiKey,
+      defaultHeaders: getOpenRouterHeaders(),
     });
     
     // Store instance for static access

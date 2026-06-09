@@ -68,6 +68,7 @@ def get_stt_provider(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
             model=settings.voice_whisper_openai_model,
+            default_headers=settings.openai_default_headers,
         )
     if name == "deepgram":
         from .deepgram import DeepgramSTT
@@ -127,6 +128,7 @@ def get_tts_provider(
             api_key=settings.openai_api_key,
             base_url=settings.openai_base_url,
             persona_config=persona_cfg,
+            default_headers=settings.openai_default_headers,
         )
     if name == "elevenlabs":
         from .elevenlabs import ElevenLabsTTS

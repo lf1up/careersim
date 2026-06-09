@@ -135,6 +135,7 @@ class EvalService:
             frequency_penalty=eval_cfg["frequency_penalty"],
             presence_penalty=eval_cfg["presence_penalty"],
             **({"base_url": eval_cfg["base_url"]} if eval_cfg.get("base_url") else {}),
+            **({"default_headers": eval_cfg["default_headers"]} if eval_cfg.get("default_headers") else {}),
         )
         logger.info(f"EvalService initialised with model={eval_cfg['model']}")
 

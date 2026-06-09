@@ -67,6 +67,10 @@ const envSchema = z
     // AI Services
     OPENAI_BASE_URL: z.string().default('https://openrouter.ai/api/v1'),
     OPENAI_API_KEY: z.string(),
+    // App attribution shown in OpenRouter activity logs / rankings
+    // (sent as X-Title and HTTP-Referer headers).
+    OPENAI_APP_NAME: z.string().default('CareerSim'),
+    OPENAI_APP_URL: z.string().default(''),
     OPENAI_MODEL: z.string().default('openai/gpt-5.2'),
     OPENAI_PROVIDER: z.string().default('openai'),
     OPENAI_MAX_TOKENS: numberFromString(200000),
@@ -185,6 +189,8 @@ export const config: {
     openai: {
       baseUrl: string;
       apiKey: string;
+      appName: string;
+      appUrl: string;
       model: string;
       provider: string;
       maxTokens: number;
@@ -282,6 +288,8 @@ export const config: {
     openai: {
       baseUrl: envVars.OPENAI_BASE_URL,
       apiKey: envVars.OPENAI_API_KEY,
+      appName: envVars.OPENAI_APP_NAME,
+      appUrl: envVars.OPENAI_APP_URL,
       model: envVars.OPENAI_MODEL,
       provider: envVars.OPENAI_PROVIDER,
       maxTokens: envVars.OPENAI_MAX_TOKENS as number,
@@ -338,4 +346,21 @@ export const config: {
   cors: {
     allowedOrigins: envVars.ALLOWED_ORIGINS.split(','),
   },
-}; 
+};
+
+/**
+ * Headers used by OpenRouter to attribute requests to this app in its
+ * activity logs and public rankings. Only includes a header when the
+ * corresponding value is configured. Safe to send to other OpenAI-compatible
+ * providers (unknown headers are ignored).
+ */
+export function getOpenRouterHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (config.ai.openai.appName) {
+    headers['X-Title'] = config.ai.openai.appName;
+  }
+  if (config.ai.openai.appUrl) {
+    headers['HTTP-Referer'] = config.ai.openai.appUrl;
+  }
+  return headers;
+}

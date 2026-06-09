@@ -135,6 +135,8 @@ def generate_ai_response(state: ConversationState) -> dict[str, Any]:
         }
         if settings.openai_base_url:
             model_kwargs["base_url"] = settings.openai_base_url
+        if settings.openai_default_headers:
+            model_kwargs["default_headers"] = settings.openai_default_headers
         
         model = ChatOpenAI(**model_kwargs)
         

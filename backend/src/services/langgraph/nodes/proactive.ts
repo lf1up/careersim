@@ -1,7 +1,7 @@
 import { AIMessage } from '@langchain/core/messages';
 import { ChatOpenAI } from '@langchain/openai';
 import { ConversationGraphState } from '../state';
-import { config } from '@/config/env';
+import { config, getOpenRouterHeaders } from '@/config/env';
 import { compositeSimilarity } from '@/utils/textSimilarity';
 import { transformersService } from '@/services/transformers';
 import {
@@ -296,6 +296,7 @@ export async function generateProactiveMessageNode(
       openAIApiKey: aiConfig.apiKey,
       configuration: {
         baseURL: aiConfig.baseUrl,
+        defaultHeaders: getOpenRouterHeaders(),
       },
       timeout: 25000, // 25 second timeout for the AI call itself
     });

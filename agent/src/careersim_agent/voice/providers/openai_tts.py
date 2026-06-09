@@ -29,12 +29,14 @@ class OpenAITTS:
         base_url: Optional[str] = None,
         persona_config: Optional[dict[str, Any]] = None,
         model: str = "gpt-4o-mini-tts",
+        default_headers: Optional[dict] = None,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
         self._persona_voice = (persona_config or {}).get("voice") or "alloy"
         self._persona_speed = float((persona_config or {}).get("speed") or 1.0)
         self._model = model
+        self._default_headers = default_headers or {}
         self._client = None
 
     def output_sample_rate(self) -> int:
@@ -52,6 +54,8 @@ class OpenAITTS:
             kwargs: dict = {"api_key": self._api_key}
             if self._base_url:
                 kwargs["base_url"] = self._base_url
+            if self._default_headers:
+                kwargs["default_headers"] = self._default_headers
             self._client = AsyncOpenAI(**kwargs)
         return self._client
 

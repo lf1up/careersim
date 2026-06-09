@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # OpenAI API Configuration
     openai_api_key: str = ""
     openai_base_url: Optional[str] = None
+    # App attribution shown in OpenRouter activity logs / rankings
+    # (sent as X-Title and HTTP-Referer headers on each request).
+    openai_app_name: str = "CareerSim"
+    openai_app_url: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_provider: str = "openai"
     openai_max_tokens: int = 1000
@@ -121,6 +125,20 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""
 
     @property
+    def openai_default_headers(self) -> dict:
+        """Attribution headers read by OpenRouter for activity logs / rankings.
+
+        Only includes a header when the corresponding value is set. Safe to
+        send to other OpenAI-compatible providers (unknown headers are ignored).
+        """
+        headers: dict = {}
+        if self.openai_app_name:
+            headers["X-Title"] = self.openai_app_name
+        if self.openai_app_url:
+            headers["HTTP-Referer"] = self.openai_app_url
+        return headers
+
+    @property
     def openai_config(self) -> dict:
         """Get OpenAI configuration as a dict."""
         config = {
@@ -134,6 +152,8 @@ class Settings(BaseSettings):
         }
         if self.openai_base_url:
             config["base_url"] = self.openai_base_url
+        if self.openai_default_headers:
+            config["default_headers"] = self.openai_default_headers
         return config
 
     @property
@@ -150,6 +170,8 @@ class Settings(BaseSettings):
         }
         if self.openai_base_url:
             config["base_url"] = self.openai_base_url
+        if self.openai_default_headers:
+            config["default_headers"] = self.openai_default_headers
         return config
 
 

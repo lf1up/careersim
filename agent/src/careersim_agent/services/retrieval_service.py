@@ -71,6 +71,7 @@ class RetrievalService:
             model=settings.rag_embedding_model,
             api_key=settings.openai_api_key,
             **({"base_url": settings.openai_base_url} if settings.openai_base_url else {}),
+            **({"default_headers": settings.openai_default_headers} if settings.openai_default_headers else {}),
         )
 
         self._chunk_size = settings.rag_chunk_size

@@ -45,6 +45,7 @@ def _settings(**overrides: Any) -> SimpleNamespace:
         elevenlabs_api_key="",
         openai_api_key="sk-fake",
         openai_base_url=None,
+        openai_default_headers={},
     )
     base.update(overrides)
     return SimpleNamespace(**base)

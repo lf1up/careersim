@@ -34,10 +34,12 @@ class WhisperOpenAISTT:
         api_key: str,
         base_url: Optional[str] = None,
         model: str = "whisper-1",
+        default_headers: Optional[dict] = None,
     ) -> None:
         self._api_key = api_key
         self._base_url = base_url
         self._model = model
+        self._default_headers = default_headers or {}
         self._client = None
 
     def input_sample_rate(self) -> int:
@@ -55,6 +57,8 @@ class WhisperOpenAISTT:
             kwargs: dict = {"api_key": self._api_key}
             if self._base_url:
                 kwargs["base_url"] = self._base_url
+            if self._default_headers:
+                kwargs["default_headers"] = self._default_headers
             self._client = AsyncOpenAI(**kwargs)
         return self._client
 
