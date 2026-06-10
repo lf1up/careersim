@@ -176,7 +176,9 @@ async def test_stream_user_message_yields_each_bubble() -> None:
     assert req.url.path == "/sessions/sess-1/messages/stream"
     assert req.headers["Authorization"] == "Bearer user-bearer"
     assert req.headers["Accept"] == "text/event-stream"
-    assert json.loads(req.content.decode()) == {"content": "hello"}
+    # Voice turns are tagged so the persisted transcript can be split with
+    # voice-call dividers in the UI.
+    assert json.loads(req.content.decode()) == {"content": "hello", "source": "voice"}
 
 
 @pytest.mark.asyncio

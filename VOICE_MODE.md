@@ -40,7 +40,11 @@ routes).
   the full turn server-side on the stream's terminal `done` event, so
   the spoken reply always equals the saved transcript even if the user
   barges in mid-reply (the worker stops speaking but keeps draining the
-  stream so persistence still runs exactly once).
+  stream so persistence still runs exactly once). The worker sends
+  `source: "voice"` on the stream body so the persisted human + AI delta
+  is tagged with its origin (`messages.source`); web text chat leaves it
+  unset and the API defaults to `text`. The chat log uses this to bracket
+  spoken turns with "Voice call started / ended" dividers.
 * **`api`** owns ownership checks and the daily quota. The quota debit
   is authoritative from the worker via the internal end route
   (`POST /internal/sessions/:id/voice/end`), using a server-side clock
@@ -149,7 +153,10 @@ documented reason for skipping).
 7. Click **End call**.
 8. Verify the chat transcript shows the captured turns (text mode) —
    including every follow-up bubble, even if you barged in mid-reply
-   (the worker drains the stream so persistence still completes).
+   (the worker drains the stream so persistence still completes). The
+   spoken turns are wrapped with **Voice call started / ended** dividers,
+   and `messages.source` reads `voice` for those rows (`text` for any
+   typed messages before/after the call).
 9. Verify `sessions.voice_call_started_at` and
    `sessions.voice_call_ended_at` are set in the DB.
 10. Verify `voice_minute_usage` has a row for today with

@@ -9,7 +9,13 @@ import type {
   AgentWireState,
 } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
-import { messages, sessions, type MessageRow, type SessionRow } from '../../db/schema.js';
+import {
+  messages,
+  sessions,
+  type MessageRow,
+  type MessageSource,
+  type SessionRow,
+} from '../../db/schema.js';
 import { forbidden, notFound } from '../../plugins/errors.js';
 
 export interface Range {
@@ -53,6 +59,8 @@ export interface SessionDetail {
     role: 'human' | 'ai';
     content: string;
     order_index: number;
+    /** Origin of the message: text chat vs a voice call. */
+    source: MessageSource;
     typing_delay_ms: number | null;
     created_at: string;
   }>;
@@ -117,6 +125,8 @@ export interface SessionsService {
   prepareStream(
     userId: string,
     sessionId: string,
+    /** Origin to stamp on the persisted delta (defaults to text chat). */
+    source?: MessageSource,
   ): Promise<{
     session: SessionRow;
     persist: (finalState: AgentWireState, newMessages: AgentMessage[]) => Promise<SessionDetail>;
@@ -230,6 +240,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         role: m.role,
         content: m.content,
         order_index: m.orderIndex,
+        source: m.source,
         typing_delay_ms: m.typingDelayMs,
         created_at: m.createdAt.toISOString(),
       })),
@@ -248,6 +259,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     sessionId: string,
     existingCount: number,
     agentMessages: AgentMessage[],
+    source: MessageSource = 'text',
   ): Promise<void> {
     if (agentMessages.length <= existingCount) return;
     const delta = agentMessages.slice(existingCount);
@@ -256,6 +268,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       role: m.role,
       content: m.content,
       orderIndex: existingCount + i,
+      source,
       typingDelayMs: null as number | null,
     }));
     await db.insert(messages).values(values);
@@ -290,9 +303,10 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     session: SessionRow,
     response: AgentConversationResponse,
     patch: UpdatePatch = {},
+    source: MessageSource = 'text',
   ): Promise<SessionDetail> {
     const existing = await countMessages(session.id);
-    await persistMessageDelta(session.id, existing, response.state.messages ?? []);
+    await persistMessageDelta(session.id, existing, response.state.messages ?? [], source);
     const updated = await updateSession(session.id, {
       stateSnapshot: response.state,
       ...patch,
@@ -469,7 +483,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       return { nudged: true, session: detail };
     },
 
-    async prepareStream(userId, sessionId) {
+    async prepareStream(userId, sessionId, source = 'text') {
       const session = await loadSessionOrThrow(userId, sessionId);
       return {
         session,
@@ -493,7 +507,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
           const delta = (finalState.messages ?? []).slice(existingCount);
           const isHumanTurn = delta.some((m) => m.role === 'human');
           const patch: UpdatePatch = isHumanTurn ? humanTurnPatch(new Date()) : {};
-          return applyResponse(session, response, patch);
+          return applyResponse(session, response, patch, source);
         },
       };
     },

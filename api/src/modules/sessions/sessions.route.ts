@@ -196,10 +196,11 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     },
     async (request, reply) => {
       const userMessage = request.body.content;
+      const source = request.body.source ?? 'text';
       await runSseProxy(app, request, reply, {
         kind: 'turn',
         corsAllowedOrigins,
-        load: () => service.prepareStream(request.user.sub, request.params.id),
+        load: () => service.prepareStream(request.user.sub, request.params.id, source),
         agent: (state, signal) =>
           opts.agent.streamTurn({ state, userMessage, signal }),
       });

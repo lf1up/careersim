@@ -79,11 +79,19 @@ export interface Persona {
 
 export type MessageRole = 'human' | 'ai';
 
+/** Where a message originated: web text chat vs a LiveKit voice call. */
+export type MessageSource = 'text' | 'voice';
+
 export interface Message {
   id: string;
   role: MessageRole;
   content: string;
   order_index: number;
+  /**
+   * Origin of the message. Older sessions persisted before voice tagging
+   * may omit it over the wire, so treat a missing value as `'text'`.
+   */
+  source: MessageSource;
   typing_delay_ms: number | null;
   created_at: string;
 }

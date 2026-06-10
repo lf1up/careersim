@@ -15,6 +15,14 @@ import type { AgentWireState } from '../agent/types.js';
 
 export const messageRoleEnum = pgEnum('message_role', ['human', 'ai']);
 
+/**
+ * Where a message originated. `text` is the default web chat path; `voice`
+ * marks turns that flowed through a LiveKit voice call (the spoken user
+ * transcript and the persona's spoken replies). The UI uses this to split
+ * the transcript with "voice call" dividers and to label call segments.
+ */
+export const messageSourceEnum = pgEnum('message_source', ['text', 'voice']);
+
 export const authTokenPurposeEnum = pgEnum('auth_token_purpose', [
   'verify_email',
   'login_link',
@@ -129,6 +137,7 @@ export const messages = pgTable(
     role: messageRoleEnum('role').notNull(),
     content: text('content').notNull(),
     orderIndex: integer('order_index').notNull(),
+    source: messageSourceEnum('source').notNull().default('text'),
     typingDelayMs: integer('typing_delay_ms'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -162,5 +171,6 @@ export type NewMessageRow = typeof messages.$inferInsert;
 export type AuthTokenRow = typeof authTokens.$inferSelect;
 export type NewAuthTokenRow = typeof authTokens.$inferInsert;
 export type AuthTokenPurpose = (typeof authTokenPurposeEnum.enumValues)[number];
+export type MessageSource = (typeof messageSourceEnum.enumValues)[number];
 export type VoiceMinuteUsageRow = typeof voiceMinuteUsage.$inferSelect;
 export type NewVoiceMinuteUsageRow = typeof voiceMinuteUsage.$inferInsert;

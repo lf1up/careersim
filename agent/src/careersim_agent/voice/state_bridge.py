@@ -161,7 +161,11 @@ class APIClient:
         async with client.stream(
             "POST",
             url,
-            json={"content": user_text},
+            # `source: "voice"` tags the persisted human + AI delta as a
+            # spoken turn so the transcript can be split with voice-call
+            # dividers in the UI. Web text chat omits this (defaults to
+            # "text" server-side).
+            json={"content": user_text, "source": "voice"},
             headers={
                 "Authorization": f"Bearer {bearer_token}",
                 "Accept": "text/event-stream",

@@ -66,8 +66,39 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     });
     const tail = detail.json().messages.slice(-2);
     expect(tail).toEqual([
-      expect.objectContaining({ role: 'human', content: 'streamed hi' }),
-      expect.objectContaining({ role: 'ai', content: 'echo:streamed hi' }),
+      expect.objectContaining({ role: 'human', content: 'streamed hi', source: 'text' }),
+      expect.objectContaining({ role: 'ai', content: 'echo:streamed hi', source: 'text' }),
+    ]);
+  });
+
+  it('tags the persisted delta with source=voice when the worker streams a spoken turn', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = (
+      await h.app.inject({
+        method: 'POST',
+        url: '/sessions',
+        payload: { simulation_slug: SLUG },
+        headers: authHeader,
+      })
+    ).json();
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/messages/stream`,
+      payload: { content: 'spoken hi', source: 'voice' },
+      headers: authHeader,
+    });
+    expect(res.statusCode).toBe(200);
+
+    const detail = await h.app.inject({
+      method: 'GET',
+      url: `/sessions/${session.id}`,
+      headers: authHeader,
+    });
+    const tail = detail.json().messages.slice(-2);
+    expect(tail).toEqual([
+      expect.objectContaining({ role: 'human', content: 'spoken hi', source: 'voice' }),
+      expect.objectContaining({ role: 'ai', content: 'echo:spoken hi', source: 'voice' }),
     ]);
   });
 

@@ -79,21 +79,68 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   // come first, then the in-flight pendingHuman, then the current AI burst.
   const items: BubbleItem[] = [];
   for (const m of messages) {
-    items.push({ key: m.id, role: m.role, content: m.content });
+    // Older messages persisted before voice tagging have no `source`;
+    // treat them as text so they render outside any voice-call block.
+    items.push({ key: m.id, role: m.role, content: m.content, source: m.source ?? 'text' });
   }
+  // Pending bubbles only ever appear in live text chat (voice mode swaps the
+  // composer/transcript for the call surface), so they are always text.
   if (pendingHuman) {
-    items.push({ key: 'pending-human', role: 'human', content: pendingHuman, pending: true });
+    items.push({
+      key: 'pending-human',
+      role: 'human',
+      content: pendingHuman,
+      source: 'text',
+      pending: true,
+    });
   }
   burstedAssistant?.forEach((content, i) => {
-    items.push({ key: `burst-${i}`, role: 'ai', content, pending: true });
+    items.push({ key: `burst-${i}`, role: 'ai', content, source: 'text', pending: true });
   });
   if (pendingAssistant) {
     items.push({
       key: 'pending-ai',
       role: 'ai',
       content: pendingAssistant,
+      source: 'text',
       pending: true,
     });
+  }
+
+  // Interleave the bubbles with "voice call" dividers: a run of one or more
+  // consecutive voice-sourced messages is wrapped with a START block before
+  // it and an END block after it. Multiple calls in one session naturally
+  // produce multiple paired blocks; a call whose messages are the tail of
+  // the transcript gets a trailing END block.
+  const rendered: React.ReactNode[] = [];
+  let inVoiceBlock = false;
+  items.forEach((item, idx) => {
+    const prev = items[idx - 1];
+    const sourceChanged = (prev?.source ?? item.source) !== item.source;
+    if (item.source === 'voice' && !inVoiceBlock) {
+      rendered.push(<CallDivider key={`call-start-${item.key}`} variant="start" />);
+      inVoiceBlock = true;
+    } else if (item.source !== 'voice' && inVoiceBlock) {
+      rendered.push(<CallDivider key={`call-end-${item.key}`} variant="end" />);
+      inVoiceBlock = false;
+    }
+    // Avatar on the *first* AI bubble of a consecutive AI streak, and again
+    // whenever a voice-call divider breaks the streak — so the persona is
+    // re-identified at the top of each call segment.
+    const showAvatar = item.role === 'ai' && (prev?.role !== 'ai' || sourceChanged);
+    rendered.push(
+      <Bubble
+        key={item.key}
+        role={item.role}
+        content={item.content}
+        pending={item.pending}
+        persona={persona}
+        showAvatar={showAvatar}
+      />,
+    );
+  });
+  if (inVoiceBlock) {
+    rendered.push(<CallDivider key="call-end-final" variant="end" />);
   }
 
   return (
@@ -106,23 +153,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
           No messages yet. Send the first one below.
         </p>
       )}
-      {items.map((item, idx) => {
-        const prev = items[idx - 1];
-        // Avatar only on the *first* AI bubble in a consecutive AI streak;
-        // follow-up burst messages keep the gutter alignment but stay
-        // visually quiet.
-        const showAvatar = item.role === 'ai' && prev?.role !== 'ai';
-        return (
-          <Bubble
-            key={item.key}
-            role={item.role}
-            content={item.content}
-            pending={item.pending}
-            persona={persona}
-            showAvatar={showAvatar}
-          />
-        );
-      })}
+      {rendered}
       {!pendingAssistant && isWaiting && (
         <TypingIndicator
           persona={persona}
@@ -140,6 +171,8 @@ interface BubbleItem {
   key: string;
   role: 'human' | 'ai';
   content: string;
+  /** Origin of the message — drives the voice-call divider grouping. */
+  source: 'text' | 'voice';
   pending?: boolean;
 }
 
@@ -235,4 +268,47 @@ const PersonaLabel: React.FC<{ name: string; role?: string | null }> = ({
       </span>
     )}
   </div>
+);
+
+/**
+ * Full-width separator that brackets a run of voice-call messages so the user
+ * can tell at a glance which part of the transcript was spoken vs. typed.
+ * Rendered once when the transcript transitions text→voice (`start`) and once
+ * when it transitions back voice→text or the call's messages end the log
+ * (`end`).
+ */
+const CallDivider: React.FC<{ variant: 'start' | 'end' }> = ({ variant }) => {
+  const label = variant === 'start' ? 'Voice call started' : 'Voice call ended';
+  return (
+    <div
+      className="flex items-center gap-3 py-1 text-secondary-600 dark:text-secondary-400"
+      role="separator"
+      aria-label={label}
+    >
+      <span className="h-px flex-1 bg-black/30 dark:bg-retro-ink-dark/40" aria-hidden />
+      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
+        <PhoneGlyph variant={variant} />
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-black/30 dark:bg-retro-ink-dark/40" aria-hidden />
+    </div>
+  );
+};
+
+const PhoneGlyph: React.FC<{ variant: 'start' | 'end' }> = ({ variant }) => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+    className={clsx(variant === 'end' && 'opacity-70')}
+  >
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+    {variant === 'end' && <line x1="2" y1="2" x2="22" y2="22" />}
+  </svg>
 );

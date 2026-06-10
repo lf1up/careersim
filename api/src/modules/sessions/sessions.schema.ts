@@ -6,6 +6,11 @@ export const createSessionSchema = z.object({
 
 export const sendMessageSchema = z.object({
   content: z.string().min(1).max(8000),
+  /**
+   * Origin of the turn. Web text chat omits this (defaults to `text`); the
+   * voice worker sets `voice` so the persisted turn is tagged as spoken.
+   */
+  source: z.enum(['text', 'voice']).optional(),
 });
 
 /**
@@ -46,6 +51,7 @@ export const messageSchema = z.object({
   role: z.enum(['human', 'ai']),
   content: z.string(),
   order_index: z.number().int(),
+  source: z.enum(['text', 'voice']),
   typing_delay_ms: z.number().int().nullable(),
   created_at: z.string(),
 });
