@@ -9,7 +9,7 @@ export default defineConfig({
     hookTimeout: 20_000,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'html', 'lcov'],
       include: ['src/**/*.ts'],
       exclude: ['src/index.ts', 'src/db/migrate.ts'],
     },

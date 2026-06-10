@@ -1,0 +1,26 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+flag_management:
+  default_rules:
+    carryforward: true
+
+flags:
+  api:
+    paths:
+      - api/src
+  agent:
+    paths:
+      - agent/src
+
+comment:
+  layout: "header, diff, flags, components"
+  require_changes: true
