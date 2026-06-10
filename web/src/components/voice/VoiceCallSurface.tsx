@@ -39,10 +39,11 @@ function elapsedCallSeconds(startMs: number): number {
 /**
  * Full-bleed surface that takes over the chat area while a voice call
  * is active. Replaces (not overlays) the transcript so the user has
- * an unambiguous "I'm in a call now" mode. Live captions stack the
- * latest persona reply at the top with the user's last utterance
- * underneath, both clearing on `is_final=true` plus a short fade
- * window.
+ * an unambiguous "I'm in a call now" mode. Live captions stack every
+ * persona bubble of the current turn (the main reply plus any follow-up
+ * bursts) at the top with the user's last utterance underneath. The
+ * persona bubbles accumulate as they stream in and clear when the user
+ * starts a new turn, so a follow-up never overwrites the main message.
  */
 export function VoiceCallSurface({
   sessionId,
@@ -53,7 +54,12 @@ export function VoiceCallSurface({
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [aiCaption, setAiCaption] = useState<VoiceCaption | null>(null);
+  // All AI caption bubbles for the *current* persona turn. The worker
+  // streams multi-bubble replies (the main message plus any follow-up
+  // bursts) as separate final captions; we accumulate them so a follow-up
+  // never replaces the main message on screen. Cleared when the user
+  // starts a new turn.
+  const [aiCaptions, setAiCaptions] = useState<VoiceCaption[]>([]);
   const [userCaption, setUserCaption] = useState<VoiceCaption | null>(null);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
   // True while the persona's reply is being generated — i.e. the user
@@ -100,16 +106,24 @@ export function VoiceCallSurface({
         // Listen for caption frames published by the agent worker.
         const unsubscribe = conn.onCaption((c) => {
           if (c.role === 'ai') {
-            setAiCaption(c);
-            // A non-empty AI caption means the reply is ready and the
-            // persona has started speaking — stop the "cooking" animation.
-            if (c.text && c.text.trim()) setIsThinking(false);
+            // Each non-empty AI caption is one bubble of the persona's
+            // reply (main message or a follow-up burst). Append rather
+            // than replace so the whole multi-bubble reply stays visible.
+            // The worker also emits an empty final caption at call end —
+            // ignore those so we don't push a blank bubble.
+            if (c.text && c.text.trim()) {
+              setAiCaptions((prev) => [...prev, c]);
+              // The reply is landing — stop the "cooking" animation.
+              setIsThinking(false);
+            }
           } else {
             setUserCaption(c);
             if (c.is_final && c.text.trim()) {
               // The user just finished an utterance; the server is now
-              // generating the reply (POST /messages -> agent.turn). Show
-              // the "cooking" indicator until the AI caption lands.
+              // generating the reply. Clear the previous turn's persona
+              // bubbles and show the "cooking" indicator until the next
+              // AI caption lands.
+              setAiCaptions([]);
               setIsThinking(true);
             } else if (!c.is_final) {
               // Fresh interim user speech — they're talking again, not
@@ -269,19 +283,22 @@ export function VoiceCallSurface({
         </div>
 
         <div className="w-full max-w-xl space-y-3" aria-live="polite">
-          {isThinking ? (
-            <ThinkingIndicator personaLabel={personaLabel} />
-          ) : (
-            aiCaption &&
-            aiCaption.text && (
-              <div className="border-2 border-black dark:border-retro-ink-dark bg-retro-paper dark:bg-retro-paper-dark p-3">
+          {aiCaptions.map((c, i) => (
+            <div
+              key={i}
+              className="border-2 border-black dark:border-retro-ink-dark bg-retro-paper dark:bg-retro-paper-dark p-3"
+            >
+              {/* Label the persona once, on the first bubble, so a stacked
+                  multi-bubble reply reads as one grouped turn. */}
+              {i === 0 && (
                 <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">
                   {personaLabel}
                 </div>
-                <div className="text-sm leading-snug">{aiCaption.text}</div>
-              </div>
-            )
-          )}
+              )}
+              <div className="text-sm leading-snug">{c.text}</div>
+            </div>
+          ))}
+          {isThinking && <ThinkingIndicator personaLabel={personaLabel} />}
           {userCaption && userCaption.text && (
             <div className="border-2 border-black dark:border-retro-ink-dark bg-retro-accent/30 dark:bg-retro-accent-dark/30 p-3">
               <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">

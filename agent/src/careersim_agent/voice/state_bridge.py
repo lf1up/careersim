@@ -18,8 +18,9 @@ messages, without the worker needing to know SQL.
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any, Optional
+from typing import Any, AsyncIterator, Optional
 
 import httpx
 
@@ -124,6 +125,117 @@ class APIClient:
                 f"{resp.status_code} {resp.text[:200]}"
             )
         return resp.json()
+
+    async def stream_user_message(
+        self,
+        session_id: str,
+        user_text: str,
+        *,
+        bearer_token: str,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Persist a user turn and stream the persona reply as it generates.
+
+        Hits the user-facing SSE endpoint
+        ``POST /sessions/:id/messages/stream``, which emits one
+        ``event: message`` per AI bubble (the main reply plus each
+        follow-up burst) and a terminal ``event: done`` once the full
+        turn has been persisted server-side. Yields plain dicts:
+
+        - ``{"type": "message", "content": str, "is_followup": bool}``
+        - ``{"type": "done"}``
+        - ``{"type": "error", "message": str}``
+
+        The HTTP request is kept open until ``done`` so the API's
+        ``prepareStream`` persist callback runs exactly once — preserving
+        the same persistence guarantee as :meth:`post_user_message`.
+        Callers that stop consuming early (barge-in) must still drain to
+        ``done`` if they need the persisted transcript to stay in sync.
+        """
+        client = await self._ensure_client()
+        url = f"{self._base_url}/sessions/{session_id}/messages/stream"
+        # A multi-bubble turn plus the eval / proactive nodes can easily
+        # outlast the client's 30s default read timeout. Disable the read
+        # timeout for the streamed body (connect/write/pool keep a bound)
+        # so we never tear the SSE connection down mid-turn.
+        timeout = httpx.Timeout(self._timeout, read=None)
+        async with client.stream(
+            "POST",
+            url,
+            json={"content": user_text},
+            headers={
+                "Authorization": f"Bearer {bearer_token}",
+                "Accept": "text/event-stream",
+            },
+            timeout=timeout,
+        ) as resp:
+            if resp.status_code >= 400:
+                body = (await resp.aread()).decode("utf-8", "replace")
+                raise RuntimeError(
+                    f"stream user message failed for {session_id}: "
+                    f"{resp.status_code} {body[:200]}"
+                )
+
+            event_name = "message"
+            data_lines: list[str] = []
+
+            async for raw_line in resp.aiter_lines():
+                line = raw_line.rstrip("\r")
+                if line == "":
+                    # Blank line terminates one SSE event.
+                    if data_lines:
+                        parsed = self._parse_sse_event(event_name, data_lines)
+                        if parsed is not None:
+                            yield parsed
+                    event_name = "message"
+                    data_lines = []
+                    continue
+                if line.startswith(":"):
+                    # Comment / heartbeat — ignore.
+                    continue
+                if line.startswith("event:"):
+                    event_name = line[len("event:"):].strip()
+                elif line.startswith("data:"):
+                    data_lines.append(line[len("data:"):].lstrip())
+
+            # Flush a trailing event that wasn't followed by a blank line.
+            if data_lines:
+                parsed = self._parse_sse_event(event_name, data_lines)
+                if parsed is not None:
+                    yield parsed
+
+    @staticmethod
+    def _parse_sse_event(
+        event_name: str,
+        data_lines: list[str],
+    ) -> Optional[dict[str, Any]]:
+        """Convert a raw SSE (event, data) pair into a worker-facing dict.
+
+        Returns ``None`` for events we don't care about or that fail to
+        parse, so the streaming loop can simply skip them.
+        """
+        raw = "\n".join(data_lines)
+        try:
+            payload = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+
+        if event_name == "message":
+            content = payload.get("content")
+            if not isinstance(content, str) or not content.strip():
+                return None
+            return {
+                "type": "message",
+                "content": content,
+                "is_followup": bool(payload.get("is_followup", False)),
+            }
+        if event_name == "done":
+            return {"type": "done"}
+        if event_name == "error":
+            msg = payload.get("message")
+            return {"type": "error", "message": str(msg) if msg else "stream error"}
+        return None
 
     async def fetch_voice_budget(self, session_id: str) -> dict[str, Any]:
         """Read the session owner's remaining daily voice budget.

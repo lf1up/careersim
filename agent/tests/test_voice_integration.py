@@ -113,10 +113,19 @@ class FakeCaptions:
 
 @dataclass
 class FakeAPI:
-    """In-memory stand-in for state_bridge.APIClient."""
+    """In-memory stand-in for state_bridge.APIClient.
+
+    ``stream_user_message`` mirrors the production SSE contract: for each
+    user turn it pops the next list of reply bubbles from ``reply_bubbles``
+    and yields one ``message`` event per bubble, then a terminal ``done``.
+    ``done_count`` lets tests assert the stream was drained to completion
+    (the persistence guarantee) even when the speaker stops early.
+    """
 
     state_response: dict[str, Any] = field(default_factory=dict)
     user_messages: list[tuple[str, str]] = field(default_factory=list)
+    reply_bubbles: list[list[str]] = field(default_factory=list)
+    done_count: int = 0
     end_reports: list[tuple[str, int, Optional[dict[str, Any]]]] = field(
         default_factory=list
     )
@@ -131,11 +140,15 @@ class FakeAPI:
     async def fetch_voice_budget(self, session_id: str) -> dict[str, Any]:
         return dict(self.budget_response)
 
-    async def post_user_message(
+    async def stream_user_message(
         self, session_id: str, user_text: str, *, bearer_token: str
-    ) -> dict[str, Any]:
+    ) -> AsyncIterator[dict[str, Any]]:
         self.user_messages.append((session_id, user_text))
-        return {"id": "msg-fake", "content": user_text}
+        bubbles = self.reply_bubbles.pop(0) if self.reply_bubbles else ["ok"]
+        for i, bubble in enumerate(bubbles):
+            yield {"type": "message", "content": bubble, "is_followup": i > 0}
+        self.done_count += 1
+        yield {"type": "done"}
 
     async def report_call_end(
         self,
@@ -155,10 +168,12 @@ class FakeAPI:
 # Coordinator: a thin imitation of what _run_room_session will do
 #
 # The production worker hands off audio routing to the LiveKit
-# Agents SDK (`AgentSession`); here we drive the adapter manually
-# with the fake providers so the integration test stays SDK-free
-# while still exercising the contract: STT → adapter.user_turn →
-# TTS chunk-stream → captions → metadata recording.
+# Agents SDK (`AgentSession`); here we drive the flow manually with
+# the fake providers so the integration test stays SDK-free while
+# still exercising the streaming contract: STT → opening burst
+# bubbles → per-user-turn `api.stream_user_message` → speak each
+# streamed reply bubble (TTS chunk-stream + caption) → metadata
+# recording.
 # -----------------------------------------------------------------
 
 
@@ -174,26 +189,31 @@ async def _run_call(
     audio_starts: list[float],
     audio_ends: list[float],
 ) -> None:
-    """Drive one call's worth of turns through the adapter.
+    """Drive one call's worth of turns through the streaming flow.
 
     `audio_starts/ends` are paired wall-clock timings — one per
     user utterance — the test uses to feed `record_voice_turn`.
     """
-    # Opening turn.
-    opening = await adapter.opening_turn()
+    # Opening turn — only when the loaded transcript is empty. If the
+    # persona already opened via the text API (the opening is persisted),
+    # the worker stays silent rather than speaking a second, unsaved
+    # opening. Mirrors the guard in `_run_room_session`.
+    existing_messages = adapter.current_state_wire().get("messages") or []
+    opening = None if existing_messages else await adapter.opening_turn()
     if opening is not None and opening.text:
-        await captions.publish(Caption(role="ai", text=opening.text, is_final=True))
-        async for chunk in stream_chunks(opening.text):
-            async for _audio in tts.synthesize(chunk):
-                pass
-        adapter.record_voice_turn(
-            VoiceTurnMetadata(
-                role="ai",
-                transcript=opening.text,
-                audio_start_sec=0.0,
-                audio_end_sec=1.5,
+        for bubble in opening.burst_messages or [opening.text]:
+            await captions.publish(Caption(role="ai", text=bubble, is_final=True))
+            async for chunk in stream_chunks(bubble):
+                async for _audio in tts.synthesize(chunk):
+                    pass
+            adapter.record_voice_turn(
+                VoiceTurnMetadata(
+                    role="ai",
+                    transcript=bubble,
+                    audio_start_sec=0.0,
+                    audio_end_sec=1.5,
+                )
             )
-        )
 
     # User turns: pull each transcript from the fake STT in order.
     last_audio_end = 1.5 if opening else 0.0
@@ -212,24 +232,29 @@ async def _run_call(
                 prior_turn_ended_sec=last_audio_end,
             )
         )
-        await api.post_user_message(
-            session_id, result.text, bearer_token=bearer_token
-        )
 
-        turn = await adapter.user_turn(result.text)
-        await captions.publish(Caption(role="ai", text=turn.text, is_final=True))
-        async for chunk in stream_chunks(turn.text):
-            async for _audio in tts.synthesize(chunk):
-                pass
-        adapter.record_voice_turn(
-            VoiceTurnMetadata(
-                role="ai",
-                transcript=turn.text,
-                audio_start_sec=end + 0.3,
-                audio_end_sec=end + 1.8,
+        # Stream the reply and speak each bubble as it arrives.
+        bubble_offset = 0.0
+        async for event in api.stream_user_message(
+            session_id, result.text, bearer_token=bearer_token
+        ):
+            if event["type"] != "message":
+                continue
+            bubble = event["content"]
+            await captions.publish(Caption(role="ai", text=bubble, is_final=True))
+            async for chunk in stream_chunks(bubble):
+                async for _audio in tts.synthesize(chunk):
+                    pass
+            adapter.record_voice_turn(
+                VoiceTurnMetadata(
+                    role="ai",
+                    transcript=bubble,
+                    audio_start_sec=end + 0.3 + bubble_offset,
+                    audio_end_sec=end + 1.8 + bubble_offset,
+                )
             )
-        )
-        last_audio_end = end + 1.8
+            bubble_offset += 1.5
+            last_audio_end = end + 1.8 + bubble_offset
 
     # Teardown: finalize + persist.
     analysis = adapter.finalize_voice_analysis().get("voice")
@@ -271,19 +296,22 @@ def _vikram_state() -> dict[str, Any]:
 
 @pytest.mark.asyncio
 async def test_full_call_flow_round_trips_state_and_captions() -> None:
+    # Opening line comes from the adapter (local proactive); the two user
+    # replies are streamed back by the (fake) API, one bubble each.
     svc = FakeConversationService(
-        next_replies=[
-            "Hey! Thanks for jumping on. So tell me about yourself.",
-            "Got it — and what kind of comp range are you targeting?",
-            "Sure, I can dig into that. Talk soon!",
-        ]
+        next_replies=["Hey! Thanks for jumping on. So tell me about yourself."]
     )
     adapter = LangGraphAdapter(_vikram_state(), service=svc)
 
     stt = FakeSTT(queued=["I'm a senior engineer", "Around 240k base"])
     tts = FakeTTS()
     captions = FakeCaptions()
-    api = FakeAPI()
+    api = FakeAPI(
+        reply_bubbles=[
+            ["Got it — and what kind of comp range are you targeting?"],
+            ["Sure, I can dig into that. Talk soon!"],
+        ]
+    )
 
     await _run_call(
         adapter,
@@ -306,11 +334,13 @@ async def test_full_call_flow_round_trips_state_and_captions() -> None:
     assert len(tts.synthesised) >= 3
     assert any("Thanks for jumping on" in s for s in tts.synthesised)
 
-    # 3. User messages were forwarded to the API with the bearer.
+    # 3. User messages were forwarded to the API with the bearer, and each
+    #    reply stream was drained to its terminal `done` (persistence ran).
     assert api.user_messages == [
         ("sess-int", "I'm a senior engineer"),
         ("sess-int", "Around 240k base"),
     ]
+    assert api.done_count == 2
 
     # 4. Call-end report carries the voice analysis we computed.
     assert len(api.end_reports) == 1
@@ -327,6 +357,99 @@ async def test_full_call_flow_round_trips_state_and_captions() -> None:
     # 5. Providers cleaned up.
     assert stt.closed
     assert tts.closed
+
+
+@pytest.mark.asyncio
+async def test_no_duplicate_opening_when_transcript_already_has_one() -> None:
+    """Regression: a persona that already opened in text must not re-open.
+
+    When the session was created via the text API, the persona's opening is
+    persisted and the loaded snapshot still carries `proactive_trigger ==
+    'start'`. The worker must NOT generate/speak a second (unsaved) opening
+    — it stays silent and waits for the user. Here the loaded state already
+    contains the opening AI message, so no opening should be spoken even
+    though `proactive_trigger` is still 'start'.
+    """
+    svc = FakeConversationService(next_replies=["(should never be used)"])
+    state = _vikram_state()
+    # The opening is already persisted (as it would be after /sessions
+    # create). The adapter takes wire-format messages (plain dicts) and
+    # deserializes them internally.
+    state["messages"] = [{"role": "ai", "content": "Hey! Saw your profile — got a sec?"}]
+    adapter = LangGraphAdapter(state, service=svc)
+
+    stt = FakeSTT(queued=["yes, go ahead"])
+    tts = FakeTTS()
+    captions = FakeCaptions()
+    api = FakeAPI(reply_bubbles=[["Great — let's dive in."]])
+
+    await _run_call(
+        adapter,
+        stt,
+        tts,
+        captions,
+        api,
+        session_id="sess-reopen",
+        bearer_token="t",
+        audio_starts=[1.0],
+        audio_ends=[2.0],
+    )
+
+    # The persona must not have re-spoken its opening line.
+    ai_caption_texts = [c.text for c in captions.published if c.role == "ai"]
+    assert "Hey! Saw your profile — got a sec?" not in ai_caption_texts
+    # The proactive opening service path was never invoked.
+    assert not any(kind == "proactive" for kind, _ in svc.invoked)
+    # Only the streamed reply to the user's turn was spoken.
+    assert ai_caption_texts == ["Great — let's dive in."]
+
+
+@pytest.mark.asyncio
+async def test_streamed_followup_bubbles_are_each_spoken_separately() -> None:
+    """A multi-bubble reply (main + follow-up bursts) is spoken bubble-by-bubble.
+
+    This is the core UX win of the streaming path: rather than joining the
+    whole burst into one utterance, each streamed bubble gets its own
+    caption, TTS pass, and per-turn voice metadata record.
+    """
+    svc = FakeConversationService(next_replies=["Welcome aboard!"])
+    adapter = LangGraphAdapter(_vikram_state(), service=svc)
+
+    stt = FakeSTT(queued=["sounds good"])
+    tts = FakeTTS()
+    captions = FakeCaptions()
+    api = FakeAPI(
+        reply_bubbles=[
+            ["First, the main reply.", "Oh — and one more thing.", "Talk soon!"],
+        ]
+    )
+
+    await _run_call(
+        adapter,
+        stt,
+        tts,
+        captions,
+        api,
+        session_id="sess-burst",
+        bearer_token="t",
+        audio_starts=[1.0],
+        audio_ends=[2.0],
+    )
+
+    final_captions = [c.text for c in captions.published if c.is_final]
+    # 1 opening bubble + 3 streamed reply bubbles, each published separately.
+    assert final_captions == [
+        "Welcome aboard!",
+        "First, the main reply.",
+        "Oh — and one more thing.",
+        "Talk soon!",
+    ]
+    # Each bubble was synthesised on its own (not joined with " … ").
+    assert "First, the main reply." in tts.synthesised
+    assert "Oh — and one more thing." in tts.synthesised
+    assert "Talk soon!" in tts.synthesised
+    assert not any(" … " in s for s in tts.synthesised)
+    assert api.done_count == 1
 
 
 @pytest.mark.asyncio
@@ -351,7 +474,7 @@ async def test_full_call_flow_persona_without_voice_block_still_runs() -> None:
     stt = FakeSTT(queued=["hi"])
     tts = FakeTTS()
     captions = FakeCaptions()
-    api = FakeAPI()
+    api = FakeAPI(reply_bubbles=[["Yeah, sure."]])
 
     await _run_call(
         adapter,
@@ -401,7 +524,7 @@ async def test_call_end_report_carries_call_duration_and_analysis() -> None:
     svc = FakeConversationService(next_replies=["yes"])
     adapter = LangGraphAdapter(_vikram_state(), service=svc)
 
-    api = FakeAPI()
+    api = FakeAPI(reply_bubbles=[["yes"]])
     stt = FakeSTT(queued=["hello there"])
 
     await _run_call(

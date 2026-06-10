@@ -121,3 +121,106 @@ async def test_report_call_end_omits_analysis_when_absent() -> None:
 
     body = json.loads(captured[0].content.decode())
     assert body == {"seconds_used": 5}
+
+
+# -- stream_user_message (SSE) -------------------------------------------------
+
+
+def _sse(*events: tuple[str, dict]) -> bytes:
+    """Render (event, data) pairs into the API's SSE wire format."""
+    out = ""
+    for name, data in events:
+        out += f"event: {name}\ndata: {json.dumps(data)}\n\n"
+    return out.encode()
+
+
+@pytest.mark.asyncio
+async def test_stream_user_message_yields_each_bubble() -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(
+            200,
+            headers={"Content-Type": "text/event-stream"},
+            content=_sse(
+                ("message", {"content": "Hey there!", "is_followup": False}),
+                ("message", {"content": "How can I help?", "is_followup": True}),
+                ("done", {"state": {}, "session": {}}),
+            ),
+        )
+
+    api = APIClient(base_url="http://api:8000", internal_key="secret-key")
+    _install_mock(api, handler)
+    events: list[dict] = []
+    try:
+        async for ev in api.stream_user_message(
+            "sess-1", "hello", bearer_token="user-bearer"
+        ):
+            events.append(ev)
+    finally:
+        await api.aclose()
+
+    # Two bubbles streamed, then a terminal done event.
+    assert events == [
+        {"type": "message", "content": "Hey there!", "is_followup": False},
+        {"type": "message", "content": "How can I help?", "is_followup": True},
+        {"type": "done"},
+    ]
+
+    # Request hits the user-facing streaming route with the bearer token
+    # and an SSE Accept header.
+    assert len(captured) == 1
+    req = captured[0]
+    assert req.method == "POST"
+    assert req.url.path == "/sessions/sess-1/messages/stream"
+    assert req.headers["Authorization"] == "Bearer user-bearer"
+    assert req.headers["Accept"] == "text/event-stream"
+    assert json.loads(req.content.decode()) == {"content": "hello"}
+
+
+@pytest.mark.asyncio
+async def test_stream_user_message_skips_empty_content_and_surfaces_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=_sse(
+                ("message", {"content": "   ", "is_followup": False}),
+                ("message", {"content": "Real reply", "is_followup": False}),
+                ("error", {"message": "boom"}),
+            ),
+        )
+
+    api = APIClient(base_url="http://api:8000", internal_key="k")
+    _install_mock(api, handler)
+    events: list[dict] = []
+    try:
+        async for ev in api.stream_user_message(
+            "sess-2", "hi", bearer_token="t"
+        ):
+            events.append(ev)
+    finally:
+        await api.aclose()
+
+    # Blank-content bubbles are dropped; error events surface to the caller.
+    assert events == [
+        {"type": "message", "content": "Real reply", "is_followup": False},
+        {"type": "error", "message": "boom"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_user_message_raises_on_non_200() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text="forbidden")
+
+    api = APIClient(base_url="http://api:8000", internal_key="k")
+    _install_mock(api, handler)
+    try:
+        with pytest.raises(RuntimeError):
+            async for _ in api.stream_user_message(
+                "sess-3", "hi", bearer_token="t"
+            ):
+                pass
+    finally:
+        await api.aclose()

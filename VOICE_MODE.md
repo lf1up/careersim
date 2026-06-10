@@ -32,8 +32,15 @@ routes).
   user and the agent worker.
 * **`agent-voice`** is a separate process (`python -m
   careersim_agent.main --serve voice`) that joins the same room, runs
-  STT → LangGraph → TTS, and posts user messages back through the
-  public API on the user's bearer token.
+  STT → LangGraph → TTS, and sends user messages back through the
+  public API on the user's bearer token. It uses the **streaming**
+  endpoint `POST /sessions/:id/messages/stream` (SSE) and speaks each
+  reply bubble (the main reply plus each follow-up burst) as it is
+  generated, rather than waiting for the whole turn. The API persists
+  the full turn server-side on the stream's terminal `done` event, so
+  the spoken reply always equals the saved transcript even if the user
+  barges in mid-reply (the worker stops speaking but keeps draining the
+  stream so persistence still runs exactly once).
 * **`api`** owns ownership checks and the daily quota. The quota debit
   is authoritative from the worker via the internal end route
   (`POST /internal/sessions/:id/voice/end`), using a server-side clock
@@ -136,8 +143,13 @@ documented reason for skipping).
 5. Speak: "What's the level for this role?"
 6. Vikram replies; the **caption strip** updates in <1.5s of his
    audio starting; the response audio plays cleanly with no clipping.
+   For a persona with `burstiness > 1`, follow-up bubbles should start
+   speaking one-by-one as they generate (you should NOT wait for the
+   whole multi-bubble reply before any audio plays).
 7. Click **End call**.
-8. Verify the chat transcript shows the captured turns (text mode).
+8. Verify the chat transcript shows the captured turns (text mode) —
+   including every follow-up bubble, even if you barged in mid-reply
+   (the worker drains the stream so persistence still completes).
 9. Verify `sessions.voice_call_started_at` and
    `sessions.voice_call_ended_at` are set in the DB.
 10. Verify `voice_minute_usage` has a row for today with
