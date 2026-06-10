@@ -1,6 +1,6 @@
 [project]
 name = "careersim-agent"
-version = "0.1.0"
+version = "1.0.0"
 description = "LangGraph-based conversation agent with Gradio developer UI"
 readme = "README.md"
 requires-python = ">=3.11"
