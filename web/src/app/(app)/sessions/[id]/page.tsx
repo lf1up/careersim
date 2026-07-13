@@ -478,6 +478,13 @@ export default function SessionDetailPage() {
           try {
             const latest = await apiClient.getSession(sessionId);
             applySessionUpdate(latest, { notify: false });
+            // runStream's finally already cleared the pending state (it ran
+            // to completion once the conflict error propagated). Rehydrate
+            // it with the batch we're about to retry so the optimistic
+            // bubbles stay visible and a handleSend fired mid-retry still
+            // sees these messages in pendingHumansRef.
+            pendingHumansRef.current = batch;
+            setPendingHumans(batch);
             const retry = apiClient.streamMessage(sessionId, batch, abort.signal);
             await runStream(retry, abort.signal);
             return;
