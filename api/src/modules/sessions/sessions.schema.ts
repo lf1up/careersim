@@ -4,13 +4,33 @@ export const createSessionSchema = z.object({
   simulation_slug: z.string().min(1).max(200),
 });
 
+const messageContentSchema = z.string().min(1).max(8000);
+
 export const sendMessageSchema = z.object({
-  content: z.string().min(1).max(8000),
+  /**
+   * One user message, or a batch of them. A batch happens when the user
+   * sent several messages before the persona replied (rapid chat sends,
+   * voice utterances split by pauses): each item is persisted as its own
+   * bubble and the persona composes a single reply to the whole batch.
+   */
+  content: z.union([
+    messageContentSchema,
+    z.array(messageContentSchema).min(1).max(10),
+  ]),
   /**
    * Origin of the turn. Web text chat omits this (defaults to `text`); the
    * voice worker sets `voice` so the persisted turn is tagged as spoken.
    */
   source: z.enum(['text', 'voice']).optional(),
+  /**
+   * Optimistic precondition: the transcript length the caller based this
+   * turn on. When set and the session's snapshot has a different message
+   * count, the request fails with 409 TURN_CONFLICT instead of running.
+   * The voice worker sends it when re-running an abandoned turn — an
+   * abort can race the aborted stream's own commit, and this turns the
+   * would-be silent duplication into a retryable conflict.
+   */
+  expected_message_count: z.number().int().nonnegative().optional(),
 });
 
 /**

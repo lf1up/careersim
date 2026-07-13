@@ -23,13 +23,8 @@ from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Soft timeout on the *first* reply bubble of a turn. When the LLM /
-# API stream stalls past this, the worker logs a warning and speaks a
-# short filler so the user isn't left in dead silence. The SSE read
-# timeout stays disabled (long multi-bubble turns are legitimate) —
-# this only makes a stall visible, it never aborts the turn.
-FIRST_BUBBLE_SOFT_TIMEOUT_SEC = 20.0
-STALL_FILLER_TEXT = "Sorry, give me a moment. I'm still thinking."
+# Turn aggregation tunables (debounce, stall filler, flush timeout) live in
+# voice/turns.py next to the TurnManager that uses them.
 
 
 def run_worker() -> int:
@@ -343,11 +338,20 @@ async def _run_room_session(
 
     * Persona's opening turn is spoken first if
       ``adapter.opening_turn()`` returns non-``None``.
-    * Each user utterance: STT -> publish interim captions ->
-      ``api.stream_user_message(final_text)`` -> speak each streamed
-      reply bubble (main reply + follow-up bursts) through
+    * Each user utterance: STT -> publish interim captions -> the final
+      text is buffered by the ``TurnManager`` (see voice/turns.py) and,
+      after a short debounce, the WHOLE buffer is sent as one
+      turn via ``api.stream_user_message([texts...])``. Each streamed
+      reply bubble (main reply + follow-up bursts) is spoken through
       ``tts.synthesize`` as it arrives. The streaming endpoint persists
-      the full turn server-side on its terminal `done` event.
+      the full turn server-side on its terminal `done` event — nothing
+      is persisted before that.
+    * Abandon-and-rerun: if a NEW finalised utterance lands while a
+      reply stream is still in flight, the stream is aborted (closing
+      the SSE cancels the server-side graph run before anything is
+      persisted) and one new turn is fired with ALL pending utterances,
+      so the persona composes a single reply to everything the user
+      said. Each utterance still persists as its own transcript bubble.
     * On user speech-onset during persona TTS,
       ``adapter.cancel_inflight()`` aborts the in-flight reply and
       ``tts.aclose()`` cancels playback.
@@ -392,6 +396,7 @@ async def _run_room_session(
     from .persona_voice import VoiceTuning
     from .pipeline import LangGraphAdapter
     from .transcripts import Caption
+    from .turns import TurnManager
 
     assert isinstance(adapter, LangGraphAdapter)
     assert isinstance(tuning, VoiceTuning)
@@ -422,19 +427,13 @@ async def _run_room_session(
         "last_turn_end": None,  # monotonic ts when the last turn finished
         "interrupted": False,
         # Turn-level barge-in latch. Set by ``barge_in`` so the bubble
-        # speaker loop stops pulling further follow-up bubbles after the
-        # user interrupts; reset at the start of each utterance. The
-        # streaming drain task keeps running regardless so the API still
-        # persists the full reply.
+        # speaker loop stops SPEAKING further follow-up bubbles after the
+        # user interrupts; reset at the start of each turn. The reply
+        # stream keeps draining to `done` so the API still persists the
+        # full reply — unless a new finalised utterance lands, in which
+        # case the whole turn is abandoned and re-run (see TurnManager).
         "turn_interrupted": False,
     }
-
-    # In-flight SSE drain tasks. Each user turn spawns one that consumes
-    # the streamed reply to completion (so the API persists it) even if the
-    # speaker task is cancelled by a barge-in / superseding utterance. We
-    # track them so the entrypoint teardown can join any stragglers before
-    # closing shared resources.
-    drain_tasks: set[asyncio.Task[None]] = set()
 
     async def _pump(text: str) -> None:
         played = 0.0
@@ -503,6 +502,42 @@ async def _run_room_session(
             source.clear_queue()
         speak_state["speaking"] = False
 
+    # ---- turn manager: buffer utterances, debounce, abandon & re-run -------
+    # The aggregation policy lives in voice/turns.py (unit-testable, no
+    # LiveKit): buffer finalised utterances, debounce, send the WHOLE
+    # buffer as one turn, abandon+re-run when a new utterance lands
+    # mid-generation, clear only on the stream's terminal `done`.
+    def _record_ai_bubble(bubble: str) -> None:
+        adapter.record_voice_turn(  # type: ignore[attr-defined]
+            VoiceTurnMetadata(
+                role="ai",
+                transcript=bubble,
+                audio_start_sec=0.0,
+                audio_end_sec=speak_state["ai_audio_sec"],
+                was_interrupted=speak_state["interrupted"],
+            )
+        )
+
+    async def _publish_turn_event(kind: str) -> None:
+        # Caption-grouping control for the live call surface: `committed`
+        # marks the current AI/user caption stacks as belonging to a
+        # finished (persisted) turn; `superseded` tells the client to drop
+        # already-shown AI bubbles from an abandoned reply that will never
+        # be persisted.
+        await captions.publish_control(  # type: ignore[attr-defined]
+            {"type": f"turn_{kind}"}
+        )
+
+    turns = TurnManager(
+        session_id=session_id,
+        bearer_token=bearer_token,
+        api=api,
+        speak=speak,
+        on_ai_bubble=_record_ai_bubble,
+        speak_state=speak_state,
+        on_turn_event=_publish_turn_event,
+    )
+
     # ---- opening turn (persona speaks first, if configured) ----------------
     # In the normal product flow the session — and the persona's opening, if
     # it opens the conversation — is created via the text API *before* the
@@ -545,6 +580,10 @@ async def _run_room_session(
             )
             if speak_state["turn_interrupted"]:
                 break
+        # The opening isn't a TurnManager turn, so mark it committed here —
+        # the first user utterance should start a fresh caption group.
+        with contextlib.suppress(Exception):
+            await _publish_turn_event("committed")
 
     # ---- locate the user's (auto-subscribed) microphone track --------------
     user_track = None
@@ -601,7 +640,8 @@ async def _run_room_session(
         finally:
             done.set()
 
-    async def _handle_utterance(frames: list[Any]) -> None:
+    async def _transcribe_utterance(frames: list[Any]) -> None:
+        """STT one VAD utterance and feed its final text into the buffer."""
         if not frames:
             return
 
@@ -630,6 +670,11 @@ async def _run_room_session(
 
         text = " ".join(finals).strip()
         if not text:
+            # False start (cough, breath). Re-arm the debounce so any
+            # already-buffered utterances still fire — speech onset
+            # cancelled the previous timer.
+            if turns.pending_texts:
+                turns.arm_debounce()
             return
 
         spoken = sum(
@@ -647,147 +692,45 @@ async def _run_room_session(
                 ),
             )
         )
-
-        # Persist + generate the reply through the SAME path as text chat,
-        # but stream it so we speak each bubble (the main reply plus each
-        # follow-up burst) as it is generated instead of waiting for the
-        # whole turn. POST /sessions/:id/messages/stream runs the graph
-        # server-side and persists the full delta on its terminal `done`
-        # event, so goal eval / sentiment / nudges still run exactly once and
-        # the spoken reply equals the saved transcript. We deliberately do
-        # NOT run the graph locally via the adapter — that would double the
-        # LLM cost and let the spoken reply drift from what's persisted.
-        speak_state["turn_interrupted"] = False
-        bubbles: "asyncio.Queue[str | None]" = asyncio.Queue()
-        turn_started = time.monotonic()
         # Word count only — user speech content stays out of the logs.
         logger.info(
-            "session %s: utterance transcribed (%d words); streaming reply",
+            "session %s: utterance transcribed (%d words); buffering for turn",
             session_id,
             len(text.split()),
         )
+        await turns.on_final_text(text)
 
-        async def _drain() -> None:
-            # Runs to completion independently of the speaker (this
-            # ``_handle_utterance`` task): if a barge-in or a superseding
-            # utterance cancels the speaker, this keeps consuming the SSE to
-            # its `done` event so the API persists the full reply (no
-            # transcript drift). The sentinel is always enqueued so the
-            # speaker loop terminates cleanly.
-            first_bubble = True
+    # Utterances are handed to STT through a queue consumed by ONE worker
+    # task, so transcripts always enter `pending_texts` in speaking order
+    # and no utterance is ever dropped mid-STT (the old superseding model
+    # cancelled the whole handler task, losing text still being
+    # transcribed).
+    utterance_queue: "asyncio.Queue[list[Any] | None]" = asyncio.Queue()
+
+    async def _stt_worker() -> None:
+        while True:
+            frames = await utterance_queue.get()
+            if frames is None:
+                return
             try:
-                async for event in api.stream_user_message(  # type: ignore[attr-defined]
-                    session_id, text, bearer_token=bearer_token
-                ):
-                    etype = event.get("type")
-                    if etype == "message":
-                        if first_bubble:
-                            first_bubble = False
-                            logger.info(
-                                "session %s: first reply bubble received "
-                                "%.1fs after utterance",
-                                session_id,
-                                time.monotonic() - turn_started,
-                            )
-                        await bubbles.put(event["content"])
-                    elif etype == "error":
-                        logger.error(
-                            "session %s: reply stream error: %s",
-                            session_id,
-                            event.get("message"),
-                        )
-                    # `done` simply ends the stream; the sentinel below fires.
+                await _transcribe_utterance(frames)
             except Exception:
                 logger.exception(
-                    "session %s: stream_user_message failed", session_id
+                    "session %s: utterance handling failed", session_id
                 )
-            finally:
-                await bubbles.put(None)
-
-        drain_task = loop.create_task(_drain())
-        drain_tasks.add(drain_task)
-        drain_task.add_done_callback(drain_tasks.discard)
-
-        spoken_bubbles = 0
-        stall_notified = False
-        while True:
-            if spoken_bubbles == 0 and not stall_notified:
-                # Soft first-bubble watchdog: a stalled LLM / API stream
-                # otherwise produces total silence with nothing in the
-                # logs (the SSE read timeout is deliberately disabled).
-                # Speak a filler once and keep waiting — never abort.
-                try:
-                    bubble = await asyncio.wait_for(
-                        bubbles.get(), timeout=FIRST_BUBBLE_SOFT_TIMEOUT_SEC
-                    )
-                except asyncio.TimeoutError:
-                    stall_notified = True
-                    logger.warning(
-                        "session %s: no reply bubble within %.0fs; "
-                        "speaking stall filler",
-                        session_id,
-                        FIRST_BUBBLE_SOFT_TIMEOUT_SEC,
-                    )
-                    if not speak_state["turn_interrupted"]:
-                        # The filler is spoken/captioned only — it is
-                        # intentionally not persisted (same as the quota
-                        # heads-up), so the transcript stays clean.
-                        with contextlib.suppress(Exception):
-                            await speak(STALL_FILLER_TEXT)
-                    continue
-            else:
-                bubble = await bubbles.get()
-            if bubble is None:
-                break
-            if speak_state["turn_interrupted"]:
-                # User barged in before this bubble; stop speaking further
-                # bubbles but let `_drain` finish persisting them.
-                break
-            await speak(bubble)
-            spoken_bubbles += 1
-            adapter.record_voice_turn(  # type: ignore[attr-defined]
-                VoiceTurnMetadata(
-                    role="ai",
-                    transcript=bubble,
-                    audio_start_sec=0.0,
-                    audio_end_sec=speak_state["ai_audio_sec"],
-                    was_interrupted=speak_state["interrupted"],
-                )
-            )
-            if speak_state["turn_interrupted"]:
-                break
-        logger.info(
-            "session %s: turn complete — spoke %d bubble(s) in %.1fs%s",
-            session_id,
-            spoken_bubbles,
-            time.monotonic() - turn_started,
-            " (interrupted)" if speak_state["turn_interrupted"] else "",
-        )
-
-    # Hoisted to the enclosing scope so the outer teardown can join the
-    # last in-flight utterance task before closing the shared
-    # vad_stream/audio_stream/source it may still be writing into.
-    turn_task: asyncio.Task[None] | None = None
 
     async def _consume_vad() -> None:
-        nonlocal turn_task
         try:
             async for ev in vad_stream:
                 if ev.type == vad_module.VADEventType.START_OF_SPEECH:
                     if speak_state["speaking"]:
                         await barge_in()
+                    # The user is talking again — hold the pending turn
+                    # until their new utterance is finalised. `on_final_text`
+                    # (or the empty-STT path) re-arms the timer.
+                    turns.hold_debounce()
                 elif ev.type == vad_module.VADEventType.END_OF_SPEECH:
-                    # Serialize turns: a new utterance supersedes any
-                    # still-running prior turn.
-                    if turn_task is not None and not turn_task.done():
-                        logger.info(
-                            "session %s: new utterance supersedes in-flight turn",
-                            session_id,
-                        )
-                        turn_task.cancel()
-                        with contextlib.suppress(asyncio.CancelledError, Exception):
-                            await turn_task
-                    turn_task = loop.create_task(_handle_utterance(list(ev.frames)))
+                    utterance_queue.put_nowait(list(ev.frames))
         except Exception:
             logger.exception("session %s: VAD consume loop crashed", session_id)
         finally:
@@ -834,6 +777,7 @@ async def _run_room_session(
 
     forward_task = loop.create_task(_forward_frames())
     consume_task = loop.create_task(_consume_vad())
+    stt_task = loop.create_task(_stt_worker())
     watchdog_task = (
         loop.create_task(_budget_watchdog(max_duration_sec))
         if max_duration_sec is not None
@@ -847,19 +791,25 @@ async def _run_room_session(
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
-        # Join the last in-flight utterance task (spawned by _consume_vad)
-        # before tearing down shared resources — _handle_utterance may
-        # still be writing TTS PCM into `source` via speak().
-        if turn_task is not None and not turn_task.done():
-            turn_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await turn_task
-        # Let any in-flight reply streams finish so the API persists the
-        # full transcript before we close the HTTP client / room. These are
-        # deliberately NOT cancelled — they are the persistence path.
-        if drain_tasks:
-            with contextlib.suppress(Exception):
-                await asyncio.gather(*list(drain_tasks), return_exceptions=True)
+
+        # Let the STT worker finish transcribing any queued utterance so a
+        # brief final remark still enters the pending buffer (bounded — a
+        # hung STT provider must not wedge shutdown).
+        utterance_queue.put_nowait(None)
+        if not stt_task.done():
+            try:
+                await asyncio.wait_for(stt_task, timeout=10.0)
+            except (asyncio.TimeoutError, Exception):
+                stt_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await stt_task
+
+        # Flush the persistence path before closing shared resources: an
+        # in-flight turn drains to its `done`, and any still-uncommitted
+        # utterances get ONE final (unspoken) turn so nothing the user said
+        # is lost from the transcript.
+        await turns.flush()
+
         with contextlib.suppress(Exception):
             await vad_stream.aclose()
         with contextlib.suppress(Exception):

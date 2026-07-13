@@ -352,3 +352,96 @@ class TestStreamGraphDelta:
         final_state = events[-1].state
         assert [m.content for m in final_state["messages"]] == ["a", "b"]
         assert final_state["goal_progress"] == [{"goalNumber": 3}]
+
+
+# =============================================================================
+# Multi-message turns
+#
+# A turn may carry several user messages (rapid chat sends or voice
+# utterances split by pauses): each item becomes its own HumanMessage
+# bubble while downstream consumers (eval, sentiment, RAG) see the whole
+# batch as one composed `last_user_message`.
+# =============================================================================
+
+
+class _RecordingGraph:
+    """Captures the state passed to invoke/stream so tests can assert
+    what the service put in `user_messages`."""
+
+    def __init__(self):
+        self.invoked_states: list[dict] = []
+
+    def invoke(self, state):
+        self.invoked_states.append(dict(state))
+        return dict(state)
+
+    def stream(self, state, stream_mode: str = "updates"):
+        self.invoked_states.append(dict(state))
+        return iter([])
+
+
+class TestMultiMessageTurns:
+    def _make_service(self) -> tuple[ConversationService, _RecordingGraph]:
+        svc = ConversationService.__new__(ConversationService)
+        graph = _RecordingGraph()
+        svc._graph = graph  # type: ignore[attr-defined]
+        return svc, graph
+
+    def test_invoke_turn_accepts_string_and_normalizes_to_list(self):
+        svc, graph = self._make_service()
+        svc.invoke_turn({"messages": []}, "hello")
+        state = graph.invoked_states[0]
+        assert state["user_messages"] == ["hello"]
+        assert state["user_message"] is None
+
+    def test_invoke_turn_accepts_list_and_strips_blanks(self):
+        svc, graph = self._make_service()
+        svc.invoke_turn({"messages": []}, ["  first ", "", "second", "   "])
+        assert graph.invoked_states[0]["user_messages"] == ["first", "second"]
+
+    def test_stream_turn_accepts_list(self):
+        svc, graph = self._make_service()
+        list(svc.stream_turn({"messages": []}, ["a", "b"]))
+        assert graph.invoked_states[0]["user_messages"] == ["a", "b"]
+
+    def test_process_input_appends_one_bubble_per_message(self):
+        from careersim_agent.graph.nodes.conversation import process_user_input
+
+        state = {
+            "session_id": "s1",
+            "messages": [AIMessage(content="opener")],
+            "user_messages": ["I think we should talk.", "About the budget."],
+            "message_count": 1,
+        }
+        updates = process_user_input(state)
+
+        humans = [m for m in updates["messages"] if isinstance(m, HumanMessage)]
+        assert [m.content for m in humans] == [
+            "I think we should talk.",
+            "About the budget.",
+        ]
+        # Downstream (eval / sentiment / RAG) sees the composed turn.
+        assert updates["last_user_message"] == (
+            "I think we should talk.\nAbout the budget."
+        )
+        assert updates["message_count"] == 3  # opener + 2 new bubbles
+        assert updates["user_messages"] is None
+        assert updates["user_message"] is None
+        assert updates["turn"] == "ai"
+        assert updates["needs_evaluation"] is True
+
+    def test_process_input_single_user_message_still_works(self):
+        from careersim_agent.graph.nodes.conversation import process_user_input
+
+        state = {
+            "session_id": "s1",
+            "messages": [],
+            "user_message": "just one",
+            "message_count": 0,
+        }
+        updates = process_user_input(state)
+
+        humans = [m for m in updates["messages"] if isinstance(m, HumanMessage)]
+        assert [m.content for m in humans] == ["just one"]
+        assert updates["last_user_message"] == "just one"
+        assert updates["message_count"] == 1

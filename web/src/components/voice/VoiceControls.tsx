@@ -51,7 +51,7 @@ export function VoiceControls({
   status,
 }: VoiceControlsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark px-3 py-2 shadow-retro-2 dark:shadow-retro-dark-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark px-2 py-1.5 sm:px-3 sm:py-2 shadow-retro-2 dark:shadow-retro-dark-2">
       <span
         className="flex items-center gap-2 text-xs uppercase tracking-wider2 font-monoRetro"
         aria-live="polite"

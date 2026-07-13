@@ -97,6 +97,24 @@ def get_typing_wpm(state: ConversationState) -> int:
     )
 
 
+# -- User-message input helpers ------------------------------------------------
+
+def _normalize_user_messages(user_message: "str | list[str]") -> list[str]:
+    """Coerce the single-string / list-of-strings input into a clean list."""
+    if isinstance(user_message, str):
+        items = [user_message]
+    else:
+        items = list(user_message)
+    return [m.strip() for m in items if isinstance(m, str) and m.strip()]
+
+
+def _preview_user_messages(user_message: "str | list[str]") -> str:
+    """Short log-safe preview of a turn's user input."""
+    items = _normalize_user_messages(user_message)
+    joined = " | ".join(items)
+    return f"{len(items)} message(s): {joined[:80]}..."
+
+
 # -- Streaming events ---------------------------------------------------------
 
 @dataclass
@@ -171,12 +189,18 @@ class ConversationService:
     def invoke_turn(
         self,
         state: ConversationState,
-        user_message: str,
+        user_message: "str | list[str]",
     ) -> ConversationState:
-        """Run a user-message turn through the graph (batch)."""
-        state["user_message"] = user_message
+        """Run a user-message turn through the graph (batch).
+
+        ``user_message`` may be a single string or a list of strings — the
+        latter persists each item as its own bubble while the persona
+        composes one reply to the whole batch.
+        """
+        state["user_message"] = None
+        state["user_messages"] = _normalize_user_messages(user_message)
         state["proactive_trigger"] = None
-        logger.info(f"invoke_turn: {user_message[:80]}...")
+        logger.info(f"invoke_turn: {_preview_user_messages(user_message)}")
         return self._graph.invoke(state)
 
     def invoke_proactive(
@@ -187,6 +211,7 @@ class ConversationService:
         """Run a proactive trigger through the graph (batch)."""
         state["proactive_trigger"] = trigger_type
         state["user_message"] = None
+        state["user_messages"] = None
         if trigger_type == "start":
             state["proactive_count"] = 0
         logger.info(f"invoke_proactive: {trigger_type}")
@@ -197,12 +222,17 @@ class ConversationService:
     def stream_turn(
         self,
         state: ConversationState,
-        user_message: str,
+        user_message: "str | list[str]",
     ) -> Generator[MessageEvent, None, None]:
-        """Stream a user-message turn, yielding a MessageEvent for each AI message."""
-        state["user_message"] = user_message
+        """Stream a user-message turn, yielding a MessageEvent for each AI message.
+
+        ``user_message`` may be a single string or a list of strings (one
+        HumanMessage bubble per item, one composed persona reply).
+        """
+        state["user_message"] = None
+        state["user_messages"] = _normalize_user_messages(user_message)
         state["proactive_trigger"] = None
-        logger.info(f"stream_turn: {user_message[:80]}...")
+        logger.info(f"stream_turn: {_preview_user_messages(user_message)}")
         yield from self._stream_graph(state)
 
     def stream_proactive(
@@ -213,6 +243,7 @@ class ConversationService:
         """Stream a proactive trigger, yielding a MessageEvent per AI message."""
         state["proactive_trigger"] = trigger_type
         state["user_message"] = None
+        state["user_messages"] = None
         if trigger_type == "start":
             state["proactive_count"] = 0
         logger.info(f"stream_proactive: {trigger_type}")

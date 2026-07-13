@@ -23,8 +23,13 @@ export interface ChatPersona {
 
 interface ChatTranscriptProps {
   messages: Message[];
-  /** Optimistic user message (shown immediately after send, before `done`). */
-  pendingHuman?: string | null;
+  /**
+   * Optimistic user messages (shown immediately after send, before `done`).
+   * More than one when the user fires several messages before the persona
+   * replies — each renders as its own bubble, matching how the batch is
+   * persisted.
+   */
+  pendingHumans?: string[];
   /**
    * AI messages already delivered within the current burst but not yet
    * persisted via `done`. Each renders as its own "pending" bubble so the
@@ -49,7 +54,7 @@ interface ChatTranscriptProps {
 
 export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   messages,
-  pendingHuman,
+  pendingHumans,
   burstedAssistant,
   pendingAssistant,
   isWaiting,
@@ -64,11 +69,11 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
     const el = containerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, pendingHuman, burstedAssistant, pendingAssistant, isWaiting]);
+  }, [messages, pendingHumans, burstedAssistant, pendingAssistant, isWaiting]);
 
   const empty =
     messages.length === 0 &&
-    !pendingHuman &&
+    (pendingHumans?.length ?? 0) === 0 &&
     !pendingAssistant &&
     !isWaiting &&
     (burstedAssistant?.length ?? 0) === 0;
@@ -76,7 +81,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   // Build a flat ordered list with metadata so we can decide which AI bubbles
   // should show the avatar (first AI in a streak) vs. align to the same
   // gutter without one (subsequent bursts/follow-ups). Persisted messages
-  // come first, then the in-flight pendingHuman, then the current AI burst.
+  // come first, then the in-flight pendingHumans, then the current AI burst.
   const items: BubbleItem[] = [];
   for (const m of messages) {
     // Older messages persisted before voice tagging have no `source`;
@@ -85,15 +90,15 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   }
   // Pending bubbles only ever appear in live text chat (voice mode swaps the
   // composer/transcript for the call surface), so they are always text.
-  if (pendingHuman) {
+  pendingHumans?.forEach((content, i) => {
     items.push({
-      key: 'pending-human',
+      key: `pending-human-${i}`,
       role: 'human',
-      content: pendingHuman,
+      content,
       source: 'text',
       pending: true,
     });
-  }
+  });
   burstedAssistant?.forEach((content, i) => {
     items.push({ key: `burst-${i}`, role: 'ai', content, source: 'text', pending: true });
   });

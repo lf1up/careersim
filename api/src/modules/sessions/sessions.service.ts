@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 
 import type { AgentClient } from '../../agent/client.js';
 import type {
@@ -16,7 +16,7 @@ import {
   type MessageSource,
   type SessionRow,
 } from '../../db/schema.js';
-import { forbidden, notFound } from '../../plugins/errors.js';
+import { conflict, forbidden, notFound } from '../../plugins/errors.js';
 
 export interface Range {
   min: number;
@@ -104,7 +104,12 @@ export interface SessionsService {
   create(userId: string, simulationSlug: string): Promise<SessionDetail>;
   get(userId: string, sessionId: string): Promise<SessionDetail>;
   list(userId: string): Promise<SessionSummary[]>;
-  postMessage(userId: string, sessionId: string, content: string): Promise<SessionDetail>;
+  /**
+   * Run one turn for one or more user messages sent before the persona
+   * replied. Each item persists as its own bubble; the persona composes a
+   * single reply to the whole batch.
+   */
+  postMessage(userId: string, sessionId: string, contents: string[]): Promise<SessionDetail>;
   /**
    * Batch proactive followup — the AI decides to chime in after its own last
    * message. Not rate-limited; the frontend decides when to ask.
@@ -127,6 +132,13 @@ export interface SessionsService {
     sessionId: string,
     /** Origin to stamp on the persisted delta (defaults to text chat). */
     source?: MessageSource,
+    /**
+     * Optimistic precondition: the snapshot message count the caller based
+     * this turn on. Mismatch throws 409 TURN_CONFLICT before any work runs,
+     * so a re-run that raced its aborted predecessor's commit surfaces as a
+     * retryable conflict instead of silently duplicating messages.
+     */
+    expectedMessageCount?: number,
   ): Promise<{
     session: SessionRow;
     persist: (finalState: AgentWireState, newMessages: AgentMessage[]) => Promise<SessionDetail>;
@@ -256,12 +268,23 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
   }
 
   async function persistMessageDelta(
+    executor: AppDatabase,
     sessionId: string,
     existingCount: number,
     agentMessages: AgentMessage[],
     source: MessageSource = 'text',
   ): Promise<void> {
-    if (agentMessages.length <= existingCount) return;
+    if (agentMessages.length < existingCount) {
+      // The agent's final state has FEWER messages than the table — this
+      // turn ran against a stale snapshot while another turn committed.
+      // With the session version guard this should be unreachable; fail
+      // loudly rather than silently dropping the turn's messages.
+      throw conflict(
+        'Session was modified by a concurrent turn',
+        'TURN_CONFLICT',
+      );
+    }
+    if (agentMessages.length === existingCount) return;
     const delta = agentMessages.slice(existingCount);
     const values = delta.map((m, i) => ({
       sessionId,
@@ -271,7 +294,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       source,
       typingDelayMs: null as number | null,
     }));
-    await db.insert(messages).values(values);
+    await executor.insert(messages).values(values);
   }
 
   interface UpdatePatch {
@@ -281,18 +304,45 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     nudgeCountSinceHuman?: number;
   }
 
-  async function updateSession(sessionId: string, patch: UpdatePatch): Promise<SessionRow> {
-    const [updated] = await db
+  /**
+   * Persist a session patch with an optimistic-concurrency check. The
+   * caller passes the `version` it loaded the session at; if another turn
+   * committed in the meantime the row no longer matches and we throw a
+   * 409 so the caller retries against fresh state instead of silently
+   * overwriting the other turn (lost update).
+   */
+  async function updateSession(
+    executor: AppDatabase,
+    sessionId: string,
+    expectedVersion: number,
+    patch: UpdatePatch,
+  ): Promise<SessionRow> {
+    const [updated] = await executor
       .update(sessions)
-      .set({ ...patch, updatedAt: new Date() })
-      .where(eq(sessions.id, sessionId))
+      .set({
+        ...patch,
+        version: sql`${sessions.version} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(sessions.id, sessionId), eq(sessions.version, expectedVersion)))
       .returning();
-    if (!updated) throw notFound('Session not found');
+    if (!updated) {
+      const [row] = await executor
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(eq(sessions.id, sessionId))
+        .limit(1);
+      if (!row) throw notFound('Session not found');
+      throw conflict(
+        'Session was modified by a concurrent turn',
+        'TURN_CONFLICT',
+      );
+    }
     return updated;
   }
 
-  async function countMessages(sessionId: string): Promise<number> {
-    const [row] = await db
+  async function countMessages(executor: AppDatabase, sessionId: string): Promise<number> {
+    const [row] = await executor
       .select({ c: sql<number>`count(*)::int` })
       .from(messages)
       .where(eq(messages.sessionId, sessionId));
@@ -305,11 +355,21 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     patch: UpdatePatch = {},
     source: MessageSource = 'text',
   ): Promise<SessionDetail> {
-    const existing = await countMessages(session.id);
-    await persistMessageDelta(session.id, existing, response.state.messages ?? [], source);
-    const updated = await updateSession(session.id, {
-      stateSnapshot: response.state,
-      ...patch,
+    // Run the version claim and the transcript insert in one transaction:
+    // either both commit or both roll back, so a failed message insert can
+    // never leave the session pointing at a snapshot the transcript hasn't
+    // caught up to (and vice versa).
+    const updated = await db.transaction(async (tx) => {
+      // Claim the version FIRST: if a concurrent turn committed since
+      // `session` was loaded this throws 409 before any message rows are
+      // written, so a conflicting turn can never leave partial data.
+      const updatedRow = await updateSession(tx, session.id, session.version, {
+        stateSnapshot: response.state,
+        ...patch,
+      });
+      const existing = await countMessages(tx, session.id);
+      await persistMessageDelta(tx, session.id, existing, response.state.messages ?? [], source);
+      return updatedRow;
     });
     return buildDetail(updated);
   }
@@ -338,7 +398,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
 
       const agentMessages = response.state.messages ?? [];
       if (agentMessages.length > 0) {
-        await persistMessageDelta(row.id, 0, agentMessages);
+        await persistMessageDelta(db, row.id, 0, agentMessages);
       }
       return buildDetail(row);
     },
@@ -375,11 +435,11 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       }));
     },
 
-    async postMessage(userId, sessionId, content) {
+    async postMessage(userId, sessionId, contents) {
       const session = await loadSessionOrThrow(userId, sessionId);
       const response = await agent.turn({
         state: session.stateSnapshot,
-        userMessage: content,
+        userMessages: contents,
       });
       return applyResponse(session, response, humanTurnPatch(new Date()));
     },
@@ -456,7 +516,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         };
       }
 
-      const priorMessageCount = await countMessages(session.id);
+      const priorMessageCount = await countMessages(db, session.id);
       const response = await agent.proactive({
         state: session.stateSnapshot,
         triggerType: 'inactivity',
@@ -483,8 +543,17 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       return { nudged: true, session: detail };
     },
 
-    async prepareStream(userId, sessionId, source = 'text') {
+    async prepareStream(userId, sessionId, source = 'text', expectedMessageCount) {
       const session = await loadSessionOrThrow(userId, sessionId);
+      if (expectedMessageCount !== undefined) {
+        const actual = (session.stateSnapshot.messages ?? []).length;
+        if (actual !== expectedMessageCount) {
+          throw conflict(
+            'Session transcript changed since the caller last read it',
+            'TURN_CONFLICT',
+          );
+        }
+      }
       return {
         session,
         persist: async (finalState, newMessages) => {
@@ -503,7 +572,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
           // reset. Today turn/stream always follows a user message, and
           // proactive/stream never does. We detect the former by checking if
           // the incoming delta starts with a HumanMessage.
-          const existingCount = await countMessages(session.id);
+          const existingCount = await countMessages(db, session.id);
           const delta = (finalState.messages ?? []).slice(existingCount);
           const isHumanTurn = delta.some((m) => m.role === 'human');
           const patch: UpdatePatch = isHumanTurn ? humanTurnPatch(new Date()) : {};

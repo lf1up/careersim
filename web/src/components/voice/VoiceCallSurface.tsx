@@ -26,6 +26,12 @@ export interface VoiceCallSurfaceProps {
 
 type Status = 'connecting' | 'live' | 'reconnecting' | 'ended';
 
+// Upper bound on bubbles kept per caption stack. The full history lives in
+// the persisted transcript; the live surface only needs the recent context.
+// Without a cap, a long uncommitted batch (an interrupt-happy user) would
+// grow the stacks without limit.
+const MAX_VISIBLE_CAPTIONS = 6;
+
 // Elapsed call seconds, guarded against a missing live start. When the
 // call ends before the LiveKit connection comes up, `startMs` is still
 // 0; subtracting that from `Date.now()` would yield a bogus multi-billion
@@ -41,9 +47,14 @@ function elapsedCallSeconds(startMs: number): number {
  * is active. Replaces (not overlays) the transcript so the user has
  * an unambiguous "I'm in a call now" mode. Live captions stack every
  * persona bubble of the current turn (the main reply plus any follow-up
- * bursts) at the top with the user's last utterance underneath. The
- * persona bubbles accumulate as they stream in and clear when the user
- * starts a new turn, so a follow-up never overwrites the main message.
+ * bursts) at the top with the user's utterances underneath. BOTH sides
+ * accumulate: rapid speech split into several utterances shows as
+ * several stacked "You" bubbles — matching how the worker batches them
+ * into one turn and how they persist to the transcript — instead of
+ * each new utterance overwriting the previous one. Turn boundaries are
+ * driven by the worker's `turn_committed` / `turn_superseded` control
+ * events: both stacks clear when the user speaks after a COMMITTED
+ * turn, and abandoned (re-run) replies drop their stale AI bubbles.
  */
 export function VoiceCallSurface({
   sessionId,
@@ -60,7 +71,13 @@ export function VoiceCallSurface({
   // never replaces the main message on screen. Cleared when the user
   // starts a new turn.
   const [aiCaptions, setAiCaptions] = useState<VoiceCaption[]>([]);
-  const [userCaption, setUserCaption] = useState<VoiceCaption | null>(null);
+  // Finalised user utterances of the current turn. The voice worker
+  // batches every utterance spoken before the persona replies into ONE
+  // turn, so we stack them all instead of keeping only the latest.
+  const [userCaptions, setUserCaptions] = useState<VoiceCaption[]>([]);
+  // Live (non-final) transcription bubble shown under the finalised ones.
+  const [interimUserCaption, setInterimUserCaption] =
+    useState<VoiceCaption | null>(null);
   const [quotaRemaining, setQuotaRemaining] = useState<number | null>(null);
   // True while the persona's reply is being generated — i.e. the user
   // finished an utterance but the AI caption hasn't landed yet. Drives
@@ -75,10 +92,25 @@ export function VoiceCallSurface({
   const connRef = useRef<VoiceConnection | null>(null);
   const startTimeRef = useRef<number>(0);
   const endingRef = useRef<boolean>(false);
+  // Scrollable caption viewport. Which way it auto-scrolls depends on who
+  // produced the newest caption: user bubbles sit at the BOTTOM of the
+  // stack (scroll down to follow speech), persona bubbles sit above them
+  // (scroll up to the newest reply bubble as it is spoken).
+  const captionScrollRef = useRef<HTMLDivElement | null>(null);
+  const lastAiBubbleRef = useRef<HTMLDivElement | null>(null);
+  const lastCaptionSideRef = useRef<'user' | 'ai'>('user');
   // Set when the agent worker signals the daily budget is spent, so the
   // subsequent room disconnect is shown as a clean "limit reached" end
   // rather than the unsolicited-drop "reconnecting" path.
   const quotaEndedRef = useRef<boolean>(false);
+  // True once the worker confirmed the current turn was COMMITTED
+  // (persisted server-side) — the next finalised utterance then starts a
+  // fresh turn (clearing both caption stacks) instead of extending the
+  // answered one. Driven by the worker's `turn_committed` control event,
+  // NOT by AI captions arriving: with abandon-and-rerun, spoken bubbles
+  // can belong to a reply that is later abandoned, in which case the
+  // user's next utterance still extends the SAME turn.
+  const turnCommittedRef = useRef<boolean>(false);
 
   const personaLabel = useMemo(() => personaName ?? 'persona', [personaName]);
 
@@ -112,30 +144,57 @@ export function VoiceCallSurface({
             // The worker also emits an empty final caption at call end —
             // ignore those so we don't push a blank bubble.
             if (c.text && c.text.trim()) {
-              setAiCaptions((prev) => [...prev, c]);
+              lastCaptionSideRef.current = 'ai';
+              setAiCaptions((prev) => [...prev, c].slice(-MAX_VISIBLE_CAPTIONS));
               // The reply is landing — stop the "cooking" animation.
               setIsThinking(false);
             }
-          } else {
-            setUserCaption(c);
-            if (c.is_final && c.text.trim()) {
-              // The user just finished an utterance; the server is now
-              // generating the reply. Clear the previous turn's persona
-              // bubbles and show the "cooking" indicator until the next
-              // AI caption lands.
-              setAiCaptions([]);
+          } else if (c.is_final) {
+            lastCaptionSideRef.current = 'user';
+            setInterimUserCaption(null);
+            if (c.text.trim()) {
+              if (turnCommittedRef.current) {
+                // First utterance of a NEW turn — clear the committed
+                // turn's bubbles on both sides.
+                turnCommittedRef.current = false;
+                setAiCaptions([]);
+                setUserCaptions([c]);
+              } else {
+                // Another utterance for the same pending turn. The worker
+                // batches these into one reply, so stack it under the
+                // previous ones instead of overwriting.
+                setUserCaptions((prev) => [...prev, c].slice(-MAX_VISIBLE_CAPTIONS));
+              }
+              // The server is (re)generating the reply — show the
+              // "cooking" indicator until the next AI caption lands.
               setIsThinking(true);
-            } else if (!c.is_final) {
-              // Fresh interim user speech — they're talking again, not
-              // waiting on a reply.
-              setIsThinking(false);
             }
+          } else {
+            // Fresh interim user speech — they're talking again, not
+            // waiting on a reply.
+            lastCaptionSideRef.current = 'user';
+            setInterimUserCaption(c);
+            setIsThinking(false);
           }
         });
 
-        // Listen for budget control events (warning + hard cutoff).
+        // Listen for control events: turn lifecycle (caption grouping)
+        // and budget (warning + hard cutoff).
         const unsubscribeControl = conn.onControl((event) => {
-          if (event.type === 'quota_warning') {
+          if (event.type === 'turn_committed') {
+            // The turn (user batch + persona reply) is persisted; the
+            // next user utterance starts a fresh caption group.
+            turnCommittedRef.current = true;
+          } else if (event.type === 'turn_superseded') {
+            // The in-flight reply was abandoned because the user kept
+            // talking. Its already-spoken bubbles will never persist —
+            // drop them and show "cooking" for the re-run. The user
+            // caption stack stays: those utterances still belong to the
+            // (continuing) current turn.
+            lastCaptionSideRef.current = 'user';
+            setAiCaptions([]);
+            setIsThinking(true);
+          } else if (event.type === 'quota_warning') {
             toast('About a minute of daily voice time left.', { icon: '\u23F3' });
           } else if (event.type === 'quota_exhausted') {
             // Mark this so the imminent room disconnect is presented as a
@@ -221,6 +280,26 @@ export function VoiceCallSurface({
     return () => window.clearTimeout(id);
   }, [status, isThinking]);
 
+  // Auto-scroll the caption viewport toward the side that spoke last:
+  // down to the bottom while the USER is talking (their bubbles are the
+  // lowest in the stack), up to the newest PERSONA bubble while the reply
+  // is being spoken (its bubbles sit above the user's). The stacks are
+  // capped and the viewport scrolls, so the surface can never overflow
+  // its panel no matter how long an uncommitted batch gets.
+  useEffect(() => {
+    const el = captionScrollRef.current;
+    if (!el) return;
+    if (lastCaptionSideRef.current === 'ai') {
+      const bubble = lastAiBubbleRef.current;
+      // Align the newest reply bubble just under the top fade so the
+      // persona's words are read from where they start.
+      const top = bubble ? Math.max(0, bubble.offsetTop - 32) : 0;
+      el.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    }
+  }, [aiCaptions, userCaptions, interimUserCaption, isThinking]);
+
   // Cleanup: disconnect on unmount.
   useEffect(() => {
     return () => {
@@ -266,26 +345,54 @@ export function VoiceCallSurface({
   }, [isMuted]);
 
   return (
-    <div className="flex flex-col gap-3 h-full min-h-0">
-      <RetroAlert tone="info">
-        Voice mode is on. Calls aren&rsquo;t recorded — only the live
-        transcript is persisted to your session history. Press{' '}
-        <kbd className="px-1 border-2 border-black dark:border-retro-ink-dark">End call</kbd>{' '}
-        when you&rsquo;re done.
+    <div className="flex flex-col gap-2 sm:gap-3 h-full min-h-0">
+      {/* The full explainer is several lines tall on a phone and starves
+          the caption area of height — small screens get a one-liner. */}
+      <RetroAlert tone="info" className="!p-2 sm:!p-4">
+        <span className="hidden sm:inline">
+          Voice mode is on. Calls aren&rsquo;t recorded — only the live
+          transcript is persisted to your session history. Press{' '}
+          <kbd className="px-1 border-2 border-black dark:border-retro-ink-dark">End call</kbd>{' '}
+          when you&rsquo;re done.
+        </span>
+        <span className="sm:hidden text-xs">
+          Voice mode is on — only the live transcript is saved.
+        </span>
       </RetroAlert>
 
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-6 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark px-4 py-8 shadow-retro-2 dark:shadow-retro-dark-2">
-        <div className="text-center">
-          <div className="text-xs uppercase tracking-wider2 text-retro-ink-mute dark:text-retro-ink-mute-dark font-monoRetro mb-2">
+      <div className="flex-1 min-h-0 flex flex-col items-center gap-2 sm:gap-4 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark px-3 pt-3 pb-3 sm:px-6 sm:pt-10 sm:pb-6 shadow-retro-2 dark:shadow-retro-dark-2 overflow-hidden">
+        <div className="text-center shrink-0 sm:mt-8">
+          <div className="text-[10px] sm:text-xs uppercase tracking-wider2 text-retro-ink-mute dark:text-retro-ink-mute-dark font-monoRetro mb-1 sm:mb-2">
             Speaking with
           </div>
-          <div className="text-2xl font-display font-bold">{personaLabel}</div>
+          <div className="text-lg sm:text-2xl font-display font-bold leading-tight">
+            {personaLabel}
+          </div>
         </div>
 
-        <div className="w-full max-w-xl space-y-3" aria-live="polite">
+        {/* Captions live in their own scroll viewport (pinned to the newest
+            bubble), so a long exchange scrolls inside the panel instead of
+            blowing the layout open. The gradient mask fades bubbles out at
+            the viewport edges — a soft reveal instead of a hard crop — and
+            the scrollbar is hidden since the view auto-follows the call. */}
+        <div
+          ref={captionScrollRef}
+          // `relative` so bubble offsetTop is measured against this
+          // viewport (the direction-aware auto-scroll depends on it).
+          className="relative flex-1 min-h-0 w-full max-w-xl overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_bottom,transparent,black_28px,black_calc(100%-28px),transparent)]"
+        >
+          {/* min-h-full + justify-center keeps a short exchange vertically
+              centered in the panel; once it outgrows the viewport it simply
+              scrolls. py gives the first/last bubble clearance from the
+              fade mask so resting content never looks cut off. */}
+          <div
+            className="min-h-full flex flex-col justify-center space-y-2 sm:space-y-3 py-4 sm:py-8"
+            aria-live="polite"
+          >
           {aiCaptions.map((c, i) => (
             <div
               key={i}
+              ref={i === aiCaptions.length - 1 ? lastAiBubbleRef : undefined}
               className="border-2 border-black dark:border-retro-ink-dark bg-retro-paper dark:bg-retro-paper-dark p-3"
             >
               {/* Label the persona once, on the first bubble, so a stacked
@@ -299,14 +406,35 @@ export function VoiceCallSurface({
             </div>
           ))}
           {isThinking && <ThinkingIndicator personaLabel={personaLabel} />}
-          {userCaption && userCaption.text && (
+          {userCaptions.map(
+            (c, i) =>
+              c.text && (
+                <div
+                  key={i}
+                  className="border-2 border-black dark:border-retro-ink-dark bg-retro-accent/30 dark:bg-retro-accent-dark/30 p-3"
+                >
+                  {/* Label once, on the first bubble, so stacked utterances
+                      read as one grouped turn (mirrors the persona side). */}
+                  {i === 0 && (
+                    <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">
+                      You
+                    </div>
+                  )}
+                  <div className="text-sm leading-snug">{c.text}</div>
+                </div>
+              ),
+          )}
+          {interimUserCaption && interimUserCaption.text && (
             <div className="border-2 border-black dark:border-retro-ink-dark bg-retro-accent/30 dark:bg-retro-accent-dark/30 p-3">
               <div className="text-[10px] uppercase tracking-wider2 font-monoRetro text-retro-ink-mute dark:text-retro-ink-mute-dark mb-1">
-                You {userCaption.is_final ? '' : '(transcribing…)'}
+                You (transcribing…)
               </div>
-              <div className="text-sm leading-snug">{userCaption.text}</div>
+              <div className="text-sm leading-snug">
+                {interimUserCaption.text}
+              </div>
             </div>
           )}
+          </div>
         </div>
 
         {error && (

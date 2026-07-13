@@ -428,19 +428,49 @@ export function createVoiceService(
       // through `state_snapshot` on every text turn — keeping the
       // merge here means there's exactly one place that mutates the
       // snapshot from the API side.
-      const updatedSnapshot =
-        voiceAnalysis && Object.keys(voiceAnalysis).length > 0
-          ? mergeVoiceAnalysis(session.stateSnapshot, voiceAnalysis)
-          : null;
+      //
+      // The snapshot write is version-guarded (same optimistic check as
+      // turn persistence) so it can never clobber a turn that committed
+      // after we loaded `session`. On a version miss we reload and
+      // re-merge once; if it races again we keep the turn data and drop
+      // only the analytics merge (analysis is best-effort).
+      let merged = false;
+      if (voiceAnalysis && Object.keys(voiceAnalysis).length > 0) {
+        let current = session;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const [updated] = await db
+            .update(sessions)
+            .set({
+              voiceCallEndedAt: endedAt,
+              updatedAt: endedAt,
+              stateSnapshot: mergeVoiceAnalysis(current.stateSnapshot, voiceAnalysis),
+              version: sql`${sessions.version} + 1`,
+            })
+            .where(and(eq(sessions.id, sessionId), eq(sessions.version, current.version)))
+            .returning();
+          if (updated) {
+            merged = true;
+            break;
+          }
+          const [reloaded] = await db
+            .select()
+            .from(sessions)
+            .where(eq(sessions.id, sessionId))
+            .limit(1);
+          if (!reloaded) throw notFound('Session not found');
+          current = reloaded;
+        }
+      }
 
-      await db
-        .update(sessions)
-        .set({
-          voiceCallEndedAt: endedAt,
-          updatedAt: endedAt,
-          ...(updatedSnapshot ? { stateSnapshot: updatedSnapshot } : {}),
-        })
-        .where(eq(sessions.id, sessionId));
+      if (!merged) {
+        await db
+          .update(sessions)
+          .set({
+            voiceCallEndedAt: endedAt,
+            updatedAt: endedAt,
+          })
+          .where(eq(sessions.id, sessionId));
+      }
 
       const remaining = await quotaRemaining(session.userId);
       return {

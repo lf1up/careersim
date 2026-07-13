@@ -36,6 +36,13 @@
       "when": 1781119600333,
       "tag": "0004_message_source",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784088000000,
+      "tag": "0005_session_version",
+      "breakpoints": true
     }
   ]
 }

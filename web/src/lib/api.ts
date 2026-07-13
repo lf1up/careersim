@@ -353,9 +353,15 @@ export const apiClient = {
   },
 
   // ---------- streaming ----------
+  /**
+   * Send one user message — or a batch of them (the user typed several
+   * messages before the persona replied) — and stream the reply. A batch
+   * persists each item as its own bubble; the persona composes a single
+   * reply to the whole batch.
+   */
   streamMessage(
     id: string,
-    content: string,
+    content: string | string[],
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent, void, void> {
     const token = getToken();

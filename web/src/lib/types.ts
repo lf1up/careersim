@@ -199,7 +199,12 @@ export type StreamDoneEvent = {
 
 export type StreamErrorEvent = {
   type: 'error';
-  data: { message: string };
+  /**
+   * `code` is a machine-readable error tag; `TURN_CONFLICT` means a
+   * concurrent turn committed first and the send should be retried
+   * against fresh state.
+   */
+  data: { message: string; code?: string };
 };
 
 export type StreamEvent = StreamMessageEvent | StreamDoneEvent | StreamErrorEvent;
@@ -236,11 +241,16 @@ export interface VoiceCaption {
 /**
  * Out-of-band control event published by the agent-voice worker on the
  * `voice-control` data-channel topic. Used to warn about and enforce
- * the daily voice budget. `cap_seconds` lets the UI render the actual
- * configured limit instead of hardcoding a number.
+ * the daily voice budget (`cap_seconds` lets the UI render the actual
+ * configured limit instead of hardcoding a number) and to group live
+ * captions into turns: `turn_committed` means the current turn was
+ * persisted (the next user utterance starts a fresh caption group);
+ * `turn_superseded` means the in-flight reply was abandoned because the
+ * user kept talking (its already-shown bubbles will never persist and
+ * should be dropped).
  */
 export interface VoiceControlEvent {
-  type: 'quota_warning' | 'quota_exhausted';
+  type: 'quota_warning' | 'quota_exhausted' | 'turn_committed' | 'turn_superseded';
   remaining_seconds?: number | null;
   cap_seconds?: number | null;
 }
