@@ -28,7 +28,8 @@ export interface AgentClient {
   }): Promise<AgentConversationResponse>;
   turn(args: {
     state: AgentWireState;
-    userMessage: string;
+    /** One or more user messages for this turn — each persists as its own bubble. */
+    userMessages: string[];
   }): Promise<AgentConversationResponse>;
   proactive(args: {
     state: AgentWireState;
@@ -36,7 +37,8 @@ export interface AgentClient {
   }): Promise<AgentConversationResponse>;
   streamTurn(args: {
     state: AgentWireState;
-    userMessage: string;
+    /** One or more user messages for this turn — each persists as its own bubble. */
+    userMessages: string[];
     signal?: AbortSignal;
   }): AsyncIterable<AgentStreamEvent>;
   streamProactive(args: {
@@ -184,11 +186,11 @@ export class HttpAgentClient implements AgentClient {
 
   turn(args: {
     state: AgentWireState;
-    userMessage: string;
+    userMessages: string[];
   }): Promise<AgentConversationResponse> {
     return this.postJson('/conversation/turn', {
       state: args.state,
-      user_message: args.userMessage,
+      user_messages: args.userMessages,
     });
   }
 
@@ -204,12 +206,12 @@ export class HttpAgentClient implements AgentClient {
 
   async *streamTurn(args: {
     state: AgentWireState;
-    userMessage: string;
+    userMessages: string[];
     signal?: AbortSignal;
   }): AsyncIterable<AgentStreamEvent> {
     yield* this.postSSE('/conversation/turn/stream', {
       state: args.state,
-      user_message: args.userMessage,
+      user_messages: args.userMessages,
     }, args.signal);
   }
 

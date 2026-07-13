@@ -29,6 +29,15 @@ from ..config import get_settings
 logger = logging.getLogger(__name__)
 
 
+class TurnConflictError(RuntimeError):
+    """The API rejected a turn with 409 TURN_CONFLICT.
+
+    Another writer committed a turn for the same session between our
+    load and persist. The caller should retry the turn once — the API
+    will re-load fresh state on the retried request.
+    """
+
+
 class APIClient:
     """Async HTTP client targeting the internal API surface.
 
@@ -129,11 +138,18 @@ class APIClient:
     async def stream_user_message(
         self,
         session_id: str,
-        user_text: str,
+        user_text: "str | list[str]",
         *,
         bearer_token: str,
+        expected_message_count: Optional[int] = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Persist a user turn and stream the persona reply as it generates.
+
+        ``user_text`` may be a single utterance or a list of utterances
+        (the user spoke several times before the persona replied). A list
+        is sent as a JSON array so the API persists each item as its own
+        transcript bubble while the persona composes one reply to the
+        whole batch.
 
         Hits the user-facing SSE endpoint
         ``POST /sessions/:id/messages/stream``, which emits one
@@ -148,11 +164,25 @@ class APIClient:
         The HTTP request is kept open until ``done`` so the API's
         ``prepareStream`` persist callback runs exactly once — preserving
         the same persistence guarantee as :meth:`post_user_message`.
-        Callers that stop consuming early (barge-in) must still drain to
-        ``done`` if they need the persisted transcript to stay in sync.
+        Nothing is persisted server-side until ``done``, so a caller may
+        safely abort mid-stream (abandon-and-rerun) without leaving a
+        half-committed turn behind.
+
+        ``expected_message_count`` (optional) is an optimistic
+        precondition: the transcript length this turn was based on. The
+        API answers 409 TURN_CONFLICT (raised here as
+        :class:`TurnConflictError`) when the transcript moved on — used
+        by re-runs of abandoned turns, whose abort can race the aborted
+        stream's own commit.
         """
         client = await self._ensure_client()
         url = f"{self._base_url}/sessions/{session_id}/messages/stream"
+        content: "str | list[str]" = (
+            list(user_text) if isinstance(user_text, list) else user_text
+        )
+        body: dict[str, Any] = {"content": content, "source": "voice"}
+        if expected_message_count is not None:
+            body["expected_message_count"] = expected_message_count
         # A multi-bubble turn plus the eval / proactive nodes can easily
         # outlast the client's 30s default read timeout. Disable the read
         # timeout for the streamed body (connect/write/pool keep a bound)
@@ -165,7 +195,7 @@ class APIClient:
             # spoken turn so the transcript can be split with voice-call
             # dividers in the UI. Web text chat omits this (defaults to
             # "text" server-side).
-            json={"content": user_text, "source": "voice"},
+            json=body,
             headers={
                 "Authorization": f"Bearer {bearer_token}",
                 "Accept": "text/event-stream",
@@ -174,6 +204,10 @@ class APIClient:
         ) as resp:
             if resp.status_code >= 400:
                 body = (await resp.aread()).decode("utf-8", "replace")
+                if resp.status_code == 409:
+                    raise TurnConflictError(
+                        f"turn conflict for {session_id}: {body[:200]}"
+                    )
                 raise RuntimeError(
                     f"stream user message failed for {session_id}: "
                     f"{resp.status_code} {body[:200]}"
@@ -238,7 +272,16 @@ class APIClient:
             return {"type": "done"}
         if event_name == "error":
             msg = payload.get("message")
-            return {"type": "error", "message": str(msg) if msg else "stream error"}
+            out: dict[str, Any] = {
+                "type": "error",
+                "message": str(msg) if msg else "stream error",
+            }
+            # Machine-readable code (e.g. TURN_CONFLICT) forwarded so the
+            # worker can retry retryable persistence conflicts.
+            code = payload.get("code")
+            if isinstance(code, str) and code:
+                out["code"] = code
+            return out
         return None
 
     async def fetch_voice_budget(self, session_id: str) -> dict[str, Any]:

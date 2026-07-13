@@ -98,6 +98,38 @@ describe('sessions (batch endpoints)', () => {
     expect(fetched.json().messages).toEqual(body.messages);
   });
 
+  it('POST /sessions/:id/messages with an array persists one bubble per item', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/messages`,
+      payload: { content: ['part one', 'part two'] },
+      headers: authHeader,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const tail = res.json().messages.slice(-3);
+    expect(tail).toEqual([
+      expect.objectContaining({ role: 'human', content: 'part one', order_index: 1 }),
+      expect.objectContaining({ role: 'human', content: 'part two', order_index: 2 }),
+      expect.objectContaining({ role: 'ai', content: 'echo:part one\npart two', order_index: 3 }),
+    ]);
+  });
+
+  it('rejects an empty content array with 400', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/sessions/${session.id}/messages`,
+      payload: { content: [] },
+      headers: authHeader,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('POST /sessions/:id/proactive appends a proactive message', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(authHeader);

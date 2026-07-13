@@ -80,6 +80,11 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     simulationSlug: text('simulation_slug').notNull(),
     stateSnapshot: jsonb('state_snapshot').$type<AgentWireState>().notNull(),
+    // Optimistic-concurrency guard for turn processing. Every state persist
+    // bumps it (`SET version = version + 1 WHERE version = <loaded>`); a
+    // zero-row update means another turn committed since this one loaded the
+    // snapshot, and the caller gets a 409 instead of silently losing data.
+    version: integer('version').notNull().default(0),
     lastHumanMessageAt: timestamp('last_human_message_at', { withTimezone: true }),
     lastNudgeAt: timestamp('last_nudge_at', { withTimezone: true }),
     nudgeCountSinceHuman: integer('nudge_count_since_human').notNull().default(0),

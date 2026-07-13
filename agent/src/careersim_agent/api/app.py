@@ -96,9 +96,31 @@ class InitRequest(BaseModel):
 
 
 class TurnRequest(BaseModel):
-    """Run one user-message turn through the graph."""
+    """Run one user-message turn through the graph.
+
+    Exactly one of ``user_message`` / ``user_messages`` should be set.
+    ``user_messages`` carries a multi-message turn (rapid chat sends or
+    voice utterances split by pauses): each item is persisted as its own
+    human bubble while the persona composes a single reply to the batch.
+    """
     state: dict[str, Any]
-    user_message: str
+    user_message: Optional[str] = None
+    user_messages: Optional[list[str]] = None
+
+    def resolved_messages(self) -> list[str]:
+        """Normalize the two input shapes into a non-empty list or raise."""
+        items = (
+            self.user_messages
+            if self.user_messages is not None
+            else ([self.user_message] if self.user_message is not None else [])
+        )
+        cleaned = [m.strip() for m in items if isinstance(m, str) and m.strip()]
+        if not cleaned:
+            raise HTTPException(
+                status_code=422,
+                detail="user_message or user_messages (non-empty) is required",
+            )
+        return cleaned
 
 
 class ProactiveRequest(BaseModel):
@@ -321,10 +343,12 @@ def create_api_app() -> FastAPI:
     @app.post("/conversation/turn", response_model=ConversationResponse)
     async def conversation_turn(req: TurnRequest):
         """Process one user-message turn (batch)."""
+        # Validate outside the catch-all so a missing message stays a 422.
+        user_messages = req.resolved_messages()
         try:
             svc = get_conversation_service()
             state = deserialize_state(req.state)
-            state = svc.invoke_turn(state, req.user_message)
+            state = svc.invoke_turn(state, user_messages)
             return _build_response(state)
         except Exception as e:
             logger.error(f"conversation/turn failed: {e}", exc_info=True)
@@ -382,13 +406,15 @@ def create_api_app() -> FastAPI:
         so the backend can replay timing to the frontend. The final
         ``event: done`` carries the complete updated state.
         """
+        # Validate outside the catch-all so a missing message stays a 422.
+        user_messages = req.resolved_messages()
         try:
             svc = get_conversation_service()
             state = deserialize_state(req.state)
 
             def generate():
                 last_state = state
-                for event in svc.stream_turn(state, req.user_message):
+                for event in svc.stream_turn(state, user_messages):
                     last_state = event.state
                     if not event.is_final:
                         yield _message_event_to_sse(event)

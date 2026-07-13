@@ -259,18 +259,25 @@ class _FakeGraph:
 
     def invoke(self, state):
         messages = list(state.get("messages", []))
-        user_msg = state.get("user_message")
+        # Mirror process_user_input: a turn may carry a batch of user
+        # messages (`user_messages`) or the legacy single `user_message`.
+        batch = list(state.get("user_messages") or [])
+        single = state.get("user_message")
+        if not batch and single:
+            batch = [single]
         trigger = state.get("proactive_trigger")
 
-        if user_msg:
-            messages.append(HumanMessage(content=user_msg))
-            messages.append(AIMessage(content=f"echo:{user_msg}"))
+        if batch:
+            for msg in batch:
+                messages.append(HumanMessage(content=msg))
+            messages.append(AIMessage(content=f"echo:{'|'.join(batch)}"))
         elif trigger:
             messages.append(AIMessage(content=f"proactive:{trigger}"))
 
         out = dict(state)
         out["messages"] = messages
         out["user_message"] = None
+        out["user_messages"] = None
         out["proactive_trigger"] = None
         return out
 

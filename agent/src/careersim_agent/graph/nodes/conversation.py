@@ -45,7 +45,17 @@ def process_user_input(state: ConversationState) -> dict[str, Any]:
     """
     start_time = datetime.now()
     session_id = state.get("session_id", "unknown")
-    user_message = state.get("user_message")
+    # A turn may carry several user messages (rapid chat sends or voice
+    # utterances split by pauses). `user_messages` takes precedence;
+    # `user_message` stays supported as the single-message form.
+    batch = [
+        m.strip()
+        for m in (state.get("user_messages") or [])
+        if isinstance(m, str) and m.strip()
+    ]
+    single = state.get("user_message")
+    if not batch and isinstance(single, str) and single.strip():
+        batch = [single.strip()]
     proactive_trigger = state.get("proactive_trigger")
     
     logger.info(f"[{session_id}] Processing input (trigger: {proactive_trigger or 'none'})")
@@ -54,25 +64,31 @@ def process_user_input(state: ConversationState) -> dict[str, Any]:
     input_summary = ""
     output_summary = ""
     
-    # Priority 1: User sent a message
-    if user_message:
-        input_summary = f"user_message: {user_message[:50]}..."
-        logger.info(f"[{session_id}] User message: {user_message[:50]}...")
+    # Priority 1: User sent one or more messages
+    if batch:
+        # Downstream consumers (goal eval, sentiment, RAG) see the whole
+        # turn as one composed text; the transcript keeps separate bubbles.
+        combined = "\n".join(batch)
+        input_summary = f"user_message: {combined[:50]}..."
+        logger.info(f"[{session_id}] User message(s) x{len(batch)}: {combined[:50]}...")
         
-        # Add to messages
+        # Add each message as its own bubble
         messages = list(state.get("messages", []))
-        messages.append(HumanMessage(content=user_message))
+        messages.extend(HumanMessage(content=m) for m in batch)
         
         updates["messages"] = messages
-        updates["last_user_message"] = user_message
-        updates["user_message"] = None  # Clear the input field
+        updates["last_user_message"] = combined
+        updates["user_message"] = None  # Clear the input fields
+        updates["user_messages"] = None
         updates["turn"] = "ai"
         updates["needs_evaluation"] = True
         updates["proactive_trigger"] = None  # Clear any stale triggers
         updates["proactive_count"] = 0
-        updates["message_count"] = state.get("message_count", 0) + 1
+        updates["message_count"] = state.get("message_count", 0) + len(batch)
         
-        output_summary = "Added user message, set turn=ai, needs_evaluation=True"
+        output_summary = (
+            f"Added {len(batch)} user message(s), set turn=ai, needs_evaluation=True"
+        )
     
     # Priority 2: Proactive trigger (start, inactivity)
     elif proactive_trigger:

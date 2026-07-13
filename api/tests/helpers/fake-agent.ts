@@ -216,14 +216,15 @@ export class FakeAgent implements AgentClient {
 
   async turn(args: {
     state: AgentWireState;
-    userMessage: string;
+    userMessages: string[];
   }): Promise<AgentConversationResponse> {
-    this.callLog.push(`turn:${args.userMessage}`);
+    const joined = args.userMessages.join('\n');
+    this.callLog.push(`turn:${joined}`);
     const prior = args.state.messages ?? [];
     const nextMessages: AgentMessage[] = [
       ...prior,
-      { role: 'human', content: args.userMessage },
-      { role: 'ai', content: `echo:${args.userMessage}` },
+      ...args.userMessages.map<AgentMessage>((m) => ({ role: 'human', content: m })),
+      { role: 'ai', content: `echo:${joined}` },
     ];
     const newState: AgentWireState = { ...args.state, messages: nextMessages };
     return this.#buildResponse(newState);
@@ -244,15 +245,16 @@ export class FakeAgent implements AgentClient {
 
   async *streamTurn(args: {
     state: AgentWireState;
-    userMessage: string;
+    userMessages: string[];
     signal?: AbortSignal;
   }): AsyncIterable<AgentStreamEvent> {
-    this.callLog.push(`streamTurn:${args.userMessage}`);
+    const joined = args.userMessages.join('\n');
+    this.callLog.push(`streamTurn:${joined}`);
     const prior = args.state.messages ?? [];
-    const aiContent = `echo:${args.userMessage}`;
+    const aiContent = `echo:${joined}`;
     const nextMessages: AgentMessage[] = [
       ...prior,
-      { role: 'human', content: args.userMessage },
+      ...args.userMessages.map<AgentMessage>((m) => ({ role: 'human', content: m })),
       { role: 'ai', content: aiContent },
     ];
     const newState: AgentWireState = { ...args.state, messages: nextMessages };

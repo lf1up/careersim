@@ -9,6 +9,7 @@ import type {
   ProactiveTrigger,
 } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
+import { HttpError } from '../../plugins/errors.js';
 import { rateLimitPolicy } from '../../plugins/rate-limit.js';
 import { isCorsOriginAllowed } from '../../utils/cors.js';
 import { createSessionsService } from './sessions.service.js';
@@ -100,7 +101,10 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       },
     },
     async (request) => {
-      return service.postMessage(request.user.sub, request.params.id, request.body.content);
+      const contents = Array.isArray(request.body.content)
+        ? request.body.content
+        : [request.body.content];
+      return service.postMessage(request.user.sub, request.params.id, contents);
     },
   );
 
@@ -195,14 +199,23 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       },
     },
     async (request, reply) => {
-      const userMessage = request.body.content;
+      const userMessages = Array.isArray(request.body.content)
+        ? request.body.content
+        : [request.body.content];
       const source = request.body.source ?? 'text';
+      const expectedMessageCount = request.body.expected_message_count;
       await runSseProxy(app, request, reply, {
         kind: 'turn',
         corsAllowedOrigins,
-        load: () => service.prepareStream(request.user.sub, request.params.id, source),
+        load: () =>
+          service.prepareStream(
+            request.user.sub,
+            request.params.id,
+            source,
+            expectedMessageCount,
+          ),
         agent: (state, signal) =>
-          opts.agent.streamTurn({ state, userMessage, signal }),
+          opts.agent.streamTurn({ state, userMessages, signal }),
       });
     },
   );
@@ -264,7 +277,13 @@ async function runSseProxy(
   reply.raw.writeHead(200, headers);
 
   const abort = new AbortController();
-  request.raw.once('close', () => abort.abort());
+  // Detect the client hanging up mid-stream via the RESPONSE's `close`
+  // (it fires when the connection terminates before our own `end()`).
+  // `request.raw`'s close is NOT a reliable disconnect signal here: once
+  // the request body has been fully consumed, Node may never emit it for
+  // a mid-response connection teardown — which left abandoned turns
+  // running (and persisting) to completion.
+  reply.raw.once('close', () => abort.abort());
 
   const writeEvent = (type: string, data: unknown) => {
     reply.raw.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
@@ -276,18 +295,35 @@ async function runSseProxy(
       if (event.type === 'message') {
         writeEvent('message', event.data);
       } else if (event.type === 'done') {
+        // Clients rely on "connection closed before `done` ⇒ nothing was
+        // persisted" (the voice worker aborts a stale turn by closing the
+        // SSE and re-sends the messages in a new request). The abort signal
+        // only cancels the upstream agent fetch — if generation had already
+        // finished, we would land here and persist a turn the caller
+        // abandoned, which the re-send then duplicates. So: if the client
+        // is gone, drop the result instead of persisting it.
+        if (abort.signal.aborted) {
+          request.log.info(
+            { kind: ctx.kind },
+            'client disconnected before done; skipping persist',
+          );
+          return;
+        }
         finalState = event.data.state;
         const persisted = await persist(event.data.state, event.data.messages ?? []);
         writeEvent('done', { state: event.data.state, session: persisted });
       }
     }
-    if (!finalState) {
+    if (!finalState && !abort.signal.aborted) {
       writeEvent('error', { message: 'Stream ended without done event' });
     }
   } catch (err) {
     request.log.error({ err, kind: ctx.kind }, 'SSE proxy failed');
     writeEvent('error', {
       message: err instanceof Error ? err.message : 'Stream failed',
+      // Machine-readable code (e.g. TURN_CONFLICT) so streaming callers
+      // can distinguish retryable persistence conflicts from hard errors.
+      ...(err instanceof HttpError && err.code ? { code: err.code } : {}),
     });
   } finally {
     reply.raw.end();

@@ -147,9 +147,12 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  // Optimistic echo of the message the user just sent. Cleared when the
-  // server replaces local state (via the `done` event or a refetch).
-  const [pendingHuman, setPendingHuman] = useState<string | null>(null);
+  // Optimistic echo of the message(s) the user sent for the current turn.
+  // Holds more than one entry when the user fires additional messages while
+  // the persona is still replying — the in-flight turn is then abandoned and
+  // re-run with the whole batch (each entry persists as its own bubble).
+  // Cleared when the server replaces local state (via `done` or a refetch).
+  const [pendingHumans, setPendingHumans] = useState<string[]>([]);
   // True between "send pressed" and "first AI chunk arrives" — drives the
   // typing indicator.
   const [isWaiting, setIsWaiting] = useState(false);
@@ -179,6 +182,10 @@ export default function SessionDetailPage() {
   const voiceAvailable = isVoiceEnabledClientSide() && session !== null;
 
   const abortRef = useRef<AbortController | null>(null);
+  // Synchronous mirror of `pendingHumans` — `handleSend` needs the current
+  // batch in the same tick it appends to it (React state reads are stale
+  // inside the same event handler).
+  const pendingHumansRef = useRef<string[]>([]);
   // Busy flag read *inside* the nudge-polling interval. Stored as a ref so the
   // interval doesn't get torn down & recreated on every streaming chunk.
   const busyRef = useRef(false);
@@ -355,7 +362,7 @@ export default function SessionDetailPage() {
             } & Record<string, unknown>;
           }
         | { type: 'done'; data: { session?: SessionDetail } & Record<string, unknown> }
-        | { type: 'error'; data: { message: string } },
+        | { type: 'error'; data: { message: string; code?: string } },
         void,
         void
       >,
@@ -407,21 +414,34 @@ export default function SessionDetailPage() {
             }
             setCommittedBurst([]);
             setStreamingAssistant(null);
-            setPendingHuman(null);
+            // The turn is committed — the batch is now part of the
+            // persisted transcript.
+            pendingHumansRef.current = [];
+            setPendingHumans([]);
             setIsWaiting(false);
             return;
           } else if (event.type === 'error') {
-            throw new Error(event.data.message);
+            const err = new Error(event.data.message);
+            err.name =
+              event.data.code === 'TURN_CONFLICT'
+                ? 'TurnConflictError'
+                : err.name;
+            throw err;
           }
         }
         // stream ended without a `done` event — fall back to a refetch.
         const latest = await apiClient.getSession(sessionId);
         applySessionUpdate(latest);
       } finally {
-        setCommittedBurst([]);
-        setStreamingAssistant(null);
-        setPendingHuman(null);
-        setIsWaiting(false);
+        // Skip cleanup when a newer send superseded this stream — the new
+        // turn owns the pending bubbles and streaming state now.
+        if (!signal.aborted) {
+          setCommittedBurst([]);
+          setStreamingAssistant(null);
+          pendingHumansRef.current = [];
+          setPendingHumans([]);
+          setIsWaiting(false);
+        }
       }
     },
     [applySessionUpdate, sessionId],
@@ -430,7 +450,13 @@ export default function SessionDetailPage() {
   const handleSend = useCallback(
     async (content: string) => {
       setSending(true);
-      setPendingHuman(content);
+      // Compose the turn: any messages already awaiting a reply plus this
+      // one. Sending while the persona is replying abandons that reply
+      // (abort below — the server persists nothing before `done`) and
+      // re-runs the turn against the whole batch.
+      const batch = [...pendingHumansRef.current, content];
+      pendingHumansRef.current = batch;
+      setPendingHumans(batch);
       setIsWaiting(true);
       // A human reply resets the server-side nudge budget, so re-arm polling.
       setNudgesPausedUntilHumanReply(false);
@@ -438,22 +464,50 @@ export default function SessionDetailPage() {
       const abort = new AbortController();
       abortRef.current = abort;
       try {
-        const stream = apiClient.streamMessage(sessionId, content, abort.signal);
+        const stream = apiClient.streamMessage(sessionId, batch, abort.signal);
         await runStream(stream, abort.signal);
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
-        // Drop the optimistic bubble so the composer can re-populate for retry.
-        setPendingHuman(null);
+        if ((err as Error).name === 'AbortError' || abort.signal.aborted) {
+          // Superseded by a newer send (or unmount) — the new turn owns
+          // the pending state.
+          return;
+        }
+        if ((err as Error).name === 'TurnConflictError') {
+          // A concurrent writer (e.g. a voice call) committed first; the
+          // batch itself was NOT persisted. Refresh and retry once.
+          try {
+            const latest = await apiClient.getSession(sessionId);
+            applySessionUpdate(latest, { notify: false });
+            const retry = apiClient.streamMessage(sessionId, batch, abort.signal);
+            await runStream(retry, abort.signal);
+            return;
+          } catch (retryErr) {
+            if (
+              (retryErr as Error).name === 'AbortError' ||
+              abort.signal.aborted
+            ) {
+              return;
+            }
+            err = retryErr;
+          }
+        }
+        // Drop the optimistic bubbles so the composer can re-populate for retry.
+        pendingHumansRef.current = [];
+        setPendingHumans([]);
         setIsWaiting(false);
         const message =
           err instanceof Error ? err.message : 'Failed to send message';
         toast.error(message);
         throw err;
       } finally {
-        setSending(false);
+        // Only the newest send clears the busy flag — an older superseded
+        // call returning must not mark the active stream as idle.
+        if (abortRef.current === abort) {
+          setSending(false);
+        }
       }
     },
-    [runStream, sessionId],
+    [applySessionUpdate, runStream, sessionId],
   );
 
   const handleStartCall = useCallback(() => {
@@ -544,32 +598,37 @@ export default function SessionDetailPage() {
                 messages
               </span>
             </span>
-            <span className="flex items-end gap-3 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
-              <VoiceCallButton
-                available={voiceAvailable}
-                isCalling={inCall}
-                starting={startingCall}
-                onStart={handleStartCall}
-              />
-              <span className="ml-auto flex items-end gap-3">
-                <GoalProgressSummary
-                  align="end"
-                  progress={session.goal_progress}
-                  goals={simulation?.conversation_goals}
+            {/* Hidden while a call is live: the call surface owns the
+                controls then, and phone-height is better spent on the
+                live captions than on a duplicate goals row. */}
+            {!inCall && (
+              <span className="flex items-end gap-3 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
+                <VoiceCallButton
+                  available={voiceAvailable}
+                  isCalling={inCall}
+                  starting={startingCall}
+                  onStart={handleStartCall}
                 />
-                {hasTrackedGoals && (
-                  <button
-                    type="button"
-                    className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
-                    aria-expanded={goalsExpanded}
-                    aria-controls="session-goals"
-                    onClick={() => setGoalsExpanded((open) => !open)}
-                  >
-                    {goalsExpanded ? 'Hide' : 'Show'}
-                  </button>
-                )}
+                <span className="ml-auto flex items-end gap-3">
+                  <GoalProgressSummary
+                    align="end"
+                    progress={session.goal_progress}
+                    goals={simulation?.conversation_goals}
+                  />
+                  {hasTrackedGoals && (
+                    <button
+                      type="button"
+                      className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
+                      aria-expanded={goalsExpanded}
+                      aria-controls="session-goals"
+                      onClick={() => setGoalsExpanded((open) => !open)}
+                    >
+                      {goalsExpanded ? 'Hide' : 'Show'}
+                    </button>
+                  )}
+                </span>
               </span>
-            </span>
+            )}
           </span>
         }
         actions={
@@ -613,7 +672,7 @@ export default function SessionDetailPage() {
       {inCall ? (
         <RetroPanel
           className="flex-1 min-h-0 flex flex-col"
-          bodyClassName="flex-1 min-h-0 flex flex-col"
+          bodyClassName="flex-1 min-h-0 flex flex-col !p-2 sm:!p-6"
         >
           <VoiceCallSurface
             sessionId={sessionId}
@@ -629,7 +688,7 @@ export default function SessionDetailPage() {
           >
             <ChatTranscript
               messages={session.messages}
-              pendingHuman={pendingHuman}
+              pendingHumans={pendingHumans}
               burstedAssistant={committedBurst}
               pendingAssistant={streamingAssistant}
               isWaiting={isWaiting}

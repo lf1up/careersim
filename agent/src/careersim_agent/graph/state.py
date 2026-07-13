@@ -102,6 +102,12 @@ class ConversationState(TypedDict, total=False):
     
     # Input field for new user messages
     user_message: Optional[str]
+
+    # Multi-message input: when the user sent several messages before the
+    # persona replied (rapid chat sends, voice utterances split by pauses),
+    # the whole batch rides in here and each item becomes its own
+    # HumanMessage bubble. Takes precedence over `user_message`.
+    user_messages: Optional[list[str]]
     
     # Proactive message handling
     proactive_trigger: Optional[Literal["followup", "inactivity", "start"]]
@@ -190,6 +196,7 @@ def create_initial_state(
         last_user_message=None,
         last_ai_message=None,
         user_message=None,
+        user_messages=None,
         proactive_trigger="start" if starts else None,
         should_send_proactive=False,
         proactive_count=0,
