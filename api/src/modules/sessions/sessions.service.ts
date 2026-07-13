@@ -268,6 +268,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
   }
 
   async function persistMessageDelta(
+    executor: AppDatabase,
     sessionId: string,
     existingCount: number,
     agentMessages: AgentMessage[],
@@ -293,7 +294,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       source,
       typingDelayMs: null as number | null,
     }));
-    await db.insert(messages).values(values);
+    await executor.insert(messages).values(values);
   }
 
   interface UpdatePatch {
@@ -311,11 +312,12 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
    * overwriting the other turn (lost update).
    */
   async function updateSession(
+    executor: AppDatabase,
     sessionId: string,
     expectedVersion: number,
     patch: UpdatePatch,
   ): Promise<SessionRow> {
-    const [updated] = await db
+    const [updated] = await executor
       .update(sessions)
       .set({
         ...patch,
@@ -325,7 +327,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       .where(and(eq(sessions.id, sessionId), eq(sessions.version, expectedVersion)))
       .returning();
     if (!updated) {
-      const [row] = await db
+      const [row] = await executor
         .select({ id: sessions.id })
         .from(sessions)
         .where(eq(sessions.id, sessionId))
@@ -339,8 +341,8 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     return updated;
   }
 
-  async function countMessages(sessionId: string): Promise<number> {
-    const [row] = await db
+  async function countMessages(executor: AppDatabase, sessionId: string): Promise<number> {
+    const [row] = await executor
       .select({ c: sql<number>`count(*)::int` })
       .from(messages)
       .where(eq(messages.sessionId, sessionId));
@@ -353,15 +355,22 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     patch: UpdatePatch = {},
     source: MessageSource = 'text',
   ): Promise<SessionDetail> {
-    // Claim the version FIRST: if a concurrent turn committed since
-    // `session` was loaded this throws 409 before any message rows are
-    // written, so a conflicting turn can never leave partial data.
-    const updated = await updateSession(session.id, session.version, {
-      stateSnapshot: response.state,
-      ...patch,
+    // Run the version claim and the transcript insert in one transaction:
+    // either both commit or both roll back, so a failed message insert can
+    // never leave the session pointing at a snapshot the transcript hasn't
+    // caught up to (and vice versa).
+    const updated = await db.transaction(async (tx) => {
+      // Claim the version FIRST: if a concurrent turn committed since
+      // `session` was loaded this throws 409 before any message rows are
+      // written, so a conflicting turn can never leave partial data.
+      const updatedRow = await updateSession(tx, session.id, session.version, {
+        stateSnapshot: response.state,
+        ...patch,
+      });
+      const existing = await countMessages(tx, session.id);
+      await persistMessageDelta(tx, session.id, existing, response.state.messages ?? [], source);
+      return updatedRow;
     });
-    const existing = await countMessages(session.id);
-    await persistMessageDelta(session.id, existing, response.state.messages ?? [], source);
     return buildDetail(updated);
   }
 
@@ -389,7 +398,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
 
       const agentMessages = response.state.messages ?? [];
       if (agentMessages.length > 0) {
-        await persistMessageDelta(row.id, 0, agentMessages);
+        await persistMessageDelta(db, row.id, 0, agentMessages);
       }
       return buildDetail(row);
     },
@@ -507,7 +516,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         };
       }
 
-      const priorMessageCount = await countMessages(session.id);
+      const priorMessageCount = await countMessages(db, session.id);
       const response = await agent.proactive({
         state: session.stateSnapshot,
         triggerType: 'inactivity',
@@ -563,7 +572,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
           // reset. Today turn/stream always follows a user message, and
           // proactive/stream never does. We detect the former by checking if
           // the incoming delta starts with a HumanMessage.
-          const existingCount = await countMessages(session.id);
+          const existingCount = await countMessages(db, session.id);
           const delta = (finalState.messages ?? []).slice(existingCount);
           const isHumanTurn = delta.some((m) => m.role === 'human');
           const patch: UpdatePatch = isHumanTurn ? humanTurnPatch(new Date()) : {};
