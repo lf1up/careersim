@@ -59,6 +59,19 @@ testpaths = ["tests"]
 [tool.coverage.run]
 source = ["src/careersim_agent"]
 branch = true
+omit = [
+    # CLI entrypoint (`python -m careersim_agent.main`) — a thin argparse
+    # dispatcher with no business logic; exercised manually, not worth a
+    # process-spawning test.
+    "src/careersim_agent/main.py",
+    # Dev-only Gradio console for manually poking at the agent. Never
+    # runs in production (the FastAPI app + agent-voice worker are the
+    # real entrypoints) and pulls in a full Gradio UI to exercise.
+    "src/careersim_agent/ui/*",
+]
 
 [tool.coverage.report]
 show_missing = true
+exclude_also = [
+    "if __name__ == .__main__.:",
+]
