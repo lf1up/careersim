@@ -23,6 +23,14 @@ from ..config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Soft timeout on the *first* reply bubble of a turn. When the LLM /
+# API stream stalls past this, the worker logs a warning and speaks a
+# short filler so the user isn't left in dead silence. The SSE read
+# timeout stays disabled (long multi-bubble turns are legitimate) —
+# this only makes a stall visible, it never aborts the turn.
+FIRST_BUBBLE_SOFT_TIMEOUT_SEC = 20.0
+STALL_FILLER_TEXT = "Sorry, give me a moment. I'm still thinking."
+
 
 def run_worker() -> int:
     """Run the voice worker. Returns a process exit code."""
@@ -483,6 +491,7 @@ async def _run_room_session(
     async def barge_in() -> None:
         # Latch the turn so the bubble speaker loop stops queuing further
         # follow-up bubbles; the SSE drain keeps running to persist them.
+        logger.info("session %s: user barged in; cancelling playback", session_id)
         speak_state["turn_interrupted"] = True
         await adapter.cancel_inflight()  # type: ignore[attr-defined]
         task = speak_state.get("task")
@@ -505,6 +514,12 @@ async def _run_room_session(
     # loaded transcript is genuinely empty; otherwise the persona stays
     # silent and waits for the user to speak first.
     existing_messages = adapter.current_state_wire().get("messages") or []  # type: ignore[attr-defined]
+    if existing_messages:
+        logger.info(
+            "session %s: transcript has %d message(s); skipping opening turn",
+            session_id,
+            len(existing_messages),
+        )
     opening = None if existing_messages else await adapter.opening_turn()  # type: ignore[attr-defined]
     if opening is not None and opening.text:
         # Speak each burst bubble separately so the opening has the same
@@ -644,6 +659,13 @@ async def _run_room_session(
         # LLM cost and let the spoken reply drift from what's persisted.
         speak_state["turn_interrupted"] = False
         bubbles: "asyncio.Queue[str | None]" = asyncio.Queue()
+        turn_started = time.monotonic()
+        # Word count only — user speech content stays out of the logs.
+        logger.info(
+            "session %s: utterance transcribed (%d words); streaming reply",
+            session_id,
+            len(text.split()),
+        )
 
         async def _drain() -> None:
             # Runs to completion independently of the speaker (this
@@ -652,12 +674,21 @@ async def _run_room_session(
             # its `done` event so the API persists the full reply (no
             # transcript drift). The sentinel is always enqueued so the
             # speaker loop terminates cleanly.
+            first_bubble = True
             try:
                 async for event in api.stream_user_message(  # type: ignore[attr-defined]
                     session_id, text, bearer_token=bearer_token
                 ):
                     etype = event.get("type")
                     if etype == "message":
+                        if first_bubble:
+                            first_bubble = False
+                            logger.info(
+                                "session %s: first reply bubble received "
+                                "%.1fs after utterance",
+                                session_id,
+                                time.monotonic() - turn_started,
+                            )
                         await bubbles.put(event["content"])
                     elif etype == "error":
                         logger.error(
@@ -677,8 +708,35 @@ async def _run_room_session(
         drain_tasks.add(drain_task)
         drain_task.add_done_callback(drain_tasks.discard)
 
+        spoken_bubbles = 0
+        stall_notified = False
         while True:
-            bubble = await bubbles.get()
+            if spoken_bubbles == 0 and not stall_notified:
+                # Soft first-bubble watchdog: a stalled LLM / API stream
+                # otherwise produces total silence with nothing in the
+                # logs (the SSE read timeout is deliberately disabled).
+                # Speak a filler once and keep waiting — never abort.
+                try:
+                    bubble = await asyncio.wait_for(
+                        bubbles.get(), timeout=FIRST_BUBBLE_SOFT_TIMEOUT_SEC
+                    )
+                except asyncio.TimeoutError:
+                    stall_notified = True
+                    logger.warning(
+                        "session %s: no reply bubble within %.0fs; "
+                        "speaking stall filler",
+                        session_id,
+                        FIRST_BUBBLE_SOFT_TIMEOUT_SEC,
+                    )
+                    if not speak_state["turn_interrupted"]:
+                        # The filler is spoken/captioned only — it is
+                        # intentionally not persisted (same as the quota
+                        # heads-up), so the transcript stays clean.
+                        with contextlib.suppress(Exception):
+                            await speak(STALL_FILLER_TEXT)
+                    continue
+            else:
+                bubble = await bubbles.get()
             if bubble is None:
                 break
             if speak_state["turn_interrupted"]:
@@ -686,6 +744,7 @@ async def _run_room_session(
                 # bubbles but let `_drain` finish persisting them.
                 break
             await speak(bubble)
+            spoken_bubbles += 1
             adapter.record_voice_turn(  # type: ignore[attr-defined]
                 VoiceTurnMetadata(
                     role="ai",
@@ -697,6 +756,13 @@ async def _run_room_session(
             )
             if speak_state["turn_interrupted"]:
                 break
+        logger.info(
+            "session %s: turn complete — spoke %d bubble(s) in %.1fs%s",
+            session_id,
+            spoken_bubbles,
+            time.monotonic() - turn_started,
+            " (interrupted)" if speak_state["turn_interrupted"] else "",
+        )
 
     # Hoisted to the enclosing scope so the outer teardown can join the
     # last in-flight utterance task before closing the shared
@@ -714,6 +780,10 @@ async def _run_room_session(
                     # Serialize turns: a new utterance supersedes any
                     # still-running prior turn.
                     if turn_task is not None and not turn_task.done():
+                        logger.info(
+                            "session %s: new utterance supersedes in-flight turn",
+                            session_id,
+                        )
                         turn_task.cancel()
                         with contextlib.suppress(asyncio.CancelledError, Exception):
                             await turn_task
