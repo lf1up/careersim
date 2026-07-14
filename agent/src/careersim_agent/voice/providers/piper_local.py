@@ -147,15 +147,25 @@ class PiperLocalTTS:
         # faster than real-time playback, so the buffer fills on nearly
         # every utterance and we'd drop audio. Buffering a single
         # utterance's PCM (~44 KB/s) is cheap, so stay unbounded.
-        queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
+        queue: "asyncio.Queue[bytes | Exception | None]" = asyncio.Queue()
 
         def producer() -> None:
+            # Any synthesis failure is forwarded to the consumer through
+            # the queue so `synthesize` raises instead of ending "cleanly"
+            # with zero audio. A bare try/finally here used to strand the
+            # exception on the never-awaited executor future — the persona
+            # went mute with nothing in the logs.
             try:
                 for chunk in voice.synthesize(text):
                     pcm = getattr(chunk, "audio_int16_bytes", None)
                     if pcm is None:  # very old API fallback
                         pcm = bytes(chunk)
                     loop.call_soon_threadsafe(queue.put_nowait, bytes(pcm))
+            except Exception as exc:
+                logger.exception(
+                    "piper synthesis failed (voice=%s)", self._persona_voice
+                )
+                loop.call_soon_threadsafe(queue.put_nowait, exc)
             finally:
                 loop.call_soon_threadsafe(queue.put_nowait, None)
 
@@ -164,6 +174,10 @@ class PiperLocalTTS:
         last: Optional[bytes] = None
         while True:
             item = await queue.get()
+            if isinstance(item, Exception):
+                raise RuntimeError(
+                    f"Piper TTS failed for voice {self._persona_voice!r}: {item}"
+                ) from item
             if item is None:
                 if last is not None:
                     yield TTSAudioChunk(

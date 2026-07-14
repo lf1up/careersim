@@ -482,6 +482,19 @@ async def _run_room_session(
             await task
         except asyncio.CancelledError:
             speak_state["interrupted"] = True
+        except Exception:
+            # TTS/synthesis/playback failed for this bubble. Swallow (the
+            # turn keeps draining so the transcript still persists and the
+            # captions stay correct) but log loudly and tell the client so
+            # the call surface can show "voice unavailable" instead of
+            # silently miming.
+            logger.exception(
+                "session %s: TTS playback failed for bubble; "
+                "continuing call without audio for this bubble",
+                session_id,
+            )
+            with contextlib.suppress(Exception):
+                await captions.publish_control({"type": "tts_error"})  # type: ignore[attr-defined]
         finally:
             speak_state["speaking"] = False
             speak_state["task"] = None

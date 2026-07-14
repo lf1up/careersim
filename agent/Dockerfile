@@ -29,7 +29,8 @@ RUN pip install --no-cache-dir uv
 
 # Copy files required to build the project wheel (pyproject declares
 # `readme = "README.md"` and the wheel target is `src/careersim_agent`).
-COPY pyproject.toml README.md ./
+# `uv.lock` rides along so installs are fully pinned (see below).
+COPY pyproject.toml uv.lock README.md ./
 COPY src/ ./src/
 
 # Create virtual environment and install the package in EDITABLE mode.
@@ -37,12 +38,17 @@ COPY src/ ./src/
 # source tree (`/app/src`), so at runtime `import careersim_agent` resolves
 # to `/app/src/careersim_agent/…`. The compose file bind-mounts
 # `./agent/src:/app/src`, which means host edits become live without a rebuild.
-# NB: `uv venv` does NOT install pip into the venv — always drive installs
-# through `uv pip` (never bare `pip install`), otherwise the command silently
-# falls back to the system interpreter and the venv is never updated.
+#
+# `uv sync --locked` installs the EXACT versions from uv.lock (and fails the
+# build if the lock is stale) instead of resolving the loose `>=` ranges in
+# pyproject at build time. Floating resolution used to mean every image
+# rebuild silently shipped whatever the newest websockets / livekit-agents /
+# etc. happened to be that day — untested versions repeatedly broke the voice
+# pipeline right after a deploy. Dependency upgrades now only land through an
+# explicit uv.lock change reviewed in a PR.
 RUN uv venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
-RUN uv pip install --no-cache -e .
+RUN uv sync --locked --no-cache
 
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime - Final image
@@ -73,7 +79,7 @@ ENV GRADIO_SERVER_PORT=7860
 # baked-in copy is what gets served.
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser data/ ./data/
-COPY --chown=appuser:appuser pyproject.toml README.md ./
+COPY --chown=appuser:appuser pyproject.toml uv.lock README.md ./
 
 RUN mkdir -p /app/logs /app/.chroma_db && chown -R appuser:appuser /app/logs /app/.chroma_db
 
@@ -121,8 +127,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the voice extras on top of the editable chat install.
-RUN uv pip install --no-cache -e ".[voice]"
+# Install the voice extras on top of the editable chat install — pinned
+# to uv.lock exactly like the base stage (see the builder-stage comment:
+# floating `>=` resolution kept shipping untested websockets /
+# livekit-agents majors that broke TTS on deploy).
+RUN uv sync --locked --no-cache --extra voice
 
 # Pin the HuggingFace cache to a fixed, appuser-owned path. faster-whisper
 # resolves its model cache from HF_HOME; without this it falls back to the

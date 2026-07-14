@@ -239,6 +239,24 @@ class TurnManager:
 
     # -- internals ----------------------------------------------------------
 
+    def _log_task_exception(self, task: "asyncio.Task[None]") -> None:
+        """Done-callback for the in-flight turn task.
+
+        The task is deliberately fire-and-forget (callers only ever
+        ``asyncio.wait`` on it, which never retrieves the result), so
+        without this callback any exception escaping the turn — a TTS
+        provider failure, a capture error — vanished until GC printed
+        "Task exception was never retrieved", long after the call went
+        mute. Log it immediately, tied to the session.
+        """
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error(
+                "session %s: turn task failed", self._session_id, exc_info=exc
+            )
+
     async def _emit_turn_event(self, kind: str) -> None:
         if self._on_turn_event is None:
             return
@@ -298,9 +316,11 @@ class TurnManager:
         if not self.pending_texts or self._closing:
             return
         texts = list(self.pending_texts)
-        self._task = asyncio.get_running_loop().create_task(
+        task = asyncio.get_running_loop().create_task(
             self._run_turn_with_retry(texts)
         )
+        task.add_done_callback(self._log_task_exception)
+        self._task = task
 
     async def _run_turn_with_retry(
         self, texts: list[str], *, speak_replies: bool = True

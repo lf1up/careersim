@@ -247,10 +247,17 @@ export interface VoiceCaption {
  * persisted (the next user utterance starts a fresh caption group);
  * `turn_superseded` means the in-flight reply was abandoned because the
  * user kept talking (its already-shown bubbles will never persist and
- * should be dropped).
+ * should be dropped). `tts_error` means speech synthesis failed for a
+ * reply bubble — the conversation continues (captions + transcript stay
+ * correct) but the persona's audio is unavailable.
  */
 export interface VoiceControlEvent {
-  type: 'quota_warning' | 'quota_exhausted' | 'turn_committed' | 'turn_superseded';
+  type:
+    | 'quota_warning'
+    | 'quota_exhausted'
+    | 'turn_committed'
+    | 'turn_superseded'
+    | 'tts_error';
   remaining_seconds?: number | null;
   cap_seconds?: number | null;
 }

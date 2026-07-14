@@ -203,6 +203,14 @@ export function VoiceCallSurface({
             const message = formatLimitReached(event.cap_seconds);
             setError(message);
             toast.error(message);
+          } else if (event.type === 'tts_error') {
+            // Speech synthesis failed worker-side; the call keeps running
+            // on captions. Fixed toast id so per-bubble repeats don't
+            // stack into a wall of toasts.
+            toast.error(
+              "The persona's voice is unavailable right now — captions keep working.",
+              { id: 'voice-tts-error' },
+            );
           }
         });
 

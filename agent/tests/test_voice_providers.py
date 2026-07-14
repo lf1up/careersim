@@ -294,13 +294,25 @@ class _FakeElevenWS:
             yield f
 
 
+_DEFAULT_ELEVEN_FRAMES = [
+    json.dumps({"audio": base64.b64encode(b"\x01\x02\x03\x04").decode()}),
+    json.dumps({"isFinal": True}),
+]
+
+
 class _FakeWebsocketsModule:
     """Stand-in for the `websockets` package injected via sys.modules."""
 
-    def __init__(self, *, accepts: str) -> None:
+    def __init__(
+        self,
+        *,
+        accepts: str = "additional_headers",
+        frames: list[str] | None = None,
+    ) -> None:
         # `accepts` is the only header kwarg this fake tolerates;
         # the other raises TypeError like the real version mismatch.
         self._accepts = accepts
+        self._frames = _DEFAULT_ELEVEN_FRAMES if frames is None else frames
         self.connect_kwargs: list[dict[str, Any]] = []
         self.last_ws: _FakeElevenWS | None = None
 
@@ -311,11 +323,7 @@ class _FakeWebsocketsModule:
                 f"unexpected keyword argument "
                 f"{next(iter(kwargs)) if kwargs else 'headers'!r}"
             )
-        frames = [
-            json.dumps({"audio": base64.b64encode(b"\x01\x02\x03\x04").decode()}),
-            json.dumps({"isFinal": True}),
-        ]
-        self.last_ws = _FakeElevenWS(frames)
+        self.last_ws = _FakeElevenWS(list(self._frames))
         return self.last_ws
 
 
@@ -350,6 +358,103 @@ class TestElevenLabsWebsocketHeaders:
         # Tried the new name first, then fell back to the legacy one.
         assert "additional_headers" in fake.connect_kwargs[0]
         assert fake.connect_kwargs[-1] == {"extra_headers": {"xi-api-key": "el-fake"}}
+
+
+# -----------------------------------------------------------------
+# ElevenLabs failure surfacing — rejections used to be swallowed
+# (error frames ignored, zero-audio streams returned "cleanly"),
+# leaving the persona silently mute with nothing in the logs.
+# -----------------------------------------------------------------
+
+class TestElevenLabsFailureSurfacing:
+    async def test_error_frame_raises(self, monkeypatch: Any) -> None:
+        # In-band rejection: invalid voice ID / quota / concurrency cap.
+        fake = _FakeWebsocketsModule(frames=[
+            json.dumps({
+                "error": "voice_not_found",
+                "message": "A voice with voice_id vid-123 was not found.",
+            }),
+        ])
+        monkeypatch.setitem(sys.modules, "websockets", fake)
+
+        provider = ElevenLabsTTS(
+            api_key="el-fake", persona_config={"voiceId": "vid-123"}
+        )
+        with pytest.raises(RuntimeError, match="voice_not_found"):
+            async for _ in provider.synthesize("hello"):
+                pass
+        # Socket still closed despite the raise.
+        assert fake.last_ws is not None and fake.last_ws.closed is True
+
+    async def test_zero_audio_stream_raises(self, monkeypatch: Any) -> None:
+        # Stream ends without audio and without an explicit error frame
+        # (abnormal close, silent rejection) — must not return quietly.
+        fake = _FakeWebsocketsModule(frames=[json.dumps({"isFinal": True})])
+        monkeypatch.setitem(sys.modules, "websockets", fake)
+
+        provider = ElevenLabsTTS(
+            api_key="el-fake", persona_config={"voiceId": "vid-123"}
+        )
+        with pytest.raises(RuntimeError, match="no audio"):
+            async for _ in provider.synthesize("hello"):
+                pass
+        assert fake.last_ws is not None and fake.last_ws.closed is True
+
+    async def test_connect_failure_raises_runtime_error(
+        self, monkeypatch: Any
+    ) -> None:
+        class _RefusingWebsockets:
+            async def connect(self, url: str, **kwargs: Any) -> Any:
+                raise OSError("connection refused")
+
+        monkeypatch.setitem(sys.modules, "websockets", _RefusingWebsockets())
+
+        provider = ElevenLabsTTS(
+            api_key="el-fake", persona_config={"voiceId": "vid-123"}
+        )
+        with pytest.raises(RuntimeError, match="connect failed"):
+            async for _ in provider.synthesize("hello"):
+                pass
+
+
+# -----------------------------------------------------------------
+# Piper failure surfacing — the producer thread's exception used to be
+# stranded on a never-awaited executor future, so a broken synthesis
+# ended the stream with zero chunks and zero log lines.
+# -----------------------------------------------------------------
+
+class TestPiperFailureSurfacing:
+    async def test_producer_exception_propagates(self) -> None:
+        class _BrokenVoice:
+            def synthesize(self, text: str) -> Any:
+                raise ValueError("model file is corrupt")
+
+        provider = PiperLocalTTS(model_dir="/tmp", default_voice="x")
+        provider._voice = _BrokenVoice()  # skip _ensure_voice / piper import
+
+        with pytest.raises(RuntimeError, match="model file is corrupt"):
+            async for _ in provider.synthesize("hello"):
+                pass
+
+    async def test_mid_stream_exception_propagates_after_chunks(self) -> None:
+        class _FlakyChunk:
+            audio_int16_bytes = b"\x00\x01\x02\x03"
+
+        class _FlakyVoice:
+            def synthesize(self, text: str) -> Any:
+                yield _FlakyChunk()
+                yield _FlakyChunk()
+                raise ValueError("onnxruntime blew up")
+
+        provider = PiperLocalTTS(model_dir="/tmp", default_voice="x")
+        provider._voice = _FlakyVoice()
+
+        received: list[bytes] = []
+        with pytest.raises(RuntimeError, match="onnxruntime blew up"):
+            async for chunk in provider.synthesize("hello"):
+                received.append(chunk.audio)
+        # Chunks produced before the failure were still streamed out.
+        assert received == [b"\x00\x01\x02\x03"]
 
 
 class TestProtocolConformance:

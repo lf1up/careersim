@@ -89,7 +89,20 @@ class ElevenLabsTTS:
             "&output_format=pcm_22050"
         )
 
-        ws = await _ws_connect(websockets, url, self._api_key)
+        try:
+            ws = await _ws_connect(websockets, url, self._api_key)
+        except Exception as exc:
+            # A failed handshake (bad API key -> HTTP 401, network issues,
+            # a websockets API change) must be loud: historically this
+            # surfaced as a silently mute persona because the caller's
+            # task exception was never retrieved.
+            logger.exception(
+                "elevenlabs TTS websocket connect failed (voice_id=%s)", voice_id
+            )
+            raise RuntimeError(
+                f"ElevenLabs TTS connect failed for voice {voice_id!r}: {exc}"
+            ) from exc
+
         try:
             # Init message — one-shot per connection.
             await ws.send(json.dumps({
@@ -107,15 +120,36 @@ class ElevenLabsTTS:
             await ws.send(json.dumps({"text": ""}))
 
             last_audio: Optional[bytes] = None
+            got_audio = False
             async for raw in ws:
                 try:
                     msg = json.loads(raw)
                 except (TypeError, ValueError):
                     continue
 
+                # ElevenLabs reports rejections (invalid voice ID, quota
+                # exhausted, concurrency limit, plan restrictions) as an
+                # in-band error frame rather than audio. Ignoring it made
+                # the stream end "cleanly" with zero audio — raise so the
+                # worker can log and notify the client instead.
+                error = msg.get("error")
+                if error:
+                    detail = msg.get("message") or ""
+                    logger.error(
+                        "elevenlabs TTS error frame (voice_id=%s): %s %s",
+                        voice_id,
+                        error,
+                        detail,
+                    )
+                    raise RuntimeError(
+                        f"ElevenLabs TTS failed for voice {voice_id!r}: "
+                        f"{error} {detail}".strip()
+                    )
+
                 audio_b64 = msg.get("audio")
                 if audio_b64:
                     chunk = base64.b64decode(audio_b64)
+                    got_audio = True
                     if last_audio is not None:
                         yield TTSAudioChunk(
                             audio=last_audio,
@@ -132,6 +166,19 @@ class ElevenLabsTTS:
                     audio=last_audio,
                     sample_rate=self.SAMPLE_RATE,
                     is_final=True,
+                )
+            if not got_audio:
+                # Stream closed without a single audio frame and without an
+                # explicit error frame (e.g. abnormal close, policy close
+                # code, silent rejection). Zero audio for non-empty text is
+                # always a failure — never return quietly.
+                logger.error(
+                    "elevenlabs TTS produced no audio (voice_id=%s, text_len=%d)",
+                    voice_id,
+                    len(text),
+                )
+                raise RuntimeError(
+                    f"ElevenLabs TTS returned no audio for voice {voice_id!r}"
                 )
         finally:
             await ws.close()
