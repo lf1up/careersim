@@ -3,6 +3,7 @@ import { createParser, type EventSourceMessage } from 'eventsource-parser';
 
 import type {
   AgentConversationResponse,
+  AgentDebriefResponse,
   AgentPersonasResponse,
   AgentSimulationDetail,
   AgentSimulationsResponse,
@@ -35,6 +36,11 @@ export interface AgentClient {
     state: AgentWireState;
     triggerType: ProactiveTrigger;
   }): Promise<AgentConversationResponse>;
+  /**
+   * Generate a post-session debrief report from the current state. Read-only
+   * on the agent side — the state is never mutated, so no snapshot round-trip.
+   */
+  debrief(args: { state: AgentWireState }): Promise<AgentDebriefResponse>;
   streamTurn(args: {
     state: AgentWireState;
     /** One or more user messages for this turn — each persists as its own bubble. */
@@ -202,6 +208,10 @@ export class HttpAgentClient implements AgentClient {
       state: args.state,
       trigger_type: args.triggerType,
     });
+  }
+
+  debrief(args: { state: AgentWireState }): Promise<AgentDebriefResponse> {
+    return this.postJson('/conversation/debrief', { state: args.state });
   }
 
   async *streamTurn(args: {

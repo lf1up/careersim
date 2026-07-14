@@ -20,6 +20,7 @@ import {
   sendMessageSchema,
   sessionDetailSchema,
   sessionListResponseSchema,
+  sessionReportResponseSchema,
 } from './sessions.schema.js';
 
 interface SessionsRouteOptions {
@@ -83,6 +84,26 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     },
     async (request) => {
       return service.get(request.user.sub, request.params.id);
+    },
+  );
+
+  app.get(
+    '/sessions/:id/report',
+    {
+      onRequest: [app.authenticate],
+      config: { rateLimit: rateLimitPolicy.sessionReport() },
+      schema: {
+        tags: ['sessions'],
+        summary: 'Get (or generate) the session debrief report',
+        description:
+          'Returns the cached debrief report when the transcript has not changed since it was generated; otherwise asks the agent to generate a fresh one (an LLM call — expect a few seconds) and caches it. Fails with 400 NO_USER_MESSAGES when the user has not sent anything yet.',
+        security: [{ bearerAuth: [] }],
+        params: z.object({ id: z.uuid() }),
+        response: { 200: sessionReportResponseSchema },
+      },
+    },
+    async (request) => {
+      return service.getReport(request.user.sub, request.params.id);
     },
   );
 

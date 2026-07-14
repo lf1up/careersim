@@ -15,6 +15,7 @@ const AUTH_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/simulations', label: 'Simulations' },
   { href: '/sessions', label: 'Sessions' },
+  { href: '/analytics', label: 'Analytics' },
 ];
 
 // Nav items shown to guests. Keep this to just the public catalogue so

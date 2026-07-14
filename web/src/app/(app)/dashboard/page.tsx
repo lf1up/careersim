@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
-import type { SessionSummary, Simulation } from '@/lib/types';
+import type { AnalyticsOverview, SessionSummary, Simulation } from '@/lib/types';
 import {
   difficultyColor,
   difficultyLabel,
@@ -18,24 +18,30 @@ import { RetroPanel } from '@/components/ui/RetroPanel';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 import { ValueText } from '@/components/ui/ValueText';
+import { SkillGauge, skillLabel } from '@/components/analytics/SkillGauge';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [sims, sess] = await Promise.all([
+        const [sims, sess, stats] = await Promise.all([
           apiClient.listSimulations(),
           apiClient.listSessions(),
+          // Analytics are additive — if the call fails the dashboard
+          // degrades to catalogue + sessions rather than erroring out.
+          apiClient.getAnalyticsOverview().catch(() => null),
         ]);
         if (cancelled) return;
         setSimulations(sims);
         setSessions(sess);
+        setOverview(stats);
       } catch (err) {
         if (!cancelled) {
           toast.error(err instanceof Error ? err.message : 'Failed to load dashboard');
@@ -64,10 +70,24 @@ export default function DashboardPage() {
     );
   }
 
-  const totalMessages = sessions.reduce((sum, s) => sum + s.message_count, 0);
+  // Prefer the server-side aggregate; fall back to client-side counting
+  // when the analytics call failed so the cards never show blanks.
+  const totalMessages =
+    overview?.totals.messages ??
+    sessions.reduce((sum, s) => sum + s.message_count, 0);
+  const sessionCount = overview?.totals.sessions ?? sessions.length;
   const recentSessions = [...sessions]
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 5);
+
+  const completionRate =
+    overview && overview.goals.completion_rate !== null
+      ? `${Math.round(overview.goals.completion_rate * 100)}%`
+      : '—';
+  const goalsAchieved = overview
+    ? `${overview.goals.achieved}/${overview.goals.total}`
+    : '—';
+  const skillsSnapshot = overview?.reports.skill_averages ?? [];
 
   return (
     <div className="space-y-6 pb-3 sm:pb-4 retro-fade-in">
@@ -86,24 +106,41 @@ export default function DashboardPage() {
           <Link href="/sessions">
             <Button variant="outline">My sessions</Button>
           </Link>
+          <Link href="/analytics">
+            <Button variant="outline">Analytics</Button>
+          </Link>
         </div>
       </RetroCard>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <RetroCard>
-          <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 uppercase tracking-wider2">
-            Available simulations
-          </p>
-          <p className="text-3xl mt-2">
-            <ValueText value={simulations.length} />
-          </p>
-        </RetroCard>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <RetroCard>
           <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 uppercase tracking-wider2">
             Your sessions
           </p>
           <p className="text-3xl mt-2">
-            <ValueText value={sessions.length} />
+            <ValueText value={sessionCount} />
+          </p>
+        </RetroCard>
+        <RetroCard>
+          <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 uppercase tracking-wider2">
+            Completion rate
+          </p>
+          <p className="text-3xl mt-2">
+            <ValueText value={completionRate} />
+          </p>
+          {overview && (
+            <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 mt-1">
+              {overview.goals.completed_sessions} of{' '}
+              {overview.goals.completable_sessions} sessions
+            </p>
+          )}
+        </RetroCard>
+        <RetroCard>
+          <p className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 uppercase tracking-wider2">
+            Goals achieved
+          </p>
+          <p className="text-3xl mt-2">
+            <ValueText value={goalsAchieved} />
           </p>
         </RetroCard>
         <RetroCard>
@@ -115,6 +152,35 @@ export default function DashboardPage() {
           </p>
         </RetroCard>
       </div>
+
+      {skillsSnapshot.length > 0 && (
+        <RetroPanel
+          title="Skills snapshot"
+          right={
+            <Link
+              href="/analytics"
+              className="text-sm underline text-primary-600 dark:text-primary-400"
+            >
+              Full analytics
+            </Link>
+          }
+        >
+          <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            {skillsSnapshot.slice(0, 6).map((skill) => (
+              <SkillGauge
+                key={skill.key}
+                compact
+                label={skillLabel(skill.key)}
+                score={skill.average}
+              />
+            ))}
+          </div>
+          <p className="mt-4 text-xs font-monoRetro text-secondary-600 dark:text-secondary-400">
+            Averaged from {overview?.reports.analyzed_sessions} analyzed session
+            {overview?.reports.analyzed_sessions === 1 ? '' : 's'}.
+          </p>
+        </RetroPanel>
+      )}
 
       <RetroPanel
         title="Recent sessions"

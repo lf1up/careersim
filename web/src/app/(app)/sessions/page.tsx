@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
@@ -26,6 +27,7 @@ function formatDate(iso: string): string {
 }
 
 export default function SessionsPage() {
+  const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +151,26 @@ export default function SessionsPage() {
                           align="start"
                           progress={s.goal_progress}
                         />
+                      )}
+                      {/* Rendered as a button (the whole row is already an
+                          anchor — nested links are invalid HTML) that
+                          navigates to the debrief report instead of the chat.
+                          Only shown once the conversation plausibly has a
+                          user turn; the report page itself handles the
+                          "nothing to analyze" case gracefully. */}
+                      {s.message_count >= 2 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push(`/sessions/${s.id}/report`);
+                          }}
+                          className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 transition-transform"
+                          title="View the debrief report for this session"
+                        >
+                          Report
+                        </button>
                       )}
                       <span
                         aria-hidden

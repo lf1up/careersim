@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
-import type { AgentWireState } from '../agent/types.js';
+import type { AgentDebriefReport, AgentWireState } from '../agent/types.js';
 
 export const messageRoleEnum = pgEnum('message_role', ['human', 'ai']);
 
@@ -95,6 +95,15 @@ export const sessions = pgTable(
     // `voice_minute_usage` (per-user, per-day) below.
     voiceCallStartedAt: timestamp('voice_call_started_at', { withTimezone: true }),
     voiceCallEndedAt: timestamp('voice_call_ended_at', { withTimezone: true }),
+    // Cached post-session debrief report, generated on demand by the agent's
+    // `/conversation/debrief`. `reportMessageCount` records how long the
+    // transcript was when the report was generated: a mismatch with the
+    // current snapshot means the conversation advanced and the report is
+    // regenerated on the next `GET /sessions/:id/report`. Deliberately NOT
+    // version-guarded — the report never touches `state_snapshot`, so a
+    // report write must never 409 a concurrent turn (or vice versa).
+    report: jsonb('report').$type<AgentDebriefReport>(),
+    reportMessageCount: integer('report_message_count'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

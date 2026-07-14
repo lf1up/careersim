@@ -1,9 +1,11 @@
 import type {
+  AnalyticsOverview,
   AuthResponse,
   NudgeResponse,
   PendingRegistration,
   Persona,
   SessionDetail,
+  SessionReportResponse,
   SessionSummary,
   Simulation,
   SimulationDetail,
@@ -350,6 +352,21 @@ export const apiClient = {
 
   async nudge(id: string): Promise<NudgeResponse> {
     return request<NudgeResponse>(`/sessions/${id}/nudge`, { method: 'POST' });
+  },
+
+  /**
+   * Fetch the session debrief report. Served from cache when the
+   * transcript hasn't changed; otherwise the API asks the agent to
+   * generate a fresh one — expect a few seconds on first load. Rejects
+   * with 400 `NO_USER_MESSAGES` when the user hasn't chatted yet.
+   */
+  async getSessionReport(id: string, signal?: AbortSignal): Promise<SessionReportResponse> {
+    return request<SessionReportResponse>(`/sessions/${id}/report`, { signal });
+  },
+
+  // ---------- analytics ----------
+  async getAnalyticsOverview(signal?: AbortSignal): Promise<AnalyticsOverview> {
+    return request<AnalyticsOverview>('/analytics/overview', { signal });
   },
 
   // ---------- streaming ----------

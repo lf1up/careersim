@@ -36,6 +36,15 @@ class GoalEvalResult(TypedDict):
     reasoning: str
 
 
+class DebriefGenerationError(RuntimeError):
+    """Raised when the LLM debrief call fails or returns unusable output.
+
+    Unlike per-turn sentiment (where a neutral fallback is harmless), a
+    fabricated debrief with zeroed scores would actively mislead the user —
+    so we surface the failure and let the API return an error the client
+    can retry."""
+
+
 _TEXT_ANALYSIS_SYSTEM = """You are a precise text-analysis assistant.
 Analyze the user message and provide BOTH sentiment and emotion in a single response.
 
@@ -116,6 +125,256 @@ def _parse_json_response(text: str) -> dict:
     return json.loads(text)
 
 
+# -----------------------------------------------------------------------------
+# Session debrief (post-session report)
+#
+# One structured LLM call over the FULL transcript + the simulation's rubric,
+# combined with deterministic stats computed from goal_progress and message
+# counts. The wire shape is consumed by the API's `GET /sessions/:id/report`
+# and cached there keyed by message count.
+# -----------------------------------------------------------------------------
+
+_DEBRIEF_SKILL_KEYS = (
+    "clarity",
+    "confidence",
+    "problem_solving",
+    "emotional_intelligence",
+)
+
+_DEBRIEF_SYSTEM = """You are an expert communication coach reviewing a completed career-simulation practice conversation between a USER (the trainee) and an AI PERSONA playing a professional role.
+
+You will receive the scenario, its success criteria rubric, the conversation goals with their final statuses, and the full indexed transcript.
+
+Evaluate ONLY the USER's performance. Be specific, fair, and constructive — cite what actually happened in the conversation. Scores are 0-100:
+- 0-39: needs significant work; 40-59: developing; 60-79: solid; 80-100: strong.
+
+Score these four skills:
+1. "clarity" — how clear and structured the user's communication was (use the communication criteria).
+2. "confidence" — how assured and composed the user came across (hedging, filler, decisiveness, owning their answers).
+3. "problem_solving" — quality of reasoning, structure, and relevance of examples (use the problem-solving criteria).
+4. "emotional_intelligence" — reading and responding to the persona's emotional cues (use the emotional criteria).
+
+Also produce:
+- "emotional_tone": the user's overall tone label (one or two words) plus a 2-4 phase journey across the conversation (each phase: a short name, a tone label, and one sentence of note).
+- "summary": 2-3 sentences summarizing how the session went overall.
+- "strengths": 2-4 concrete things the user did well.
+- "improvement_areas": 2-4 concrete things to improve.
+- "advice": 2-4 actionable next steps the user can practice.
+- "key_moments": 2-4 pivotal transcript moments. Use the exact message index shown in [brackets], and only indexes of USER messages when highlighting user behaviour.
+
+Respond ONLY with a JSON object, no markdown fences, no extra text:
+{
+  "skills": {
+    "clarity": {"score": <int 0-100>, "rationale": "<1 sentence>"},
+    "confidence": {"score": <int 0-100>, "rationale": "<1 sentence>"},
+    "problem_solving": {"score": <int 0-100>, "rationale": "<1 sentence>"},
+    "emotional_intelligence": {"score": <int 0-100>, "rationale": "<1 sentence>"}
+  },
+  "emotional_tone": {
+    "overall": "<label>",
+    "journey": [{"phase": "<short name>", "tone": "<label>", "note": "<1 sentence>"}]
+  },
+  "summary": "<2-3 sentences>",
+  "strengths": ["<item>"],
+  "improvement_areas": ["<item>"],
+  "advice": ["<item>"],
+  "key_moments": [{"message_index": <int>, "label": "<short title>", "note": "<1 sentence>"}]
+}"""
+
+# Keep the transcript prompt bounded so very long sessions don't blow the
+# context window. We keep the opening (rapport) and the most recent tail
+# (closing) and elide the middle with a marker.
+_DEBRIEF_MAX_TRANSCRIPT_CHARS = 24_000
+_DEBRIEF_MAX_MESSAGE_CHARS = 800
+
+
+def _format_transcript_lines(
+    messages: list[dict[str, Any]],
+    persona_name: str,
+) -> list[str]:
+    lines: list[str] = []
+    for idx, msg in enumerate(messages):
+        role = msg.get("role", "unknown")
+        speaker = "USER" if role == "human" else persona_name.upper()
+        content = str(msg.get("content", ""))
+        if len(content) > _DEBRIEF_MAX_MESSAGE_CHARS:
+            content = content[:_DEBRIEF_MAX_MESSAGE_CHARS] + " […]"
+        lines.append(f"[{idx}] {speaker}: {content}")
+    return lines
+
+
+def _bounded_transcript(lines: list[str]) -> str:
+    """Join transcript lines, eliding the middle when over budget."""
+    total = sum(len(l) + 1 for l in lines)
+    if total <= _DEBRIEF_MAX_TRANSCRIPT_CHARS:
+        return "\n".join(lines)
+
+    head: list[str] = []
+    tail: list[str] = []
+    budget = _DEBRIEF_MAX_TRANSCRIPT_CHARS
+    # Reserve roughly a third for the opening, the rest for the tail.
+    head_budget = budget // 3
+    used = 0
+    for line in lines:
+        if used + len(line) + 1 > head_budget:
+            break
+        head.append(line)
+        used += len(line) + 1
+    tail_budget = budget - used
+    tail_used = 0
+    for line in reversed(lines[len(head):]):
+        if tail_used + len(line) + 1 > tail_budget:
+            break
+        tail.append(line)
+        tail_used += len(line) + 1
+    tail.reverse()
+    omitted = len(lines) - len(head) - len(tail)
+    marker = f"[… {omitted} message(s) omitted …]"
+    return "\n".join([*head, marker, *tail])
+
+
+def _build_debrief_prompt(state: dict[str, Any]) -> str:
+    simulation = state.get("simulation") or {}
+    persona = state.get("persona") or {}
+    persona_name = str(persona.get("name") or "Persona")
+
+    criteria = simulation.get("successCriteria") or {}
+
+    def _criteria_block(title: str, items: Any) -> str:
+        entries = list(items or [])
+        body = "\n".join(f"- {c}" for c in entries) if entries else "(none)"
+        return f"### {title}\n{body}"
+
+    goal_lines: list[str] = []
+    progress_by_number = {
+        p.get("goalNumber"): p for p in (state.get("goal_progress") or [])
+    }
+    for goal in simulation.get("conversationGoals") or []:
+        number = goal.get("goalNumber")
+        progress = progress_by_number.get(number) or {}
+        status = progress.get("status", "not_started")
+        optional = " (optional)" if goal.get("isOptional") else ""
+        goal_lines.append(
+            f"- Goal {number}{optional}: {goal.get('title', '')} — status: {status}"
+        )
+    if not goal_lines:
+        for number, progress in sorted(
+            (k, v) for k, v in progress_by_number.items() if k is not None
+        ):
+            goal_lines.append(
+                f"- Goal {number}: {progress.get('title', '')} — "
+                f"status: {progress.get('status', 'not_started')}"
+            )
+
+    transcript = _bounded_transcript(
+        _format_transcript_lines(list(state.get("messages") or []), persona_name)
+    )
+
+    voice_block = ""
+    analysis = state.get("analysis") or {}
+    voice = analysis.get("voice") if isinstance(analysis, dict) else None
+    if isinstance(voice, dict) and voice:
+        interesting = {
+            k: voice.get(k)
+            for k in (
+                "user_avg_wpm",
+                "user_filler_count",
+                "user_filler_density_per_100w",
+                "user_avg_response_latency_sec",
+                "longest_silence_sec",
+                "user_interrupt_count",
+            )
+            if voice.get(k) is not None
+        }
+        if interesting:
+            voice_block = "\n## Voice signals (from a voice call in this session)\n" + "\n".join(
+                f"- {k}: {v}" for k, v in interesting.items()
+            )
+
+    return f"""## Scenario
+Title: {simulation.get('title', '')}
+Persona: {persona_name} ({persona.get('role', '')})
+Scenario: {simulation.get('scenario', '')}
+
+## Success criteria rubric
+{_criteria_block('Communication', criteria.get('communication'))}
+{_criteria_block('Problem solving', criteria.get('problemSolving'))}
+{_criteria_block('Emotional', criteria.get('emotional'))}
+
+## Conversation goals (final status)
+{chr(10).join(goal_lines) if goal_lines else '(none)'}
+{voice_block}
+
+## Transcript (message index in brackets)
+{transcript}"""
+
+
+def compute_goal_outcome(goal_progress: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Deterministic goal-outcome block derived from goal_progress.
+
+    Score = mean over required goals of (1.0 if achieved else progress
+    confidence clamped to [0, 0.99]) × 100. Falls back to all goals when
+    the simulation declares no required ones; returns None when there are
+    no tracked goals at all.
+    """
+    goals = [g for g in goal_progress if isinstance(g, dict)]
+    if not goals:
+        return None
+    required = [g for g in goals if not g.get("isOptional")]
+    scored = required if required else goals
+
+    per_goal: list[float] = []
+    for g in scored:
+        if g.get("status") == "achieved":
+            per_goal.append(1.0)
+        else:
+            confidence = g.get("confidence")
+            value = float(confidence) if isinstance(confidence, (int, float)) else 0.0
+            per_goal.append(max(0.0, min(0.99, value)))
+
+    achieved_required = sum(1 for g in scored if g.get("status") == "achieved")
+    achieved_total = sum(1 for g in goals if g.get("status") == "achieved")
+    return {
+        "score": round(100 * sum(per_goal) / len(per_goal)),
+        "total": len(goals),
+        "required": len(scored) if required else len(goals),
+        "achieved_required": achieved_required,
+        "achieved_total": achieved_total,
+    }
+
+
+def compute_transcript_stats(messages: list[dict[str, Any]]) -> dict[str, Any]:
+    """Message/word counts per side. Duration is added API-side (the agent
+    wire state carries no timestamps)."""
+    user_messages = [m for m in messages if m.get("role") == "human"]
+    ai_messages = [m for m in messages if m.get("role") == "ai"]
+
+    def words(items: list[dict[str, Any]]) -> int:
+        return sum(len(str(m.get("content", "")).split()) for m in items)
+
+    return {
+        "message_count": len(messages),
+        "user_message_count": len(user_messages),
+        "ai_message_count": len(ai_messages),
+        "user_word_count": words(user_messages),
+        "ai_word_count": words(ai_messages),
+    }
+
+
+def _clamp_score(value: Any) -> Optional[int]:
+    try:
+        return max(0, min(100, round(float(value))))
+    except (TypeError, ValueError):
+        return None
+
+
+def _string_list(value: Any, limit: int = 6) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out = [str(v).strip() for v in value if isinstance(v, str) and str(v).strip()]
+    return out[:limit]
+
+
 class EvalService:
     """LLM-backed evaluation service using the configured EVAL_MODEL.
 
@@ -131,6 +390,20 @@ class EvalService:
             api_key=eval_cfg["api_key"],
             temperature=eval_cfg["temperature"],
             max_tokens=eval_cfg["max_tokens"],
+            top_p=eval_cfg["top_p"],
+            frequency_penalty=eval_cfg["frequency_penalty"],
+            presence_penalty=eval_cfg["presence_penalty"],
+            **({"base_url": eval_cfg["base_url"]} if eval_cfg.get("base_url") else {}),
+            **({"default_headers": eval_cfg["default_headers"]} if eval_cfg.get("default_headers") else {}),
+        )
+        # Separate instance for debriefs: the report JSON is much larger
+        # than a per-turn sentiment/goal payload, so make sure the output
+        # budget can't truncate it mid-object.
+        self._debrief_llm = ChatOpenAI(
+            model=eval_cfg["model"],
+            api_key=eval_cfg["api_key"],
+            temperature=eval_cfg["temperature"],
+            max_tokens=max(int(eval_cfg["max_tokens"] or 0), 2000),
             top_p=eval_cfg["top_p"],
             frequency_penalty=eval_cfg["frequency_penalty"],
             presence_penalty=eval_cfg["presence_penalty"],
@@ -201,6 +474,115 @@ class EvalService:
                 "success_label": "",
                 "reasoning": f"evaluation error: {e}",
             }
+
+    def generate_debrief(self, state: dict[str, Any]) -> dict[str, Any]:
+        """Generate a full post-session debrief report from a wire-format state.
+
+        Combines one structured LLM call (skills, tone journey, advice, key
+        moments) with deterministic stats (goal outcome, message/word counts,
+        voice-signal passthrough). Raises :class:`DebriefGenerationError` on
+        LLM failure — callers must not cache a fabricated report.
+        """
+        from datetime import datetime, timezone
+
+        messages = [m for m in (state.get("messages") or []) if isinstance(m, dict)]
+        if not any(m.get("role") == "human" for m in messages):
+            raise DebriefGenerationError(
+                "Cannot generate a debrief before the user has sent a message"
+            )
+
+        prompt = _build_debrief_prompt(state)
+        try:
+            resp = self._debrief_llm.invoke([
+                SystemMessage(content=_DEBRIEF_SYSTEM),
+                HumanMessage(content=prompt),
+            ])
+            data = _parse_json_response(str(resp.content))
+        except Exception as e:
+            logger.error(f"Debrief generation failed: {e}", exc_info=True)
+            raise DebriefGenerationError(f"Debrief LLM call failed: {e}") from e
+
+        skills_raw = data.get("skills") if isinstance(data.get("skills"), dict) else {}
+        skills: list[dict[str, Any]] = []
+        for key in _DEBRIEF_SKILL_KEYS:
+            entry = skills_raw.get(key) if isinstance(skills_raw.get(key), dict) else {}
+            score = _clamp_score(entry.get("score"))
+            if score is None:
+                raise DebriefGenerationError(
+                    f"Debrief LLM output missing a usable score for '{key}'"
+                )
+            skills.append({
+                "key": key,
+                "score": score,
+                "rationale": str(entry.get("rationale", "")).strip(),
+            })
+
+        goal_outcome = compute_goal_outcome(list(state.get("goal_progress") or []))
+        if goal_outcome is not None:
+            achieved = goal_outcome["achieved_required"]
+            required = goal_outcome["required"]
+            skills.append({
+                "key": "goal_outcome",
+                "score": goal_outcome["score"],
+                "rationale": (
+                    f"{achieved} of {required} required goal"
+                    f"{'' if required == 1 else 's'} achieved."
+                ),
+            })
+
+        overall = round(sum(s["score"] for s in skills) / len(skills))
+
+        tone_raw = (
+            data.get("emotional_tone")
+            if isinstance(data.get("emotional_tone"), dict)
+            else {}
+        )
+        journey: list[dict[str, str]] = []
+        for phase in tone_raw.get("journey") or []:
+            if not isinstance(phase, dict):
+                continue
+            journey.append({
+                "phase": str(phase.get("phase", "")).strip(),
+                "tone": str(phase.get("tone", "")).strip(),
+                "note": str(phase.get("note", "")).strip(),
+            })
+
+        max_index = len(messages) - 1
+        key_moments: list[dict[str, Any]] = []
+        for moment in data.get("key_moments") or []:
+            if not isinstance(moment, dict):
+                continue
+            idx = moment.get("message_index")
+            if not isinstance(idx, int) or idx < 0 or idx > max_index:
+                continue
+            key_moments.append({
+                "message_index": idx,
+                "role": messages[idx].get("role", "unknown"),
+                "label": str(moment.get("label", "")).strip(),
+                "note": str(moment.get("note", "")).strip(),
+            })
+
+        analysis = state.get("analysis") or {}
+        voice = analysis.get("voice") if isinstance(analysis, dict) else None
+
+        return {
+            "version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "overall_score": overall,
+            "skills": skills,
+            "goal_outcome": goal_outcome,
+            "stats": compute_transcript_stats(messages),
+            "emotional_tone": {
+                "overall": str(tone_raw.get("overall", "")).strip(),
+                "journey": journey,
+            },
+            "summary": str(data.get("summary", "")).strip(),
+            "strengths": _string_list(data.get("strengths")),
+            "improvement_areas": _string_list(data.get("improvement_areas")),
+            "advice": _string_list(data.get("advice")),
+            "key_moments": key_moments,
+            "voice": voice if isinstance(voice, dict) and voice else None,
+        }
 
 
 _service_instance: Optional[EvalService] = None
