@@ -382,34 +382,28 @@ class EvalService:
     evaluation through structured LLM calls.
     """
 
+    @staticmethod
+    def _build_chat_openai(eval_cfg: dict, *, min_max_tokens: int = 0) -> ChatOpenAI:
+        return ChatOpenAI(
+            model=eval_cfg["model"],
+            api_key=eval_cfg["api_key"],
+            temperature=eval_cfg["temperature"],
+            max_tokens=max(int(eval_cfg["max_tokens"] or 0), min_max_tokens),
+            top_p=eval_cfg["top_p"],
+            frequency_penalty=eval_cfg["frequency_penalty"],
+            presence_penalty=eval_cfg["presence_penalty"],
+            **({"base_url": eval_cfg["base_url"]} if eval_cfg.get("base_url") else {}),
+            **({"default_headers": eval_cfg["default_headers"]} if eval_cfg.get("default_headers") else {}),
+        )
+
     def __init__(self):
         settings = get_settings()
         eval_cfg = settings.openai_eval_config
-        self._llm = ChatOpenAI(
-            model=eval_cfg["model"],
-            api_key=eval_cfg["api_key"],
-            temperature=eval_cfg["temperature"],
-            max_tokens=eval_cfg["max_tokens"],
-            top_p=eval_cfg["top_p"],
-            frequency_penalty=eval_cfg["frequency_penalty"],
-            presence_penalty=eval_cfg["presence_penalty"],
-            **({"base_url": eval_cfg["base_url"]} if eval_cfg.get("base_url") else {}),
-            **({"default_headers": eval_cfg["default_headers"]} if eval_cfg.get("default_headers") else {}),
-        )
+        self._llm = self._build_chat_openai(eval_cfg)
         # Separate instance for debriefs: the report JSON is much larger
         # than a per-turn sentiment/goal payload, so make sure the output
         # budget can't truncate it mid-object.
-        self._debrief_llm = ChatOpenAI(
-            model=eval_cfg["model"],
-            api_key=eval_cfg["api_key"],
-            temperature=eval_cfg["temperature"],
-            max_tokens=max(int(eval_cfg["max_tokens"] or 0), 2000),
-            top_p=eval_cfg["top_p"],
-            frequency_penalty=eval_cfg["frequency_penalty"],
-            presence_penalty=eval_cfg["presence_penalty"],
-            **({"base_url": eval_cfg["base_url"]} if eval_cfg.get("base_url") else {}),
-            **({"default_headers": eval_cfg["default_headers"]} if eval_cfg.get("default_headers") else {}),
-        )
+        self._debrief_llm = self._build_chat_openai(eval_cfg, min_max_tokens=2000)
         logger.info(f"EvalService initialised with model={eval_cfg['model']}")
 
     def analyze_text(self, text: str) -> TextAnalysisResult:
