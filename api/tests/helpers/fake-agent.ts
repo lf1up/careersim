@@ -2,6 +2,8 @@ import type { AgentAvatarResponse, AgentClient } from '../../src/agent/client.js
 import { AgentRequestError } from '../../src/agent/client.js';
 import type {
   AgentConversationResponse,
+  AgentDebriefReport,
+  AgentDebriefResponse,
   AgentMessage,
   AgentPersona,
   AgentPersonasResponse,
@@ -241,6 +243,60 @@ export class FakeAgent implements AgentClient {
       { role: 'ai', content: `proactive:${args.triggerType}` },
     ];
     return this.#buildResponse({ ...args.state, messages: nextMessages });
+  }
+
+  async debrief(args: { state: AgentWireState }): Promise<AgentDebriefResponse> {
+    const messages = args.state.messages ?? [];
+    this.callLog.push(`debrief:${messages.length}`);
+    const userMessages = messages.filter((m) => m.role === 'human');
+    const aiMessages = messages.filter((m) => m.role === 'ai');
+    const wordCount = (msgs: AgentMessage[]) =>
+      msgs.reduce(
+        (sum, m) => sum + (m.content.trim() ? m.content.trim().split(/\s+/).length : 0),
+        0,
+      );
+    const report: AgentDebriefReport = {
+      version: 1,
+      generated_at: new Date().toISOString(),
+      overall_score: 74,
+      skills: [
+        { key: 'clarity', score: 72, rationale: 'Structured answers.' },
+        { key: 'confidence', score: 65, rationale: 'Some hedging.' },
+        { key: 'problem_solving', score: 80, rationale: 'Good examples.' },
+        { key: 'emotional_intelligence', score: 70, rationale: 'Read cues well.' },
+        { key: 'goal_outcome', score: 85, rationale: '1 of 1 required goals achieved.' },
+      ],
+      goal_outcome: {
+        score: 85,
+        total: 1,
+        required: 1,
+        achieved_required: 1,
+        achieved_total: 1,
+      },
+      stats: {
+        message_count: messages.length,
+        user_message_count: userMessages.length,
+        ai_message_count: messages.length - userMessages.length,
+        user_word_count: wordCount(userMessages),
+        ai_word_count: wordCount(aiMessages),
+      },
+      emotional_tone: {
+        overall: 'composed',
+        journey: [
+          { phase: 'Opening', tone: 'nervous', note: 'Slow start.' },
+          { phase: 'Closing', tone: 'confident', note: 'Strong finish.' },
+        ],
+      },
+      summary: 'A solid session overall.',
+      strengths: ['Clear structure'],
+      improvement_areas: ['Reduce hedging'],
+      advice: ['Practice concise openers'],
+      key_moments: [
+        { message_index: 1, role: 'human', label: 'Strong greeting', note: 'Warm opener.' },
+      ],
+      voice: null,
+    };
+    return { report };
   }
 
   async *streamTurn(args: {

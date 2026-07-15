@@ -53,6 +53,82 @@ export interface AgentConversationResponse {
   analysis: AgentAnalysis;
 }
 
+// ---------------------------------------------------------------------------
+// Post-session debrief report (`POST /conversation/debrief`).
+//
+// The agent assembles this from one structured LLM call plus deterministic
+// stats. Known fields are typed for the API's own aggregation (analytics
+// overview) — everything else is passed through opaquely so the report can
+// grow without an API redeploy.
+// ---------------------------------------------------------------------------
+
+export interface AgentDebriefSkill {
+  /** clarity | confidence | problem_solving | emotional_intelligence | goal_outcome */
+  key: string;
+  /** 0-100 */
+  score: number;
+  rationale: string;
+  [key: string]: unknown;
+}
+
+export interface AgentDebriefTonePhase {
+  phase: string;
+  tone: string;
+  note: string;
+  [key: string]: unknown;
+}
+
+export interface AgentDebriefKeyMoment {
+  /** Index into the session transcript (matches `messages.order_index`). */
+  message_index: number;
+  role: AgentRole | string;
+  label: string;
+  note: string;
+  [key: string]: unknown;
+}
+
+export interface AgentDebriefReport {
+  version: number;
+  generated_at: string;
+  overall_score: number;
+  skills: AgentDebriefSkill[];
+  goal_outcome: {
+    score: number;
+    total: number;
+    required: number;
+    achieved_required: number;
+    achieved_total: number;
+    [key: string]: unknown;
+  } | null;
+  stats: {
+    message_count: number;
+    user_message_count: number;
+    ai_message_count: number;
+    user_word_count: number;
+    ai_word_count: number;
+    /** Injected API-side from message timestamps (agent state has none). */
+    duration_seconds?: number | null;
+    [key: string]: unknown;
+  };
+  emotional_tone: {
+    overall: string;
+    journey: AgentDebriefTonePhase[];
+    [key: string]: unknown;
+  };
+  summary: string;
+  strengths: string[];
+  improvement_areas: string[];
+  advice: string[];
+  key_moments: AgentDebriefKeyMoment[];
+  /** Passthrough of `state.analysis.voice` when the session had a call. */
+  voice: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+export interface AgentDebriefResponse {
+  report: AgentDebriefReport;
+}
+
 export interface AgentSimulation {
   slug: string;
   title: string;

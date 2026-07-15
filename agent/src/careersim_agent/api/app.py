@@ -137,6 +137,20 @@ class ConversationResponse(BaseModel):
     analysis: dict[str, Any] = Field(default_factory=dict)
 
 
+class DebriefRequest(BaseModel):
+    """Generate a post-session debrief report from a wire-format state.
+
+    The state is consumed read-only — debriefs never mutate conversation
+    history, so the response carries just the report."""
+    state: dict[str, Any]
+
+
+class DebriefResponse(BaseModel):
+    report: dict[str, Any] = Field(
+        description="Structured debrief report (skills, tone, advice, key moments)",
+    )
+
+
 class SimulationItem(BaseModel):
     """Summary row for the /simulations listing."""
     slug: str
@@ -365,6 +379,37 @@ def create_api_app() -> FastAPI:
         except Exception as e:
             logger.error(f"conversation/proactive failed: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    @app.post("/conversation/debrief", response_model=DebriefResponse)
+    async def conversation_debrief(req: DebriefRequest):
+        """Generate a post-session debrief report (batch, read-only).
+
+        Works directly on the wire-format state dict — no LangChain
+        message reconstruction needed since the transcript is only read.
+        Returns 422 when there is nothing to evaluate yet (no user
+        messages) so the API can surface a clear "chat first" error
+        instead of a generic failure.
+        """
+        from ..services.eval_service import DebriefGenerationError, get_eval_service
+
+        messages = req.state.get("messages") or []
+        has_human = any(
+            isinstance(m, dict) and m.get("role") == "human" for m in messages
+        )
+        if not has_human:
+            raise HTTPException(
+                status_code=422,
+                detail="Cannot generate a debrief before the user has sent a message",
+            )
+        try:
+            report = get_eval_service().generate_debrief(req.state)
+            return DebriefResponse(report=report)
+        except DebriefGenerationError as e:
+            logger.error(f"conversation/debrief failed: {e}")
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        except Exception as e:
+            logger.error(f"conversation/debrief failed: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     # -- SSE streaming endpoints ----------------------------------------------
 

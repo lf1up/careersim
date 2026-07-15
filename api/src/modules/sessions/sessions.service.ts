@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
 
 import type { AgentClient } from '../../agent/client.js';
 import type {
   AgentAnalysis,
   AgentConversationResponse,
+  AgentDebriefReport,
   AgentGoalProgress,
   AgentMessage,
   AgentWireState,
@@ -16,7 +17,7 @@ import {
   type MessageSource,
   type SessionRow,
 } from '../../db/schema.js';
-import { conflict, forbidden, notFound } from '../../plugins/errors.js';
+import { badRequest, conflict, forbidden, notFound } from '../../plugins/errors.js';
 
 export interface Range {
   min: number;
@@ -95,6 +96,16 @@ export type NudgeResult =
   | { nudged: true; session: SessionDetail }
   | { nudged: false; reason: NudgeSkipReason; idle_seconds: number; nudge_count: number };
 
+export interface SessionReportResult {
+  session_id: string;
+  simulation_slug: string;
+  /** Transcript length the report reflects. */
+  message_count: number;
+  /** True when the cached report was returned without an agent call. */
+  cached: boolean;
+  report: AgentDebriefReport;
+}
+
 interface PersonaPolicy {
   delay: Range;
   maxNudges: number;
@@ -122,6 +133,13 @@ export interface SessionsService {
    * silence window. Idempotent: clients can poll freely.
    */
   triggerInactivityNudge(userId: string, sessionId: string): Promise<NudgeResult>;
+  /**
+   * Return the session's debrief report, generating it via the agent when
+   * no cached report exists for the current transcript length. Reports are
+   * regenerated automatically once the conversation advances (message count
+   * mismatch); an unchanged transcript always serves the cached copy.
+   */
+  getReport(userId: string, sessionId: string): Promise<SessionReportResult>;
   /**
    * Load a session and hand back the snapshot needed to drive an SSE proxy,
    * plus a persist callback for when the stream's final `done` arrives.
@@ -541,6 +559,75 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         nudgeCountSinceHuman: session.nudgeCountSinceHuman + 1,
       });
       return { nudged: true, session: detail };
+    },
+
+    async getReport(userId, sessionId) {
+      const session = await loadSessionOrThrow(userId, sessionId);
+      const snapshot = session.stateSnapshot;
+      const transcript = snapshot.messages ?? [];
+      const currentCount = transcript.length;
+
+      if (!transcript.some((m) => m.role === 'human')) {
+        throw badRequest(
+          'Send at least one message before requesting a report',
+          'NO_USER_MESSAGES',
+        );
+      }
+
+      if (session.report && session.reportMessageCount === currentCount) {
+        return {
+          session_id: session.id,
+          simulation_slug: session.simulationSlug,
+          message_count: currentCount,
+          cached: true,
+          report: session.report,
+        };
+      }
+
+      const { report } = await agent.debrief({ state: snapshot });
+
+      // The agent has no message timestamps, so wall-clock duration is
+      // computed here from the persisted transcript rows.
+      // Restrict to the snapshot used for message_count so a concurrent turn
+      // cannot stretch duration past the transcript the report was built on.
+      const [bounds] = await db
+        .select({
+          first: sql<string | null>`min(${messages.createdAt})`,
+          last: sql<string | null>`max(${messages.createdAt})`,
+        })
+        .from(messages)
+        .where(
+          and(eq(messages.sessionId, session.id), lt(messages.orderIndex, currentCount)),
+        );
+      let durationSeconds: number | null = null;
+      if (bounds?.first && bounds.last) {
+        durationSeconds = Math.max(
+          0,
+          Math.round(
+            (new Date(bounds.last).getTime() - new Date(bounds.first).getTime()) / 1000,
+          ),
+        );
+      }
+      report.stats = { ...report.stats, duration_seconds: durationSeconds };
+
+      // Plain (non-version-guarded) update: the report never touches
+      // `state_snapshot`, so this write must not 409 a concurrent turn —
+      // and `updatedAt` stays untouched so report generation doesn't
+      // reorder the "recent sessions" list. If a turn commits between our
+      // load and this persist, the stored `reportMessageCount` simply
+      // won't match anymore and the next GET regenerates.
+      await db
+        .update(sessions)
+        .set({ report, reportMessageCount: currentCount })
+        .where(eq(sessions.id, session.id));
+
+      return {
+        session_id: session.id,
+        simulation_slug: session.simulationSlug,
+        message_count: currentCount,
+        cached: false,
+        report,
+      };
     },
 
     async prepareStream(userId, sessionId, source = 'text', expectedMessageCount) {

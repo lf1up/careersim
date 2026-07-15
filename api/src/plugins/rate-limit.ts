@@ -137,6 +137,13 @@ export const rateLimitPolicy = {
   proactive: () => limit(30, '1 minute', byUser),
   nudge: () => limit(120, '1 minute', byUser),
   /**
+   * Debrief report fetch. Cache hits are cheap, but a cache miss burns a
+   * (large-context) LLM call on the agent — and a client can force misses
+   * by alternating messages with report requests. Cap well below
+   * `sendMessage` so report generation can never dominate LLM spend.
+   */
+  sessionReport: () => limit(10, '5 minutes', byUser),
+  /**
    * Voice-call start. Each call mints a LiveKit join token and burns a
    * room slot on the SFU; we cap legitimate users to a few starts per
    * minute so a runaway client (or a genuine attacker) can't churn

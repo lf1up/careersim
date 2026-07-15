@@ -22,6 +22,7 @@ import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import mailerPlugin, { type MailMessage } from './plugins/mailer.js';
 import rateLimitPlugin from './plugins/rate-limit.js';
+import { analyticsRoutes } from './modules/analytics/analytics.route.js';
 import { authRoutes } from './modules/auth/auth.route.js';
 import { healthRoutes } from './modules/health/health.route.js';
 import { personasRoutes } from './modules/personas/personas.route.js';
@@ -269,6 +270,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     agent: opts.agent,
     corsAllowedOrigins,
   });
+  await app.register(analyticsRoutes, { db: opts.db });
 
   // Voice routes always register; the kill switch lives inside the
   // service layer so the OpenAPI surface stays consistent. When the

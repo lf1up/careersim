@@ -616,6 +616,11 @@ export default function SessionDetailPage() {
                   starting={startingCall}
                   onStart={handleStartCall}
                 />
+                <Link href={`/sessions/${sessionId}/report`}>
+                  <Button variant="outline" size="sm" title="View the debrief report for this session">
+                    Report
+                  </Button>
+                </Link>
                 <span className="ml-auto flex items-end gap-3">
                   <GoalProgressSummary
                     align="end"
@@ -643,6 +648,11 @@ export default function SessionDetailPage() {
           // header. Hidden on phone widths so the title/subtitle can use
           // the full card width.
           <div className="hidden sm:flex items-center gap-2">
+            <Link href={`/sessions/${sessionId}/report`}>
+              <Button variant="outline" size="sm" title="View the debrief report for this session">
+                Report
+              </Button>
+            </Link>
             <VoiceCallButton
               available={voiceAvailable}
               isCalling={inCall}
@@ -729,8 +739,8 @@ export default function SessionDetailPage() {
             <span className="font-semibold">
               {simulation?.title ?? session.simulation_slug}
             </span>{' '}
-            has been achieved. You can keep practicing in this conversation, or
-            return to the simulations list.
+            has been achieved. View your debrief report to see how you did, keep
+            practicing in this conversation, or return to the simulations list.
           </p>
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
             <Button
@@ -740,8 +750,13 @@ export default function SessionDetailPage() {
               Continue conversation
             </Button>
             <Link href="/simulations">
-              <Button variant="primary" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto">
                 Back to simulations
+              </Button>
+            </Link>
+            <Link href={`/sessions/${sessionId}/report`}>
+              <Button variant="primary" className="w-full sm:w-auto">
+                View report
               </Button>
             </Link>
           </div>

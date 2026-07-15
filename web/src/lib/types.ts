@@ -160,6 +160,163 @@ export interface SessionSummary {
   goal_progress: GoalProgress[];
 }
 
+// ---- Session debrief report -----------------------------------------
+
+export type DebriefSkillKey =
+  | 'clarity'
+  | 'confidence'
+  | 'problem_solving'
+  | 'emotional_intelligence'
+  | 'goal_outcome';
+
+export interface DebriefSkill {
+  key: DebriefSkillKey | string;
+  /** 0-100 */
+  score: number;
+  rationale: string;
+}
+
+export interface DebriefTonePhase {
+  phase: string;
+  tone: string;
+  note: string;
+}
+
+export interface DebriefKeyMoment {
+  /** Matches `Message.order_index` in the session transcript. */
+  message_index: number;
+  role: MessageRole | string;
+  label: string;
+  note: string;
+}
+
+export interface DebriefGoalOutcome {
+  score: number;
+  total: number;
+  required: number;
+  achieved_required: number;
+  achieved_total: number;
+}
+
+export interface DebriefStats {
+  message_count: number;
+  user_message_count: number;
+  ai_message_count: number;
+  user_word_count: number;
+  ai_word_count: number;
+  duration_seconds?: number | null;
+}
+
+/** Aggregate voice signals mirrored from the agent's `VoiceSignals`. */
+export interface DebriefVoiceSignals {
+  user_avg_wpm?: number;
+  ai_avg_wpm?: number;
+  user_filler_count?: number;
+  user_filler_density_per_100w?: number;
+  user_avg_response_latency_sec?: number;
+  user_max_response_latency_sec?: number;
+  longest_silence_sec?: number;
+  user_interrupt_count?: number;
+  ai_interrupt_count?: number;
+  user_speaking_time_sec?: number;
+  ai_speaking_time_sec?: number;
+  [key: string]: unknown;
+}
+
+export interface DebriefReport {
+  version: number;
+  generated_at: string;
+  overall_score: number;
+  skills: DebriefSkill[];
+  goal_outcome: DebriefGoalOutcome | null;
+  stats: DebriefStats;
+  emotional_tone: {
+    overall: string;
+    journey: DebriefTonePhase[];
+  };
+  summary: string;
+  strengths: string[];
+  improvement_areas: string[];
+  advice: string[];
+  key_moments: DebriefKeyMoment[];
+  voice: DebriefVoiceSignals | null;
+}
+
+export interface SessionReportResponse {
+  session_id: string;
+  simulation_slug: string;
+  message_count: number;
+  /** True when served from cache without a fresh agent call. */
+  cached: boolean;
+  report: DebriefReport;
+}
+
+// ---- Aggregate analytics ---------------------------------------------
+
+export interface SkillAverage {
+  key: string;
+  average: number;
+  count: number;
+}
+
+export interface ScoreTrendPoint {
+  session_id: string;
+  simulation_slug: string;
+  created_at: string;
+  overall_score: number;
+  skills: Record<string, number>;
+}
+
+export interface PhraseCount {
+  text: string;
+  count: number;
+}
+
+export interface ToneCount {
+  tone: string;
+  count: number;
+}
+
+export interface SimulationBreakdown {
+  simulation_slug: string;
+  sessions: number;
+  completed_sessions: number;
+  best_overall_score: number | null;
+  best_goals_achieved: number;
+  goals_required: number;
+  last_played_at: string;
+}
+
+export interface AnalyticsOverview {
+  totals: {
+    sessions: number;
+    simulations_tried: number;
+    messages: number;
+    user_messages: number;
+    practice_seconds: number;
+    voice_seconds: number;
+  };
+  goals: {
+    achieved: number;
+    total: number;
+    completed_sessions: number;
+    completable_sessions: number;
+    /** 0-1 fraction, null when no session tracks goals yet. */
+    completion_rate: number | null;
+  };
+  reports: {
+    analyzed_sessions: number;
+    total_sessions: number;
+    average_overall: number | null;
+    skill_averages: SkillAverage[];
+    trend: ScoreTrendPoint[];
+    top_strengths: PhraseCount[];
+    top_improvement_areas: PhraseCount[];
+    tones: ToneCount[];
+  };
+  per_simulation: SimulationBreakdown[];
+}
+
 export type NudgeSkipReason =
   | 'no_human_activity'
   | 'not_enough_idle'

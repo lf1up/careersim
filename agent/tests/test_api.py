@@ -219,6 +219,7 @@ class TestRoutes:
         ("POST", "/conversation/init"),
         ("POST", "/conversation/turn"),
         ("POST", "/conversation/proactive"),
+        ("POST", "/conversation/debrief"),
         ("POST", "/conversation/init/stream"),
         ("POST", "/conversation/turn/stream"),
         ("POST", "/conversation/proactive/stream"),

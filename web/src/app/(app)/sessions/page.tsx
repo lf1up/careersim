@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
@@ -26,6 +27,7 @@ function formatDate(iso: string): string {
 }
 
 export default function SessionsPage() {
+  const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,11 +110,20 @@ export default function SessionsPage() {
             const sim = simulationBySlug[s.simulation_slug];
             const title = sim?.title ?? s.simulation_slug;
             const hasGoalProgress = s.goal_progress.length > 0;
+            const openSession = () => router.push(`/sessions/${s.id}`);
             return (
-              <Link
+              <div
                 key={s.id}
-                href={`/sessions/${s.id}`}
-                className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
+                role="link"
+                tabIndex={0}
+                onClick={openSession}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openSession();
+                  }
+                }}
+                className="block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
               >
                 <RetroCard className="retro-card-interactive">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -150,6 +161,23 @@ export default function SessionsPage() {
                           progress={s.goal_progress}
                         />
                       )}
+                      {/* Sibling control (not nested in an anchor). Only shown
+                          once the conversation plausibly has a user turn; the
+                          report page handles the empty case gracefully. */}
+                      {s.message_count >= 2 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/sessions/${s.id}/report`);
+                          }}
+                          title="View the debrief report for this session"
+                        >
+                          Report
+                        </Button>
+                      )}
                       <span
                         aria-hidden
                         className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
@@ -159,7 +187,7 @@ export default function SessionsPage() {
                     </div>
                   </div>
                 </RetroCard>
-              </Link>
+              </div>
             );
           })}
         </div>

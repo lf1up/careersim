@@ -147,6 +147,77 @@ export const sessionListResponseSchema = z.object({
   sessions: z.array(sessionSummarySchema),
 });
 
+// ---------------------------------------------------------------------------
+// Post-session debrief report. Known fields are typed for OpenAPI clients;
+// the envelope stays `.loose()` so the agent can enrich the report without
+// the API silently stripping new fields on serialization.
+// ---------------------------------------------------------------------------
+
+export const debriefSkillSchema = z
+  .object({
+    key: z.string(),
+    score: z.number(),
+    rationale: z.string(),
+  })
+  .loose();
+
+export const debriefTonePhaseSchema = z
+  .object({
+    phase: z.string(),
+    tone: z.string(),
+    note: z.string(),
+  })
+  .loose();
+
+export const debriefKeyMomentSchema = z
+  .object({
+    message_index: z.number().int(),
+    role: z.string(),
+    label: z.string(),
+    note: z.string(),
+  })
+  .loose();
+
+export const debriefReportSchema = z
+  .object({
+    version: z.number().int(),
+    generated_at: z.string(),
+    overall_score: z.number(),
+    skills: z.array(debriefSkillSchema),
+    goal_outcome: z
+      .object({
+        score: z.number(),
+        total: z.number().int(),
+        required: z.number().int(),
+        achieved_required: z.number().int(),
+        achieved_total: z.number().int(),
+      })
+      .loose()
+      .nullable(),
+    stats: z.record(z.string(), z.unknown()),
+    emotional_tone: z
+      .object({
+        overall: z.string(),
+        journey: z.array(debriefTonePhaseSchema),
+      })
+      .loose(),
+    summary: z.string(),
+    strengths: z.array(z.string()),
+    improvement_areas: z.array(z.string()),
+    advice: z.array(z.string()),
+    key_moments: z.array(debriefKeyMomentSchema),
+    voice: z.record(z.string(), z.unknown()).nullable(),
+  })
+  .loose();
+
+export const sessionReportResponseSchema = z.object({
+  session_id: z.uuid(),
+  simulation_slug: z.string(),
+  message_count: z.number().int(),
+  cached: z.boolean(),
+  report: debriefReportSchema,
+});
+
 export const nudgeFiredResponseSchema = z.object({
   nudged: z.literal(true),
   session: sessionDetailSchema,
