@@ -95,7 +95,10 @@ export const Navbar: React.FC = () => {
                 {SITE_NAME}
               </Link>
             </div>
-            <div className="hidden lg:ml-6 lg:flex lg:space-x-8 lg:items-center">
+            {/* Full nav only from `xl` up: at `lg` widths the four nav
+                items + email + controls overflow the 1024px row and crop
+                the brand, so 1024-1279px stays on the burger menu. */}
+            <div className="hidden xl:ml-6 xl:flex xl:space-x-8 xl:items-center">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -108,7 +111,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="hidden lg:flex lg:items-center">
+          <div className="hidden xl:flex xl:items-center">
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <>
@@ -162,7 +165,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="lg:hidden flex flex-none items-center gap-1.5">
+          <div className="xl:hidden flex flex-none items-center gap-1.5">
             <GitHubLink className="!h-9 !w-9" />
             <ThemeToggle className="!h-9 !w-9" />
             <button
@@ -194,7 +197,7 @@ export const Navbar: React.FC = () => {
       </div>
 
       {isMobileMenuOpen && (
-        <div id="mobile-menu" className="lg:hidden relative z-50">
+        <div id="mobile-menu" className="xl:hidden relative z-50">
           <div className="bg-retro-paper dark:bg-retro-paper-dark border-t-2 border-black dark:border-retro-ink-dark">
             <div className="max-w-7xl mx-auto pl-4 pr-6 sm:px-6 pt-3 pb-4 space-y-2">
               {navItems.map((item) => (
