@@ -249,6 +249,12 @@ export class FakeAgent implements AgentClient {
     const messages = args.state.messages ?? [];
     this.callLog.push(`debrief:${messages.length}`);
     const userMessages = messages.filter((m) => m.role === 'human');
+    const aiMessages = messages.filter((m) => m.role === 'ai');
+    const wordCount = (msgs: AgentMessage[]) =>
+      msgs.reduce(
+        (sum, m) => sum + (m.content.trim() ? m.content.trim().split(/\s+/).length : 0),
+        0,
+      );
     const report: AgentDebriefReport = {
       version: 1,
       generated_at: new Date().toISOString(),
@@ -271,11 +277,8 @@ export class FakeAgent implements AgentClient {
         message_count: messages.length,
         user_message_count: userMessages.length,
         ai_message_count: messages.length - userMessages.length,
-        user_word_count: userMessages.reduce(
-          (sum, m) => sum + m.content.split(/\s+/).length,
-          0,
-        ),
-        ai_word_count: 0,
+        user_word_count: wordCount(userMessages),
+        ai_word_count: wordCount(aiMessages),
       },
       emotional_tone: {
         overall: 'composed',
