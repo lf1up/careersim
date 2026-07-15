@@ -226,7 +226,18 @@ export default function SessionReportPage() {
     : [];
 
   return (
-    <div className="space-y-6 pb-3 sm:pb-4 retro-fade-in">
+    <div className="space-y-6 pt-2 pb-3 sm:pt-0 sm:pb-4 retro-fade-in">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Link href="/sessions">
+          <Button variant="ghost" size="sm">
+            ← All sessions
+          </Button>
+        </Link>
+        <span className="text-xs font-monoRetro text-secondary-600 dark:text-secondary-400">
+          {session.simulation_slug}
+        </span>
+      </div>
+
       {/* Header */}
       <RetroCard
         title={
