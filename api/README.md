@@ -65,6 +65,7 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 | POST | `/sessions` | jwt | — | 2 / 6 hours per user (env) | Create session → `POST /conversation/init` → persist |
 | GET  | `/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
 | GET  | `/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
+| GET  | `/sessions/:id/report` | jwt (owner) | — | 10 / 5 min per user | LLM debrief report (skill scores, tone journey, advice, key moments). Cached per transcript length; regenerated via agent `POST /conversation/debrief` when the conversation advances. `400 NO_USER_MESSAGES` before the first user message |
 | POST | `/sessions/:id/messages` | jwt (owner) | — | 60/min per user | `POST /conversation/turn` → persist delta |
 | POST | `/sessions/:id/messages/stream` | jwt (owner) | — | 60/min per user | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
 | POST | `/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
@@ -72,6 +73,7 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
 | POST | `/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
 | POST | `/sessions/:id/voice/start` | jwt (owner) | — | 10/min per user | Mint a LiveKit join token. `503 voice_disabled`, `429 voice_quota_exhausted`, `409 voice_call_in_progress` |
 | POST | `/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | Mark the call ended (clears the active-call guard). Quota debit is worker-authoritative, not here |
+| GET  | `/analytics/overview` | jwt | — | 200/min per IP (global) | Aggregate practice stats across all the caller's sessions: deterministic totals (sessions, goals, completion rate, practice time, voice usage) plus skill averages / score trend / tone distribution derived from cached debrief reports |
 
 ### Internal voice routes (worker ⇄ API)
 
@@ -116,9 +118,9 @@ api/
 │   ├── config/env.ts           # Zod-validated env
 │   ├── db/
 │   │   ├── client.ts           # createPgClient / createPgliteClient
-│   │   ├── schema.ts           # users, authTokens, sessions (+ voice_call_* cols), messages, voiceMinuteUsage
+│   │   ├── schema.ts           # users, authTokens, sessions (+ voice_call_* + report/report_message_count cols), messages, voiceMinuteUsage
 │   │   ├── migrate.ts          # drizzle-orm migrator (node-postgres)
-│   │   └── migrations/         # drizzle-kit output (0002 email verification + authTokens; 0003 voice mode)
+│   │   └── migrations/         # drizzle-kit output (0002 email verification + authTokens; 0003 voice mode; 0006 cached session report)
 │   ├── agent/
 │   │   ├── types.ts            # Wire types mirroring agent/src/careersim_agent/api/app.py
 │   │   └── client.ts           # HttpAgentClient + parseAgentSSE
@@ -132,7 +134,8 @@ api/
 │       ├── auth/               # register, verify, login, magic-link, forgot/reset, profile (change pw/email)
 │       ├── health/             # /health with db + agent probes
 │       ├── simulations/        # agent passthrough
-│       ├── sessions/           # create, list, get, turn (batch + SSE), proactive
+│       ├── sessions/           # create, list, get, turn (batch + SSE), proactive, debrief report (cached)
+│       ├── analytics/          # GET /analytics/overview — read-only aggregation over sessions + cached reports (no tables of its own)
 │       └── voice/              # voice.route.ts (start/end + internal), voice.service.ts (LiveKit token + quota), voice.schema.ts
 ├── tests/
 │   ├── helpers/
@@ -146,6 +149,8 @@ api/
 │   ├── sessions.batch.test.ts
 │   ├── sessions.stream.test.ts
 │   ├── sessions.statelessness.test.ts
+│   ├── sessions.report.test.ts # debrief report: generation, message-count cache, regeneration, ownership
+│   ├── analytics.test.ts       # /analytics/overview aggregation + user isolation
 │   └── voice.routes.test.ts    # token mint, ownership, kill switch, quota debit + concurrency guard
 ├── Dockerfile
 ├── drizzle.config.ts
@@ -217,6 +222,15 @@ Tests cover:
 - Nudge guardrails: `no_human_activity`, `not_enough_idle`, `budget_exhausted`, counter reset on human reply, override floor honoured
 - Proactive followup: batch + streaming paths, rejection of non-followup triggers
 - Statelessness contract: two users do not bleed, DB as single source of truth, exactly one agent call per turn, deterministic replay across sessions
+- Session report: `400 NO_USER_MESSAGES` before the first user message,
+  generate + persist on first request, cache hit while the transcript is
+  unchanged (no second agent call), regeneration after the conversation
+  advances, ownership / 404 / auth, and no `version` / `updated_at` bump
+  from report writes
+- Analytics overview: auth required, zeroed stats for a fresh user,
+  deterministic totals across sessions, goal completion rate from
+  `goal_progress` snapshots, skill averages / trend / tones sourced from
+  cached reports only, per-simulation breakdown, and user isolation
 - Voice: token mint shape + ownership/404, `503 voice_disabled` kill switch on both public and internal routes, `429 voice_quota_exhausted` at the daily cap, `409 voice_call_in_progress` concurrency guard, internal-key enforcement, and the worker-authoritative `voice/end` debit + analytics merge
 
 The agent contract is faked deterministically in `tests/helpers/fake-agent.ts` in the same style as `_FakeGraph` at `agent/tests/test_api.py:155`, so running the suite requires neither the Python agent nor an OpenAI key.
@@ -383,6 +397,22 @@ port (`http://localhost:8001`).
   plugin falls back to a logger transport that prints the full rendered
   email, so registration / reset flows are usable locally without SMTP
   credentials.
+- **Debrief reports are cached by transcript length.** `GET
+  /sessions/:id/report` stores the generated report and the message count
+  it was computed from (`report` / `report_message_count` on the
+  `sessions` row). While the transcript hasn't advanced, the cached JSON
+  is served with zero agent calls; once new messages land, the next
+  request regenerates via the agent's `POST /conversation/debrief`. Cache
+  misses are a large-context LLM call, so the route carries its own tight
+  rate-limit policy (`sessionReport`), and report writes deliberately do
+  not bump the session's optimistic-concurrency `version`.
+- **Analytics are computed on read, not persisted.** `GET
+  /analytics/overview` has no tables of its own — it aggregates the
+  caller's sessions, messages, voice usage, and cached debrief reports at
+  request time. Deterministic stats (sessions, goals, completion rate,
+  practice time) cover every session; skill averages, score trend, and
+  tone distribution only cover sessions with a cached report, and
+  `reports.analyzed_sessions` tells clients how much coverage they have.
 - **Voice quota is worker-authoritative.** The API only mints a
   short-lived LiveKit token and enforces ownership + a start-time gate;
   the user-facing `POST /voice/end` deliberately does **not** debit the
