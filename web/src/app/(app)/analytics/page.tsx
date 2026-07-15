@@ -57,7 +57,11 @@ function ScoreTrendStrip({ overview }: { overview: AnalyticsOverview }) {
   if (trend.length < 2) return null;
   return (
     <RetroPanel title="Score over time">
-      <div className="flex items-end gap-2 h-40" role="img" aria-label="Overall score per analyzed session, oldest to newest">
+      <p className="sr-only">
+        Overall score per analyzed session, oldest to newest. Each bar links to
+        that session&apos;s report.
+      </p>
+      <div className="flex items-end gap-2 h-40">
         {trend.map((point) => {
           const band = scoreBand(point.overall_score);
           return (
