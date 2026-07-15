@@ -76,6 +76,9 @@ export interface HttpAgentClientOptions {
   internalKey?: string;
 }
 
+/** Wall-clock budget for `/conversation/debrief` (LLM report generation). */
+const DEBRIEF_TIMEOUT_MS = 120_000;
+
 export class HttpAgentClient implements AgentClient {
   private readonly internalKey: string;
 
@@ -107,11 +110,16 @@ export class HttpAgentClient implements AgentClient {
     return base;
   }
 
-  private async postJson<T>(path: string, body: unknown): Promise<T> {
+  private async postJson<T>(
+    path: string,
+    body: unknown,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<T> {
     const res = await request(this.url(path), {
       method: 'POST',
       headers: this.headers({ 'content-type': 'application/json' }),
       body: JSON.stringify(body),
+      signal: options.signal,
     });
     const text = await res.body.text();
     if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -211,7 +219,13 @@ export class HttpAgentClient implements AgentClient {
   }
 
   debrief(args: { state: AgentWireState }): Promise<AgentDebriefResponse> {
-    return this.postJson('/conversation/debrief', { state: args.state });
+    // Debrief is an on-demand LLM call; bound it well under undici's 300s
+    // default so a hung agent cannot pin API workers indefinitely.
+    return this.postJson(
+      '/conversation/debrief',
+      { state: args.state },
+      { signal: AbortSignal.timeout(DEBRIEF_TIMEOUT_MS) },
+    );
   }
 
   async *streamTurn(args: {
