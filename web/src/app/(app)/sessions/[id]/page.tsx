@@ -616,11 +616,10 @@ export default function SessionDetailPage() {
                   starting={startingCall}
                   onStart={handleStartCall}
                 />
-                <Link
-                  href={`/sessions/${sessionId}/report`}
-                  className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark"
-                >
-                  Report
+                <Link href={`/sessions/${sessionId}/report`}>
+                  <Button variant="outline" size="sm" title="View the debrief report for this session">
+                    Report
+                  </Button>
                 </Link>
                 <span className="ml-auto flex items-end gap-3">
                   <GoalProgressSummary
@@ -649,12 +648,10 @@ export default function SessionDetailPage() {
           // header. Hidden on phone widths so the title/subtitle can use
           // the full card width.
           <div className="hidden sm:flex items-center gap-2">
-            <Link
-              href={`/sessions/${sessionId}/report`}
-              className="px-2 py-1 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-[10px] font-semibold uppercase tracking-wider2 shadow-retro-2 dark:shadow-retro-dark-2 text-retro-ink dark:text-retro-ink-dark hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 transition-transform"
-              title="View the debrief report for this session"
-            >
-              Report
+            <Link href={`/sessions/${sessionId}/report`}>
+              <Button variant="outline" size="sm" title="View the debrief report for this session">
+                Report
+              </Button>
             </Link>
             <VoiceCallButton
               available={voiceAvailable}
