@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
@@ -75,7 +76,10 @@ function ScoreTrendStrip({ overview }: { overview: AnalyticsOverview }) {
                 {point.overall_score}
               </span>
               <span
-                className={`w-full max-w-10 border-2 border-black dark:border-retro-ink-dark ${band.bar} transition-[height] duration-500`}
+                className={clsx(
+                  'w-full max-w-10 border-2 border-black dark:border-retro-ink-dark transition-[height] duration-500',
+                  band.bar,
+                )}
                 style={{ height: `${Math.max(4, point.overall_score)}%` }}
               />
             </Link>
@@ -407,7 +411,10 @@ export default function AnalyticsPage() {
                   render: (row) =>
                     row.best_overall_score !== null ? (
                       <span
-                        className={`inline-block px-1.5 py-0.5 border-2 border-black dark:border-retro-ink-dark text-xs font-semibold ${scoreBand(row.best_overall_score).chip}`}
+                        className={clsx(
+                          'inline-block px-1.5 py-0.5 border-2 border-black dark:border-retro-ink-dark text-xs font-semibold',
+                          scoreBand(row.best_overall_score).chip,
+                        )}
                       >
                         {row.best_overall_score}
                       </span>
