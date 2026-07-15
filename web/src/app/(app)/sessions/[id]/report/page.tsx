@@ -135,14 +135,15 @@ export default function SessionReportPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     const load = async () => {
       try {
         // The report call can take several seconds on a cache miss (LLM
         // generation) — fire both in parallel so the transcript is ready
         // to resolve key-moment quotes the moment the report lands.
         const [detail, report] = await Promise.all([
-          apiClient.getSession(sessionId),
-          apiClient.getSessionReport(sessionId),
+          apiClient.getSession(sessionId, controller.signal),
+          apiClient.getSessionReport(sessionId, controller.signal),
         ]);
         if (cancelled) return;
         setSession(detail);
@@ -156,7 +157,7 @@ export default function SessionReportPage() {
           })
           .catch(() => {});
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled || controller.signal.aborted) return;
         if (err instanceof ApiError && err.code === 'NO_USER_MESSAGES') {
           setNeedsMessages(true);
         } else {
@@ -169,6 +170,7 @@ export default function SessionReportPage() {
     void load();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [sessionId]);
 

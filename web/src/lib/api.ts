@@ -332,8 +332,8 @@ export const apiClient = {
     return res.sessions;
   },
 
-  async getSession(id: string): Promise<SessionDetail> {
-    return request<SessionDetail>(`/sessions/${id}`);
+  async getSession(id: string, signal?: AbortSignal): Promise<SessionDetail> {
+    return request<SessionDetail>(`/sessions/${id}`, { signal });
   },
 
   async postMessage(id: string, content: string): Promise<SessionDetail> {
