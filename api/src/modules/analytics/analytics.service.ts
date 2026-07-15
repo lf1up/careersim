@@ -98,6 +98,9 @@ export interface AnalyticsService {
 
 const TREND_LIMIT = 20;
 const TOP_PHRASES_LIMIT = 5;
+const SKILL_AVERAGES_LIMIT = 20;
+const TONES_LIMIT = 10;
+const PER_SIMULATION_LIMIT = 50;
 
 /**
  * Mirror of the web's `allGoalsAchieved` semantics: score against required
@@ -321,19 +324,23 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
           total_sessions: sessionRows.length,
           average_overall:
             analyzed.length > 0 ? Math.round(overallSum / analyzed.length) : null,
-          skill_averages: [...skillSums.entries()].map(([key, { sum, count }]) => ({
-            key,
-            average: Math.round(sum / count),
-            count,
-          })),
+          skill_averages: [...skillSums.entries()]
+            .map(([key, { sum, count }]) => ({
+              key,
+              average: Math.round(sum / count),
+              count,
+            }))
+            .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))
+            .slice(0, SKILL_AVERAGES_LIMIT),
           trend,
           top_strengths: topPhrases(strengths, TOP_PHRASES_LIMIT),
           top_improvement_areas: topPhrases(improvements, TOP_PHRASES_LIMIT),
           tones: [...toneCounts.entries()]
             .map(([tone, count]) => ({ tone, count }))
-            .sort((a, b) => b.count - a.count),
+            .sort((a, b) => b.count - a.count)
+            .slice(0, TONES_LIMIT),
         },
-        per_simulation: perSimulation,
+        per_simulation: perSimulation.slice(0, PER_SIMULATION_LIMIT),
       };
     },
   };
