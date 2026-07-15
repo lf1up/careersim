@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
 
 import type { AgentClient } from '../../agent/client.js';
 import type {
@@ -588,13 +588,17 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
 
       // The agent has no message timestamps, so wall-clock duration is
       // computed here from the persisted transcript rows.
+      // Restrict to the snapshot used for message_count so a concurrent turn
+      // cannot stretch duration past the transcript the report was built on.
       const [bounds] = await db
         .select({
           first: sql<string | null>`min(${messages.createdAt})`,
           last: sql<string | null>`max(${messages.createdAt})`,
         })
         .from(messages)
-        .where(eq(messages.sessionId, session.id));
+        .where(
+          and(eq(messages.sessionId, session.id), lt(messages.orderIndex, currentCount)),
+        );
       let durationSeconds: number | null = null;
       if (bounds?.first && bounds.last) {
         durationSeconds = Math.max(
