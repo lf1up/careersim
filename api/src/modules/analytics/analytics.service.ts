@@ -278,10 +278,19 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
               ? overall
               : Math.max(entry.best_overall_score, overall);
         }
-        if (achieved > entry.best_goals_achieved) {
+        // Keep best_goals_achieved and goals_required from the same attempt
+        // (highest achieved/required ratio), not independent maxima.
+        const prevRequired = entry.goals_required;
+        const prevRatio =
+          prevRequired > 0 ? entry.best_goals_achieved / prevRequired : entry.best_goals_achieved;
+        const nextRatio = scored.length > 0 ? achieved / scored.length : achieved;
+        if (
+          nextRatio > prevRatio ||
+          (nextRatio === prevRatio && scored.length > prevRequired)
+        ) {
           entry.best_goals_achieved = achieved;
+          entry.goals_required = scored.length;
         }
-        entry.goals_required = Math.max(entry.goals_required, scored.length);
         if (lastPlayed > entry.last_played_at) entry.last_played_at = lastPlayed;
       }
       const perSimulation = [...bySimulation.values()].sort((a, b) =>
