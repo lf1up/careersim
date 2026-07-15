@@ -406,10 +406,10 @@ def create_api_app() -> FastAPI:
             return DebriefResponse(report=report)
         except DebriefGenerationError as e:
             logger.error(f"conversation/debrief failed: {e}")
-            raise HTTPException(status_code=502, detail=str(e))
+            raise HTTPException(status_code=502, detail=str(e)) from e
         except Exception as e:
             logger.error(f"conversation/debrief failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     # -- SSE streaming endpoints ----------------------------------------------
 
