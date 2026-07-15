@@ -23,8 +23,10 @@ import { SkillGauge, scoreBand, skillLabel } from '@/components/analytics/SkillG
 
 function formatDuration(totalSeconds: number | null | undefined): string | null {
   if (typeof totalSeconds !== 'number' || totalSeconds <= 0) return null;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  // Round first so values like 59.6 become 1m (not 0m 60s).
+  const rounded = Math.round(totalSeconds);
+  const minutes = Math.floor(rounded / 60);
+  const seconds = rounded % 60;
   if (minutes === 0) return `${seconds}s`;
   return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
 }
