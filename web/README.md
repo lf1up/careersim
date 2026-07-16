@@ -131,12 +131,13 @@ copy at `:2368`.
 ### Feature flag
 
 The blog is gated by `NEXT_PUBLIC_BLOG_ENABLED` in `web/.env` (see
-`src/lib/blog.ts` → `isBlogEnabled()`):
+`src/lib/blog.ts` → `isBlogEnabled()`). Discovery links live on the
+**landing** site header/footer (`LANDING_BLOG_URL`), not in the app navbar.
 
 | Value | Behavior |
 | --- | --- |
 | unset / `true` | Blog **on** (default) |
-| `false` / `0` | Blog **off** — Blog nav hidden, `/blog` and `/blog/[slug]` return 404, sitemap / robots / `llms.txt` omit blog URLs, `POST /api/revalidate` returns 503 |
+| `false` / `0` | Blog **off** — `/blog` and `/blog/[slug]` return 404, sitemap / robots / `llms.txt` omit blog URLs, `POST /api/revalidate` returns 503 |
 
 Because the flag is `NEXT_PUBLIC_*`, it is inlined at build / `pnpm dev` start —
 restart `web` (or recreate the compose `web` service) after changing it.
@@ -241,7 +242,7 @@ pnpm typecheck  # tsc --noEmit
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
 | `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door |
-| `NEXT_PUBLIC_BLOG_ENABLED` | `true` | Kill switch for the blog. `false` hides nav links, 404s `/blog`, and omits blog URLs from sitemap / robots / `llms.txt` |
+| `NEXT_PUBLIC_BLOG_ENABLED` | `true` | Kill switch for the blog. `false` 404s `/blog` and omits blog URLs from sitemap / robots / `llms.txt`. Landing links use `LANDING_BLOG_URL` |
 | `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`) |
 | `GHOST_PUBLIC_URL` | unset | Optional browser-facing Ghost origin for `next/image` when it differs from `GHOST_API_URL` |
 | `GHOST_CONTENT_API_KEY` | unset | Read-only Content API key from Ghost Admin → Integrations |
@@ -291,9 +292,9 @@ challenge payload.
   authoritative transcript + quota live on the server, mirroring the chat
   surface.
 - **Blog is a kill-switchable public surface.** `NEXT_PUBLIC_BLOG_ENABLED=false`
-  removes Blog from the navbar, 404s the App Router pages, and strips blog URLs
-  from crawl surfaces — same opt-out pattern as voice, but defaulting **on**
-  when unset so existing Ghost setups keep working.
+  404s the App Router pages and strips blog URLs from crawl surfaces — same
+  opt-out pattern as voice, but defaulting **on** when unset. Marketing links
+  to `/blog` live on the landing site, not in the app navbar.
 
 ---
 

@@ -6,28 +6,21 @@ import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { isBlogEnabled } from '@/lib/blog';
 import { SITE_NAME } from '@/lib/seo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
-
-const BLOG_ENABLED = isBlogEnabled();
 
 // Nav items shown when the user is signed in.
 const AUTH_NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/simulations', label: 'Simulations' },
   { href: '/sessions', label: 'Sessions' },
-  ...(BLOG_ENABLED ? [{ href: '/blog', label: 'Blog' }] : []),
   { href: '/analytics', label: 'Analytics' },
 ];
 
-// Nav items shown to guests. Keep this to public routes so they don't
-// see dead links pointing at auth-gated pages.
-const GUEST_NAV_ITEMS = [
-  { href: '/simulations', label: 'Simulations' },
-  ...(BLOG_ENABLED ? [{ href: '/blog', label: 'Blog' }] : []),
-];
+// Nav items shown to guests. Keep this to public catalogue routes — Blog
+// lives in the landing-site header/footer, not the app chrome.
+const GUEST_NAV_ITEMS = [{ href: '/simulations', label: 'Simulations' }];
 const HAS_LANDING_ORIGIN =
   process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
 
