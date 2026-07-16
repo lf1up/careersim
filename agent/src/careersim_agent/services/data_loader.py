@@ -169,22 +169,31 @@ def enable_auto_reload(enabled: bool = True) -> None:
     logger.info(f"Auto-reload {'enabled' if enabled else 'disabled'}")
 
 
-def _get_data_dir() -> Path:
-    """Get the data directory path."""
+def get_data_dir() -> Path:
+    """Return the on-disk data directory (`personas.json`, avatars, docs).
+
+    Resolution order:
+      1. Package-relative ``agent/data`` (normal install / Docker layout)
+      2. ``./data`` under the process cwd (handy for tests / odd layouts)
+    """
     # Look for data dir relative to this file's package
     package_dir = Path(__file__).parent.parent.parent.parent
     data_dir = package_dir / "data"
     if data_dir.exists():
         return data_dir
-    
+
     # Fallback to current working directory
     cwd_data = Path.cwd() / "data"
     if cwd_data.exists():
         return cwd_data
-    
+
     raise FileNotFoundError(
         f"Data directory not found. Checked: {data_dir}, {cwd_data}"
     )
+
+
+# Back-compat alias for internal callers / older imports.
+_get_data_dir = get_data_dir
 
 
 def _check_file_changed(filepath: Path, cached_mtime: Optional[float]) -> bool:

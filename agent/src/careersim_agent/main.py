@@ -164,6 +164,12 @@ def main():
     if not validate_config():
         logger.warning("Configuration incomplete - some features may not work")
 
+    # When PERSONAS_S3_ENABLED is on, pull the cast from S3 and rewrite
+    # local data files before any Gradio / API / voice path reads them.
+    from .services.persona_sync import ensure_personas_synced
+
+    ensure_personas_synced()
+
     if args.serve == "api":
         port = args.port or 8000
         run_api(host=args.host, port=port)
