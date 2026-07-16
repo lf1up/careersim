@@ -10,7 +10,7 @@
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
 > [!NOTE]
-> **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis`, plus `livekit` + `agent-voice` for the browser-native voice surface, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
+> **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis` + headless `ghost`, plus `livekit` + `agent-voice` for the browser-native voice surface, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
 
 ## 🏗️ Architecture
 
@@ -63,6 +63,7 @@ through one engine, not a second copy.
 | **livekit**     | LiveKit Server (WebRTC SFU)                                                     | Self-hosted SFU routing audio between the browser and `agent-voice`. Runs in `--dev` mode locally; needs a real config + TLS in production.                                                                                           |
 | **postgres**    | PostgreSQL 17                                                                   | Source of truth for users, sessions, messages, state snapshots, and daily voice-minute usage.                                                                                                                                         |
 | **redis**       | Redis 7                                                                         | Shared rate-limit buckets (`@fastify/rate-limit`); falls back to per-process LRU when `REDIS_URL` is unset.                                                                                                                           |
+| **ghost**       | Ghost 6 (headless) + MySQL 8                                                    | Blog CMS. Content API only — Next.js renders posts at `/blog` when `NEXT_PUBLIC_BLOG_ENABLED` is on. Put Ghost in Private Site Mode so its own frontend stays `noindex`. See `web/README.md`.                                          |
 
 
 ### 🪦 Deprecated services (kept for reference)
@@ -106,7 +107,7 @@ careersim/
 │   ├── aws/                    # Terraform: ECS/Fargate, RDS, ElastiCache, ALB
 │   ├── aws-transformers/       # Standalone Transformers deployment
 │   └── k8s/                    # Kustomize (dev + prod overlays)
-├── docker-compose.local.yml    # Local dev stack (api + web + agent + agent-voice + livekit + postgres + redis)
+├── docker-compose.local.yml    # Local dev stack (api + web + agent + agent-voice + livekit + postgres + redis + ghost)
 ├── PERSONAS.md                 # AI persona definitions
 ├── VOICE_MODE.md               # Voice-mode operator guide + pre-merge smoke checklist
 ├── LICENSE.md                  # MIT
@@ -140,10 +141,12 @@ This starts:
 | URL                                                      | Service                                         |
 | -------------------------------------------------------- | ----------------------------------------------- |
 | [http://localhost:3000](http://localhost:3000)           | `web` — Next.js app                             |
+| [http://localhost:3000/blog](http://localhost:3000/blog) | Blog (rendered by `web` from Ghost; requires `NEXT_PUBLIC_BLOG_ENABLED≠false`) |
 | [http://localhost:8000](http://localhost:8000)           | `api` — Fastify API                             |
 | [http://localhost:8000/docs](http://localhost:8000/docs) | API Swagger UI (zod schemas → OpenAPI)          |
 | [http://localhost:8001](http://localhost:8001)           | `agent` — FastAPI (stateless)                   |
 | [http://localhost:8001/docs](http://localhost:8001/docs) | Agent Swagger UI                                |
+| [http://localhost:2368/ghost](http://localhost:2368/ghost) | `ghost` — headless CMS admin UI               |
 | ws://localhost:7880                                      | `livekit` — WebRTC SFU signalling (voice mode)  |
 | localhost:5432                                           | PostgreSQL (`careersim` / `careersim_password`) |
 | localhost:6379                                           | Redis                                           |
@@ -189,6 +192,14 @@ When mixing Docker + host, point each service at the others via `host.docker.int
 ### 📚 Simulation library
 
 Nine first-party simulations shipped in `agent/data/simulations.json`, each bound to a persona with its own hidden goals, difficulty, and success criteria. The web app lists them at `/simulations`.
+
+### 📰 Headless Ghost blog
+
+Self-hosted Ghost (Docker + MySQL) is used as a CMS only. Next.js fetches posts via the Content API and renders them at `/blog` on the main domain (subdirectory SEO), with `BlogPosting` JSON-LD, sitemap entries, and a publish webhook for on-demand ISR.
+
+**Feature flag:** set `NEXT_PUBLIC_BLOG_ENABLED=false` in `web/.env` to turn the blog off (hides the Blog nav link, 404s `/blog` routes, omits blog URLs from sitemap / robots / `llms.txt`, and rejects the revalidate webhook). Unset or `true` keeps it on. Restart `web` after changing the flag.
+
+See [web/README.md](web/README.md#headless-ghost-blog) for the one-time Admin setup (Private Mode, Content API key, webhook).
 
 ### 💬 Live chat with SSE streaming
 

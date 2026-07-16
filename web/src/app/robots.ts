@@ -1,21 +1,28 @@
 import type { MetadataRoute } from 'next';
 
+import { isBlogEnabled } from '@/lib/blog';
 import { SITE_URL } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
+  const allow = [
+    '/',
+    '/llms.txt',
+    '/simulations',
+    '/simulations/',
+    '/privacy',
+    '/terms',
+    '/security',
+  ];
+
+  if (isBlogEnabled()) {
+    allow.push('/blog', '/blog/');
+  }
+
   return {
     rules: [
       {
         userAgent: '*',
-        allow: [
-          '/',
-          '/llms.txt',
-          '/simulations',
-          '/simulations/',
-          '/privacy',
-          '/terms',
-          '/security',
-        ],
+        allow,
         disallow: [
           '/dashboard',
           '/profile',
@@ -25,6 +32,7 @@ export default function robots(): MetadataRoute.Robots {
           '/forgot-password',
           '/reset-password',
           '/auth/',
+          ...(isBlogEnabled() ? [] : ['/blog', '/blog/']),
         ],
       },
     ],

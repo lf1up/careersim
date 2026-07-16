@@ -135,8 +135,12 @@ services:
       # Server-rendered Next.js routes run inside the web container, so they
       # need the compose service DNS name to reach the API.
       API_INTERNAL_URL: http://api:8000
+      # Ghost Content API — compose-internal hostname. The Content API key and
+      # webhook secret still come from `./web/.env` (see web/.env.example).
+      GHOST_API_URL: http://ghost:2368
     depends_on:
       - api
+      - ghost
     volumes:
       - ./web:/app
       # Keep the image's node_modules and .next inside anonymous volumes so the
@@ -212,6 +216,55 @@ services:
       - careersim-network
     restart: unless-stopped
     command: redis-server --appendonly yes
+
+  # =====================================================================
+  # Headless Ghost CMS — editor + Content API only.
+  # ---------------------------------------------------------------------
+  # Next.js renders posts at /blog when NEXT_PUBLIC_BLOG_ENABLED is on.
+  # Put Ghost's own frontend in Private Site Mode (Settings → General).
+  # See web/README.md for the one-time setup (API key + publish webhook).
+  # =====================================================================
+  ghost-mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ghost_root_password
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost
+      MYSQL_PASSWORD: ghost_password
+    volumes:
+      - ghost_mysql_data:/var/lib/mysql
+    networks:
+      - careersim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ughost", "-pghost_password"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  ghost:
+    image: ghost:6-alpine
+    ports:
+      - "2368:2368"
+    environment:
+      # Public URL of this Ghost instance (admin UI + Content API origin).
+      # Local: http://localhost:2368. Production: e.g. https://ghost.careersim.ai
+      # so feature images remain browser-reachable for next/image.
+      url: http://localhost:2368
+      database__client: mysql
+      database__connection__host: ghost-mysql
+      database__connection__user: ghost
+      database__connection__password: ghost_password
+      database__connection__database: ghost
+    volumes:
+      - ghost_content:/var/lib/ghost/content
+    depends_on:
+      ghost-mysql:
+        condition: service_healthy
+    networks:
+      - careersim-network
+    restart: unless-stopped
 
   agent:
     build:
@@ -389,6 +442,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  ghost_mysql_data:
+  ghost_content:
   agent_chroma_db:
   voice_piper_models:
   voice_whisper_cache:

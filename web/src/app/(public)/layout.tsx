@@ -4,9 +4,9 @@ import { Footer } from '@/components/layout/Footer';
 import { Navbar } from '@/components/layout/Navbar';
 
 // Public shell: same layout as `(app)` but WITHOUT the `RequireAuth`
-// guard. Guests can browse `/simulations` and `/simulations/[slug]`
-// without signing in; any write actions surfaced on these pages must
-// handle the unauthenticated case themselves (redirect to login).
+// guard. Guests can browse `/simulations`, `/simulations/[slug]`, and
+// `/blog` without signing in; any write actions surfaced on these pages
+// must handle the unauthenticated case themselves (redirect to login).
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="h-screen flex flex-col">

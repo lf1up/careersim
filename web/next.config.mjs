@@ -11,6 +11,14 @@ const apiUrls = [process.env.NEXT_PUBLIC_API_URL, process.env.API_INTERNAL_URL]
   // Always allow localhost:8000 in dev when no envs are set.
   .concat('http://localhost:8000');
 
+// Ghost Content API / asset origin. Include both the compose-internal URL
+// (`http://ghost:2368`) and the browser-facing URL (`http://localhost:2368`
+// or prod `https://ghost.careersim.ai`) so `next/image` can optimize feature
+// images regardless of which host Ghost stamps into `feature_image`.
+const ghostUrls = [process.env.GHOST_API_URL, process.env.GHOST_PUBLIC_URL]
+  .filter(Boolean)
+  .concat('http://localhost:2368');
+
 /** @type {import('next').RemotePattern[]} */
 const avatarRemotePatterns = Array.from(
   new Map(
@@ -33,6 +41,39 @@ const avatarRemotePatterns = Array.from(
   ).values(),
 );
 
+/** @type {import('next').RemotePattern[]} */
+const ghostImageRemotePatterns = Array.from(
+  new Map(
+    ghostUrls
+      .map((raw) => {
+        try {
+          const url = new URL(raw);
+          return {
+            protocol: url.protocol.replace(':', ''),
+            hostname: url.hostname,
+            port: url.port || '',
+            pathname: '/content/images/**',
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .map((p) => [`${p.protocol}://${p.hostname}:${p.port}${p.pathname}`, p]),
+  ).values(),
+);
+
+// Ghost's starter posts (e.g. "Coming soon") use feature images hosted on
+// Ghost's static CDN, not the local Ghost content volume.
+const ghostCdnRemotePatterns = [
+  {
+    protocol: 'https',
+    hostname: 'static.ghost.org',
+    port: '',
+    pathname: '/**',
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -46,7 +87,11 @@ const nextConfig = {
     // The full default set is overkill and inflates the build manifest.
     imageSizes: [16, 32, 48, 64, 96, 128, 192, 256, 384],
     deviceSizes: [320, 480, 640, 750, 828, 1080, 1200, 1920],
-    remotePatterns: avatarRemotePatterns,
+    remotePatterns: [
+      ...avatarRemotePatterns,
+      ...ghostImageRemotePatterns,
+      ...ghostCdnRemotePatterns,
+    ],
     // Cache optimized variants on the Next server for a day; the upstream
     // `Cache-Control` from the API still controls browser caching.
     minimumCacheTTL: 60 * 60 * 24,
