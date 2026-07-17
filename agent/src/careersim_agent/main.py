@@ -123,14 +123,11 @@ def run_voice() -> None:
 
     Honours the ``VOICE_ENABLED`` kill switch — exits 0 cleanly when
     voice is disabled so docker-compose's restart policy doesn't loop.
+    Persona S3 sync runs inside ``run_worker`` only after that guard,
+    so disabled deployments skip both LiveKit and S3 work.
     See :mod:`careersim_agent.voice.worker` for the bootstrap details.
     """
-    from .services.persona_sync import ensure_personas_synced
     from .voice.worker import run_worker
-
-    # Pull persona / simulation data from S3 when enabled, before the
-    # worker reads local data files. API sync is handled in create_api_app().
-    ensure_personas_synced()
 
     print("\n" + "=" * 60)
     print("CareerSIM Agent - Voice Worker")

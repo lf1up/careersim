@@ -435,7 +435,11 @@ def test_run_gradio_syncs_before_ui(monkeypatch: pytest.MonkeyPatch):
     assert order[-1] == "launch"
 
 
-def test_run_voice_syncs_before_worker(monkeypatch: pytest.MonkeyPatch):
+def test_run_voice_delegates_sync_to_worker(monkeypatch: pytest.MonkeyPatch):
+    """``run_voice`` must not sync itself — sync runs in ``run_worker``
+    after the VOICE_ENABLED kill switch so disabled deploys exit cleanly
+    without touching S3.
+    """
     from careersim_agent import main as main_module
 
     order: list[str] = []
@@ -450,7 +454,8 @@ def test_run_voice_syncs_before_worker(monkeypatch: pytest.MonkeyPatch):
     )
     monkeypatch.setattr(main_module.sys, "exit", lambda code: order.append(f"exit:{code}"))
     main_module.run_voice()
-    assert order == ["sync", "worker", "exit:0"]
+    assert order == ["worker", "exit:0"]
+    assert "sync" not in order
 
 
 def test_create_api_app_syncs_once(monkeypatch: pytest.MonkeyPatch):
