@@ -285,9 +285,9 @@ def _done_event_to_sse(state: dict) -> str:
 
 def create_api_app() -> FastAPI:
     # Pull persona / simulation data from S3 when the feature flag is on
-    # (no-op otherwise). Also run from `main()` so Gradio and the voice
-    # worker see the same rewrite; this covers app factories that skip
-    # the CLI entrypoint (e.g. uvicorn target = create_api_app).
+    # (no-op otherwise). Gradio / voice sync from their own run_* paths
+    # in main.py; this covers --serve api and direct app factories
+    # (e.g. uvicorn target = create_api_app) with a single sync.
     ensure_personas_synced()
 
     app = FastAPI(
