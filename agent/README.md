@@ -7,7 +7,9 @@ a browser-native voice worker — all from one binary.
 ## ✨ Features
 
 - **LangGraph conversation flow** with persona-driven AI responses,
-  configurable via `data/personas.json` + `data/simulations.json`.
+  configurable via `data/personas.json` + `data/simulations.json`
+  (optionally synced from S3 at startup — see
+  [Persona data from S3](#persona-data-from-s3)).
 - **LLM-based evaluation** for user/AI sentiment + emotion and per-goal
   progress tracking, using a separate (cheaper) eval model configurable via
   `OPENAI_EVAL_MODEL`. Voice sessions add spoken-only signals (pacing,
@@ -249,8 +251,38 @@ Configuration is loaded from environment variables (or `.env`). See
 | `RAG_ENABLED` | `true` | Toggle Chroma retrieval. |
 | `RAG_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model. |
 | `RAG_CHROMA_PERSIST_DIR` | `.chroma_db` | Persistent vector store path (relative to `agent/`). |
+| `PERSONAS_S3_ENABLED` | `false` | When `true`, pull cast data from S3 into `data/` at startup (see below). |
+| `PERSONAS_S3_BUCKET` | _(empty)_ | Bucket that holds the cast. Required when S3 sync is enabled. |
+| `PERSONAS_S3_PREFIX` | _(empty)_ | Optional key prefix; objects under it mirror `data/`. |
+| `AWS_REGION` | _(empty)_ | Optional region override; otherwise the AWS default chain applies. |
 | `GRADIO_SERVER_PORT` | `7860` | Dev console port. |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR`. |
+
+### Persona data from S3
+
+By default the agent reads the cast from the git-backed `data/` tree
+(`personas.json`, `simulations.json`, `avatars/`, `documents/`). Set
+`PERSONAS_S3_ENABLED=true` to download that tree from S3 **before** any
+session loads and rewrite the local files in place. Sync runs once at
+startup for `--serve api|gradio|voice`; failures are logged and the
+agent continues on whatever is already on disk.
+
+Expected keys under `PERSONAS_S3_PREFIX` match `data/`:
+
+```
+personas.json
+simulations.json
+avatars/<slug>.png
+documents/personas/<slug>/*.md
+documents/simulations/<slug>/*.md
+documents/shared/*.md
+```
+
+Credentials use the standard boto3 chain (`AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY`, shared config, or an instance/task role). This
+is the path for publishing cast updates from a separate personas repo
+into a bucket that agents pick up on the next start. Leave the flag
+`false` for local development.
 
 ### Voice mode
 
@@ -273,7 +305,9 @@ Only consulted by `--serve voice`. Defaults are self-hosted, so an
 
 Simulations and personas are pure data — edit `data/simulations.json`,
 `data/personas.json`, and the Markdown files under `data/documents/` to add or
-tune scenarios. No code changes required.
+tune scenarios. No code changes required. In deployed environments you can
+instead publish the same layout to S3 and enable `PERSONAS_S3_ENABLED` so
+agents rewrite `data/` from the bucket on start.
 
 ## 📁 Project Structure
 
@@ -282,6 +316,7 @@ agent/
 ├── data/
 │   ├── personas.json             # Persona definitions
 │   ├── simulations.json          # Simulations + goals
+│   ├── avatars/                  # Per-persona PNGs
 │   └── documents/                # RAG corpus
 │       ├── shared/               #   Cross-simulation knowledge
 │       ├── personas/<slug>/      #   Per-persona background
@@ -299,6 +334,7 @@ agent/
 │   ├── services/
 │   │   ├── conversation_service.py  # Stateless orchestration layer
 │   │   ├── data_loader.py           # Simulation + persona loader
+│   │   ├── persona_sync.py          # Optional S3 → data/ cast sync
 │   │   ├── eval_service.py          # LLM-based evaluation (+ voice signals)
 │   │   └── retrieval_service.py     # Chroma / RAG
 │   ├── voice/
@@ -319,6 +355,7 @@ agent/
 │   ├── test_conversation_service.py  # Service + serialisation + typing delay
 │   ├── test_graph.py                 # Graph construction
 │   ├── test_data_consistency.py      # Persona/simulation data integrity
+│   ├── test_persona_sync.py          # S3 cast sync (flag off / rewrite / safety)
 │   ├── test_voice_providers.py       # STT/TTS provider factory + adapters
 │   ├── test_voice_pipeline.py        # LangGraphAdapter turn behaviour
 │   ├── test_voice_persona.py         # persona voice resolution + overrides

@@ -61,7 +61,12 @@ def validate_config():
 def run_gradio():
     """Run the Gradio developer console."""
     from .config import get_settings
+    from .services.persona_sync import ensure_personas_synced
     from .ui import create_gradio_app
+
+    # Pull persona / simulation data from S3 when enabled, before Gradio
+    # reads local data files. API sync is handled in create_api_app().
+    ensure_personas_synced()
 
     settings = get_settings()
 
@@ -118,6 +123,8 @@ def run_voice() -> None:
 
     Honours the ``VOICE_ENABLED`` kill switch — exits 0 cleanly when
     voice is disabled so docker-compose's restart policy doesn't loop.
+    Persona S3 sync runs inside ``run_worker`` only after that guard,
+    so disabled deployments skip both LiveKit and S3 work.
     See :mod:`careersim_agent.voice.worker` for the bootstrap details.
     """
     from .voice.worker import run_worker
@@ -165,6 +172,7 @@ def main():
         logger.warning("Configuration incomplete - some features may not work")
 
     if args.serve == "api":
+        # Persona sync runs once inside create_api_app() (via run_api).
         port = args.port or 8000
         run_api(host=args.host, port=port)
     elif args.serve == "voice":

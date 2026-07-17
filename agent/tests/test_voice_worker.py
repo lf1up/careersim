@@ -22,10 +22,17 @@ def test_kill_switch_returns_zero(monkeypatch, caplog) -> None:
     monkeypatch.setenv("VOICE_ENABLED", "false")
     _reset_settings()
 
+    synced: list[str] = []
+    monkeypatch.setattr(
+        "careersim_agent.services.persona_sync.ensure_personas_synced",
+        lambda: synced.append("sync"),
+    )
+
     with caplog.at_level(logging.INFO):
         code = run_worker()
 
     assert code == 0
+    assert synced == []
     assert any(
         "voice disabled" in r.getMessage().lower() for r in caplog.records
     )
@@ -38,8 +45,15 @@ def test_returns_nonzero_when_livekit_url_missing(monkeypatch) -> None:
     monkeypatch.setenv("LIVEKIT_API_SECRET", "s")
     _reset_settings()
 
+    synced: list[str] = []
+    monkeypatch.setattr(
+        "careersim_agent.services.persona_sync.ensure_personas_synced",
+        lambda: synced.append("sync"),
+    )
+
     code = run_worker()
     assert code == 2
+    assert synced == ["sync"]
 
 
 def test_returns_nonzero_when_livekit_key_missing(monkeypatch) -> None:

@@ -3,6 +3,8 @@
 Canonical cast of AI personas shipped in [`agent/data/personas.json`](agent/data/personas.json), paired with the simulations defined in [`agent/data/simulations.json`](agent/data/simulations.json). Each persona has a defined role, personality, a primary goal for the interaction, and a hidden motivation that a skilled user can uncover.
 
 > **Looking for runtime stats?** See the persona table in [`README.md`](README.md) for typing speed (wpm), nudges-per-session, and burst caps. This file is the character bible.
+>
+> **Deploying cast updates?** Keep editing `agent/data/` (or a dedicated personas repo that mirrors that layout). With `PERSONAS_S3_ENABLED=true`, the agent syncs `personas.json`, `simulations.json`, `avatars/`, and `documents/` from S3 into `agent/data/` at startup — see [agent/README.md](agent/README.md#persona-data-from-s3).
 
 ---
 

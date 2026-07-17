@@ -29,6 +29,7 @@ from ..services.conversation_service import (
     serialize_state,
 )
 from ..services.data_loader import get_persona_avatar_path
+from ..services.persona_sync import ensure_personas_synced
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +284,12 @@ def _done_event_to_sse(state: dict) -> str:
 # -- App factory --------------------------------------------------------------
 
 def create_api_app() -> FastAPI:
+    # Pull persona / simulation data from S3 when the feature flag is on
+    # (no-op otherwise). Gradio / voice sync from their own run_* paths
+    # in main.py; this covers --serve api and direct app factories
+    # (e.g. uvicorn target = create_api_app) with a single sync.
+    ensure_personas_synced()
+
     app = FastAPI(
         title="CareerSIM Agent API",
         description="Stateless, message-based conversation agent",

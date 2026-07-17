@@ -47,6 +47,27 @@ class Settings(BaseSettings):
     rag_top_k: int = 4
     rag_chroma_persist_dir: str = ".chroma_db"
 
+    # -------------------------------------------------------------------
+    # Persona / simulation data from S3
+    #
+    # When `personas_s3_enabled` is true, the agent downloads the cast
+    # (personas.json, simulations.json, avatars/, documents/) from the
+    # configured bucket into the local data dir *before* any load, then
+    # rewrites those files in place. Default is off so local git-backed
+    # `agent/data` remains the source of truth for development.
+    #
+    # Credentials use the standard boto3 chain (env keys, shared config,
+    # instance/task role). See `services/persona_sync.py`.
+    # -------------------------------------------------------------------
+    personas_s3_enabled: bool = False
+    personas_s3_bucket: str = ""
+    # Key prefix inside the bucket. Objects are mirrored relative to this
+    # prefix into the local data dir (e.g. prefix `cast/` + key
+    # `cast/personas.json` → `data/personas.json`). Trailing slash optional.
+    personas_s3_prefix: str = ""
+    # Optional override; empty defers to AWS_REGION / the SDK default chain.
+    aws_region: str = ""
+
     # Gradio Configuration
     gradio_server_port: int = 7860
     gradio_share: bool = False

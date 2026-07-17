@@ -228,7 +228,9 @@ Email + password → JWT bearer (stored in `localStorage` on the web side; `Auth
 
 ## 🎭 AI Personas
 
-Shipped in `agent/data/personas.json`. Each declares a `conversationStyle` that the runtime surfaces in `GET /sessions/:id.session_config` and the web UI badges.
+Shipped in `agent/data/personas.json` (plus `simulations.json`, `avatars/`, and `documents/`). Each persona declares a `conversationStyle` that the runtime surfaces in `GET /sessions/:id.session_config` and the web UI badges.
+
+For local development the git-backed `agent/data/` tree is the source of truth. Deployments can instead set `PERSONAS_S3_ENABLED=true` on the agent so it downloads that same layout from an S3 bucket at startup and rewrites the local files before any session loads — useful when future cast updates live in a personas repo that publishes into the bucket. See [agent/README.md](agent/README.md#persona-data-from-s3) for the flag, prefix layout, and credential notes.
 
 
 | Persona              | Role                               | Simulation slug                          | Typing (wpm) | Nudges max | Burst max |

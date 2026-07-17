@@ -35,9 +35,17 @@ def run_worker() -> int:
         # Soft kill switch — exits 0 cleanly so docker-compose's
         # restart policy doesn't loop. The plan documents this as the
         # canonical disable path that doesn't require redeploying.
+        # Intentionally before persona S3 sync so disabled deployments
+        # do not touch the network or rewrite local data files.
         logger.info("voice disabled by env (VOICE_ENABLED=false); exiting cleanly")
         print("voice disabled — worker exiting cleanly")
         return 0
+
+    # Pull persona / simulation data from S3 when enabled, before the
+    # worker reads local cast files. Skipped above when voice is off.
+    from ..services.persona_sync import ensure_personas_synced
+
+    ensure_personas_synced()
 
     if not settings.livekit_url:
         logger.error(
