@@ -141,7 +141,7 @@ This starts:
 | URL                                                      | Service                                         |
 | -------------------------------------------------------- | ----------------------------------------------- |
 | [http://localhost:3000](http://localhost:3000)           | `web` — Next.js app                             |
-| [http://localhost:3000/blog](http://localhost:3000/blog) | Blog (rendered by `web` from Ghost; requires `NEXT_PUBLIC_BLOG_ENABLED≠false`) |
+| [http://localhost:3000/blog](http://localhost:3000/blog) | Blog (rendered by `web` from Ghost; requires `NEXT_PUBLIC_BLOG_ENABLED=true`) |
 | [http://localhost:8000](http://localhost:8000)           | `api` — Fastify API                             |
 | [http://localhost:8000/docs](http://localhost:8000/docs) | API Swagger UI (zod schemas → OpenAPI)          |
 | [http://localhost:8001](http://localhost:8001)           | `agent` — FastAPI (stateless)                   |
@@ -197,7 +197,7 @@ Nine first-party simulations shipped in `agent/data/simulations.json`, each boun
 
 Self-hosted Ghost (Docker + MySQL) is used as a CMS only. Next.js fetches posts via the Content API and renders them at `/blog` on the main domain (subdirectory SEO), with `BlogPosting` JSON-LD, sitemap entries, and a publish webhook for on-demand ISR.
 
-**Feature flag:** set `NEXT_PUBLIC_BLOG_ENABLED=false` in `web/.env` to turn the blog off (404s `/blog` routes, omits blog URLs from sitemap / robots / `llms.txt`, and rejects the revalidate webhook). Unset or `true` keeps it on. Restart `web` after changing the flag. Marketing links to the blog live on the landing site (`LANDING_BLOG_URL`), not in the app navbar.
+**Feature flag:** the blog is **off by default**. Set `NEXT_PUBLIC_BLOG_ENABLED=true` in `web/.env` to turn it on. Unset/`false` 404s `/blog` routes, omits blog URLs from sitemap / robots / `llms.txt`, and rejects the revalidate webhook. Restart `web` after changing the flag. Marketing links to the blog live on the landing site (`LANDING_BLOG_URL`), not in the app navbar.
 
 See [web/README.md](web/README.md#headless-ghost-blog) for the one-time Admin setup (Private Mode, Content API key, webhook).
 
