@@ -7,7 +7,8 @@ const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.l
 const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
 const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.local/register';
 const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
-const blogUrl = import.meta.env.LANDING_BLOG_URL ?? 'https://careersim.local/blog';
+// Only set when the web blog is live — unset hides Blog nav/footer links.
+const blogUrl = import.meta.env.LANDING_BLOG_URL?.trim() || '';
 const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
 
 const previewSessions = [
@@ -408,7 +409,7 @@ const faqs = [
 const footerLinks = {
   product: [
     { label: 'Simulations', href: simulationsUrl },
-    { label: 'Blog', href: blogUrl },
+    ...(blogUrl ? [{ label: 'Blog', href: blogUrl }] : []),
     { label: 'How it works', href: '#how-it-works' },
     { label: 'Personas', href: '#personas' },
     { label: 'FAQ', href: '#faq' },
@@ -507,7 +508,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         <a href="#personas">Personas</a>
         <a href="#how-it-works">How it works</a>
         <a href="#faq">FAQ</a>
-        <a href={blogUrl}>Blog</a>
+        {blogUrl ? <a href={blogUrl}>Blog</a> : null}
       </nav>
 
       <div class="header-actions">

@@ -130,14 +130,16 @@ copy at `:2368`.
 
 ### Feature flag
 
-The blog is gated by `NEXT_PUBLIC_BLOG_ENABLED` in `web/.env` (see
-`src/lib/blog.ts` → `isBlogEnabled()`). Discovery links live on the
-**landing** site header/footer (`LANDING_BLOG_URL`), not in the app navbar.
+The blog is gated by `isBlogEnabled()` in `src/lib/blog.ts`: it needs
+`NEXT_PUBLIC_BLOG_ENABLED=true`/`1` **and** Ghost Content API env
+(`GHOST_API_URL` + `GHOST_CONTENT_API_KEY`). Missing either keeps the surface
+off. Discovery links live on the **landing** site header/footer only when
+`LANDING_BLOG_URL` is set — not in the app navbar.
 
-| Value | Behavior |
+| Condition | Behavior |
 | --- | --- |
-| unset / `false` / `0` | Blog **off** (default) — `/blog` and `/blog/[slug]` return 404, sitemap / robots / `llms.txt` omit blog URLs, `POST /api/revalidate` returns 503 |
-| `true` / `1` | Blog **on** |
+| Flag unset / `false` / `0`, or missing `GHOST_API_URL` / `GHOST_CONTENT_API_KEY` | Blog **off** (default) — `/blog` and `/blog/[slug]` return 404, sitemap / robots / `llms.txt` omit blog URLs, `POST /api/revalidate` returns 503 |
+| Flag `true` / `1` **and** Ghost URL + Content API key set | Blog **on** |
 
 Because the flag is `NEXT_PUBLIC_*`, it is inlined at build / `pnpm dev` start —
 restart `web` (or recreate the compose `web` service) after changing it.
@@ -242,10 +244,10 @@ pnpm typecheck  # tsc --noEmit
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
 | `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door |
-| `NEXT_PUBLIC_BLOG_ENABLED` | `false` | Opt-in for the blog. Unset/`false` 404s `/blog` and omits blog URLs from sitemap / robots / `llms.txt`. Set `true` to enable. Landing links use `LANDING_BLOG_URL` |
-| `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`) |
+| `NEXT_PUBLIC_BLOG_ENABLED` | `false` | Opt-in for the blog. Also requires `GHOST_API_URL` + `GHOST_CONTENT_API_KEY`. Unset/`false`/missing Ghost credentials 404s `/blog` and omits blog URLs from sitemap / robots / `llms.txt`. Landing links use `LANDING_BLOG_URL` |
+| `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`). Required with the Content API key for the blog to enable |
 | `GHOST_PUBLIC_URL` | unset | Optional browser-facing Ghost origin for `next/image` when it differs from `GHOST_API_URL` |
-| `GHOST_CONTENT_API_KEY` | unset | Read-only Content API key from Ghost Admin → Integrations |
+| `GHOST_CONTENT_API_KEY` | unset | Read-only Content API key from Ghost Admin → Integrations. Required with `GHOST_API_URL` for the blog to enable |
 | `GHOST_WEBHOOK_SECRET` | unset | Shared secret for `POST /api/revalidate?secret=…` (instant ISR on publish) |
 
 `NEXT_PUBLIC_API_URL` is inlined into the client bundle at build time (note the
@@ -291,10 +293,11 @@ challenge payload.
   budget banners are best-effort UX driven by LiveKit data-channel frames; the
   authoritative transcript + quota live on the server, mirroring the chat
   surface.
-- **Blog is an opt-in public surface.** Unset or `NEXT_PUBLIC_BLOG_ENABLED=false`
-  404s the App Router pages and strips blog URLs from crawl surfaces. Set
-  `true` after Ghost is configured. Marketing links to `/blog` live on the
-  landing site, not in the app navbar.
+- **Blog is an opt-in public surface.** It stays off unless
+  `NEXT_PUBLIC_BLOG_ENABLED=true` and Ghost Content API env are both set;
+  otherwise App Router pages 404 and crawl surfaces omit blog URLs.
+  Marketing links to `/blog` appear on the landing site only when
+  `LANDING_BLOG_URL` is set, not in the app navbar.
 
 ---
 

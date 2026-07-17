@@ -197,7 +197,7 @@ Nine first-party simulations shipped in `agent/data/simulations.json`, each boun
 
 Self-hosted Ghost (Docker + MySQL) is used as a CMS only. Next.js fetches posts via the Content API and renders them at `/blog` on the main domain (subdirectory SEO), with `BlogPosting` JSON-LD, sitemap entries, and a publish webhook for on-demand ISR.
 
-**Feature flag:** the blog is **off by default**. Set `NEXT_PUBLIC_BLOG_ENABLED=true` in `web/.env` to turn it on. Unset/`false` 404s `/blog` routes, omits blog URLs from sitemap / robots / `llms.txt`, and rejects the revalidate webhook. Restart `web` after changing the flag. Marketing links to the blog live on the landing site (`LANDING_BLOG_URL`), not in the app navbar.
+**Feature flag:** the blog is **off by default**. It turns on only when `NEXT_PUBLIC_BLOG_ENABLED=true` **and** `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` are set in `web/.env`. Otherwise `/blog` routes 404, sitemap / robots / `llms.txt` omit blog URLs, and the revalidate webhook is rejected. Restart `web` after changing the flag. Landing Blog links appear only when `LANDING_BLOG_URL` is set.
 
 See [web/README.md](web/README.md#headless-ghost-blog) for the one-time Admin setup (Private Mode, Content API key, webhook).
 
