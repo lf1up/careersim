@@ -40,7 +40,7 @@ No Hugging Face token is needed — all models are public and ungated.
 uv run modal deploy modal_app/app.py
 ```
 
-First deploy builds the image and downloads ~35 GB of model weights into a persistent
+First deploy builds the image and downloads ~38 GB of model weights into a persistent
 Modal Volume (one-time, ~5–15 min). The deploy prints two URLs:
 
 - `...-comfyui-api.modal.run` — the generation API (used by the client below)
