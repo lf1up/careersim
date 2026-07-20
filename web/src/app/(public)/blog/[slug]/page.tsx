@@ -12,6 +12,7 @@ import { sanitizeGhostHtml } from '@/lib/sanitize-html';
 import {
   absoluteUrl,
   metadataFor,
+  serializeJsonLd,
   SITE_NAME,
   truncateDescription,
 } from '@/lib/seo';
@@ -110,7 +111,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             '@context': 'https://schema.org',
             '@type': 'BlogPosting',
             headline: post.title,

@@ -96,3 +96,11 @@ export function truncateDescription(value: string, maxLength = 155): string {
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
+
+/**
+ * Serialize JSON-LD for inline `<script type="application/ld+json">`.
+ * Escapes `<` so CMS-controlled strings cannot break out of the script tag.
+ */
+export function serializeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}

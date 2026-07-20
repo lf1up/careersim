@@ -7,7 +7,7 @@ import { RetroBadge } from '@/components/ui/RetroBadge';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { isBlogEnabled } from '@/lib/blog';
 import { getPosts } from '@/lib/ghost';
-import { absoluteUrl, metadataFor, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, metadataFor, serializeJsonLd, SITE_NAME } from '@/lib/seo';
 
 export const revalidate = 3600;
 
@@ -55,7 +55,7 @@ export default async function BlogIndexPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: serializeJsonLd({
             '@context': 'https://schema.org',
             '@type': 'Blog',
             name: `${SITE_NAME} blog`,
