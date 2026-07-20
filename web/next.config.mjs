@@ -92,6 +92,9 @@ const nextConfig = {
       ...ghostImageRemotePatterns,
       ...ghostCdnRemotePatterns,
     ],
+    // Compose/dev: Ghost and API resolve to private/Docker IPs. Next 16 blocks
+    // those by default; keep that protection on in production.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== 'production',
     // Cache optimized variants on the Next server for a day; the upstream
     // `Cache-Control` from the API still controls browser caching.
     minimumCacheTTL: 60 * 60 * 24,
