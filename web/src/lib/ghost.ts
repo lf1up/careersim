@@ -36,6 +36,26 @@ export function isGhostConfigured(): boolean {
   return getGhostConfig() !== null;
 }
 
+/** True only for confirmed Ghost/HTTP 404 responses. */
+function isGhostNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const withResponse = error as { response?: { status?: number } };
+  if (withResponse.response?.status === 404) return true;
+
+  // @tryghost/content-api sometimes surfaces errors as `{ type, message, ... }`
+  // arrays or objects with a status-like string — treat explicit 404 type only.
+  const withType = error as { type?: string; status?: number | string };
+  if (withType.status === 404 || withType.status === '404') return true;
+  if (withType.type === 'NotFoundError') return true;
+
+  if (Array.isArray(error)) {
+    return error.some((entry) => isGhostNotFoundError(entry));
+  }
+
+  return false;
+}
+
 export async function getPosts({
   page = 1,
   limit = 12,
@@ -61,8 +81,11 @@ export async function getPosts({
       pagination: result.meta?.pagination ?? null,
     };
   } catch (error) {
+    if (isGhostNotFoundError(error)) {
+      return { posts: [], pagination: null };
+    }
     console.error('[ghost] getPosts failed:', error);
-    return { posts: [], pagination: null };
+    throw error;
   }
 }
 
@@ -77,16 +100,11 @@ export async function getPostBySlug(slug: string): Promise<GhostPost | null> {
     );
   } catch (error) {
     // Ghost throws when the slug is missing — treat as not found.
-    if (
-      error &&
-      typeof error === 'object' &&
-      'response' in error &&
-      (error as { response?: { status?: number } }).response?.status === 404
-    ) {
+    if (isGhostNotFoundError(error)) {
       return null;
     }
     console.error(`[ghost] getPostBySlug(${slug}) failed:`, error);
-    return null;
+    throw error;
   }
 }
 
@@ -113,8 +131,11 @@ export async function getAllPosts(): Promise<GhostPost[]> {
 
     return allPosts;
   } catch (error) {
+    if (isGhostNotFoundError(error)) {
+      return allPosts;
+    }
     console.error('[ghost] getAllPosts failed:', error);
-    return allPosts;
+    throw error;
   }
 }
 
@@ -144,8 +165,11 @@ export async function getAllPostSlugs(): Promise<string[]> {
 
     return allSlugs;
   } catch (error) {
+    if (isGhostNotFoundError(error)) {
+      return allSlugs;
+    }
     console.error('[ghost] getAllPostSlugs failed:', error);
-    return allSlugs;
+    throw error;
   }
 }
 
@@ -160,7 +184,10 @@ export async function getTags(): Promise<GhostTag[]> {
     });
     return [...tags];
   } catch (error) {
+    if (isGhostNotFoundError(error)) {
+      return [];
+    }
     console.error('[ghost] getTags failed:', error);
-    return [];
+    throw error;
   }
 }
