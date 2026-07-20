@@ -157,8 +157,11 @@ restart `web` (or recreate the compose `web` service) after changing it.
    `GHOST_CONTENT_API_KEY` in `web/.env`.
 5. On that same integration, add webhooks:
    - Events: **Post published**, **Post updated**, **Post deleted**
-   - Target URL: `http://host.docker.internal:3000/api/revalidate?secret=<GHOST_WEBHOOK_SECRET>`
-     (use your public site URL in production). Set a matching random value in
+   - Target URL (all-Compose stack — Ghost and Next both in Docker):
+     `http://web:3000/api/revalidate?secret=<GHOST_WEBHOOK_SECRET>`
+   - Target URL (Next on the host, Ghost in Docker only):
+     `http://host.docker.internal:3000/api/revalidate?secret=<GHOST_WEBHOOK_SECRET>`
+   - Production: use your public site URL. Set a matching random value in
      `GHOST_WEBHOOK_SECRET`.
 6. Restart `web` (or re-run `pnpm dev`) so it picks up the new env vars.
 7. Publish a post in Ghost Admin — it should appear at `/blog` within the
