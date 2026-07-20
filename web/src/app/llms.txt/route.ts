@@ -1,3 +1,5 @@
+import { isBlogEnabled } from '@/lib/blog';
+import { getPosts } from '@/lib/ghost';
 import { listPublicSimulations } from '@/lib/public-api';
 import {
   absoluteUrl,
@@ -9,7 +11,13 @@ import {
 export const revalidate = 3600;
 
 export async function GET(): Promise<Response> {
-  const simulations = await listPublicSimulations().catch(() => []);
+  const blogEnabled = isBlogEnabled();
+  const [simulations, { posts }] = await Promise.all([
+    listPublicSimulations().catch(() => []),
+    blogEnabled
+      ? getPosts({ page: 1, limit: 50 })
+      : Promise.resolve({ posts: [], pagination: null }),
+  ]);
 
   const lines = [
     `# ${SITE_NAME}`,
@@ -19,6 +27,11 @@ export async function GET(): Promise<Response> {
     '## Core Pages',
     '',
     `- [Simulation catalog](${absoluteUrl('/simulations')}): Browse AI career simulations for interviews, workplace communication, feedback, and professional growth.`,
+    ...(blogEnabled
+      ? [
+          `- [Blog](${absoluteUrl('/blog')}): Guides and practice tips for career-defining conversations.`,
+        ]
+      : []),
     `- [Sitemap](${absoluteUrl('/sitemap.xml')}): XML sitemap for crawlable public pages.`,
   ];
 
@@ -32,6 +45,23 @@ export async function GET(): Promise<Response> {
 
       lines.push(
         `- [${simulation.title}](${absoluteUrl(`/simulations/${simulation.slug}`)}): ${truncateDescription(
+          description,
+        )}`,
+      );
+    }
+  }
+
+  if (blogEnabled && posts.length > 0) {
+    lines.push('', '## Blog', '');
+
+    for (const post of posts) {
+      if (!post.slug || !post.title) continue;
+      const description =
+        post.custom_excerpt ||
+        post.excerpt ||
+        `Read ${post.title} on the ${SITE_NAME} blog.`;
+      lines.push(
+        `- [${post.title}](${absoluteUrl(`/blog/${post.slug}`)}): ${truncateDescription(
           description,
         )}`,
       );

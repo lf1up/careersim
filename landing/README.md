@@ -19,6 +19,10 @@ pnpm install
 pnpm dev
 ```
 
+Copy `.env.example` to `.env` and adjust as needed. Blog nav/footer links stay
+hidden unless you set `LANDING_BLOG_URL` (leave it unset by default to match
+`web` when `NEXT_PUBLIC_BLOG_ENABLED` is omitted or false).
+
 ## ⚙️ Scripts
 
 ```bash

@@ -27,6 +27,10 @@ export function metadataFor({
   images = ['/opengraph-image'],
   robots,
   keywords,
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  authors,
 }: {
   title: string;
   description?: string;
@@ -34,8 +38,26 @@ export function metadataFor({
   images?: string[];
   robots?: Metadata['robots'];
   keywords?: string[];
+  /** Open Graph type — use `article` for blog posts. */
+  type?: 'website' | 'article';
+  publishedTime?: string;
+  modifiedTime?: string;
+  authors?: string[];
 }): Metadata {
   const url = absoluteUrl(path);
+  const resolvedImages = images.map((image) => {
+    // Absolute Ghost (or other CDN) URLs pass through; relative paths
+    // are resolved against SITE_URL.
+    const imageUrl = /^https?:\/\//i.test(image)
+      ? image
+      : absoluteUrl(image);
+    return {
+      url: imageUrl,
+      width: 1200,
+      height: 630,
+      alt: `${SITE_NAME} preview`,
+    };
+  });
 
   return {
     title,
@@ -49,19 +71,21 @@ export function metadataFor({
       description,
       url,
       siteName: SITE_NAME,
-      type: 'website',
-      images: images.map((image) => ({
-        url: absoluteUrl(image),
-        width: 1200,
-        height: 630,
-        alt: `${SITE_NAME} preview`,
-      })),
+      type,
+      ...(type === 'article'
+        ? {
+            publishedTime,
+            modifiedTime,
+            authors,
+          }
+        : {}),
+      images: resolvedImages,
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: images.map((image) => absoluteUrl(image)),
+      images: resolvedImages.map((image) => image.url),
     },
     robots,
   };
@@ -71,4 +95,12 @@ export function truncateDescription(value: string, maxLength = 155): string {
   const normalized = value.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+/**
+ * Serialize JSON-LD for inline `<script type="application/ld+json">`.
+ * Escapes `<` so CMS-controlled strings cannot break out of the script tag.
+ */
+export function serializeJsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
 }

@@ -1,0 +1,221 @@
+/* Ghost Koenig card styles — matched to CareerSIM retro surfaces. */
+
+.ghost-content {
+  @apply text-base leading-relaxed text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content > * + * {
+  @apply mt-5;
+}
+
+.ghost-content h2 {
+  @apply text-xl font-semibold text-retro-ink dark:text-retro-ink-dark mt-10 mb-3;
+}
+
+.ghost-content h3 {
+  @apply text-lg font-semibold text-retro-ink dark:text-retro-ink-dark mt-8 mb-2;
+}
+
+.ghost-content h4 {
+  @apply text-base font-semibold text-retro-ink dark:text-retro-ink-dark mt-6 mb-2;
+}
+
+.ghost-content p {
+  @apply text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content a {
+  @apply font-semibold text-primary-700 dark:text-primary-300 underline underline-offset-2 decoration-2 hover:text-primary-900 dark:hover:text-primary-100;
+}
+
+.ghost-content strong {
+  @apply font-semibold text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content em {
+  @apply italic;
+}
+
+.ghost-content ul,
+.ghost-content ol {
+  @apply pl-5 space-y-1 text-sm text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content ul {
+  @apply list-disc;
+}
+
+.ghost-content ol {
+  @apply list-decimal;
+}
+
+.ghost-content li + li {
+  @apply mt-1;
+}
+
+.ghost-content blockquote {
+  @apply border-l-4 border-black dark:border-retro-ink-dark pl-4 py-2 bg-retro-paper dark:bg-retro-surface-dark/40 italic text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content hr {
+  @apply border-t-2 border-black dark:border-retro-ink-dark my-8;
+}
+
+.ghost-content code {
+  @apply font-monoRetro text-sm bg-secondary-100 dark:bg-secondary-800 border border-black/10 dark:border-white/10 px-1.5 py-0.5;
+}
+
+.ghost-content pre {
+  @apply bg-secondary-100 dark:bg-secondary-900 border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 p-4 overflow-x-auto;
+}
+
+.ghost-content pre code {
+  @apply bg-transparent border-0 p-0 shadow-none;
+}
+
+.ghost-content img {
+  @apply max-w-full h-auto border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2;
+}
+
+.ghost-content figcaption {
+  @apply text-xs font-monoRetro text-secondary-600 dark:text-secondary-400 mt-2 text-center;
+}
+
+/* Koenig cards */
+.ghost-content .kg-card {
+  @apply my-8;
+}
+
+.ghost-content .kg-image-card img,
+.ghost-content .kg-gallery-image img {
+  @apply mx-auto;
+}
+
+.ghost-content .kg-image-card.kg-width-wide img,
+.ghost-content .kg-width-wide img {
+  @apply w-full;
+}
+
+.ghost-content .kg-gallery-card {
+  @apply w-full;
+}
+
+.ghost-content .kg-gallery-container {
+  @apply grid gap-2;
+}
+
+.ghost-content .kg-gallery-row {
+  @apply grid grid-flow-col gap-2;
+}
+
+.ghost-content .kg-bookmark-card {
+  @apply border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 overflow-hidden bg-white dark:bg-retro-surface-dark;
+}
+
+.ghost-content .kg-bookmark-container {
+  @apply flex flex-col sm:flex-row no-underline text-inherit hover:translate-x-px hover:translate-y-px hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 transition-[transform,box-shadow] duration-150;
+}
+
+.ghost-content .kg-bookmark-content {
+  @apply flex-1 p-4 space-y-2;
+}
+
+.ghost-content .kg-bookmark-title {
+  @apply font-semibold text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content .kg-bookmark-description {
+  @apply text-sm text-secondary-600 dark:text-secondary-400 line-clamp-2;
+}
+
+.ghost-content .kg-bookmark-metadata {
+  @apply flex items-center gap-2 text-xs font-monoRetro text-secondary-500 dark:text-secondary-400;
+}
+
+.ghost-content .kg-bookmark-icon {
+  @apply w-4 h-4;
+}
+
+.ghost-content .kg-bookmark-thumbnail {
+  @apply sm:w-48 shrink-0 border-t-2 sm:border-t-0 sm:border-l-2 border-black dark:border-retro-ink-dark;
+}
+
+.ghost-content .kg-bookmark-thumbnail img {
+  @apply w-full h-full object-cover border-0 shadow-none;
+}
+
+.ghost-content .kg-embed-card {
+  @apply relative w-full overflow-hidden;
+}
+
+.ghost-content .kg-embed-card iframe {
+  @apply w-full aspect-video border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2;
+}
+
+.ghost-content .kg-callout-card {
+  @apply border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 p-4 bg-cyan-100 dark:bg-cyan-900 text-cyan-900 dark:text-cyan-100 flex gap-3;
+}
+
+.ghost-content .kg-callout-emoji {
+  @apply text-xl shrink-0;
+}
+
+.ghost-content .kg-toggle-card {
+  @apply border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 bg-white dark:bg-retro-surface-dark;
+}
+
+.ghost-content .kg-toggle-heading {
+  @apply p-4 font-semibold cursor-pointer text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content .kg-toggle-content {
+  @apply px-4 pb-4 text-sm text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content .kg-button-card,
+.ghost-content .kg-button-card.kg-align-center {
+  @apply text-center;
+}
+
+.ghost-content .kg-button-card a,
+.ghost-content .kg-btn {
+  @apply inline-flex items-center justify-center px-4 py-2 border-2 border-black dark:border-retro-ink-dark bg-black dark:bg-retro-ink-dark text-white dark:text-retro-paper-dark font-semibold no-underline shadow-retro-3 dark:shadow-retro-dark-3 hover:translate-x-px hover:translate-y-px hover:shadow-retro-2 dark:hover:shadow-retro-dark-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1 transition-[transform,box-shadow] duration-150;
+}
+
+.ghost-content .kg-product-card {
+  @apply border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 overflow-hidden bg-white dark:bg-retro-surface-dark;
+}
+
+.ghost-content .kg-product-card-container {
+  @apply p-4 space-y-3;
+}
+
+.ghost-content .kg-product-title {
+  @apply font-semibold text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content .kg-product-description {
+  @apply text-sm text-secondary-600 dark:text-secondary-400;
+}
+
+.ghost-content .kg-audio-card,
+.ghost-content .kg-video-card {
+  @apply border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2 overflow-hidden bg-white dark:bg-retro-surface-dark;
+}
+
+.ghost-content table {
+  @apply w-full border-collapse text-sm border-2 border-black dark:border-retro-ink-dark shadow-retro-2 dark:shadow-retro-dark-2;
+}
+
+.ghost-content th,
+.ghost-content td {
+  @apply border border-black dark:border-retro-ink-dark px-3 py-2 text-left;
+}
+
+.ghost-content th {
+  @apply bg-secondary-100 dark:bg-secondary-800 font-semibold text-retro-ink dark:text-retro-ink-dark;
+}
+
+.ghost-content td {
+  @apply bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark;
+}

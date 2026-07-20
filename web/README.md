@@ -55,6 +55,8 @@ Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
 | `/dashboard` | Welcome + counts + recent sessions |
 | `/simulations` | List simulations from `GET /simulations` |
 | `/simulations/[slug]` | Confirm + start a session (`POST /sessions`) |
+| `/blog` | Public blog index (Ghost Content API, ISR). Requires `NEXT_PUBLIC_BLOG_ENABLED=true` |
+| `/blog/[slug]` | Public blog post with `BlogPosting` JSON-LD. Requires `NEXT_PUBLIC_BLOG_ENABLED=true` |
 | `/sessions` | List caller's sessions (`GET /sessions`) |
 | `/sessions/[id]` | Chat: `GET /sessions/:id`, send via `POST /sessions/:id/messages/stream`, optional follow-up + nudge. Voice: a **Call** button (when `NEXT_PUBLIC_VOICE_ENABLED` is on and the persona supports voice) opens an in-page WebRTC call surface |
 
@@ -119,6 +121,61 @@ the Call button renders nothing, and `livekit-client` is never imported. The
 button is also hidden for personas that don't declare a `voice` block. See the
 repo-level [VOICE_MODE.md](../VOICE_MODE.md) for the end-to-end picture.
 
+## 📰 Headless Ghost blog
+
+Posts are authored in Ghost and rendered by Next.js at `/blog` (subdirectory
+on the main domain for SEO). Ghost itself is Content-API-only — put the Ghost
+frontend in **Private Site Mode** so search engines don't index a duplicate
+copy at `:2368`.
+
+### Feature flag
+
+The blog is gated by `isBlogEnabled()` in `src/lib/blog.ts`: it needs
+`NEXT_PUBLIC_BLOG_ENABLED=true`/`1` **and** Ghost Content API env
+(`GHOST_API_URL` + `GHOST_CONTENT_API_KEY`). The flag is **off by default** —
+omit `NEXT_PUBLIC_BLOG_ENABLED` entirely, or set `false`/`0`, and the surface
+stays off. Discovery links live on the **landing** site header/footer only when
+`LANDING_BLOG_URL` is set (also unset by default) — not in the app navbar.
+
+| Condition | Behavior |
+| --- | --- |
+| Flag omitted / unset / `false` / `0`, or missing `GHOST_API_URL` / `GHOST_CONTENT_API_KEY` | Blog **off** (default) — `/blog` and `/blog/[slug]` return 404, sitemap / robots / `llms.txt` omit blog URLs, `POST /api/revalidate` returns 503 |
+| Flag `true` / `1` **and** Ghost URL + Content API key set | Blog **on** |
+
+Because the flag is `NEXT_PUBLIC_*`, it is inlined at build / `pnpm dev` start —
+restart `web` (or recreate the compose `web` service) after changing it.
+
+### One-time local setup
+
+1. Start the stack (`docker compose -f docker-compose.local.yml up`) so
+   `ghost` is listening on [http://localhost:2368](http://localhost:2368).
+2. Open [http://localhost:2368/ghost](http://localhost:2368/ghost) and finish
+   the Ghost setup wizard (create the owner account).
+3. **Settings → General → Make this site private** — enable Private Mode
+   (password-protects Ghost's own frontend + `noindex`).
+4. **Settings → Integrations → Add custom integration** named e.g.
+   `Next.js Frontend`. Copy the **Content API Key** into
+   `GHOST_CONTENT_API_KEY` in `web/.env`.
+5. On that same integration, add webhooks:
+   - Events: **Post published**, **Post updated**, **Post deleted**
+   - Target URL (all-Compose stack — Ghost and Next both in Docker):
+     `http://web:3000/api/revalidate?secret=<GHOST_WEBHOOK_SECRET>`
+   - Target URL (Next on the host, Ghost in Docker only):
+     `http://host.docker.internal:3000/api/revalidate?secret=<GHOST_WEBHOOK_SECRET>`
+   - Production: use your public site URL. Set a matching random value in
+     `GHOST_WEBHOOK_SECRET`.
+6. Restart `web` (or re-run `pnpm dev`) so it picks up the new env vars.
+7. Publish a post in Ghost Admin — it should appear at `/blog` within the
+   ISR window (or immediately via the webhook).
+
+Compose sets `GHOST_API_URL=http://ghost:2368` for the `web` container.
+When running Next on the host against compose Ghost, keep
+`GHOST_API_URL=http://localhost:2368` in `web/.env`.
+
+In production, give Ghost a public origin (e.g. `https://ghost.careersim.ai`)
+for admin + Content API + feature images, set that as Ghost's `url` and as
+`GHOST_API_URL` / `GHOST_PUBLIC_URL` on `web`, and keep Private Mode on.
+
 ## 📁 Layout
 
 ```text
@@ -128,6 +185,15 @@ web/
 │   │   ├── layout.tsx                       # providers + toaster
 │   │   ├── page.tsx                         # redirect("/dashboard")
 │   │   ├── globals.css                      # tailwind + retro utility classes
+│   │   ├── sitemap.ts / robots.ts           # SEO crawl surfaces (incl. /blog)
+│   │   ├── api/revalidate/route.ts          # Ghost publish webhook → ISR
+│   │   ├── (public)/
+│   │   │   ├── layout.tsx                   # Navbar + Footer (no auth guard)
+│   │   │   ├── simulations/...
+│   │   │   └── blog/
+│   │   │       ├── page.tsx                 # post listing
+│   │   │       ├── [slug]/page.tsx          # post detail + BlogPosting JSON-LD
+│   │   │       └── ghost-content.css        # Koenig kg-* card styles
 │   │   ├── (auth)/
 │   │   │   ├── layout.tsx                   # force-dynamic (useSearchParams)
 │   │   │   ├── login/page.tsx
@@ -139,8 +205,6 @@ web/
 │   │       ├── layout.tsx                   # Navbar + <RequireAuth> (force-dynamic)
 │   │       ├── dashboard/page.tsx
 │   │       ├── profile/page.tsx
-│   │       ├── simulations/page.tsx
-│   │       ├── simulations/[slug]/page.tsx
 │   │       ├── sessions/page.tsx
 │   │       └── sessions/[id]/page.tsx
 │   ├── components/
@@ -155,6 +219,10 @@ web/
 │   ├── contexts/                            # AuthContext, ThemeContext
 │   └── lib/
 │       ├── api.ts                           # typed client for the api/ surface (incl. start/endVoiceCall)
+│       ├── blog.ts                          # isBlogEnabled() — NEXT_PUBLIC_BLOG_ENABLED kill switch
+│       ├── ghost.ts                         # @tryghost/content-api helpers (paginated)
+│       ├── sanitize-html.ts                 # DOMPurify wrapper for Ghost HTML
+│       ├── seo.ts                           # metadataFor / absoluteUrl helpers
 │       ├── sse.ts                           # fetch-based SSE reader
 │       ├── voice.ts                         # livekit-client wrapper (lazy import) + kill-switch helper
 │       └── types.ts                         # mirrors api/src/modules/**/*.schema.ts (incl. Voice* types)
@@ -180,10 +248,16 @@ pnpm typecheck  # tsc --noEmit
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
 | `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door |
+| `NEXT_PUBLIC_BLOG_ENABLED` | unset / `false` | Opt-in for the blog (**off by default**). Omit the var, or set `false`/`0`, to keep it off. `true`/`1` plus `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` enables `/blog`; otherwise routes 404 and sitemap / robots / `llms.txt` omit blog URLs. Landing links use `LANDING_BLOG_URL` (separate, also unset by default) |
+| `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`). Required with the Content API key for the blog to enable |
+| `GHOST_PUBLIC_URL` | unset | Optional browser-facing Ghost origin for `next/image` when it differs from `GHOST_API_URL` |
+| `GHOST_CONTENT_API_KEY` | unset | Read-only Content API key from Ghost Admin → Integrations. Required with `GHOST_API_URL` for the blog to enable |
+| `GHOST_WEBHOOK_SECRET` | unset | Shared secret for `POST /api/revalidate?secret=…` (instant ISR on publish) |
 
 `NEXT_PUBLIC_API_URL` is inlined into the client bundle at build time (note the
 `NEXT_PUBLIC_` prefix), so changes require a rebuild in production. The same
-applies to other `NEXT_PUBLIC_*` values such as `NEXT_PUBLIC_CONTACT_EMAIL`.
+applies to other `NEXT_PUBLIC_*` values such as `NEXT_PUBLIC_CONTACT_EMAIL`,
+`NEXT_PUBLIC_VOICE_ENABLED`, and `NEXT_PUBLIC_BLOG_ENABLED`.
 `LANDING_ORIGIN` is server-side Next.js config used by rewrites; set it to the
 landing project's deployment origin, for example
 `https://careersim-landing.vercel.app`.
@@ -223,6 +297,12 @@ challenge payload.
   budget banners are best-effort UX driven by LiveKit data-channel frames; the
   authoritative transcript + quota live on the server, mirroring the chat
   surface.
+- **Blog is an opt-in public surface.** It stays off when
+  `NEXT_PUBLIC_BLOG_ENABLED` is omitted or not `true`/`1`, or when Ghost
+  Content API env is missing; otherwise App Router pages 404 and crawl
+  surfaces omit blog URLs. Marketing links to `/blog` appear on the landing
+  site only when `LANDING_BLOG_URL` is set (unset by default), not in the app
+  navbar.
 
 ---
 

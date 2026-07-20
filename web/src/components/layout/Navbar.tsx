@@ -18,8 +18,8 @@ const AUTH_NAV_ITEMS = [
   { href: '/analytics', label: 'Analytics' },
 ];
 
-// Nav items shown to guests. Keep this to just the public catalogue so
-// they don't see dead links pointing at auth-gated pages.
+// Nav items shown to guests. Keep this to public catalogue routes — Blog
+// lives in the landing-site header/footer, not the app chrome.
 const GUEST_NAV_ITEMS = [{ href: '/simulations', label: 'Simulations' }];
 const HAS_LANDING_ORIGIN =
   process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
