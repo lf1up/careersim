@@ -37,9 +37,7 @@ function ensureSanitizeHooks(): void {
 
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
     if (data.tagName !== 'iframe') return;
-    if (!('getAttribute' in node) || typeof node.getAttribute !== 'function') {
-      return;
-    }
+    if (!(node instanceof Element)) return;
 
     const src = node.getAttribute('src');
     if (!isAllowedIframeSrc(src)) {
