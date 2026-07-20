@@ -63,7 +63,7 @@ through one engine, not a second copy.
 | **livekit**     | LiveKit Server (WebRTC SFU)                                                     | Self-hosted SFU routing audio between the browser and `agent-voice`. Runs in `--dev` mode locally; needs a real config + TLS in production.                                                                                           |
 | **postgres**    | PostgreSQL 17                                                                   | Source of truth for users, sessions, messages, state snapshots, and daily voice-minute usage.                                                                                                                                         |
 | **redis**       | Redis 7                                                                         | Shared rate-limit buckets (`@fastify/rate-limit`); falls back to per-process LRU when `REDIS_URL` is unset.                                                                                                                           |
-| **ghost**       | Ghost 6 (headless) + MySQL 8                                                    | Blog CMS. Content API only — Next.js renders posts at `/blog` when `NEXT_PUBLIC_BLOG_ENABLED` is on. Put Ghost in Private Site Mode so its own frontend stays `noindex`. See `web/README.md`.                                          |
+| **ghost**       | Ghost 6 (headless) + MySQL 8                                                    | Blog CMS. Content API only — Next.js renders posts at `/blog` when `NEXT_PUBLIC_BLOG_ENABLED=true` (off by default if unset). Put Ghost in Private Site Mode so its own frontend stays `noindex`. See `web/README.md`.            |
 
 
 ### 🪦 Deprecated services (kept for reference)
@@ -141,7 +141,7 @@ This starts:
 | URL                                                      | Service                                         |
 | -------------------------------------------------------- | ----------------------------------------------- |
 | [http://localhost:3000](http://localhost:3000)           | `web` — Next.js app                             |
-| [http://localhost:3000/blog](http://localhost:3000/blog) | Blog (rendered by `web` from Ghost; requires `NEXT_PUBLIC_BLOG_ENABLED=true`) |
+| [http://localhost:3000/blog](http://localhost:3000/blog) | Blog (rendered by `web` from Ghost; off unless `NEXT_PUBLIC_BLOG_ENABLED=true`) |
 | [http://localhost:8000](http://localhost:8000)           | `api` — Fastify API                             |
 | [http://localhost:8000/docs](http://localhost:8000/docs) | API Swagger UI (zod schemas → OpenAPI)          |
 | [http://localhost:8001](http://localhost:8001)           | `agent` — FastAPI (stateless)                   |
@@ -197,7 +197,7 @@ Nine first-party simulations shipped in `agent/data/simulations.json`, each boun
 
 Self-hosted Ghost (Docker + MySQL) is used as a CMS only. Next.js fetches posts via the Content API and renders them at `/blog` on the main domain (subdirectory SEO), with `BlogPosting` JSON-LD, sitemap entries, and a publish webhook for on-demand ISR.
 
-**Feature flag:** the blog is **off by default**. It turns on only when `NEXT_PUBLIC_BLOG_ENABLED=true` **and** `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` are set in `web/.env`. Otherwise `/blog` routes 404, sitemap / robots / `llms.txt` omit blog URLs, and the revalidate webhook is rejected. Restart `web` after changing the flag. Landing Blog links appear only when `LANDING_BLOG_URL` is set.
+**Feature flag:** the blog is **off by default**. Omitting `NEXT_PUBLIC_BLOG_ENABLED` entirely (or setting it to anything other than `true`/`1`) keeps it off. It turns on only when `NEXT_PUBLIC_BLOG_ENABLED=true` **and** `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` are set in `web/.env`. Otherwise `/blog` routes 404, sitemap / robots / `llms.txt` omit blog URLs, and the revalidate webhook is rejected. Restart `web` after changing the flag. Landing Blog links appear only when `LANDING_BLOG_URL` is set (leave it unset by default).
 
 See [web/README.md](web/README.md#headless-ghost-blog) for the one-time Admin setup (Private Mode, Content API key, webhook).
 

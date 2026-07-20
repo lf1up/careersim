@@ -222,7 +222,8 @@ services:
   # =====================================================================
   # Headless Ghost CMS — editor + Content API only.
   # ---------------------------------------------------------------------
-  # Next.js renders posts at /blog when NEXT_PUBLIC_BLOG_ENABLED is on.
+  # Next.js renders posts at /blog when NEXT_PUBLIC_BLOG_ENABLED=true
+  # (off by default if the var is omitted).
   # Put Ghost's own frontend in Private Site Mode (Settings → General).
   # See web/README.md for the one-time setup (API key + publish webhook).
   # =====================================================================
