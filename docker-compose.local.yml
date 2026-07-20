@@ -139,8 +139,10 @@ services:
       # webhook secret still come from `./web/.env` (see web/.env.example).
       GHOST_API_URL: http://ghost:2368
     depends_on:
-      - api
-      - ghost
+      api:
+        condition: service_started
+      ghost:
+        condition: service_healthy
     volumes:
       - ./web:/app
       # Keep the image's node_modules and .next inside anonymous volumes so the
@@ -265,6 +267,13 @@ services:
     networks:
       - careersim-network
     restart: unless-stopped
+    healthcheck:
+      # Ghost serves /ghost/api/admin/site/ once the HTTP server is up.
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:2368/ghost/api/admin/site/ || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
   agent:
     build:
