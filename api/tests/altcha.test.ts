@@ -29,7 +29,7 @@ describe('altcha CAPTCHA', () => {
     });
 
     it('GET /auth/challenge issues a fresh signed challenge', async () => {
-      const res = await h.app.inject({ method: 'GET', url: '/auth/challenge' });
+      const res = await h.app.inject({ method: 'GET', url: '/v1/auth/challenge' });
       expect(res.statusCode).toBe(200);
       const body = res.json() as V1Challenge;
       expect(body.algorithm).toBeTruthy();
@@ -42,7 +42,7 @@ describe('altcha CAPTCHA', () => {
     it('the bypass token is accepted by /auth/register', async () => {
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/v1/auth/register',
         payload: {
           email: 'bypass@example.com',
           password: 'super-secret-123',
@@ -57,7 +57,7 @@ describe('altcha CAPTCHA', () => {
       // else is routed through the real verifier and must fail.
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/v1/auth/register',
         payload: {
           email: 'garbage@example.com',
           password: 'super-secret-123',
@@ -83,7 +83,7 @@ describe('altcha CAPTCHA', () => {
     it('/auth/register rejects requests without an altcha payload', async () => {
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/v1/auth/register',
         payload: {
           email: 'no-captcha@example.com',
           password: 'super-secret-123',
@@ -96,7 +96,7 @@ describe('altcha CAPTCHA', () => {
     it('/auth/login rejects requests with a bogus altcha payload', async () => {
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/v1/auth/login',
         payload: {
           email: 'irrelevant@example.com',
           password: 'super-secret-123',
@@ -110,7 +110,7 @@ describe('altcha CAPTCHA', () => {
     it('/auth/forgot-password rejects the bypass token when bypass is off', async () => {
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/forgot-password',
+        url: '/v1/auth/forgot-password',
         payload: { email: 'who@example.com', altcha: TEST_ALTCHA },
       });
       expect(res.statusCode).toBe(400);
@@ -120,7 +120,7 @@ describe('altcha CAPTCHA', () => {
     it('solves a real challenge end-to-end and completes /auth/register', async () => {
       // 1. Fetch a challenge from the API — same path the altcha-widget
       //    takes in the browser.
-      const challengeRes = await h.app.inject({ method: 'GET', url: '/auth/challenge' });
+      const challengeRes = await h.app.inject({ method: 'GET', url: '/v1/auth/challenge' });
       expect(challengeRes.statusCode).toBe(200);
       const challenge = challengeRes.json() as V1Challenge;
 
@@ -153,7 +153,7 @@ describe('altcha CAPTCHA', () => {
       // 4. Happy path: the API accepts it and returns 202 pending.
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/v1/auth/register',
         payload: {
           email: 'real-captcha@example.com',
           password: 'super-secret-123',
@@ -194,7 +194,7 @@ describe('altcha CAPTCHA', () => {
 
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/register',
+        url: '/v1/auth/register',
         payload: {
           email: 'rogue@example.com',
           password: 'super-secret-123',

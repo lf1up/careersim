@@ -24,7 +24,7 @@ describe('GET /analytics/overview', () => {
   async function createSession(authHeader: Record<string, string>, slug = SLUG) {
     const res = await h.app.inject({
       method: 'POST',
-      url: '/sessions',
+      url: '/v1/sessions',
       payload: { simulation_slug: slug },
       headers: authHeader,
     });
@@ -39,7 +39,7 @@ describe('GET /analytics/overview', () => {
   ) {
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${sessionId}/messages`,
+      url: `/v1/sessions/${sessionId}/messages`,
       payload: { content },
       headers: authHeader,
     });
@@ -49,7 +49,7 @@ describe('GET /analytics/overview', () => {
   async function getOverview(authHeader: Record<string, string>) {
     const res = await h.app.inject({
       method: 'GET',
-      url: '/analytics/overview',
+      url: '/v1/analytics/overview',
       headers: authHeader,
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -71,7 +71,7 @@ describe('GET /analytics/overview', () => {
   }
 
   it('requires authentication', async () => {
-    const res = await h.app.inject({ method: 'GET', url: '/analytics/overview' });
+    const res = await h.app.inject({ method: 'GET', url: '/v1/analytics/overview' });
     expect(res.statusCode).toBe(401);
   });
 
@@ -147,7 +147,7 @@ describe('GET /analytics/overview', () => {
     // Generate a report for `a` only.
     const report = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${a.id}/report`,
+      url: `/v1/sessions/${a.id}/report`,
       headers: authHeader,
     });
     expect(report.statusCode, report.body).toBe(200);

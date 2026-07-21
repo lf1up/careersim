@@ -41,4 +41,25 @@ describe('loadEnv', () => {
 
     expect(env.MAIL_FROM).toBe('CareerSIM <no-reply@careersim.com>');
   });
+
+  describe('API_VERSION_PREFIX', () => {
+    it('means "no prefix" when unset or empty (bare-container / cloud default)', () => {
+      expect(loadEnv(baseEnv).API_VERSION_PREFIX).toBe('');
+      expect(loadEnv({ ...baseEnv, API_VERSION_PREFIX: '' }).API_VERSION_PREFIX).toBe('');
+      expect(loadEnv({ ...baseEnv, API_VERSION_PREFIX: '  ' }).API_VERSION_PREFIX).toBe('');
+    });
+
+    it('accepts bare numbers, v-prefixed values, and stray slashes equivalently', () => {
+      expect(loadEnv({ ...baseEnv, API_VERSION_PREFIX: '1' }).API_VERSION_PREFIX).toBe('v1');
+      expect(loadEnv({ ...baseEnv, API_VERSION_PREFIX: 'v1' }).API_VERSION_PREFIX).toBe('v1');
+      expect(loadEnv({ ...baseEnv, API_VERSION_PREFIX: '2' }).API_VERSION_PREFIX).toBe('v2');
+      expect(loadEnv({ ...baseEnv, API_VERSION_PREFIX: '/V3/' }).API_VERSION_PREFIX).toBe('v3');
+    });
+
+    it('rejects values that are not a single path segment', () => {
+      expect(() => loadEnv({ ...baseEnv, API_VERSION_PREFIX: 'v1/extra' })).toThrow(
+        /API_VERSION_PREFIX/,
+      );
+    });
+  });
 });

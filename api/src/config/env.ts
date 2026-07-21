@@ -2,12 +2,43 @@ import { z } from 'zod';
 
 import { parseCorsAllowedOrigins } from '../utils/cors.js';
 
+/**
+ * Normalize `API_VERSION_PREFIX` into the path segment every route is
+ * served under. Empty/unset means NO prefix — a bare container (the
+ * current cloud setup) serves `/health`, `/auth/...`, etc. When set,
+ * `1`, `v1`, and `/v1/` are accepted equivalently and normalize to the
+ * segment `v1`; the leading slash is added where the prefix is applied
+ * (server.ts). The local compose stack and `.env` set `v1` explicitly,
+ * matching the `/v1` path in the web app's NEXT_PUBLIC_API_URL.
+ */
+function normalizeVersionPrefix(raw: string, ctx: z.RefinementCtx): string {
+  const stripped = raw.trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+  if (stripped === '') return '';
+  const segment = stripped.startsWith('v') ? stripped : `v${stripped}`;
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(segment)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `API_VERSION_PREFIX must be a single path segment (got "${raw}")`,
+    });
+    return z.NEVER;
+  }
+  return segment;
+}
+
 const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     HOST: z.string().default('0.0.0.0'),
     PORT: z.coerce.number().int().positive().default(8000),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+
+    // Version segment prefixed to EVERY route (service index, health,
+    // docs, auth, sessions, analytics, voice — internal worker routes
+    // included). Empty/unset means NO prefix (the bare-container /
+    // cloud default). Local dev + compose set `v1`; the web app's
+    // NEXT_PUBLIC_API_URL must carry the same path (it's a full base
+    // URL) and the agent-voice worker reads the same env var name.
+    API_VERSION_PREFIX: z.string().default('').transform(normalizeVersionPrefix),
 
     DATABASE_URL: z.string().min(1),
 

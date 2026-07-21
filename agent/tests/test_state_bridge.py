@@ -6,6 +6,9 @@ These pin the internal-route contract the voice worker relies on:
   * ``report_call_end`` POSTs the *internal* end route (NOT the
     user-facing one) and never attaches a user bearer token — the
     worker is authoritative via the ``X-Internal-Key`` shared secret.
+  * the ``API_VERSION_PREFIX`` version segment is prepended when set
+    (compose sets ``v1`` on both services) and omitted when unset (the
+    bare-container / cloud default).
 
 We drive a real ``APIClient`` against an ``httpx.MockTransport`` so the
 URL building, headers, and JSON body are all exercised without a live
@@ -121,6 +124,39 @@ async def test_report_call_end_omits_analysis_when_absent() -> None:
 
     body = json.loads(captured[0].content.decode())
     assert body == {"seconds_used": 5}
+
+
+@pytest.mark.asyncio
+async def test_version_prefix_matches_api_normalization() -> None:
+    """The version segment mirrors the API's API_VERSION_PREFIX rules.
+
+    ``None``/empty mean NO prefix (bare-container / cloud default);
+    bare numbers, v-prefixed values, and stray slashes normalize
+    exactly like the API's env loader so both services can share one
+    env var value (compose sets ``v1`` on both).
+    """
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"remaining_seconds": 1, "cap_seconds": 2})
+
+    cases = [(None, ""), ("", ""), ("1", "/v1"), ("v1", "/v1"), ("/V3/", "/v3")]
+    for prefix, expected_path in cases:
+        api = APIClient(
+            base_url="http://api:8000",
+            internal_key="k",
+            version_prefix=prefix,
+        )
+        _install_mock(api, handler)
+        try:
+            await api.fetch_voice_budget("sess-p")
+        finally:
+            await api.aclose()
+        assert (
+            captured[-1].url.path
+            == f"{expected_path}/internal/sessions/sess-p/voice-budget"
+        )
 
 
 # -- stream_user_message (SSE) -------------------------------------------------

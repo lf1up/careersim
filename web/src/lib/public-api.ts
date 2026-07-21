@@ -1,11 +1,16 @@
 import type { Simulation, SimulationDetail } from './types';
 
+// Both env vars hold the FULL base URL of the api service — version path
+// included when the API runs with a prefix (e.g. `http://api:8000/v1`),
+// or just the origin for an unprefixed API. Nothing is appended in code;
+// the env vars alone control versioning. The fallback matches the local
+// rule (API_VERSION_PREFIX=v1 in api/.env and compose).
 const apiBaseUrl = () =>
   (
-    process.env.API_INTERNAL_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    'http://localhost:8000'
-  ).replace(/\/$/, '');
+    process.env.API_INTERNAL_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8000/v1'
+  ).replace(/\/+$/, '');
 
 async function publicRequest<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl()}${path}`, {

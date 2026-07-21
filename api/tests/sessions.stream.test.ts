@@ -42,7 +42,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     const session = (
       await h.app.inject({
         method: 'POST',
-        url: '/sessions',
+        url: '/v1/sessions',
         payload: { simulation_slug: SLUG },
         headers: authHeader,
       })
@@ -50,7 +50,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages/stream`,
+      url: `/v1/sessions/${session.id}/messages/stream`,
       payload: { content: 'streamed hi' },
       headers: authHeader,
     });
@@ -64,7 +64,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     // After the stream completes, the session detail must reflect the persisted delta.
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     const tail = detail.json().messages.slice(-2);
@@ -79,7 +79,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     const session = (
       await h.app.inject({
         method: 'POST',
-        url: '/sessions',
+        url: '/v1/sessions',
         payload: { simulation_slug: SLUG },
         headers: authHeader,
       })
@@ -87,7 +87,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages/stream`,
+      url: `/v1/sessions/${session.id}/messages/stream`,
       payload: { content: 'spoken hi', source: 'voice' },
       headers: authHeader,
     });
@@ -95,7 +95,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
 
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     const tail = detail.json().messages.slice(-2);
@@ -110,7 +110,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     const session = (
       await h.app.inject({
         method: 'POST',
-        url: '/sessions',
+        url: '/v1/sessions',
         payload: { simulation_slug: SLUG },
         headers: authHeader,
       })
@@ -118,7 +118,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages/stream`,
+      url: `/v1/sessions/${session.id}/messages/stream`,
       payload: { content: ['first thought', 'second thought'] },
       headers: authHeader,
     });
@@ -131,7 +131,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     // one reply to the whole batch.
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     const tail = detail.json().messages.slice(-3);
@@ -180,7 +180,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const session = (
         await gh.app.inject({
           method: 'POST',
-          url: '/sessions',
+          url: '/v1/sessions',
           payload: { simulation_slug: SLUG },
           headers: authHeader,
         })
@@ -189,7 +189,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       // Start the first turn; it loads the session then blocks in the agent.
       const firstReq = gh.app.inject({
         method: 'POST',
-        url: `/sessions/${session.id}/messages/stream`,
+        url: `/v1/sessions/${session.id}/messages/stream`,
         payload: { content: 'slow turn' },
         headers: authHeader,
       });
@@ -198,7 +198,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       // A second turn runs to completion and bumps the session version.
       const second = await gh.app.inject({
         method: 'POST',
-        url: `/sessions/${session.id}/messages/stream`,
+        url: `/v1/sessions/${session.id}/messages/stream`,
         payload: { content: 'fast turn' },
         headers: authHeader,
       });
@@ -217,7 +217,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       // turn persisted nothing.
       const detail = await gh.app.inject({
         method: 'GET',
-        url: `/sessions/${session.id}`,
+        url: `/v1/sessions/${session.id}`,
         headers: authHeader,
       });
       const contents = detail
@@ -235,7 +235,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     const session = (
       await h.app.inject({
         method: 'POST',
-        url: '/sessions',
+        url: '/v1/sessions',
         payload: { simulation_slug: SLUG },
         headers: authHeader,
       })
@@ -246,7 +246,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     // transcript than what is now committed.
     const stale = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages/stream`,
+      url: `/v1/sessions/${session.id}/messages/stream`,
       payload: { content: 'raced turn', expected_message_count: Math.max(0, currentCount - 1) },
       headers: authHeader,
     });
@@ -256,7 +256,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     // Nothing ran or persisted for the rejected turn.
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     expect(detail.json().messages.length).toBe(currentCount);
@@ -264,7 +264,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     // A matching precondition streams normally.
     const fresh = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages/stream`,
+      url: `/v1/sessions/${session.id}/messages/stream`,
       payload: { content: 'fresh turn', expected_message_count: currentCount },
       headers: authHeader,
     });
@@ -314,7 +314,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const session = (
         await gh.app.inject({
           method: 'POST',
-          url: '/sessions',
+          url: '/v1/sessions',
           payload: { simulation_slug: SLUG },
           headers: authHeader,
         })
@@ -323,7 +323,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
 
       // Real socket (not inject) so aborting actually closes the connection.
       const controller = new AbortController();
-      const resp = await fetch(`${base}/sessions/${session.id}/messages/stream`, {
+      const resp = await fetch(`${base}/v1/sessions/${session.id}/messages/stream`, {
         method: 'POST',
         headers: { ...authHeader, 'content-type': 'application/json' },
         body: JSON.stringify({ content: 'abandoned turn' }),
@@ -343,7 +343,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const after = (
         await gh.app.inject({
           method: 'GET',
-          url: `/sessions/${session.id}`,
+          url: `/v1/sessions/${session.id}`,
           headers: authHeader,
         })
       ).json().messages.length;
@@ -375,7 +375,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const session = (
         await fh.app.inject({
           method: 'POST',
-          url: '/sessions',
+          url: '/v1/sessions',
           payload: { simulation_slug: SLUG },
           headers: authHeader,
         })
@@ -383,14 +383,14 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const before = (
         await fh.app.inject({
           method: 'GET',
-          url: `/sessions/${session.id}`,
+          url: `/v1/sessions/${session.id}`,
           headers: authHeader,
         })
       ).json().messages.length;
 
       const res = await fh.app.inject({
         method: 'POST',
-        url: `/sessions/${session.id}/messages/stream`,
+        url: `/v1/sessions/${session.id}/messages/stream`,
         payload: { content: 'doomed turn' },
         headers: authHeader,
       });
@@ -402,7 +402,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const after = (
         await fh.app.inject({
           method: 'GET',
-          url: `/sessions/${session.id}`,
+          url: `/v1/sessions/${session.id}`,
           headers: authHeader,
         })
       ).json().messages.length;
@@ -418,7 +418,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     const session = (
       await h.app.inject({
         method: 'POST',
-        url: '/sessions',
+        url: '/v1/sessions',
         payload: { simulation_slug: SLUG },
         headers: alice.authHeader,
       })
@@ -426,7 +426,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages/stream`,
+      url: `/v1/sessions/${session.id}/messages/stream`,
       payload: { content: 'hi' },
       headers: bob.authHeader,
     });

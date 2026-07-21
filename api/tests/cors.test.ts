@@ -15,7 +15,7 @@ describe('CORS', () => {
 
     const response = await harness.app.inject({
       method: 'GET',
-      url: '/health',
+      url: '/v1/health',
       headers: { origin: 'https://preview.example.com' },
     });
 
@@ -27,12 +27,12 @@ describe('CORS', () => {
 
     const allowed = await harness.app.inject({
       method: 'GET',
-      url: '/health',
+      url: '/v1/health',
       headers: { origin: 'https://app.example.com' },
     });
     const blocked = await harness.app.inject({
       method: 'GET',
-      url: '/health',
+      url: '/v1/health',
       headers: { origin: 'https://preview.example.com' },
     });
 

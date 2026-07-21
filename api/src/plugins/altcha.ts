@@ -1,5 +1,6 @@
 import { createChallenge, verifySolution } from 'altcha-lib/v1';
 import fp from 'fastify-plugin';
+import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import { badRequest } from './errors.js';
@@ -48,6 +49,13 @@ export interface AltchaVerifier {
    * missing or does not pass verification.
    */
   verify(payload: string | null | undefined): Promise<void>;
+  /**
+   * Issue a fresh signed proof-of-work challenge. Exposed on the
+   * decorator so the `/auth/challenge` route can live outside this
+   * fp() plugin (fp breaks encapsulation, so a route defined here
+   * would ignore the `/v1` prefix applied at registration).
+   */
+  issueChallenge(): Promise<z.infer<typeof challengeResponseSchema>>;
 }
 
 declare module 'fastify' {
@@ -87,34 +95,42 @@ export default fp<AltchaOptions>(
           throw badRequest('CAPTCHA verification failed', 'CAPTCHA_INVALID');
         }
       },
-    };
-
-    app.decorate('altcha', verifier);
-
-    app.get(
-      '/auth/challenge',
-      {
-        config: { rateLimit: rateLimitPolicy.authChallenge() },
-        schema: {
-          tags: ['auth'],
-          summary: 'Issue an ALTCHA proof-of-work challenge',
-          description:
-            'Client (altcha-widget) fetches this endpoint to obtain a fresh ' +
-            'signed challenge. The widget solves it locally and returns the ' +
-            'resulting payload in a form field named "altcha", which the ' +
-            'caller must include when invoking sensitive auth endpoints.',
-          response: { 200: challengeResponseSchema },
-        },
-      },
-      async () => {
+      async issueChallenge() {
         const challenge = await createChallenge({
           hmacKey: opts.hmacKey,
           maxNumber,
           expires: new Date(Date.now() + expiresInMs),
         });
-        return challenge;
+        return challenge as z.infer<typeof challengeResponseSchema>;
       },
-    );
+    };
+
+    app.decorate('altcha', verifier);
   },
   { name: 'altcha' },
 );
+
+/**
+ * `GET /auth/challenge` as a standalone (non-fp) route plugin so it
+ * respects the version prefix of the scope it's registered in. Must be
+ * registered after the altcha fp plugin above (it uses `app.altcha`).
+ */
+export const altchaChallengeRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.get(
+    '/auth/challenge',
+    {
+      config: { rateLimit: rateLimitPolicy.authChallenge() },
+      schema: {
+        tags: ['auth'],
+        summary: 'Issue an ALTCHA proof-of-work challenge',
+        description:
+          'Client (altcha-widget) fetches this endpoint to obtain a fresh ' +
+          'signed challenge. The widget solves it locally and returns the ' +
+          'resulting payload in a form field named "altcha", which the ' +
+          'caller must include when invoking sensitive auth endpoints.',
+        response: { 200: challengeResponseSchema },
+      },
+    },
+    async () => app.altcha.issueChallenge(),
+  );
+};

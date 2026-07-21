@@ -6,10 +6,15 @@ direct connection. Instead it uses the API's internal-only endpoints
 to:
 
 1. Pull the freshest ``state_snapshot`` for a session right before
-   the call begins (``GET /internal/sessions/:id/state-for-voice``).
+   the call begins (``GET /v1/internal/sessions/:id/state-for-voice``).
 2. Push every completed turn back through the user-facing
-   ``POST /sessions/:id/messages`` flow so goal eval, sentiment /
+   ``POST /v1/sessions/:id/messages`` flow so goal eval, sentiment /
    emotion, nudges, etc. all run unchanged.
+
+The ``/v1`` segment mirrors the API's ``API_VERSION_PREFIX``: the local
+compose stack sets ``v1`` on both services, while unset (the
+bare-container / cloud default) means unprefixed routes. Set the same
+env var on the worker as on the API.
 
 Keeping persistence funneled through the API also means the
 per-user voice quota can be debited atomically alongside the new
@@ -27,6 +32,22 @@ import httpx
 from ..config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_version_path(raw: Optional[str]) -> str:
+    """Normalize the API version segment to match the API's own rules.
+
+    Mirrors ``normalizeVersionPrefix`` in ``api/src/config/env.ts`` so
+    the worker and the API can share the same ``API_VERSION_PREFIX``
+    value verbatim: ``None``/empty means NO prefix (returns ``""``, the
+    bare-container / cloud default), while ``"1"``, ``"v1"``, ``"/v1/"``
+    all yield the path fragment ``"/v1"`` (compose sets ``v1`` locally).
+    """
+    value = (raw or "").strip().strip("/").lower()
+    if not value:
+        return ""
+    segment = value if value.startswith("v") else f"v{value}"
+    return f"/{segment}"
 
 
 class TurnConflictError(RuntimeError):
@@ -52,8 +73,13 @@ class APIClient:
         internal_key: str,
         *,
         timeout: float = 30.0,
+        version_prefix: Optional[str] = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        # "/v1"-style fragment between the origin and every route, or ""
+        # when unset — must match the API's API_VERSION_PREFIX (compose
+        # sets v1 on both; a bare container defaults to unprefixed).
+        self._version_path = _resolve_version_path(version_prefix)
         self._internal_key = internal_key
         self._timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
@@ -70,11 +96,15 @@ class APIClient:
         """
         settings = get_settings()
         # Resolved against the in-compose hostname by default. Workers
-        # outside compose set VOICE_API_BASE_URL via .env (we read it
-        # here directly to avoid bloating Settings for one knob).
+        # outside compose set VOICE_API_BASE_URL via .env (we read both
+        # knobs here directly to avoid bloating Settings).
         import os
         base = os.environ.get("VOICE_API_BASE_URL", "http://api:8000")
-        return cls(base_url=base, internal_key=settings.agent_internal_key)
+        return cls(
+            base_url=base,
+            internal_key=settings.agent_internal_key,
+            version_prefix=os.environ.get("API_VERSION_PREFIX"),
+        )
 
     async def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -97,7 +127,7 @@ class APIClient:
     ) -> dict[str, Any]:
         """Pull the wire-format state snapshot for a voice call."""
         client = await self._ensure_client()
-        url = f"{self._base_url}/internal/sessions/{session_id}/state-for-voice"
+        url = f"{self._base_url}{self._version_path}/internal/sessions/{session_id}/state-for-voice"
         resp = await client.get(url)
         if resp.status_code != 200:
             raise RuntimeError(
@@ -122,7 +152,7 @@ class APIClient:
         unchanged.
         """
         client = await self._ensure_client()
-        url = f"{self._base_url}/sessions/{session_id}/messages"
+        url = f"{self._base_url}{self._version_path}/sessions/{session_id}/messages"
         resp = await client.post(
             url,
             json={"content": user_text},
@@ -152,7 +182,7 @@ class APIClient:
         whole batch.
 
         Hits the user-facing SSE endpoint
-        ``POST /sessions/:id/messages/stream``, which emits one
+        ``POST /v1/sessions/:id/messages/stream``, which emits one
         ``event: message`` per AI bubble (the main reply plus each
         follow-up burst) and a terminal ``event: done`` once the full
         turn has been persisted server-side. Yields plain dicts:
@@ -176,7 +206,7 @@ class APIClient:
         stream's own commit.
         """
         client = await self._ensure_client()
-        url = f"{self._base_url}/sessions/{session_id}/messages/stream"
+        url = f"{self._base_url}{self._version_path}/sessions/{session_id}/messages/stream"
         content: "str | list[str]" = (
             list(user_text) if isinstance(user_text, list) else user_text
         )
@@ -294,7 +324,7 @@ class APIClient:
         worker<->API trust boundary, not a user action.
         """
         client = await self._ensure_client()
-        url = f"{self._base_url}/internal/sessions/{session_id}/voice-budget"
+        url = f"{self._base_url}{self._version_path}/internal/sessions/{session_id}/voice-budget"
         resp = await client.get(url)
         if resp.status_code != 200:
             raise RuntimeError(
@@ -326,7 +356,7 @@ class APIClient:
         any analytics on the worker.
         """
         client = await self._ensure_client()
-        url = f"{self._base_url}/internal/sessions/{session_id}/voice/end"
+        url = f"{self._base_url}{self._version_path}/internal/sessions/{session_id}/voice/end"
         body: dict[str, Any] = {"seconds_used": seconds_used}
         if voice_analysis:
             body["voice_analysis"] = voice_analysis

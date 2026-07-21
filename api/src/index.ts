@@ -16,6 +16,7 @@ async function main(): Promise<void> {
     jwtSecret: env.JWT_SECRET,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
     nodeEnv: env.NODE_ENV,
+    versionPrefix: env.API_VERSION_PREFIX,
     webAppUrl: env.WEB_APP_URL,
     cors: {
       allowedOrigins: env.CORS_ALLOWED_ORIGINS,
@@ -90,9 +91,14 @@ async function main(): Promise<void> {
       ? 'enabled (Redis store)'
       : 'enabled (in-memory store)'
     : 'disabled';
+  // '' when API_VERSION_PREFIX is unset (unprefixed routes).
+  const prefixPath = env.API_VERSION_PREFIX ? `/${env.API_VERSION_PREFIX}` : '';
   const docsLines =
     env.NODE_ENV === 'development'
-      ? [`  Docs:  ${baseUrl}/docs`, `  Spec:  ${baseUrl}/docs/openapi.json`]
+      ? [
+          `  Docs:  ${baseUrl}${prefixPath}/docs`,
+          `  Spec:  ${baseUrl}${prefixPath}/docs/openapi.json`,
+        ]
       : [];
   // The agent defaults to dev-mode (unauthenticated) when its
   // AGENT_INTERNAL_KEY is empty; surface the matching API-side state

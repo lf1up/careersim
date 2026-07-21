@@ -17,7 +17,7 @@ const pkg = require('../package.json') as { name: string; version: string };
 
 import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
-import altchaPlugin from './plugins/altcha.js';
+import altchaPlugin, { altchaChallengeRoutes } from './plugins/altcha.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
 import mailerPlugin, { type MailMessage } from './plugins/mailer.js';
@@ -39,6 +39,15 @@ export interface BuildAppOptions {
   jwtExpiresIn?: string;
   nodeEnv?: 'development' | 'test' | 'production';
   logger?: boolean | Record<string, unknown>;
+  /**
+   * Bare path segment (no slashes) every route is served under —
+   * service index, health, docs, and internal worker routes included.
+   * Comes from the `API_VERSION_PREFIX` env var, already normalized by
+   * `loadEnv` ('1', 'v1', '/v1/' all → 'v1'). Empty/undefined means no
+   * prefix — the bare-container (cloud) default; the local compose
+   * stack sets 'v1'.
+   */
+  versionPrefix?: string;
   /**
    * Public origin of the Next.js web app; used when building absolute
    * URLs in outbound email (magic-link login, password reset, email
@@ -124,6 +133,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     logger: opts.logger ?? false,
   }).withTypeProvider<ZodTypeProvider>();
   const docsEnabled = (opts.nodeEnv ?? process.env.NODE_ENV ?? 'development') === 'development';
+  // '' when unset — routes then live at the root (/health, /auth/...).
+  const routePrefix = opts.versionPrefix ? `/${opts.versionPrefix}` : '';
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -174,18 +185,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     },
     transform: jsonSchemaTransform,
   });
-  if (docsEnabled) {
-    // Serve the OpenAPI JSON + a Swagger UI page loaded from CDN.
-    // We do NOT use @fastify/swagger-ui: at @fastify/swagger-ui@5.2.5 +
-    // @fastify/static@9.1.1 its internal nested-prefix registration 404s on all
-    // static assets (swagger-ui.css, swagger-ui-bundle.js, favicons, logo, etc.).
-    // See the note in README.md for the minimal repro.
-    app.get('/docs/openapi.json', { schema: { hide: true } }, async () => app.swagger());
-    app.get('/docs', { schema: { tags: ['meta'], summary: 'Swagger UI' } }, async (_req, reply) => {
-      reply.type('text/html').send(renderSwaggerUiHtml('/docs/openapi.json'));
-    });
-  }
-
   await registerAuth(app, {
     secret: opts.jwtSecret,
     expiresIn: opts.jwtExpiresIn ?? '7d',
@@ -222,55 +221,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         health: z.string(),
         uptimeSeconds: z.number().int().nonnegative(),
       });
-
-  app.withTypeProvider<ZodTypeProvider>().get(
-    '/',
-    {
-      schema: {
-        tags: ['meta'],
-        summary: 'Service index',
-        description: docsEnabled
-          ? 'Returns basic service metadata and pointers to the health probe and OpenAPI docs.'
-          : 'Returns basic service metadata and a pointer to the health probe.',
-        response: {
-          200: serviceIndexResponse,
-        },
-      },
-    },
-    async () => {
-      let agentStatus: 'ok' | 'error' = 'ok';
-      try {
-        await opts.agent.health();
-      } catch {
-        agentStatus = 'error';
-      }
-
-      const body = {
-        name: pkg.name,
-        version: pkg.version,
-        status: 'ok' as const,
-        agent: agentStatus,
-        health: '/health',
-        uptimeSeconds: Math.floor(process.uptime()),
-      };
-      return docsEnabled ? { ...body, docs: '/docs' } : body;
-    },
-  );
-
-  await app.register(healthRoutes, { db: opts.db, agent: opts.agent });
-  await app.register(authRoutes, {
-    db: opts.db,
-    webAppUrl: opts.webAppUrl,
-    mailProductName: opts.mail.productName,
-  });
-  await app.register(simulationsRoutes, { agent: opts.agent });
-  await app.register(personasRoutes, { agent: opts.agent });
-  await app.register(sessionsRoutes, {
-    db: opts.db,
-    agent: opts.agent,
-    corsAllowedOrigins,
-  });
-  await app.register(analyticsRoutes, { db: opts.db });
 
   // Voice routes always register; the kill switch lives inside the
   // service layer so the OpenAPI surface stays consistent. When the
@@ -310,11 +260,93 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         'or disable voice mode (VOICE_ENABLED=false).',
     );
   }
-  await app.register(voiceRoutes, {
-    db: opts.db,
-    config: voiceConfig,
-    internalKey,
-  });
+
+  // ---------------------------------------------------------------------
+  // Every route — including the service index, health probe, docs, and
+  // the internal worker<->API voice routes — lives under the version
+  // prefix (`API_VERSION_PREFIX`). Unset means unprefixed routes (the
+  // bare-container / cloud default); compose + .env set `v1` locally.
+  //
+  // NOTE: fp()-wrapped plugins (altcha, mailer, rate-limit, auth) break
+  // encapsulation and MUST NOT define routes, or they'd escape this
+  // prefix. Their routes live in standalone plugins registered here
+  // (see `altchaChallengeRoutes`).
+  // ---------------------------------------------------------------------
+  await app.register(
+    async (scope) => {
+      if (docsEnabled) {
+        // Serve the OpenAPI JSON + a Swagger UI page loaded from CDN.
+        // We do NOT use @fastify/swagger-ui: at @fastify/swagger-ui@5.2.5 +
+        // @fastify/static@9.1.1 its internal nested-prefix registration 404s on all
+        // static assets (swagger-ui.css, swagger-ui-bundle.js, favicons, logo, etc.).
+        // See the note in README.md for the minimal repro.
+        scope.get('/docs/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+        scope.get(
+          '/docs',
+          { schema: { tags: ['meta'], summary: 'Swagger UI' } },
+          async (_req, reply) => {
+            reply.type('text/html').send(renderSwaggerUiHtml(`${routePrefix}/docs/openapi.json`));
+          },
+        );
+      }
+
+      scope.withTypeProvider<ZodTypeProvider>().get(
+        '/',
+        {
+          schema: {
+            tags: ['meta'],
+            summary: 'Service index',
+            description: docsEnabled
+              ? 'Returns basic service metadata and pointers to the health probe and OpenAPI docs.'
+              : 'Returns basic service metadata and a pointer to the health probe.',
+            response: {
+              200: serviceIndexResponse,
+            },
+          },
+        },
+        async () => {
+          let agentStatus: 'ok' | 'error' = 'ok';
+          try {
+            await opts.agent.health();
+          } catch {
+            agentStatus = 'error';
+          }
+
+          const body = {
+            name: pkg.name,
+            version: pkg.version,
+            status: 'ok' as const,
+            agent: agentStatus,
+            health: `${routePrefix}/health`,
+            uptimeSeconds: Math.floor(process.uptime()),
+          };
+          return docsEnabled ? { ...body, docs: `${routePrefix}/docs` } : body;
+        },
+      );
+
+      await scope.register(healthRoutes, { db: opts.db, agent: opts.agent });
+      await scope.register(altchaChallengeRoutes);
+      await scope.register(authRoutes, {
+        db: opts.db,
+        webAppUrl: opts.webAppUrl,
+        mailProductName: opts.mail.productName,
+      });
+      await scope.register(simulationsRoutes, { agent: opts.agent });
+      await scope.register(personasRoutes, { agent: opts.agent });
+      await scope.register(sessionsRoutes, {
+        db: opts.db,
+        agent: opts.agent,
+        corsAllowedOrigins,
+      });
+      await scope.register(analyticsRoutes, { db: opts.db });
+      await scope.register(voiceRoutes, {
+        db: opts.db,
+        config: voiceConfig,
+        internalKey,
+      });
+    },
+    routePrefix ? { prefix: routePrefix } : {},
+  );
 
   return app;
 }

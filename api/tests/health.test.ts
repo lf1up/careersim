@@ -12,7 +12,7 @@ describe('GET /health', () => {
   });
 
   it('reports ok when db + agent are reachable', async () => {
-    const res = await h.app.inject({ method: 'GET', url: '/health' });
+    const res = await h.app.inject({ method: 'GET', url: '/v1/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'ok', db: 'ok', agent: 'ok' });
   });
@@ -21,7 +21,7 @@ describe('GET /health', () => {
     h.agent.health = async () => {
       throw new Error('down');
     };
-    const res = await h.app.inject({ method: 'GET', url: '/health' });
+    const res = await h.app.inject({ method: 'GET', url: '/v1/health' });
     expect(res.statusCode).toBe(503);
     const body = res.json();
     expect(body.status).toBe('degraded');

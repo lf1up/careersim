@@ -43,7 +43,7 @@ describe('auth', () => {
     const email = 'alice@example.com';
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     expect(res.statusCode).toBe(202);
@@ -55,7 +55,7 @@ describe('auth', () => {
 
     const verify = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     expect(verify.statusCode).toBe(200);
@@ -73,7 +73,7 @@ describe('auth', () => {
     const email = 'eve@example.com';
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email },
     });
     expect(res.statusCode).toBe(202);
@@ -81,7 +81,7 @@ describe('auth', () => {
     const code = extractCode(lastMailTo(h.outbox, email).text);
     const verify = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     expect(verify.statusCode).toBe(200);
@@ -90,7 +90,7 @@ describe('auth', () => {
 
     const login = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'never-set-any' },
     });
     expect(login.statusCode).toBe(403);
@@ -101,12 +101,12 @@ describe('auth', () => {
     const email = 'frank@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const wrong = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code: '000000' },
     });
     expect(wrong.statusCode).toBe(400);
@@ -117,13 +117,13 @@ describe('auth', () => {
     const email = 'grace@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const before = h.outbox.length;
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/resend-verification',
+      url: '/v1/auth/resend-verification',
       payload: { email },
     });
     expect(res.statusCode).toBe(200);
@@ -132,7 +132,7 @@ describe('auth', () => {
     // Unknown email: no new mail but still 200.
     const unknown = await h.app.inject({
       method: 'POST',
-      url: '/auth/resend-verification',
+      url: '/v1/auth/resend-verification',
       payload: { email: 'nobody@example.com' },
     });
     expect(unknown.statusCode).toBe(200);
@@ -143,19 +143,19 @@ describe('auth', () => {
     const email = 'bob@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const code = extractCode(lastMailTo(h.outbox, email).text);
     await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
 
     const second = await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     expect(second.statusCode).toBe(409);
@@ -165,7 +165,7 @@ describe('auth', () => {
   it('validates email format and password length', async () => {
     const bad = await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email: 'not-an-email', password: 'short' },
     });
     expect(bad.statusCode).toBe(400);
@@ -175,7 +175,7 @@ describe('auth', () => {
     await registerAndAuth(h.app, 'dan@example.com');
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email: 'DAN@example.com', password: 'super-secret-123' },
     });
     expect(res.statusCode).toBe(200);
@@ -187,12 +187,12 @@ describe('auth', () => {
     const email = 'pending@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'super-secret-123' },
     });
     expect(res.statusCode).toBe(403);
@@ -205,7 +205,7 @@ describe('auth', () => {
 
     const ok = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'super-secret-123' },
     });
     expect(ok.statusCode).toBe(200);
@@ -213,7 +213,7 @@ describe('auth', () => {
 
     const wrong = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'wrong-password-xyz' },
     });
     expect(wrong.statusCode).toBe(400);
@@ -226,7 +226,7 @@ describe('auth', () => {
     const email = 'link-first@example.com';
     const req = await h.app.inject({
       method: 'POST',
-      url: '/auth/login/email-link',
+      url: '/v1/auth/login/email-link',
       payload: { email },
     });
     expect(req.statusCode).toBe(200);
@@ -235,7 +235,7 @@ describe('auth', () => {
     const token = extractLinkToken(mail.text);
     const consume = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token },
     });
     expect(consume.statusCode).toBe(200);
@@ -248,19 +248,19 @@ describe('auth', () => {
     const email = 'once@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/login/email-link',
+      url: '/v1/auth/login/email-link',
       payload: { email },
     });
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
     const first = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token },
     });
     expect(first.statusCode).toBe(200);
     const second = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token },
     });
     expect(second.statusCode).toBe(400);
@@ -275,7 +275,7 @@ describe('auth', () => {
 
     const req = await h.app.inject({
       method: 'POST',
-      url: '/auth/forgot-password',
+      url: '/v1/auth/forgot-password',
       payload: { email },
     });
     expect(req.statusCode).toBe(200);
@@ -283,21 +283,21 @@ describe('auth', () => {
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
     const reset = await h.app.inject({
       method: 'POST',
-      url: '/auth/reset-password',
+      url: '/v1/auth/reset-password',
       payload: { token, password: 'brand-new-password-xyz' },
     });
     expect(reset.statusCode).toBe(200);
 
     const loggedIn = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'brand-new-password-xyz' },
     });
     expect(loggedIn.statusCode).toBe(200);
 
     const old = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'old-password-abc' },
     });
     expect(old.statusCode).toBe(400);
@@ -307,7 +307,7 @@ describe('auth', () => {
     const before = h.outbox.length;
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/forgot-password',
+      url: '/v1/auth/forgot-password',
       payload: { email: 'noone@example.com' },
     });
     expect(res.statusCode).toBe(200);
@@ -317,11 +317,11 @@ describe('auth', () => {
   // -- /auth/me and JWT rules ---------------------------------------------
 
   it('/auth/me requires a valid token', async () => {
-    const anon = await h.app.inject({ method: 'GET', url: '/auth/me' });
+    const anon = await h.app.inject({ method: 'GET', url: '/v1/auth/me' });
     expect(anon.statusCode).toBe(401);
 
     const { authHeader } = await registerAndAuth(h.app, 'me@example.com');
-    const me = await h.app.inject({ method: 'GET', url: '/auth/me', headers: authHeader });
+    const me = await h.app.inject({ method: 'GET', url: '/v1/auth/me', headers: authHeader });
     expect(me.statusCode).toBe(200);
     expect(me.json().email).toBe('me@example.com');
     expect(me.json().has_password).toBe(true);
@@ -332,7 +332,7 @@ describe('auth', () => {
     const tampered = token.slice(0, -2) + 'xy';
     const res = await h.app.inject({
       method: 'GET',
-      url: '/auth/me',
+      url: '/v1/auth/me',
       headers: { authorization: `Bearer ${tampered}` },
     });
     expect(res.statusCode).toBe(401);
@@ -345,7 +345,7 @@ describe('auth', () => {
 
     const missing = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: authHeader,
       payload: { newPassword: 'brand-new-abc-123' },
     });
@@ -354,7 +354,7 @@ describe('auth', () => {
 
     const wrong = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: authHeader,
       payload: { currentPassword: 'nope-nope-nope', newPassword: 'brand-new-abc-123' },
     });
@@ -363,7 +363,7 @@ describe('auth', () => {
 
     const ok = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: authHeader,
       payload: { currentPassword: 'current-abc-123', newPassword: 'brand-new-abc-123' },
     });
@@ -371,7 +371,7 @@ describe('auth', () => {
 
     const login = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email: 'pw@example.com', password: 'brand-new-abc-123' },
     });
     expect(login.statusCode).toBe(200);
@@ -381,13 +381,13 @@ describe('auth', () => {
     const email = 'set-initial@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email },
     });
     const code = extractCode(lastMailTo(h.outbox, email).text);
     const verify = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     const { token } = verify.json() as { token: string };
@@ -395,7 +395,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: authHeader,
       payload: { newPassword: 'freshly-set-1234' },
     });
@@ -404,7 +404,7 @@ describe('auth', () => {
 
     const login = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'freshly-set-1234' },
     });
     expect(login.statusCode).toBe(200);
@@ -417,7 +417,7 @@ describe('auth', () => {
 
     const req = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: { newEmail: 'new@example.com', currentPassword: 'super-secret-123' },
     });
@@ -427,7 +427,7 @@ describe('auth', () => {
     const code = extractCode(mail.text);
     const confirm = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change/confirm',
+      url: '/v1/auth/me/email-change/confirm',
       headers: authHeader,
       payload: { code },
     });
@@ -438,13 +438,13 @@ describe('auth', () => {
     // Old email no longer logs in; new email does.
     const oldLogin = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email: 'old@example.com', password: 'super-secret-123' },
     });
     expect(oldLogin.statusCode).toBe(400);
     const newLogin = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email: 'new@example.com', password: 'super-secret-123' },
     });
     expect(newLogin.statusCode).toBe(200);
@@ -456,7 +456,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: { newEmail: 'taken@example.com', currentPassword: 'super-secret-123' },
     });
@@ -485,7 +485,7 @@ describe('auth', () => {
     const email = 'expired-code@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const code = extractCode(lastMailTo(h.outbox, email).text);
@@ -494,7 +494,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     expect(res.statusCode).toBe(400);
@@ -505,14 +505,14 @@ describe('auth', () => {
     const email = 'reissue-code@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const firstCode = extractCode(lastMailTo(h.outbox, email).text);
 
     await h.app.inject({
       method: 'POST',
-      url: '/auth/resend-verification',
+      url: '/v1/auth/resend-verification',
       payload: { email },
     });
     const secondCode = extractCode(lastMailTo(h.outbox, email).text);
@@ -523,7 +523,7 @@ describe('auth', () => {
     // Old code must no longer work.
     const stale = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code: firstCode },
     });
     // If RNG happened to produce the same digits, this assertion still
@@ -537,7 +537,7 @@ describe('auth', () => {
 
     const fresh = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code: secondCode },
     });
     expect(fresh.statusCode).toBe(200);
@@ -547,7 +547,7 @@ describe('auth', () => {
     const email = 'stale-link@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/login/email-link',
+      url: '/v1/auth/login/email-link',
       payload: { email },
     });
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
@@ -556,7 +556,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token },
     });
     expect(res.statusCode).toBe(400);
@@ -567,14 +567,14 @@ describe('auth', () => {
     const email = 'two-links@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/login/email-link',
+      url: '/v1/auth/login/email-link',
       payload: { email },
     });
     const firstToken = extractLinkToken(lastMailTo(h.outbox, email).text);
 
     await h.app.inject({
       method: 'POST',
-      url: '/auth/login/email-link',
+      url: '/v1/auth/login/email-link',
       payload: { email },
     });
     const secondToken = extractLinkToken(lastMailTo(h.outbox, email).text);
@@ -582,7 +582,7 @@ describe('auth', () => {
 
     const stale = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token: firstToken },
     });
     expect(stale.statusCode).toBe(400);
@@ -590,7 +590,7 @@ describe('auth', () => {
 
     const fresh = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token: secondToken },
     });
     expect(fresh.statusCode).toBe(200);
@@ -605,13 +605,13 @@ describe('auth', () => {
     // a duplicate row or flip any unexpected state.
     await h.app.inject({
       method: 'POST',
-      url: '/auth/login/email-link',
+      url: '/v1/auth/login/email-link',
       payload: { email },
     });
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       payload: { token },
     });
     expect(res.statusCode).toBe(200);
@@ -622,7 +622,7 @@ describe('auth', () => {
   it('magic-link: malformed token is rejected with a schema 400', async () => {
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/magic-link/consume',
+      url: '/v1/auth/magic-link/consume',
       // Too short for the `min(16)` in the schema — exercises the Zod
       // validator branch rather than the DB lookup.
       payload: { token: 'abc' },
@@ -635,7 +635,7 @@ describe('auth', () => {
     await registerAndAuth(h.app, email);
     await h.app.inject({
       method: 'POST',
-      url: '/auth/forgot-password',
+      url: '/v1/auth/forgot-password',
       payload: { email },
     });
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
@@ -644,7 +644,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/reset-password',
+      url: '/v1/auth/reset-password',
       payload: { token, password: 'brand-new-password-xyz' },
     });
     expect(res.statusCode).toBe(400);
@@ -656,21 +656,21 @@ describe('auth', () => {
     await registerAndAuth(h.app, email);
     await h.app.inject({
       method: 'POST',
-      url: '/auth/forgot-password',
+      url: '/v1/auth/forgot-password',
       payload: { email },
     });
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
 
     const first = await h.app.inject({
       method: 'POST',
-      url: '/auth/reset-password',
+      url: '/v1/auth/reset-password',
       payload: { token, password: 'first-new-password' },
     });
     expect(first.statusCode).toBe(200);
 
     const second = await h.app.inject({
       method: 'POST',
-      url: '/auth/reset-password',
+      url: '/v1/auth/reset-password',
       payload: { token, password: 'second-new-password' },
     });
     expect(second.statusCode).toBe(400);
@@ -684,26 +684,26 @@ describe('auth', () => {
     // them because clicking the reset link proves email control.
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     await h.app.inject({
       method: 'POST',
-      url: '/auth/forgot-password',
+      url: '/v1/auth/forgot-password',
       payload: { email },
     });
     const token = extractLinkToken(lastMailTo(h.outbox, email).text);
 
     const reset = await h.app.inject({
       method: 'POST',
-      url: '/auth/reset-password',
+      url: '/v1/auth/reset-password',
       payload: { token, password: 'brand-new-password-xyz' },
     });
     expect(reset.statusCode).toBe(200);
 
     const login = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'brand-new-password-xyz' },
     });
     expect(login.statusCode).toBe(200);
@@ -713,13 +713,13 @@ describe('auth', () => {
     const email = 'passwordless-mover@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email },
     });
     const code = extractCode(lastMailTo(h.outbox, email).text);
     const verify = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     const { token } = verify.json() as { token: string };
@@ -727,7 +727,7 @@ describe('auth', () => {
 
     const req = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: { newEmail: 'new-passwordless@example.com' },
     });
@@ -736,7 +736,7 @@ describe('auth', () => {
     const newCode = extractCode(lastMailTo(h.outbox, 'new-passwordless@example.com').text);
     const confirm = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change/confirm',
+      url: '/v1/auth/me/email-change/confirm',
       headers: authHeader,
       payload: { code: newCode },
     });
@@ -748,7 +748,7 @@ describe('auth', () => {
     const { authHeader } = await registerAndAuth(h.app, 'stay@example.com');
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: { newEmail: 'STAY@example.com', currentPassword: 'super-secret-123' },
     });
@@ -760,7 +760,7 @@ describe('auth', () => {
     const { authHeader } = await registerAndAuth(h.app, 'wrong-pw@example.com');
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: { newEmail: 'new-wrong@example.com', currentPassword: 'not-my-password' },
     });
@@ -772,7 +772,7 @@ describe('auth', () => {
     const { authHeader } = await registerAndAuth(h.app, 'needs-pw@example.com');
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: { newEmail: 'new-needs@example.com' },
     });
@@ -784,7 +784,7 @@ describe('auth', () => {
     const { authHeader } = await registerAndAuth(h.app, 'wrong-code@example.com');
     await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: {
         newEmail: 'elsewhere@example.com',
@@ -794,7 +794,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change/confirm',
+      url: '/v1/auth/me/email-change/confirm',
       headers: authHeader,
       payload: { code: '000000' },
     });
@@ -806,7 +806,7 @@ describe('auth', () => {
     const { authHeader } = await registerAndAuth(h.app, 'expire-code@example.com');
     await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change',
+      url: '/v1/auth/me/email-change',
       headers: authHeader,
       payload: {
         newEmail: 'expired-target@example.com',
@@ -819,7 +819,7 @@ describe('auth', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/auth/me/email-change/confirm',
+      url: '/v1/auth/me/email-change/confirm',
       headers: authHeader,
       payload: { code },
     });
@@ -831,7 +831,7 @@ describe('auth', () => {
     const { authHeader } = await registerAndAuth(h.app, 'too-short@example.com');
     const res = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: authHeader,
       payload: { currentPassword: 'super-secret-123', newPassword: 'short' },
     });
@@ -845,14 +845,14 @@ describe('auth', () => {
     const email = 'retry@example.com';
     const first = await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-111' },
     });
     expect(first.statusCode).toBe(202);
 
     const second = await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-222' },
     });
     expect(second.statusCode).toBe(202);
@@ -861,7 +861,7 @@ describe('auth', () => {
     const latest = extractCode(lastMailTo(h.outbox, email).text);
     const verify = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code: latest },
     });
     expect(verify.statusCode).toBe(200);
@@ -869,13 +869,13 @@ describe('auth', () => {
     // And the refreshed password — not the original — is now active.
     const newLogin = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'super-secret-222' },
     });
     expect(newLogin.statusCode).toBe(200);
     const oldLogin = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: { email, password: 'super-secret-111' },
     });
     expect(oldLogin.statusCode).toBe(400);
@@ -885,19 +885,19 @@ describe('auth', () => {
     const email = 'twice@example.com';
     await h.app.inject({
       method: 'POST',
-      url: '/auth/register',
+      url: '/v1/auth/register',
       payload: { email, password: 'super-secret-123' },
     });
     const code = extractCode(lastMailTo(h.outbox, email).text);
     const first = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     expect(first.statusCode).toBe(200);
     const second = await h.app.inject({
       method: 'POST',
-      url: '/auth/verify-email',
+      url: '/v1/auth/verify-email',
       payload: { email, code },
     });
     expect(second.statusCode).toBe(400);

@@ -18,8 +18,16 @@ import { readSse } from './sse';
 
 const TOKEN_STORAGE_KEY = 'careersim.authToken';
 
+// `NEXT_PUBLIC_API_URL` is the FULL base URL of the api service — version
+// path included when the API runs with a prefix, e.g.
+// `https://api.careersim.ai/v1`, or just the origin for an unprefixed API
+// (`API_VERSION_PREFIX` unset — the bare-container / cloud default).
+// Nothing is appended in code, so a Vercel env var alone controls which
+// version the frontend talks to. The fallback matches the local rule
+// (api/.env and docker-compose.local.yml run the API with
+// API_VERSION_PREFIX=v1).
 const apiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000';
+  (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1').replace(/\/+$/, '');
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;

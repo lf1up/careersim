@@ -26,7 +26,7 @@ describe('rate limiting', () => {
     });
 
     for (let i = 0; i < 10; i++) {
-      const res = await h.app.inject({ method: 'GET', url: '/health' });
+      const res = await h.app.inject({ method: 'GET', url: '/v1/health' });
       expect(res.statusCode).not.toBe(429);
     }
   });
@@ -39,11 +39,11 @@ describe('rate limiting', () => {
     });
 
     for (let i = 0; i < 3; i++) {
-      const res = await h.app.inject({ method: 'GET', url: '/health' });
+      const res = await h.app.inject({ method: 'GET', url: '/v1/health' });
       expect(res.statusCode).not.toBe(429);
     }
 
-    const limited = await h.app.inject({ method: 'GET', url: '/health' });
+    const limited = await h.app.inject({ method: 'GET', url: '/v1/health' });
     expect(limited.statusCode).toBe(429);
     expect(limited.headers['retry-after']).toBeDefined();
     expect(limited.headers['x-ratelimit-limit']).toBeDefined();
@@ -64,7 +64,7 @@ describe('rate limiting', () => {
     for (let i = 0; i < 3; i++) {
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/resend-verification',
+        url: '/v1/auth/resend-verification',
         payload: { email: 'victim@example.com' },
       });
       expect(res.statusCode).not.toBe(429);
@@ -72,7 +72,7 @@ describe('rate limiting', () => {
 
     const blocked = await h.app.inject({
       method: 'POST',
-      url: '/auth/resend-verification',
+      url: '/v1/auth/resend-verification',
       payload: { email: 'victim@example.com' },
     });
     expect(blocked.statusCode).toBe(429);
@@ -82,7 +82,7 @@ describe('rate limiting', () => {
     // Different mailbox → different bucket, from the exact same IP.
     const other = await h.app.inject({
       method: 'POST',
-      url: '/auth/resend-verification',
+      url: '/v1/auth/resend-verification',
       payload: { email: 'someone-else@example.com' },
     });
     expect(other.statusCode).not.toBe(429);
@@ -100,7 +100,7 @@ describe('rate limiting', () => {
     for (let i = 0; i < 10; i++) {
       const res = await h.app.inject({
         method: 'PATCH',
-        url: '/auth/me/password',
+        url: '/v1/auth/me/password',
         headers: alice.authHeader,
         payload: { currentPassword: 'wrong-password', newPassword: 'new-password-123' },
       });
@@ -109,7 +109,7 @@ describe('rate limiting', () => {
 
     const blocked = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: alice.authHeader,
       payload: { currentPassword: 'super-secret-123', newPassword: 'another-password-789' },
     });
@@ -118,7 +118,7 @@ describe('rate limiting', () => {
     // Bob's bucket is independent — his first request goes through.
     const bobRes = await h.app.inject({
       method: 'PATCH',
-      url: '/auth/me/password',
+      url: '/v1/auth/me/password',
       headers: bob.authHeader,
       payload: { currentPassword: 'super-secret-456', newPassword: 'bobs-new-password-xyz' },
     });
@@ -135,7 +135,7 @@ describe('rate limiting', () => {
     for (let i = 0; i < 10; i++) {
       const res = await h.app.inject({
         method: 'POST',
-        url: '/auth/login',
+        url: '/v1/auth/login',
         payload: {
           email: `noone-${i}@example.com`,
           password: 'wrong-wrong-wrong',
@@ -147,7 +147,7 @@ describe('rate limiting', () => {
 
     const limited = await h.app.inject({
       method: 'POST',
-      url: '/auth/login',
+      url: '/v1/auth/login',
       payload: {
         email: 'noone-tripwire@example.com',
         password: 'wrong-wrong-wrong',

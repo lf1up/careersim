@@ -1,15 +1,18 @@
 const landingOrigin = process.env.LANDING_ORIGIN?.replace(/\/$/, '');
 
-// Public API origin — used by `next/image` so the optimizer is allowed to
-// fetch persona avatars from the API service. We accept both the
+// Public API base URL — used by `next/image` so the optimizer is allowed
+// to fetch persona avatars from the API service. We accept both the
 // browser-visible URL (`NEXT_PUBLIC_API_URL`) and an optional internal one
 // (`API_INTERNAL_URL`, used by Docker compose) so the same URL passed to
 // `<Image src="...">` can be reached from the Next server when it streams
-// the original through the optimizer at `/_next/image`.
+// the original through the optimizer at `/_next/image`. The env vars are
+// FULL base URLs — version path included when the API runs with a prefix
+// (e.g. `http://localhost:8000/v1`) — and the allowed avatar path is
+// derived from that same path below.
 const apiUrls = [process.env.NEXT_PUBLIC_API_URL, process.env.API_INTERNAL_URL]
   .filter(Boolean)
-  // Always allow localhost:8000 in dev when no envs are set.
-  .concat('http://localhost:8000');
+  // Always allow the local default (API under /v1) when no envs are set.
+  .concat('http://localhost:8000/v1');
 
 // Ghost Content API / asset origin. Include both the compose-internal URL
 // (`http://ghost:2368`) and the browser-facing URL (`http://localhost:2368`
@@ -26,11 +29,15 @@ const avatarRemotePatterns = Array.from(
       .map((raw) => {
         try {
           const url = new URL(raw);
+          // Avatars live under the API's version prefix when it has one:
+          // `http://host:8000/v1` allows `/v1/personas/**`, a bare origin
+          // allows `/personas/**`.
+          const basePath = url.pathname.replace(/\/+$/, '');
           return {
             protocol: url.protocol.replace(':', ''),
             hostname: url.hostname,
             port: url.port || '',
-            pathname: '/personas/**',
+            pathname: `${basePath}/personas/**`,
           };
         } catch {
           return null;

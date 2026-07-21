@@ -20,7 +20,7 @@ describe('GET /sessions/:id/report', () => {
   async function createSession(authHeader: Record<string, string>) {
     const res = await h.app.inject({
       method: 'POST',
-      url: '/sessions',
+      url: '/v1/sessions',
       payload: { simulation_slug: SLUG },
       headers: authHeader,
     });
@@ -35,7 +35,7 @@ describe('GET /sessions/:id/report', () => {
   ) {
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${sessionId}/messages`,
+      url: `/v1/sessions/${sessionId}/messages`,
       payload: { content },
       headers: authHeader,
     });
@@ -46,7 +46,7 @@ describe('GET /sessions/:id/report', () => {
   async function getReport(authHeader: Record<string, string>, sessionId: string) {
     return h.app.inject({
       method: 'GET',
-      url: `/sessions/${sessionId}/report`,
+      url: `/v1/sessions/${sessionId}/report`,
       headers: authHeader,
     });
   }
@@ -137,7 +137,7 @@ describe('GET /sessions/:id/report', () => {
   it('requires authentication', async () => {
     const res = await h.app.inject({
       method: 'GET',
-      url: '/sessions/00000000-0000-0000-0000-000000000000/report',
+      url: '/v1/sessions/00000000-0000-0000-0000-000000000000/report',
     });
     expect(res.statusCode).toBe(401);
   });
@@ -149,13 +149,13 @@ describe('GET /sessions/:id/report', () => {
 
     const before = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     await getReport(authHeader, session.id);
     const after = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     expect(after.json().updated_at).toBe(before.json().updated_at);
@@ -163,7 +163,7 @@ describe('GET /sessions/:id/report', () => {
     // A turn straight after report generation must not 409 (version intact).
     const turn = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'still works' },
       headers: authHeader,
     });

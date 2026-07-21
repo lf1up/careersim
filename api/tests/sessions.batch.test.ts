@@ -20,7 +20,7 @@ describe('sessions (batch endpoints)', () => {
   async function createSession(authHeader: Record<string, string>) {
     const res = await h.app.inject({
       method: 'POST',
-      url: '/sessions',
+      url: '/v1/sessions',
       payload: { simulation_slug: SLUG },
       headers: authHeader,
     });
@@ -48,7 +48,7 @@ describe('sessions (batch endpoints)', () => {
 
     const own = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: alice.authHeader,
     });
     expect(own.statusCode).toBe(200);
@@ -56,7 +56,7 @@ describe('sessions (batch endpoints)', () => {
 
     const stranger = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: bob.authHeader,
     });
     expect(stranger.statusCode).toBe(403);
@@ -66,7 +66,7 @@ describe('sessions (batch endpoints)', () => {
     const { authHeader } = await registerAndAuth(h.app);
     const res = await h.app.inject({
       method: 'GET',
-      url: '/sessions/00000000-0000-0000-0000-000000000000',
+      url: '/v1/sessions/00000000-0000-0000-0000-000000000000',
       headers: authHeader,
     });
     expect(res.statusCode).toBe(404);
@@ -78,7 +78,7 @@ describe('sessions (batch endpoints)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hello world' },
       headers: authHeader,
     });
@@ -92,7 +92,7 @@ describe('sessions (batch endpoints)', () => {
 
     const fetched = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     expect(fetched.json().messages).toEqual(body.messages);
@@ -104,7 +104,7 @@ describe('sessions (batch endpoints)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: ['part one', 'part two'] },
       headers: authHeader,
     });
@@ -123,7 +123,7 @@ describe('sessions (batch endpoints)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: [] },
       headers: authHeader,
     });
@@ -136,7 +136,7 @@ describe('sessions (batch endpoints)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive`,
+      url: `/v1/sessions/${session.id}/proactive`,
       payload: { trigger_type: 'followup' },
       headers: authHeader,
     });
@@ -150,7 +150,7 @@ describe('sessions (batch endpoints)', () => {
     const session = await createSession(authHeader);
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive`,
+      url: `/v1/sessions/${session.id}/proactive`,
       payload: { trigger_type: 'nope' },
       headers: authHeader,
     });
@@ -161,7 +161,7 @@ describe('sessions (batch endpoints)', () => {
     const { authHeader } = await registerAndAuth(h.app);
     const res = await h.app.inject({
       method: 'POST',
-      url: '/sessions',
+      url: '/v1/sessions',
       payload: { simulation_slug: 'does-not-exist' },
       headers: authHeader,
     });
@@ -176,7 +176,7 @@ describe('sessions (batch endpoints)', () => {
     const a1 = await createSession(alice.authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${a1.id}/messages`,
+      url: `/v1/sessions/${a1.id}/messages`,
       payload: { content: 'hi' },
       headers: alice.authHeader,
     });
@@ -184,7 +184,7 @@ describe('sessions (batch endpoints)', () => {
 
     const mine = await h.app.inject({
       method: 'GET',
-      url: '/sessions',
+      url: '/v1/sessions',
       headers: alice.authHeader,
     });
     const body = mine.json();

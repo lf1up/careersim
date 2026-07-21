@@ -58,8 +58,8 @@ interface Props {
   onReset?: () => void;
   /**
    * Absolute or relative URL returning an ALTCHA challenge JSON. Defaults
-   * to `${NEXT_PUBLIC_API_URL}/auth/challenge`, matching the Fastify route
-   * registered by the api.
+   * to `${NEXT_PUBLIC_API_URL}/auth/challenge` — the env var is the full
+   * API base URL, version path included (see src/lib/api.ts).
    */
   challengeUrl?: string;
   className?: string;
@@ -73,9 +73,9 @@ interface Props {
 function defaultChallengeUrl(): string {
   const base =
     typeof process !== 'undefined'
-      ? process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
+      ? process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '')
       : undefined;
-  return `${base || 'http://localhost:8000'}/auth/challenge`;
+  return `${base || 'http://localhost:8000/v1'}/auth/challenge`;
 }
 
 export const AltchaWidget: React.FC<Props> = ({

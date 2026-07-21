@@ -129,7 +129,7 @@ careersim/
 # 1. Configure each service's .env (all three are required)
 cp agent/.env.example agent/.env   # set OPENAI_API_KEY + model names
 cp api/.env.example   api/.env     # set JWT_SECRET (min 16 chars)
-cp web/.env.example   web/.env     # usually OK as-is; NEXT_PUBLIC_API_URL=http://localhost:8000
+cp web/.env.example   web/.env     # usually OK as-is; NEXT_PUBLIC_API_URL=http://localhost:8000/v1
 
 # 2. Bring the whole stack up (builds on first run, hot-reloads after)
 docker compose -f docker-compose.local.yml up --build
@@ -143,7 +143,7 @@ This starts:
 | [http://localhost:3000](http://localhost:3000)           | `web` — Next.js app                             |
 | [http://localhost:3000/blog](http://localhost:3000/blog) | Blog (rendered by `web` from Ghost; off unless `NEXT_PUBLIC_BLOG_ENABLED=true`) |
 | [http://localhost:8000](http://localhost:8000)           | `api` — Fastify API                             |
-| [http://localhost:8000/docs](http://localhost:8000/docs) | API Swagger UI (zod schemas → OpenAPI)          |
+| [http://localhost:8000/v1/docs](http://localhost:8000/v1/docs) | API Swagger UI (zod schemas → OpenAPI)          |
 | [http://localhost:8001](http://localhost:8001)           | `agent` — FastAPI (stateless)                   |
 | [http://localhost:8001/docs](http://localhost:8001/docs) | Agent Swagger UI                                |
 | [http://localhost:2368/ghost](http://localhost:2368/ghost) | `ghost` — headless CMS admin UI               |
@@ -203,7 +203,7 @@ See [web/README.md](web/README.md#headless-ghost-blog) for the one-time Admin se
 
 ### 💬 Live chat with SSE streaming
 
-The `api` exposes `POST /sessions/:id/messages/stream`, which proxies the agent's SSE stream end-to-end. The web client shows an optimistic echo of the user's message, renders a typing indicator until the first AI chunk lands, then streams the reply token-by-token. Persistence happens exactly once when the upstream emits `done`.
+The `api` exposes `POST /v1/sessions/:id/messages/stream`, which proxies the agent's SSE stream end-to-end. The web client shows an optimistic echo of the user's message, renders a typing indicator until the first AI chunk lands, then streams the reply token-by-token. Persistence happens exactly once when the upstream emits `done`.
 
 ### 🤖 LangGraph conversation engine
 
@@ -215,15 +215,15 @@ Stateful graph inside `agent/`:
 
 ### 👋 Inactivity nudges (pull model)
 
-The `api` exposes `POST /sessions/:id/nudge`; the server decides idempotently whether to fire based on the persona's `inactivityNudgeDelaySec` window and `inactivityNudges.max` budget. The web client polls every 5 s while idle and stops automatically when the server returns `nudges_disabled` or `budget_exhausted`, re-arming on the next human reply. See `api/README.md` for the exact contract.
+The `api` exposes `POST /v1/sessions/:id/nudge`; the server decides idempotently whether to fire based on the persona's `inactivityNudgeDelaySec` window and `inactivityNudges.max` budget. The web client polls every 5 s while idle and stops automatically when the server returns `nudges_disabled` or `budget_exhausted`, re-arming on the next human reply. See `api/README.md` for the exact contract.
 
 ### 🔁 Follow-up bursts
 
-`POST /sessions/:id/proactive/stream` drives persona-initiated follow-ups capped by `burstiness.max - 1` additional messages. The web UI exposes this behind a "Follow up" button and surfaces the cap as a `{N} followups max` badge alongside typing speed and nudge count.
+`POST /v1/sessions/:id/proactive/stream` drives persona-initiated follow-ups capped by `burstiness.max - 1` additional messages. The web UI exposes this behind a "Follow up" button and surfaces the cap as a `{N} followups max` badge alongside typing speed and nudge count.
 
 ### 🎙️ Voice mode (browser-native)
 
-Real-time spoken practice with the same personas, no install required. The web client mints a short-lived LiveKit token via `POST /sessions/:id/voice/start`, joins a self-hosted WebRTC SFU, and the `agent-voice` worker runs **STT → the existing LangGraph turn → TTS** in the room — captions stream over a data channel and transcripts persist back through the public API on the user's bearer (audio itself is never stored). Defaults are fully self-hosted (`faster-whisper` + Piper); OpenAI, Deepgram, and ElevenLabs are opt-in per provider. Each persona declares a `voice` block (speaking rate, barge-in tolerance, filler-word density, per-provider voice IDs) so characters sound distinct. A daily per-user minute budget (`VOICE_DAILY_MINUTES_PER_USER`) is enforced authoritatively by the worker, and a single `VOICE_ENABLED=false` flag is a full kill switch. See [VOICE_MODE.md](VOICE_MODE.md) for the operator runbook.
+Real-time spoken practice with the same personas, no install required. The web client mints a short-lived LiveKit token via `POST /v1/sessions/:id/voice/start`, joins a self-hosted WebRTC SFU, and the `agent-voice` worker runs **STT → the existing LangGraph turn → TTS** in the room — captions stream over a data channel and transcripts persist back through the public API on the user's bearer (audio itself is never stored). Defaults are fully self-hosted (`faster-whisper` + Piper); OpenAI, Deepgram, and ElevenLabs are opt-in per provider. Each persona declares a `voice` block (speaking rate, barge-in tolerance, filler-word density, per-provider voice IDs) so characters sound distinct. A daily per-user minute budget (`VOICE_DAILY_MINUTES_PER_USER`) is enforced authoritatively by the worker, and a single `VOICE_ENABLED=false` flag is a full kill switch. See [VOICE_MODE.md](VOICE_MODE.md) for the operator runbook.
 
 ### 🔎 Retrieval-Augmented Generation (embedded)
 
@@ -231,7 +231,7 @@ Per-simulation and per-persona Markdown under `agent/data/documents/` is indexed
 
 ### 📊 Per-turn evaluation
 
-Sentiment and emotion for both sides of the conversation, plus per-goal progress with confidence scoring, computed by a cheaper eval model (`OPENAI_EVAL_MODEL`) on every turn. Results are persisted to the session's `analysis` + `goal_progress` columns and returned in `GET /sessions/:id`.
+Sentiment and emotion for both sides of the conversation, plus per-goal progress with confidence scoring, computed by a cheaper eval model (`OPENAI_EVAL_MODEL`) on every turn. Results are persisted to the session's `analysis` + `goal_progress` columns and returned in `GET /v1/sessions/:id`.
 
 ### 🔐 Authentication
 
@@ -239,7 +239,7 @@ Email + password → JWT bearer (stored in `localStorage` on the web side; `Auth
 
 ## 🎭 AI Personas
 
-Shipped in `agent/data/personas.json` (plus `simulations.json`, `avatars/`, and `documents/`). Each persona declares a `conversationStyle` that the runtime surfaces in `GET /sessions/:id.session_config` and the web UI badges.
+Shipped in `agent/data/personas.json` (plus `simulations.json`, `avatars/`, and `documents/`). Each persona declares a `conversationStyle` that the runtime surfaces in `GET /v1/sessions/:id.session_config` and the web UI badges.
 
 For local development the git-backed `agent/data/` tree is the source of truth. Deployments can instead set `PERSONAS_S3_ENABLED=true` on the agent so it downloads that same layout from an S3 bucket at startup and rewrites the local files before any session loads — useful when future cast updates live in a personas repo that publishes into the bucket. See [agent/README.md](agent/README.md#persona-data-from-s3) for the flag, prefix layout, and credential notes.
 

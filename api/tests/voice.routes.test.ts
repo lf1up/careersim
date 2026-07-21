@@ -12,7 +12,7 @@ const INTERNAL_KEY = 'test-internal-voice-key';
 async function createSession(h: TestHarness, authHeader: Record<string, string>) {
   const res = await h.app.inject({
     method: 'POST',
-    url: '/sessions',
+    url: '/v1/sessions',
     payload: { simulation_slug: SLUG },
     headers: authHeader,
   });
@@ -35,7 +35,7 @@ describe('voice mode — kill switch', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(503);
@@ -48,7 +48,7 @@ describe('voice mode — kill switch', () => {
 
     const res = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/state-for-voice`,
+      url: `/v1/internal/sessions/${session.id}/state-for-voice`,
       headers: { 'x-internal-key': 'whatever' },
     });
     expect(res.statusCode).toBe(503);
@@ -79,7 +79,7 @@ describe('voice mode — token mint + ownership', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -101,7 +101,7 @@ describe('voice mode — token mint + ownership', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: bob.authHeader,
     });
     expect(res.statusCode).toBe(403);
@@ -112,7 +112,7 @@ describe('voice mode — token mint + ownership', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: '/sessions/00000000-0000-0000-0000-000000000000/voice/start',
+      url: '/v1/sessions/00000000-0000-0000-0000-000000000000/voice/start',
       headers: authHeader,
     });
     expect(res.statusCode).toBe(404);
@@ -144,13 +144,13 @@ describe('voice mode — daily quota', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
 
     const end = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/end`,
+      url: `/v1/sessions/${session.id}/voice/end`,
       headers: authHeader,
       payload: { seconds_used: 30 },
     });
@@ -168,13 +168,13 @@ describe('voice mode — daily quota', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
 
     const end = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 30 },
     });
@@ -191,7 +191,7 @@ describe('voice mode — daily quota', () => {
 
     const noHeader = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       payload: { seconds_used: 10 },
     });
     expect(noHeader.statusCode).toBe(401);
@@ -205,12 +205,12 @@ describe('voice mode — daily quota', () => {
     // exhaust the 1-minute cap.
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     const end = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 60 },
     });
@@ -219,7 +219,7 @@ describe('voice mode — daily quota', () => {
     // Second start should now 429 voice_quota_exhausted.
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(429);
@@ -232,13 +232,13 @@ describe('voice mode — daily quota', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
 
     const end = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: {
         seconds_used: 12,
@@ -258,7 +258,7 @@ describe('voice mode — daily quota', () => {
     // the analytics landed under analysis.voice.
     const fetched = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/state-for-voice`,
+      url: `/v1/internal/sessions/${session.id}/state-for-voice`,
       headers: { 'x-internal-key': INTERNAL_KEY },
     });
     expect(fetched.statusCode).toBe(200);
@@ -275,13 +275,13 @@ describe('voice mode — daily quota', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
 
     const end = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: -1 },
     });
@@ -295,7 +295,7 @@ describe('voice mode — daily quota', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
 
@@ -304,7 +304,7 @@ describe('voice mode — daily quota', () => {
     // (1-minute cap -> 60 + 600 = 660s).
     const end = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 999_999 },
     });
@@ -317,7 +317,7 @@ describe('voice mode — daily quota', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
 
@@ -325,7 +325,7 @@ describe('voice mode — daily quota', () => {
     // 1-minute cap (60 + 600 = 660s), so the service clamps the debit.
     const end = await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 7000 },
     });
@@ -358,7 +358,7 @@ describe('voice mode — single-active-call guard', () => {
 
     const first = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${sessionA.id}/voice/start`,
+      url: `/v1/sessions/${sessionA.id}/voice/start`,
       headers: authHeader,
     });
     expect(first.statusCode, first.body).toBe(200);
@@ -367,7 +367,7 @@ describe('voice mode — single-active-call guard', () => {
     // the real multi-tab abuse vector and must be blocked.
     const second = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${sessionB.id}/voice/start`,
+      url: `/v1/sessions/${sessionB.id}/voice/start`,
       headers: authHeader,
     });
     expect(second.statusCode).toBe(409);
@@ -380,7 +380,7 @@ describe('voice mode — single-active-call guard', () => {
 
     const first = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(first.statusCode, first.body).toBe(200);
@@ -390,7 +390,7 @@ describe('voice mode — single-active-call guard', () => {
     // mount effect / double-clicks / same-tab reconnects safe.
     const second = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(second.statusCode, second.body).toBe(200);
@@ -402,20 +402,20 @@ describe('voice mode — single-active-call guard', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     // User end clears the active-call marker immediately.
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/end`,
+      url: `/v1/sessions/${session.id}/voice/end`,
       headers: authHeader,
       payload: { seconds_used: 5 },
     });
 
     const restart = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(restart.statusCode, restart.body).toBe(200);
@@ -441,14 +441,14 @@ describe('voice mode — single-active-call guard', () => {
 
       await stale.app.inject({
         method: 'POST',
-        url: `/sessions/${sessionA.id}/voice/start`,
+        url: `/v1/sessions/${sessionA.id}/voice/start`,
         headers: authHeader,
       });
       // sessionA never ended, but with a 0s staleness window its row is no
       // longer considered active, so a *different* session may start.
       const second = await stale.app.inject({
         method: 'POST',
-        url: `/sessions/${sessionB.id}/voice/start`,
+        url: `/v1/sessions/${sessionB.id}/voice/start`,
         headers: authHeader,
       });
       expect(second.statusCode, second.body).toBe(200);
@@ -481,7 +481,7 @@ describe('voice mode — internal voice-budget', () => {
 
     const res = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/voice-budget`,
+      url: `/v1/internal/sessions/${session.id}/voice-budget`,
       headers: { 'x-internal-key': INTERNAL_KEY },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -493,18 +493,18 @@ describe('voice mode — internal voice-budget', () => {
     // After an authoritative 10-minute debit the remaining drops.
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     await h.app.inject({
       method: 'POST',
-      url: `/internal/sessions/${session.id}/voice/end`,
+      url: `/v1/internal/sessions/${session.id}/voice/end`,
       headers: { 'x-internal-key': INTERNAL_KEY },
       payload: { seconds_used: 600 },
     });
     const after = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/voice-budget`,
+      url: `/v1/internal/sessions/${session.id}/voice-budget`,
       headers: { 'x-internal-key': INTERNAL_KEY },
     });
     expect(after.json()).toMatchObject({
@@ -519,7 +519,7 @@ describe('voice mode — internal voice-budget', () => {
 
     const res = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/voice-budget`,
+      url: `/v1/internal/sessions/${session.id}/voice-budget`,
     });
     expect(res.statusCode).toBe(401);
   });
@@ -548,7 +548,7 @@ describe('voice mode — budget with quota disabled', () => {
 
     const res = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/voice-budget`,
+      url: `/v1/internal/sessions/${session.id}/voice-budget`,
       headers: { 'x-internal-key': INTERNAL_KEY },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -576,13 +576,13 @@ describe('voice mode — internal state-for-voice', () => {
 
     const noHeader = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/state-for-voice`,
+      url: `/v1/internal/sessions/${session.id}/state-for-voice`,
     });
     expect(noHeader.statusCode).toBe(401);
 
     const wrong = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/state-for-voice`,
+      url: `/v1/internal/sessions/${session.id}/state-for-voice`,
       headers: { 'x-internal-key': 'nope' },
     });
     expect(wrong.statusCode).toBe(401);
@@ -594,7 +594,7 @@ describe('voice mode — internal state-for-voice', () => {
 
     const res = await h.app.inject({
       method: 'GET',
-      url: `/internal/sessions/${session.id}/state-for-voice`,
+      url: `/v1/internal/sessions/${session.id}/state-for-voice`,
       headers: { 'x-internal-key': INTERNAL_KEY },
     });
     expect(res.statusCode).toBe(200);
@@ -628,7 +628,7 @@ describe('voice mode — token contents', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/voice/start`,
+      url: `/v1/sessions/${session.id}/voice/start`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);

@@ -13,12 +13,12 @@
  * profile.
  *
  * REPL commands:
- *   free text       → POST /sessions/:id/messages/stream (SSE)
- *   /followup       → POST /sessions/:id/proactive/stream (SSE)
- *   /nudge          → POST /sessions/:id/nudge           (batch, guarded)
+ *   free text       → POST /v1/sessions/:id/messages/stream (SSE)
+ *   /followup       → POST /v1/sessions/:id/proactive/stream (SSE)
+ *   /nudge          → POST /v1/sessions/:id/nudge           (batch, guarded)
  *   /idle <sec>     → sleep N seconds, then /nudge
- *   /get            → GET  /sessions/:id (shows session_config too)
- *   /list           → GET  /sessions
+ *   /get            → GET  /v1/sessions/:id (shows session_config too)
+ *   /list           → GET  /v1/sessions
  *   /help, /quit
  *
  * Usage:
@@ -287,13 +287,13 @@ async function registerOrLogin(
   password: string,
 ): Promise<AuthResponse> {
   try {
-    const res = await call<AuthResponse>(client, 'POST', '/auth/register', { email, password });
+    const res = await call<AuthResponse>(client, 'POST', '/v1/auth/register', { email, password });
     log.ok(`registered ${c('bold', email)}`);
     return res;
   } catch (err) {
     if (err instanceof ApiError && (err.status === 409 || err.status === 400)) {
       log.warn(`register failed (${err.status}) — trying login instead`);
-      const res = await call<AuthResponse>(client, 'POST', '/auth/login', { email, password });
+      const res = await call<AuthResponse>(client, 'POST', '/v1/auth/login', { email, password });
       log.ok(`logged in as ${c('bold', email)}`);
       return res;
     }
@@ -435,7 +435,7 @@ function createAutoNudger(
       const res = await call<NudgeResponse>(
         client,
         'POST',
-        `/sessions/${sessionId}/nudge`,
+        `/v1/sessions/${sessionId}/nudge`,
         {},
       );
       process.stdout.write('\r\x1b[2K');
@@ -490,7 +490,7 @@ async function main(): Promise<void> {
   if (!args.skipHealth) {
     log.step('health');
     try {
-      const h = await call<unknown>(client, 'GET', '/health');
+      const h = await call<unknown>(client, 'GET', '/v1/health');
       log.ok(`health: ${JSON.stringify(h)}`);
     } catch (err) {
       log.err(`health failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -509,12 +509,12 @@ async function main(): Promise<void> {
   log.dim(`  token = ${auth.token.slice(0, 18)}…`);
 
   // 3. me -----------------------------------------------------------------
-  const me = await call<{ id: string; email: string }>(client, 'GET', '/auth/me');
-  log.ok(`/auth/me → ${me.email}`);
+  const me = await call<{ id: string; email: string }>(client, 'GET', '/v1/auth/me');
+  log.ok(`/v1/auth/me → ${me.email}`);
 
   // 4. simulations --------------------------------------------------------
   log.step('simulations');
-  const sims = await call<SimulationsResponse>(client, 'GET', '/simulations');
+  const sims = await call<SimulationsResponse>(client, 'GET', '/v1/simulations');
   if (sims.simulations.length === 0) {
     log.err('no simulations returned from the agent — is it running and seeded?');
     process.exit(1);
@@ -547,7 +547,7 @@ async function main(): Promise<void> {
   log.ok(`selected ${c('bold', chosen.slug)} — ${chosen.title}`);
 
   log.step('create session');
-  const session = await call<SessionDetail>(client, 'POST', '/sessions', {
+  const session = await call<SessionDetail>(client, 'POST', '/v1/sessions', {
     simulation_slug: chosen.slug,
   });
   log.ok(`session id = ${session.id}  (${session.messages.length} opening msg${session.messages.length === 1 ? '' : 's'})`);
@@ -604,7 +604,7 @@ async function main(): Promise<void> {
   nudger.start();
 
   const reload = async () => {
-    const latest = await call<SessionDetail>(client, 'GET', `/sessions/${session.id}`);
+    const latest = await call<SessionDetail>(client, 'GET', `/v1/sessions/${session.id}`);
     printSessionConfig(latest.session_config);
     if (latest.messages.length > lastKnownCount) {
       printMessages(latest.messages, lastKnownCount);
@@ -649,7 +649,7 @@ async function main(): Promise<void> {
       }
 
       if (line === '/list') {
-        const res = await call<{ sessions: unknown[] }>(client, 'GET', '/sessions');
+        const res = await call<{ sessions: unknown[] }>(client, 'GET', '/v1/sessions');
         console.log(JSON.stringify(res.sessions, null, 2));
         nudger.resume();
         continue;
@@ -659,7 +659,7 @@ async function main(): Promise<void> {
         const res = await call<NudgeResponse>(
           client,
           'POST',
-          `/sessions/${session.id}/nudge`,
+          `/v1/sessions/${session.id}/nudge`,
           {},
         );
         if (res.nudged) {
@@ -680,7 +680,7 @@ async function main(): Promise<void> {
         const seconds = Math.max(1, Number(arg) || 30);
         log.dim(`  sleeping for ${seconds}s…`);
         await sleep(seconds * 1000);
-        const res = await call<NudgeResponse>(client, 'POST', `/sessions/${session.id}/nudge`, {});
+        const res = await call<NudgeResponse>(client, 'POST', `/v1/sessions/${session.id}/nudge`, {});
         if (res.nudged) {
           log.ok(`nudged after ${seconds}s idle`);
           printMessages(res.session.messages, lastKnownCount);
@@ -694,7 +694,7 @@ async function main(): Promise<void> {
 
       if (line === '/followup') {
         log.dim('  streaming followup…');
-        const updated = await runStream(client, `/sessions/${session.id}/proactive/stream`, {
+        const updated = await runStream(client, `/v1/sessions/${session.id}/proactive/stream`, {
           trigger_type: 'followup',
         });
         if (updated) lastKnownCount = updated.messages.length;
@@ -710,7 +710,7 @@ async function main(): Promise<void> {
 
       // regular user message → streaming turn
       console.log(`${c('blue', 'YOU ')} ${line}`);
-      const updated = await runStream(client, `/sessions/${session.id}/messages/stream`, {
+      const updated = await runStream(client, `/v1/sessions/${session.id}/messages/stream`, {
         content: line,
       });
       if (updated) lastKnownCount = updated.messages.length;

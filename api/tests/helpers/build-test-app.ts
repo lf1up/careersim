@@ -34,6 +34,13 @@ export interface BuildTestAppOptions {
   agent?: FakeAgent;
   nodeEnv?: 'development' | 'test' | 'production';
   /**
+   * Version segment routes are served under (`API_VERSION_PREFIX`).
+   * The harness defaults to 'v1' — the local compose/dev rule and the
+   * shape hardcoded across the suite. Pass '' to exercise the
+   * bare-container default (unprefixed routes, the cloud setup).
+   */
+  versionPrefix?: string;
+  /**
    * When true (default), the app accepts {@link ALTCHA_TEST_BYPASS_TOKEN}
    * in place of a real PoW payload. Set to false in a dedicated test
    * that exercises real CAPTCHA verification against the widget lib.
@@ -81,6 +88,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     jwtSecret: 'test-secret-test-secret-test-secret',
     jwtExpiresIn: '1h',
     nodeEnv: options?.nodeEnv ?? 'test',
+    versionPrefix: options?.versionPrefix ?? 'v1',
     webAppUrl: 'http://localhost:3000',
     cors: {
       allowedOrigins: options?.corsAllowedOrigins,
@@ -141,7 +149,7 @@ export async function registerAndAuth(
   // Step 1: request registration (creates user, emits a verification code).
   const register = await app.inject({
     method: 'POST',
-    url: '/auth/register',
+    url: '/v1/auth/register',
     payload: { email, password, altcha: TEST_ALTCHA },
   });
   if (register.statusCode !== 202) {
@@ -160,7 +168,7 @@ export async function registerAndAuth(
 
   const verify = await app.inject({
     method: 'POST',
-    url: '/auth/verify-email',
+    url: '/v1/auth/verify-email',
     payload: { email, code },
   });
   if (verify.statusCode !== 200) {

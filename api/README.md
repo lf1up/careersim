@@ -17,7 +17,7 @@ turn.
   unconfigured (verification codes + magic links get logged to the Fastify
   logger instead of sent)
 - **CAPTCHA**: [ALTCHA](https://altcha.org) proof-of-work via `altcha-lib`.
-  Server issues signed challenges at `GET /auth/challenge`; public-facing
+  Server issues signed challenges at `GET /v1/auth/challenge`; public-facing
   auth mutations require a solved payload
 - **Rate limiting**: `@fastify/rate-limit` with Redis store (falls back to
   per-process LRU when `REDIS_URL` is unset). Global 200/min per-IP safety
@@ -41,39 +41,48 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Interactive OpenAPI docs are exposed at `http://localhost:8000/docs`.
+Interactive OpenAPI docs are exposed at `http://localhost:8000/v1/docs`.
 
-## 🛣️ Endpoints (v0)
+## 🛣️ Endpoints (v1)
+
+Every route — including the service index, `/v1/health`, the docs, and the
+internal worker routes — lives under a version prefix controlled by the
+`API_VERSION_PREFIX` env var. Empty/unset means **no prefix** (`/health`,
+`/auth/...`) — the bare-container default used by the current cloud setup.
+Locally the rule is `v1`: `api/.env` and `docker-compose.local.yml` set
+`API_VERSION_PREFIX=v1` on both the API and the agent-voice worker, and the
+web app's `NEXT_PUBLIC_API_URL` (a full base URL) carries the matching `/v1`
+path. The tables below show that local `v1` surface.
 
 | Method | Path | Auth | CAPTCHA | Rate limit | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| GET  | `/health` | public | — | 200/min per IP (global) | Liveness + db/agent ping |
-| GET  | `/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
-| POST | `/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
-| POST | `/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/auth/register`, which *is* gated |
-| POST | `/auth/verify-email` | public | — | 10/5min per email+IP | Consume the 6-digit code; returns `{ user, token }` |
-| POST | `/auth/login` | public | ✓ | 10/min per IP | Exchange credentials for a JWT |
-| POST | `/auth/login/email-link` | public | ✓ | 5/hour per email | Email a magic sign-in link (passwordless) |
-| POST | `/auth/magic-link/consume` | public | — | 10/5min per IP | Consume a magic-link token; returns `{ user, token }` |
-| POST | `/auth/forgot-password` | public | ✓ | 3/hour per email | Email a password-reset link |
-| POST | `/auth/reset-password` | public | — | 10/5min per IP | Consume a reset token + set a new password |
-| GET  | `/auth/me` | jwt | — | 200/min per IP (global) | Current user |
-| PATCH | `/auth/me/password` | jwt | — | 10/hour per user | Rotate / set a password (current password required when one exists) |
-| POST | `/auth/me/email-change` | jwt | — | 5/hour per user | Start an email change; emails a 6-digit code to the new address |
-| POST | `/auth/me/email-change/confirm` | jwt | — | 10/5min per user | Consume the code + swap the email |
-| GET  | `/simulations` | jwt | — | 200/min per IP (global) | Passthrough to agent `GET /simulations` |
-| POST | `/sessions` | jwt | — | 2 / 6 hours per user (env) | Create session → `POST /conversation/init` → persist |
-| GET  | `/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
-| GET  | `/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
-| GET  | `/sessions/:id/report` | jwt (owner) | — | 10 / 5 min per user | LLM debrief report (skill scores, tone journey, advice, key moments). Cached per transcript length; regenerated via agent `POST /conversation/debrief` when the conversation advances. `400 NO_USER_MESSAGES` before the first user message |
-| POST | `/sessions/:id/messages` | jwt (owner) | — | 60/min per user | `POST /conversation/turn` → persist delta |
-| POST | `/sessions/:id/messages/stream` | jwt (owner) | — | 60/min per user | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
-| POST | `/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
-| POST | `/sessions/:id/proactive/stream` | jwt (owner) | — | 30/min per user | SSE followup (`trigger_type: "followup"` only) |
-| POST | `/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
-| POST | `/sessions/:id/voice/start` | jwt (owner) | — | 10/min per user | Mint a LiveKit join token. `503 voice_disabled`, `429 voice_quota_exhausted`, `409 voice_call_in_progress` |
-| POST | `/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | Mark the call ended (clears the active-call guard). Quota debit is worker-authoritative, not here |
-| GET  | `/analytics/overview` | jwt | — | 200/min per IP (global) | Aggregate practice stats across all the caller's sessions: deterministic totals (sessions, goals, completion rate, practice time, voice usage) plus skill averages / score trend / tone distribution derived from cached debrief reports |
+| GET  | `/v1/health` | public | — | 200/min per IP (global) | Liveness + db/agent ping |
+| GET  | `/v1/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
+| POST | `/v1/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
+| POST | `/v1/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/v1/auth/register`, which *is* gated |
+| POST | `/v1/auth/verify-email` | public | — | 10/5min per email+IP | Consume the 6-digit code; returns `{ user, token }` |
+| POST | `/v1/auth/login` | public | ✓ | 10/min per IP | Exchange credentials for a JWT |
+| POST | `/v1/auth/login/email-link` | public | ✓ | 5/hour per email | Email a magic sign-in link (passwordless) |
+| POST | `/v1/auth/magic-link/consume` | public | — | 10/5min per IP | Consume a magic-link token; returns `{ user, token }` |
+| POST | `/v1/auth/forgot-password` | public | ✓ | 3/hour per email | Email a password-reset link |
+| POST | `/v1/auth/reset-password` | public | — | 10/5min per IP | Consume a reset token + set a new password |
+| GET  | `/v1/auth/me` | jwt | — | 200/min per IP (global) | Current user |
+| PATCH | `/v1/auth/me/password` | jwt | — | 10/hour per user | Rotate / set a password (current password required when one exists) |
+| POST | `/v1/auth/me/email-change` | jwt | — | 5/hour per user | Start an email change; emails a 6-digit code to the new address |
+| POST | `/v1/auth/me/email-change/confirm` | jwt | — | 10/5min per user | Consume the code + swap the email |
+| GET  | `/v1/simulations` | jwt | — | 200/min per IP (global) | Passthrough to agent `GET /simulations` |
+| POST | `/v1/sessions` | jwt | — | 2 / 6 hours per user (env) | Create session → `POST /conversation/init` → persist |
+| GET  | `/v1/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
+| GET  | `/v1/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
+| GET  | `/v1/sessions/:id/report` | jwt (owner) | — | 10 / 5 min per user | LLM debrief report (skill scores, tone journey, advice, key moments). Cached per transcript length; regenerated via agent `POST /conversation/debrief` when the conversation advances. `400 NO_USER_MESSAGES` before the first user message |
+| POST | `/v1/sessions/:id/messages` | jwt (owner) | — | 60/min per user | `POST /conversation/turn` → persist delta |
+| POST | `/v1/sessions/:id/messages/stream` | jwt (owner) | — | 60/min per user | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
+| POST | `/v1/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
+| POST | `/v1/sessions/:id/proactive/stream` | jwt (owner) | — | 30/min per user | SSE followup (`trigger_type: "followup"` only) |
+| POST | `/v1/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
+| POST | `/v1/sessions/:id/voice/start` | jwt (owner) | — | 10/min per user | Mint a LiveKit join token. `503 voice_disabled`, `429 voice_quota_exhausted`, `409 voice_call_in_progress` |
+| POST | `/v1/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | Mark the call ended (clears the active-call guard). Quota debit is worker-authoritative, not here |
+| GET  | `/v1/analytics/overview` | jwt | — | 200/min per IP (global) | Aggregate practice stats across all the caller's sessions: deterministic totals (sessions, goals, completion rate, practice time, voice usage) plus skill averages / score trend / tone distribution derived from cached debrief reports |
 
 ### Internal voice routes (worker ⇄ API)
 
@@ -85,9 +94,9 @@ key check so the worker gets a clear `503` to stop polling on.
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| GET  | `/internal/sessions/:id/state-for-voice` | `X-Internal-Key` | Freshest wire-format `state_snapshot` for a room join |
-| GET  | `/internal/sessions/:id/voice-budget` | `X-Internal-Key` | Remaining daily voice seconds for the session owner (arms the worker's cutoff watchdog) |
-| POST | `/internal/sessions/:id/voice/end` | `X-Internal-Key` | **Authoritative** call-end: debits `voice_minute_usage` by the worker-measured seconds and merges aggregate voice analytics into `state_snapshot.analysis.voice` |
+| GET  | `/v1/internal/sessions/:id/state-for-voice` | `X-Internal-Key` | Freshest wire-format `state_snapshot` for a room join |
+| GET  | `/v1/internal/sessions/:id/voice-budget` | `X-Internal-Key` | Remaining daily voice seconds for the session owner (arms the worker's cutoff watchdog) |
+| POST | `/v1/internal/sessions/:id/voice/end` | `X-Internal-Key` | **Authoritative** call-end: debits `voice_minute_usage` by the worker-measured seconds and merges aggregate voice analytics into `state_snapshot.analysis.voice` |
 
 The CAPTCHA-gated endpoints accept an optional `altcha` field (the solved
 challenge payload) in the JSON body. It is **required in production** and
@@ -126,7 +135,7 @@ api/
 │   │   └── client.ts           # HttpAgentClient + parseAgentSSE
 │   ├── plugins/
 │   │   ├── auth.ts             # @fastify/jwt + app.authenticate decorator
-│   │   ├── altcha.ts           # ALTCHA: GET /auth/challenge + app.altcha.verify(payload)
+│   │   ├── altcha.ts           # ALTCHA: GET /v1/auth/challenge + app.altcha.verify(payload)
 │   │   ├── rate-limit.ts       # @fastify/rate-limit: Redis/LRU store, keyers (IP/email/user), policy catalogue
 │   │   ├── mailer.ts           # nodemailer + dev stdout fallback (app.mailer.send)
 │   │   └── errors.ts           # HttpError + Zod validation mapping
@@ -135,7 +144,7 @@ api/
 │       ├── health/             # /health with db + agent probes
 │       ├── simulations/        # agent passthrough
 │       ├── sessions/           # create, list, get, turn (batch + SSE), proactive, debrief report (cached)
-│       ├── analytics/          # GET /analytics/overview — read-only aggregation over sessions + cached reports (no tables of its own)
+│       ├── analytics/          # GET /v1/analytics/overview — read-only aggregation over sessions + cached reports (no tables of its own)
 │       └── voice/              # voice.route.ts (start/end + internal), voice.service.ts (LiveKit token + quota), voice.schema.ts
 ├── tests/
 │   ├── helpers/
@@ -170,8 +179,8 @@ pnpm typecheck
 
 `pnpm e2e` runs an interactive CLI that exercises the full journey against a
 real stack (API + agent + Postgres, e.g. `docker compose -f
-docker-compose.local.yml up`): `/health` → `/auth/register` → `/auth/me` →
-`/simulations` → `/sessions` → live chat on the selected simulation.
+docker-compose.local.yml up`): `/v1/health` → `/v1/auth/register` → `/v1/auth/me` →
+`/v1/simulations` → `/v1/sessions` → live chat on the selected simulation.
 
 ```bash
 # zero-config: random email/password, base URL = http://localhost:8000
@@ -191,7 +200,7 @@ followup), `/nudge` (guarded inactivity nudge), `/idle <sec>` (sleep then
 nudge), `/get` (reload session + persona config), `/list`, `/help`,
 `/quit`. The banner printed on session create shows the persona's
 `starts`, `typing` (wpm), `nudge_delay` (min–max sec), `max_nudges`, and
-`burstiness` ranges taken straight from `GET /sessions/:id`'s
+`burstiness` ranges taken straight from `GET /v1/sessions/:id`'s
 `session_config`. A background auto-nudger polls `/nudge` every
 `AUTO_NUDGE_SECONDS` (default `5`, set `0` to disable); the server, not
 the script, decides when to actually fire based on the persona's
@@ -203,19 +212,19 @@ Tests cover:
 - Health probe (happy + degraded agent paths)
 - Auth (register + login): password + passwordless registration, 6-digit
   verification, resend, wrong/expired code, duplicate email, wrong
-  password, tampered token, email normalisation, `/auth/me`, change
+  password, tampered token, email normalisation, `/v1/auth/me`, change
   password, request + confirm email change
 - Auth (passwordless): magic-link issuance, consumption, token
   single-use + expiry, forgot-password → reset-password round-trip
-- ALTCHA: `/auth/challenge` response shape, bypass mode accepting the
+- ALTCHA: `/v1/auth/challenge` response shape, bypass mode accepting the
   test token and rejecting garbage, production mode rejecting missing /
   bogus / tampered payloads, and a real PoW solve against a live
-  challenge that round-trips through `/auth/register`
+  challenge that round-trips through `/v1/auth/register`
 - Rate limiting: disabled flag is a hard no-op, global default fires a
   `RATE_LIMITED` envelope with `retry-after` once the quota burns,
-  per-email bucket isolation on `/auth/resend-verification`, per-user
-  bucket isolation on `/auth/me/password`, per-IP burst ceiling on
-  `/auth/login`
+  per-email bucket isolation on `/v1/auth/resend-verification`, per-user
+  bucket isolation on `/v1/auth/me/password`, per-IP burst ceiling on
+  `/v1/auth/login`
 - Simulations: auth-required + passthrough
 - Sessions (batch): create, get, list, ownership, unknown id, message ordering, validation
 - Sessions (SSE stream): event shape, persistence on `done`, ownership
@@ -242,9 +251,9 @@ distinct endpoints with different semantics:
 
 | Trigger | API surface | Why |
 | --- | --- | --- |
-| `start` | Runs once inside `POST /sessions` (server-side during init). | Opening lines should never be requested again from a client. |
-| `followup` | `POST /sessions/:id/proactive` (batch) or `POST /sessions/:id/proactive/stream` (SSE). | The AI is choosing to continue speaking right after its own last message — we stream it so the frontend can replay each line with its `typing_delay_sec`. |
-| `inactivity` | `POST /sessions/:id/nudge` (batch only, guardrailed). | A timer fired while we're waiting for the human — the result is a single short message, there's no reason to stream it, and unbounded retries would spam the agent. |
+| `start` | Runs once inside `POST /v1/sessions` (server-side during init). | Opening lines should never be requested again from a client. |
+| `followup` | `POST /v1/sessions/:id/proactive` (batch) or `POST /v1/sessions/:id/proactive/stream` (SSE). | The AI is choosing to continue speaking right after its own last message — we stream it so the frontend can replay each line with its `typing_delay_sec`. |
+| `inactivity` | `POST /v1/sessions/:id/nudge` (batch only, guardrailed). | A timer fired while we're waiting for the human — the result is a single short message, there's no reason to stream it, and unbounded retries would spam the agent. |
 
 ### 👋 Inactivity nudge contract
 
@@ -297,6 +306,7 @@ See `.env.example` for the authoritative list. Required in production:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `API_VERSION_PREFIX` | — (no prefix) | Version segment every route is served under. Empty/unset → unprefixed routes (bare-container / cloud default); accepts `1`, `v1`, or `/v1` equivalently. Local dev + compose set `v1`. Keep it in sync with the path in the web app's `NEXT_PUBLIC_API_URL` (a full base URL) and with the agent-voice worker's `API_VERSION_PREFIX` |
 | `DATABASE_URL` | — | Postgres connection string |
 | `AGENT_API_URL` | — | Base URL of the agent FastAPI server (`agent/ --serve api`) |
 | `AGENT_INTERNAL_KEY` | — | Shared secret sent as `X-Internal-Key` on every API ⇒ agent call. Must match the agent's `AGENT_INTERNAL_KEY`. Leave empty for single-service dev (agent accepts unauthenticated calls with a warning); set to a long random string in production |
@@ -308,7 +318,7 @@ See `.env.example` for the authoritative list. Required in production:
 | `ALTCHA_MAX_NUMBER` | `50000` | Upper bound for the PoW target. Raise under attack; lower for low-power clients |
 | `RATE_LIMIT_ENABLED` | `true` | Master on/off switch for `@fastify/rate-limit`. Flip to `false` in an incident / load test |
 | `REDIS_URL` | — | Optional Redis connection string (e.g. `redis://localhost:6379`). When set, rate-limit buckets are shared across API instances; otherwise the plugin uses a per-process LRU store |
-| `SESSIONS_CREATE_MAX` | `2` | Per-user cap on `POST /sessions` within `SESSIONS_CREATE_WINDOW`. Each new session spins up an agent thread + burns LLM tokens, so this is kept aggressive by default |
+| `SESSIONS_CREATE_MAX` | `2` | Per-user cap on `POST /v1/sessions` within `SESSIONS_CREATE_WINDOW`. Each new session spins up an agent thread + burns LLM tokens, so this is kept aggressive by default |
 | `SESSIONS_CREATE_WINDOW` | `6 hours` | Window for `SESSIONS_CREATE_MAX`. Accepts any duration `@fastify/rate-limit` understands (`'30 minutes'`, `'1 hour'`, `'6 hours'`, or a raw ms number) |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
@@ -387,7 +397,7 @@ port (`http://localhost:8001`).
   adds per-request cost (a few ms of client CPU); rate limiting caps
   sustained request counts. The plugin runs in `preHandler` rather than
   `onRequest` so body-keyed limits (e.g. the 3/hour quota per email
-  mailbox on `/auth/forgot-password`) can actually read the parsed
+  mailbox on `/v1/auth/forgot-password`) can actually read the parsed
   body. All 429 responses are routed through the same `HttpError`
   pipeline as the rest of the API so the envelope `{ error, message,
   retryAfter }` is uniform. Buckets live in Redis when `REDIS_URL` is
@@ -415,10 +425,10 @@ port (`http://localhost:8001`).
   `reports.analyzed_sessions` tells clients how much coverage they have.
 - **Voice quota is worker-authoritative.** The API only mints a
   short-lived LiveKit token and enforces ownership + a start-time gate;
-  the user-facing `POST /voice/end` deliberately does **not** debit the
+  the user-facing `POST /v1/sessions/:id/voice/end` deliberately does **not** debit the
   quota. The `agent-voice` worker measures call duration on a server-side
   clock the browser can't influence and reports it via the internal
-  `POST /internal/sessions/:id/voice/end`, which is the single source of
+  `POST /v1/internal/sessions/:id/voice/end`, which is the single source of
   truth for the `voice_minute_usage` debit and the
   `state_snapshot.analysis.voice` merge. A single-active-call guard
   (`VOICE_ACTIVE_CALL_STALE_SECONDS`) stops a user opening N tabs to run N

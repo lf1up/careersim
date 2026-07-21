@@ -76,6 +76,12 @@ services:
       HOST: 0.0.0.0
       PORT: "8000"
       LOG_LEVEL: info
+      # Local rule: the compose stack serves everything under /v1. A bare
+      # container without this var serves unprefixed routes — that's the
+      # current cloud setup. Must match API_VERSION_PREFIX on the
+      # `agent-voice` service below and the `/v1` path in the `web`
+      # service's NEXT_PUBLIC_API_URL / API_INTERNAL_URL.
+      API_VERSION_PREFIX: v1
       # Override Docker-specific settings so containers can reach each other
       # via the compose network instead of localhost. `api/.env` ships with
       # host-oriented URLs (for `pnpm dev` on the host against ports
@@ -130,11 +136,13 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       # NEXT_PUBLIC_* is baked into the browser bundle, so it must be the URL
       # the user's browser can reach — i.e. the host-mapped api port, not the
-      # compose-internal `http://api:8000`.
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      # compose-internal `http://api:8000`. These are FULL base URLs: the
+      # `/v1` path here must match API_VERSION_PREFIX on the `api` service
+      # above (the web app appends nothing in code).
+      NEXT_PUBLIC_API_URL: http://localhost:8000/v1
       # Server-rendered Next.js routes run inside the web container, so they
       # need the compose service DNS name to reach the API.
-      API_INTERNAL_URL: http://api:8000
+      API_INTERNAL_URL: http://api:8000/v1
       # Ghost Content API — compose-internal hostname. The Content API key and
       # webhook secret still come from `./web/.env` (see web/.env.example).
       GHOST_API_URL: http://ghost:2368
@@ -370,6 +378,9 @@ services:
       # back into the API for state-for-voice + post-message; see
       # careersim_agent.voice.state_bridge.APIClient.
       VOICE_API_BASE_URL: http://api:8000
+      # Must match the `api` service's API_VERSION_PREFIX above (the
+      # compose-local rule is v1; unset would mean unprefixed routes).
+      API_VERSION_PREFIX: v1
       # In-compose hostname for the LiveKit SFU — overrides the
       # default in agent/.env so contributors can leave that file as
       # the host-oriented `ws://localhost:7880` for the smoke script.

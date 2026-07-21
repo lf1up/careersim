@@ -53,12 +53,12 @@ Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
 | `/auth/callback` | Consume magic-link / verification tokens and complete sign-in |
 | `/profile` | Account summary; change email (with 6-digit confirmation code); change or set password |
 | `/dashboard` | Welcome + counts + recent sessions |
-| `/simulations` | List simulations from `GET /simulations` |
-| `/simulations/[slug]` | Confirm + start a session (`POST /sessions`) |
+| `/simulations` | List simulations from `GET /v1/simulations` |
+| `/simulations/[slug]` | Confirm + start a session (`POST /v1/sessions`) |
 | `/blog` | Public blog index (Ghost Content API, ISR). Requires `NEXT_PUBLIC_BLOG_ENABLED=true` |
 | `/blog/[slug]` | Public blog post with `BlogPosting` JSON-LD. Requires `NEXT_PUBLIC_BLOG_ENABLED=true` |
-| `/sessions` | List caller's sessions (`GET /sessions`) |
-| `/sessions/[id]` | Chat: `GET /sessions/:id`, send via `POST /sessions/:id/messages/stream`, optional follow-up + nudge. Voice: a **Call** button (when `NEXT_PUBLIC_VOICE_ENABLED` is on and the persona supports voice) opens an in-page WebRTC call surface |
+| `/sessions` | List caller's sessions (`GET /v1/sessions`) |
+| `/sessions/[id]` | Chat: `GET /v1/sessions/:id`, send via `POST /v1/sessions/:id/messages/stream`, optional follow-up + nudge. Voice: a **Call** button (when `NEXT_PUBLIC_VOICE_ENABLED` is on and the persona supports voice) opens an in-page WebRTC call surface |
 
 ## 🔐 Auth flows
 
@@ -243,7 +243,8 @@ pnpm typecheck  # tsc --noEmit
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | Base URL of the `api/` service. Also used by `AltchaWidget` to fetch `/auth/challenge` |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000/v1` | **Full base URL** of the `api/` service, version path included — nothing is appended in code, so this single var controls which version the frontend talks to (e.g. on Vercel: `https://api.careersim.ai/v1`, or the bare origin for an API running without `API_VERSION_PREFIX`). Must match the API's actual prefix. Also used by `AltchaWidget` (`{url}/auth/challenge`) and by `next/image` to derive the allowed avatar path |
+| `API_INTERNAL_URL` | unset (falls back to `NEXT_PUBLIC_API_URL`) | Server-side override with the same full-URL semantics, for when the Next server reaches the API over a different network than the browser (compose sets `http://api:8000/v1`). Keep its version path identical to `NEXT_PUBLIC_API_URL`'s |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@careersim.local` | Public support/contact email displayed in the app footer |
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |

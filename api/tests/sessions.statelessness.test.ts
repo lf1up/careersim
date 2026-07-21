@@ -32,7 +32,7 @@ describe('statelessness contract', () => {
   async function createSession(auth: Record<string, string>) {
     const res = await h.app.inject({
       method: 'POST',
-      url: '/sessions',
+      url: '/v1/sessions',
       payload: { simulation_slug: SLUG },
       headers: auth,
     });
@@ -48,13 +48,13 @@ describe('statelessness contract', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${a.id}/messages`,
+      url: `/v1/sessions/${a.id}/messages`,
       payload: { content: 'hello from A' },
       headers: alice.authHeader,
     });
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${b.id}/messages`,
+      url: `/v1/sessions/${b.id}/messages`,
       payload: { content: 'hello from B' },
       headers: bob.authHeader,
     });
@@ -62,14 +62,14 @@ describe('statelessness contract', () => {
     const aDetail = (
       await h.app.inject({
         method: 'GET',
-        url: `/sessions/${a.id}`,
+        url: `/v1/sessions/${a.id}`,
         headers: alice.authHeader,
       })
     ).json();
     const bDetail = (
       await h.app.inject({
         method: 'GET',
-        url: `/sessions/${b.id}`,
+        url: `/v1/sessions/${b.id}`,
         headers: bob.authHeader,
       })
     ).json();
@@ -91,7 +91,7 @@ describe('statelessness contract', () => {
     const r1 = (
       await h.app.inject({
         method: 'POST',
-        url: `/sessions/${s1.id}/messages`,
+        url: `/v1/sessions/${s1.id}/messages`,
         payload: { content: 'same question' },
         headers: authHeader,
       })
@@ -99,7 +99,7 @@ describe('statelessness contract', () => {
     const r2 = (
       await h.app.inject({
         method: 'POST',
-        url: `/sessions/${s2.id}/messages`,
+        url: `/v1/sessions/${s2.id}/messages`,
         payload: { content: 'same question' },
         headers: authHeader,
       })
@@ -119,13 +119,13 @@ describe('statelessness contract', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'one' },
       headers: authHeader,
     });
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'two' },
       headers: authHeader,
     });
@@ -141,7 +141,7 @@ describe('statelessness contract', () => {
     for (const content of sent) {
       await h.app.inject({
         method: 'POST',
-        url: `/sessions/${session.id}/messages`,
+        url: `/v1/sessions/${session.id}/messages`,
         payload: { content },
         headers: authHeader,
       });
@@ -150,7 +150,7 @@ describe('statelessness contract', () => {
     const detail = (
       await h.app.inject({
         method: 'GET',
-        url: `/sessions/${session.id}`,
+        url: `/v1/sessions/${session.id}`,
         headers: authHeader,
       })
     ).json();

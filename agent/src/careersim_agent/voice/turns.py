@@ -361,7 +361,7 @@ class TurnManager:
 
         Persist + generate through the SAME path as text chat, streamed so
         each bubble (main reply + follow-up bursts) is spoken as it is
-        generated. POST /sessions/:id/messages/stream runs the graph
+        generated. POST /v1/sessions/:id/messages/stream runs the graph
         server-side and persists the full delta on its terminal `done`
         event, so goal eval / sentiment / nudges still run exactly once and
         the spoken reply equals the saved transcript.

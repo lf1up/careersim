@@ -14,7 +14,7 @@ const SLUG = 'behavioral-interview-brenda';
 async function createSession(h: TestHarness, auth: Record<string, string>) {
   const res = await h.app.inject({
     method: 'POST',
-    url: '/sessions',
+    url: '/v1/sessions',
     payload: { simulation_slug: SLUG },
     headers: auth,
   });
@@ -62,7 +62,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -78,14 +78,14 @@ describe('POST /sessions/:id/nudge', () => {
 
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -102,7 +102,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -111,7 +111,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -136,7 +136,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -144,7 +144,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const first = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(first.json().nudged).toBe(true);
@@ -155,7 +155,7 @@ describe('POST /sessions/:id/nudge', () => {
     const agentCallsBefore = h.agent.callLog.filter((c) => c === 'proactive:inactivity').length;
     const second = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(second.json()).toMatchObject({
@@ -178,21 +178,21 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
     await rewindLastHumanMessage(h, session.id, 300);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     }); // fires, consumes the only budget slot
 
     // Human replies → counters should reset.
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: "i'm here" },
       headers: authHeader,
     });
@@ -201,7 +201,7 @@ describe('POST /sessions/:id/nudge', () => {
     await rewindLastHumanMessage(h, session.id, 300);
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.json().nudged).toBe(true);
@@ -215,7 +215,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: bob.authHeader,
     });
     expect(res.statusCode).toBe(403);
@@ -236,7 +236,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -244,7 +244,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const first = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(first.json().nudged).toBe(true);
@@ -255,7 +255,7 @@ describe('POST /sessions/:id/nudge', () => {
     // a second nudge on the very next tick.
     const chained = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(chained.json()).toMatchObject({
@@ -279,7 +279,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -287,7 +287,7 @@ describe('POST /sessions/:id/nudge', () => {
     await rewindLastHumanMessage(h, session.id, 20);
     const tooEarly = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(tooEarly.json()).toMatchObject({ nudged: false, reason: 'not_enough_idle' });
@@ -295,7 +295,7 @@ describe('POST /sessions/:id/nudge', () => {
     await rewindLastHumanMessage(h, session.id, 90);
     const past = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(past.json().nudged).toBe(true);
@@ -318,7 +318,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -326,7 +326,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -341,7 +341,7 @@ describe('POST /sessions/:id/nudge', () => {
     await rewindLastHumanMessage(h, session.id, 600);
     const retry = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(retry.json().nudged).toBe(true);
@@ -361,7 +361,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -371,7 +371,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -395,7 +395,7 @@ describe('POST /sessions/:id/nudge', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -403,7 +403,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/nudge`,
+      url: `/v1/sessions/${session.id}/nudge`,
       headers: authHeader,
     });
     expect(res.json()).toMatchObject({ nudged: false, reason: 'nudges_disabled' });
@@ -423,7 +423,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     expect(detail.statusCode).toBe(200);
@@ -450,7 +450,7 @@ describe('POST /sessions/:id/nudge', () => {
 
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     expect(detail.statusCode).toBe(200);
@@ -476,7 +476,7 @@ describe('POST /sessions/:id/proactive (batch, followup-only)', () => {
     const session = await createSession(h, authHeader);
     await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/messages`,
+      url: `/v1/sessions/${session.id}/messages`,
       payload: { content: 'hi' },
       headers: authHeader,
     });
@@ -489,7 +489,7 @@ describe('POST /sessions/:id/proactive (batch, followup-only)', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive`,
+      url: `/v1/sessions/${session.id}/proactive`,
       payload: { trigger_type: 'followup' },
       headers: authHeader,
     });
@@ -512,7 +512,7 @@ describe('POST /sessions/:id/proactive (batch, followup-only)', () => {
     const session = await createSession(h, authHeader);
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive`,
+      url: `/v1/sessions/${session.id}/proactive`,
       payload: { trigger_type: 'inactivity' },
       headers: authHeader,
     });
@@ -524,7 +524,7 @@ describe('POST /sessions/:id/proactive (batch, followup-only)', () => {
     const session = await createSession(h, authHeader);
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive`,
+      url: `/v1/sessions/${session.id}/proactive`,
       payload: { trigger_type: 'start' },
       headers: authHeader,
     });
@@ -568,7 +568,7 @@ describe('POST /sessions/:id/proactive/stream', () => {
 
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive/stream`,
+      url: `/v1/sessions/${session.id}/proactive/stream`,
       payload: { trigger_type: 'followup' },
       headers: authHeader,
     });
@@ -581,7 +581,7 @@ describe('POST /sessions/:id/proactive/stream', () => {
 
     const detail = await h.app.inject({
       method: 'GET',
-      url: `/sessions/${session.id}`,
+      url: `/v1/sessions/${session.id}`,
       headers: authHeader,
     });
     expect(detail.json().messages.at(-1)).toMatchObject({
@@ -595,7 +595,7 @@ describe('POST /sessions/:id/proactive/stream', () => {
     const session = await createSession(h, authHeader);
     const res = await h.app.inject({
       method: 'POST',
-      url: `/sessions/${session.id}/proactive/stream`,
+      url: `/v1/sessions/${session.id}/proactive/stream`,
       payload: { trigger_type: 'inactivity' },
       headers: authHeader,
     });

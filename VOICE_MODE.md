@@ -26,7 +26,7 @@ routes).
 └─────────────────┘                          └──────────┘
 ```
 
-* **`web`** mints the LiveKit token via `POST /sessions/:id/voice/start`
+* **`web`** mints the LiveKit token via `POST /v1/sessions/:id/voice/start`
   and joins the SFU as a publisher/subscriber.
 * **`livekit`** (Docker container, dev mode) routes audio between the
   user and the agent worker.
@@ -34,7 +34,7 @@ routes).
   careersim_agent.main --serve voice`) that joins the same room, runs
   STT → LangGraph → TTS, and sends user messages back through the
   public API on the user's bearer token. It uses the **streaming**
-  endpoint `POST /sessions/:id/messages/stream` (SSE) and speaks each
+  endpoint `POST /v1/sessions/:id/messages/stream` (SSE) and speaks each
   reply bubble (the main reply plus each follow-up burst) as it is
   generated, rather than waiting for the whole turn. The API persists
   the full turn server-side on the stream's terminal `done` event, so
@@ -47,7 +47,7 @@ routes).
   spoken turns with "Voice call started / ended" dividers.
 * **`api`** owns ownership checks and the daily quota. The quota debit
   is authoritative from the worker via the internal end route
-  (`POST /internal/sessions/:id/voice/end`), using a server-side clock
+  (`POST /v1/internal/sessions/:id/voice/end`), using a server-side clock
   the browser can't influence; the user-facing `voice/end` only marks
   the call ended (clearing the single-active-call guard). Voice
   analytics are merged into `state_snapshot.analysis.voice` on that
@@ -59,7 +59,7 @@ routes).
 per-day ceiling, not just a start gate:
 
 * At call start the worker reads the owner's remaining budget from
-  `GET /internal/sessions/:id/voice-budget` and arms a watchdog.
+  `GET /v1/internal/sessions/:id/voice-budget` and arms a watchdog.
 * ~60s before the budget is spent it publishes a `quota_warning`
   control event (web client shows a banner) and a brief spoken
   heads-up; at zero it publishes `quota_exhausted` and disconnects the
@@ -120,18 +120,18 @@ documented reason for skipping).
 
 ### 🎫 B. Token mint + ownership
 
-- [ ] `POST /sessions/:id/voice/start` (with valid bearer) returns
+- [ ] `POST /v1/sessions/:id/voice/start` (with valid bearer) returns
       `200` with a non-empty `token`, `livekit_url`, `room`, and a
       `quota_remaining_seconds` consistent with `VOICE_DAILY_MINUTES_PER_USER`.
-- [ ] `POST /sessions/:id/voice/start` from a *different* user's bearer
+- [ ] `POST /v1/sessions/:id/voice/start` from a *different* user's bearer
       returns `403`.
-- [ ] `POST /sessions/:id/voice/start` for an unknown session returns
+- [ ] `POST /v1/sessions/:id/voice/start` for an unknown session returns
       `404`.
 
 ### 🛑 C. Kill-switch
 
 - [ ] Restart api with `VOICE_ENABLED=false` →
-      `POST /sessions/:id/voice/start` returns `503 voice_disabled`.
+      `POST /v1/sessions/:id/voice/start` returns `503 voice_disabled`.
 - [ ] Same env on agent-voice → the container exits 0 once and stays
       stopped (docker-compose `restart: on-failure` doesn't loop).
 - [ ] `web` with `NEXT_PUBLIC_VOICE_ENABLED=false` does **not** render
@@ -201,7 +201,7 @@ For each of the 9 personas, start a 30s call and confirm the voice
 - [ ] DB: `voice_minute_usage.seconds_used >= 60` for today (debited by
       the worker's authoritative internal end report).
 - [ ] Concurrency: start a call, then (without ending it) `POST
-      /sessions/:id/voice/start` again → `409 voice_call_in_progress`.
+      /v1/sessions/:id/voice/start` again → `409 voice_call_in_progress`.
 
 ### 🧪 H. Regression sweep (text mode unchanged)
 

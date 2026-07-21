@@ -16,7 +16,7 @@ describe('GET /simulations', () => {
   });
 
   it('is publicly accessible (guests can browse the catalogue)', async () => {
-    const res = await h.app.inject({ method: 'GET', url: '/simulations' });
+    const res = await h.app.inject({ method: 'GET', url: '/v1/simulations' });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(Array.isArray(body.simulations)).toBe(true);
@@ -27,7 +27,7 @@ describe('GET /simulations', () => {
     const { authHeader } = await registerAndAuth(h.app);
     const res = await h.app.inject({
       method: 'GET',
-      url: '/simulations',
+      url: '/v1/simulations',
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -62,7 +62,7 @@ describe('GET /simulations/:slug', () => {
   it('is publicly accessible (guests can preview a simulation)', async () => {
     const res = await h.app.inject({
       method: 'GET',
-      url: '/simulations/behavioral-interview-brenda',
+      url: '/v1/simulations/behavioral-interview-brenda',
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
@@ -75,7 +75,7 @@ describe('GET /simulations/:slug', () => {
     const { authHeader } = await registerAndAuth(h.app);
     const res = await h.app.inject({
       method: 'GET',
-      url: '/simulations/behavioral-interview-brenda',
+      url: '/v1/simulations/behavioral-interview-brenda',
       headers: authHeader,
     });
     expect(res.statusCode).toBe(200);
@@ -114,7 +114,7 @@ describe('GET /simulations/:slug', () => {
   it('returns 404 when the agent reports the simulation is missing', async () => {
     const res = await h.app.inject({
       method: 'GET',
-      url: '/simulations/does-not-exist',
+      url: '/v1/simulations/does-not-exist',
     });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({
