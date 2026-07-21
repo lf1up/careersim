@@ -70,7 +70,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      {/* suppressHydrationWarning is shallow (this element's attributes
+          only): browser extensions like Grammarly inject data-* attrs
+          into <body> before React hydrates. Real mismatches in page
+          content below are still reported. */}
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
         <Analytics />
       </body>
