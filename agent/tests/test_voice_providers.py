@@ -14,6 +14,7 @@ import sys
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
 
 from careersim_agent.voice.providers import (
@@ -28,7 +29,10 @@ from careersim_agent.voice.providers.elevenlabs import ElevenLabsTTS
 from careersim_agent.voice.providers.openai_tts import OpenAITTS
 from careersim_agent.voice.providers.piper_local import PiperLocalTTS
 from careersim_agent.voice.providers.whisper_local import WhisperLocalSTT
-from careersim_agent.voice.providers.whisper_openai import WhisperOpenAISTT
+from careersim_agent.voice.providers.whisper_openai import (
+    WhisperOpenAISTT,
+    _openrouter_limiter,
+)
 
 
 def _settings(**overrides: Any) -> SimpleNamespace:
@@ -216,31 +220,62 @@ class TestTTSFactory:
 # -----------------------------------------------------------------
 
 class _FakeResponse:
-    def __init__(self, payload: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        payload: dict[str, Any],
+        *,
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self._payload = payload
+        self.status_code = status_code
+        self.headers = headers or {}
 
     def raise_for_status(self) -> None:
-        return None
+        if self.status_code >= 400:
+            request = httpx.Request("POST", "https://openrouter.ai/api/v1/audio/transcriptions")
+            response = httpx.Response(self.status_code, request=request)
+            raise httpx.HTTPStatusError(
+                f"{self.status_code}",
+                request=request,
+                response=response,
+            )
 
     def json(self) -> dict[str, Any]:
         return self._payload
 
 
 class _FakeHttpClient:
-    """Records the last POST so the test can assert on the wire shape."""
+    """Records POSTs; can return a sequence of canned responses."""
 
-    def __init__(self, payload: dict[str, Any]) -> None:
-        self._payload = payload
+    def __init__(
+        self,
+        payload: dict[str, Any] | None = None,
+        *,
+        responses: list[_FakeResponse] | None = None,
+    ) -> None:
+        if responses is not None:
+            self._responses = list(responses)
+        else:
+            self._responses = [_FakeResponse(payload or {})]
         self.last_url: Any = None
         self.last_json: Any = None
+        self.post_count = 0
 
     async def post(self, url: str, *, json: dict[str, Any]) -> _FakeResponse:
         self.last_url = url
         self.last_json = json
-        return _FakeResponse(self._payload)
+        self.post_count += 1
+        if not self._responses:
+            raise AssertionError("unexpected extra POST")
+        return self._responses.pop(0)
 
 
 class TestOpenRouterRequestShape:
+    def setup_method(self) -> None:
+        # Process-wide limiter must not leak state between tests.
+        _openrouter_limiter.reset()
+
     async def test_openrouter_stt_posts_json_base64(self) -> None:
         provider = WhisperOpenAISTT(
             api_key="sk-or-fake",
@@ -265,6 +300,86 @@ class TestOpenRouterRequestShape:
         assert fake.last_json["input_audio"]["format"] == "wav"
         assert isinstance(fake.last_json["input_audio"]["data"], str)
         assert fake.last_json["language"] == "en"
+
+    async def test_openrouter_stt_retries_429_then_succeeds(self) -> None:
+        provider = WhisperOpenAISTT(
+            api_key="sk-or-fake",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/whisper-1",
+        )
+        fake = _FakeHttpClient(
+            responses=[
+                _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+                _FakeResponse({"text": "recovered"}),
+            ]
+        )
+        provider._ensure_http = lambda: fake  # type: ignore[method-assign]
+
+        async def _frames():
+            yield b"\x00\x01" * 800
+
+        results = [r async for r in provider.transcribe(_frames(), language="en")]
+
+        assert fake.post_count == 2
+        assert len(results) == 1
+        assert results[0].text == "recovered"
+        assert _openrouter_limiter.consecutive_429s == 0
+
+    async def test_openrouter_stt_exhausts_429_retries(self) -> None:
+        provider = WhisperOpenAISTT(
+            api_key="sk-or-fake",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/whisper-1",
+        )
+        fake = _FakeHttpClient(
+            responses=[
+                _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+                _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+                _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+            ]
+        )
+        provider._ensure_http = lambda: fake  # type: ignore[method-assign]
+
+        async def _frames():
+            yield b"\x00\x01" * 800
+
+        with pytest.raises(RuntimeError, match="OpenRouter STT failed"):
+            [r async for r in provider.transcribe(_frames(), language="en")]
+
+        assert fake.post_count == 3
+        assert _openrouter_limiter.consecutive_429s == 1
+
+    async def test_openrouter_stt_circuit_breaker_pauses_requests(self) -> None:
+        provider = WhisperOpenAISTT(
+            api_key="sk-or-fake",
+            base_url="https://openrouter.ai/api/v1",
+            model="openai/whisper-1",
+        )
+
+        async def _frames():
+            yield b"\x00\x01" * 800
+
+        # Trip the breaker with three consecutive exhausted 429 utterances.
+        for _ in range(3):
+            fake = _FakeHttpClient(
+                responses=[
+                    _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+                    _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+                    _FakeResponse({}, status_code=429, headers={"Retry-After": "0"}),
+                ]
+            )
+            provider._ensure_http = lambda f=fake: f  # type: ignore[method-assign]
+            with pytest.raises(RuntimeError, match="OpenRouter STT failed"):
+                [r async for r in provider.transcribe(_frames(), language="en")]
+
+        assert _openrouter_limiter.circuit_remaining() > 0
+
+        # Next call must fail fast without another POST.
+        blocked = _FakeHttpClient({"text": "should not run"})
+        provider._ensure_http = lambda: blocked  # type: ignore[method-assign]
+        with pytest.raises(RuntimeError, match="circuit open"):
+            [r async for r in provider.transcribe(_frames(), language="en")]
+        assert blocked.post_count == 0
 
 
 # -----------------------------------------------------------------

@@ -16,21 +16,77 @@ OpenAI SDK's ``multipart/form-data`` upload is rejected with a 400
 the audio base64-encoded under ``input_audio``. We detect that base URL
 and switch to a plain ``httpx`` JSON POST, so the same provider works
 against both real OpenAI and OpenRouter without a separate impl.
+
+OpenRouter 429s: STT often fails because upstream providers are saturated
+(passthrough 429), not only because of account quotas. Failed 429s still
+count toward daily allowance, so we use short exponential backoff, log
+``x-ratelimit-*`` headers, and trip a process-wide circuit breaker so
+retries across sessions don't cascade-exhaust the shared account quota.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import logging
+import time
 import wave
-from typing import Any, AsyncIterable, AsyncIterator, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Mapping, Optional
 
 import httpx
 
 from .base import STTResult, is_openrouter_base_url
 
 logger = logging.getLogger(__name__)
+
+# Keep retries modest: OpenRouter counts 429 responses against daily
+# quota, so aggressive retrying accelerates lockout. Backoff matches
+# their recommended 1s / 2s / 4s curve.
+_STT_MAX_ATTEMPTS = 3
+_STT_RETRY_BASE_SEC = 1.0
+_STT_RETRY_MAX_SEC = 8.0
+
+# After this many consecutive rate-limited utterances, pause new POSTs
+# for a cooldown so background sessions don't keep burning allowance.
+_CIRCUIT_TRIP_AFTER = 3
+_CIRCUIT_COOLDOWN_SEC = 60.0
+
+
+class _OpenRouterSTTLimiter:
+    """Process-wide limiter: OpenRouter quotas are account-shared."""
+
+    __slots__ = ("consecutive_429s", "circuit_open_until")
+
+    def __init__(self) -> None:
+        self.consecutive_429s = 0
+        self.circuit_open_until = 0.0
+
+    def reset(self) -> None:
+        self.consecutive_429s = 0
+        self.circuit_open_until = 0.0
+
+    def circuit_remaining(self, now: Optional[float] = None) -> float:
+        now = time.monotonic() if now is None else now
+        return max(0.0, self.circuit_open_until - now)
+
+    def record_success(self) -> None:
+        self.consecutive_429s = 0
+
+    def record_rate_limited(self) -> None:
+        self.consecutive_429s += 1
+        if self.consecutive_429s >= _CIRCUIT_TRIP_AFTER:
+            self.circuit_open_until = time.monotonic() + _CIRCUIT_COOLDOWN_SEC
+            logger.error(
+                "OpenRouter STT circuit open for %.0fs after %d consecutive "
+                "429s (account quota is shared; pausing further requests)",
+                _CIRCUIT_COOLDOWN_SEC,
+                self.consecutive_429s,
+            )
+
+
+# Shared across WhisperOpenAISTT instances in this process.
+_openrouter_limiter = _OpenRouterSTTLimiter()
 
 
 class WhisperOpenAISTT:
@@ -155,6 +211,13 @@ class WhisperOpenAISTT:
         self, wav_bytes: bytes, language: Optional[str]
     ) -> tuple[str, list[tuple[str, float, float]]]:
         """OpenRouter path: JSON body with base64 audio (no multipart)."""
+        remaining = _openrouter_limiter.circuit_remaining()
+        if remaining > 0:
+            raise RuntimeError(
+                f"OpenRouter STT circuit open for {remaining:.0f}s more "
+                f"(paused after consecutive 429s)"
+            )
+
         http = self._ensure_http()
         payload: dict[str, Any] = {
             "model": self._model,
@@ -165,16 +228,44 @@ class WhisperOpenAISTT:
             "language": language or "en",
         }
         try:
-            resp = await http.post("/audio/transcriptions", json=payload)
+            resp = await self._post_openrouter_transcription(http, payload)
+            if resp.status_code == 429:
+                _openrouter_limiter.record_rate_limited()
+                _log_rate_limit_headers(resp)
             resp.raise_for_status()
             data = resp.json()
+        except RuntimeError:
+            raise
         except Exception as exc:  # pragma: no cover - network path
             logger.exception("OpenRouter transcription failed")
             raise RuntimeError(f"OpenRouter STT failed: {exc}") from exc
 
+        _openrouter_limiter.record_success()
         text = (data.get("text") if isinstance(data, dict) else "") or ""
         # OpenRouter's transcription response is text-only (no word timing).
         return text, []
+
+    async def _post_openrouter_transcription(
+        self, http: httpx.AsyncClient, payload: dict[str, Any]
+    ) -> httpx.Response:
+        """POST with exponential backoff on 429; return the last response."""
+        resp: Optional[httpx.Response] = None
+        for attempt in range(1, _STT_MAX_ATTEMPTS + 1):
+            resp = await http.post("/audio/transcriptions", json=payload)
+            if resp.status_code != 429 or attempt >= _STT_MAX_ATTEMPTS:
+                return resp
+            delay = _retry_delay_seconds(resp, attempt)
+            _log_rate_limit_headers(resp)
+            logger.warning(
+                "OpenRouter STT rate limited (429); "
+                "retrying in %.1fs (attempt %d/%d)",
+                delay,
+                attempt,
+                _STT_MAX_ATTEMPTS,
+            )
+            await asyncio.sleep(delay)
+        assert resp is not None  # loop always assigns before return/continue
+        return resp
 
     async def aclose(self) -> None:
         if self._client is not None:
@@ -189,6 +280,33 @@ class WhisperOpenAISTT:
             except Exception:  # pragma: no cover
                 pass
             self._http = None
+
+
+def _retry_delay_seconds(resp: httpx.Response, attempt: int) -> float:
+    """Prefer Retry-After; otherwise exponential backoff (1s, 2s, 4s…)."""
+    header = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
+    if header:
+        try:
+            return min(_STT_RETRY_MAX_SEC, max(0.0, float(header)))
+        except ValueError:
+            pass
+    return min(_STT_RETRY_MAX_SEC, _STT_RETRY_BASE_SEC * (2 ** (attempt - 1)))
+
+
+def _log_rate_limit_headers(resp: httpx.Response) -> None:
+    """Surface OpenRouter allowance headers so ops can see remaining quota."""
+    info = _rate_limit_header_map(resp.headers)
+    if info:
+        logger.warning("OpenRouter STT rate-limit headers: %s", info)
+
+
+def _rate_limit_header_map(headers: Mapping[str, str]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, value in headers.items():
+        lower = key.lower()
+        if lower.startswith("x-ratelimit") or lower == "retry-after":
+            out[key] = value
+    return out
 
 
 def _pcm16_to_wav(pcm: bytes, sample_rate: int) -> bytes:
