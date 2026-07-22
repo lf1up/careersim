@@ -1,0 +1,16 @@
+[project]
+name = "careersim-imagegen"
+version = "0.1.0"
+description = "ComfyUI-on-Modal pipeline that generates consistent 2D manga characters (base sprite + face/expression/body-part shots) for CareerSIM's visual novel features."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # Deploy / drive the Modal app.
+    "modal>=1.5,<2",
+    # Client-side HTTP for scripts/generate_character.py.
+    "requests>=2.32",
+]
+
+[tool.uv]
+# This directory is a deploy/CLI workspace, not an installable package.
+package = false
