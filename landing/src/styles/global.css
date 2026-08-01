@@ -305,7 +305,8 @@ ul {
 
 .hero::before,
 .use-cases::before,
-.how-it-works::before {
+.how-it-works::before,
+.for-business::before {
   background-image: var(--paper-net);
   background-size: var(--paper-net-size);
   content: '';
@@ -319,7 +320,8 @@ ul {
 
 .hero > *,
 .use-cases > *,
-.how-it-works > * {
+.how-it-works > *,
+.for-business > * {
   min-width: 0;
   position: relative;
   z-index: 1;
@@ -353,7 +355,7 @@ ul {
   box-shadow: var(--shadow-2);
   box-sizing: border-box;
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   font-size: 0.72rem;
   font-weight: 500;
   gap: 10px;
@@ -365,9 +367,14 @@ ul {
 
 .badge-emoji {
   display: inline-flex;
+  flex: 0 0 auto;
   font-size: 1.05rem;
   line-height: 1;
   text-transform: none;
+}
+
+.badge-text {
+  min-width: 0;
 }
 
 h1 {
@@ -1212,8 +1219,10 @@ img.persona-avatar {
 /* ============ FOR BUSINESS (B2B) ============ */
 
 .for-business {
+  max-width: 100%;
   padding-bottom: 96px;
   padding-top: 96px;
+  position: relative;
 }
 
 .b2b-grid {
@@ -2079,13 +2088,54 @@ img.persona-avatar {
 
 /* ============ RESPONSIVE ============ */
 
-@media (max-width: 1180px) {
+/* Collapse header nav before wordmark / links / Business CTA collide. */
+@media (max-width: 1320px) {
   .site-header {
     grid-template-columns: minmax(0, 1fr) auto;
   }
   .nav-links {
     display: none;
   }
+  .status-pill {
+    display: none;
+  }
+}
+
+/* Compact header actions before Business + Practice crowd the wordmark. */
+@media (max-width: 960px) {
+  .site-header {
+    gap: 14px;
+    min-height: 72px;
+    padding: 10px 16px;
+  }
+  .wordmark {
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    min-width: 0;
+  }
+  .header-actions {
+    gap: 8px;
+  }
+  .icon-button {
+    height: 36px;
+    width: 36px;
+  }
+  .header-b2b {
+    display: none;
+  }
+  .header-cta {
+    font-size: 0;
+    min-height: 44px;
+    min-width: 76px;
+    padding-inline: 14px;
+  }
+  .header-cta::after {
+    content: 'Practice';
+    font-size: 0.88rem;
+  }
+}
+
+@media (max-width: 1180px) {
   .hero,
   .how-it-works {
     grid-template-columns: minmax(0, 1fr);
@@ -2117,30 +2167,11 @@ img.persona-avatar {
 }
 
 @media (max-width: 760px) {
-  .site-header {
+  .badge {
+    font-size: 0.64rem;
     gap: 8px;
-    min-height: 72px;
-    padding: 10px 16px;
-  }
-  .status-pill {
-    display: none;
-  }
-  .header-actions {
-    gap: 8px;
-  }
-  .icon-button {
-    height: 36px;
-    width: 36px;
-  }
-  .header-cta {
-    font-size: 0;
-    min-height: 44px;
-    min-width: 76px;
-    padding-inline: 14px;
-  }
-  .header-cta::after {
-    content: 'Practice';
-    font-size: 0.88rem;
+    letter-spacing: 0.04em;
+    padding: 8px 12px;
   }
 
   .hero {
@@ -2285,7 +2316,8 @@ img.persona-avatar {
 
   .use-cases,
   .personas,
-  .testimonials {
+  .testimonials,
+  .for-business {
     padding-bottom: 64px;
     padding-top: 64px;
   }
@@ -2323,7 +2355,7 @@ img.persona-avatar {
   }
 }
 
-@media (min-width: 640px) {
+@media (min-width: 961px) {
   .wordmark {
     font-size: 1.18rem;
   }
