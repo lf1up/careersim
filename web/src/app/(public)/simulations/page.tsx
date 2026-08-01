@@ -4,6 +4,7 @@ import { listPublicSimulations } from '@/lib/public-api';
 import { absoluteUrl, metadataFor, SITE_NAME } from '@/lib/seo';
 
 import { SimulationsClient } from './SimulationsClient';
+import { B2BBanner } from './B2BBanner';
 
 export const metadata: Metadata = metadataFor({
   title: 'AI career simulations',
@@ -41,6 +42,7 @@ export default async function SimulationsPage() {
         }}
       />
       <SimulationsClient initialSimulations={simulations} />
+      <B2BBanner />
     </>
   );
 }
