@@ -33,6 +33,10 @@
 
   --grid-line: rgba(17, 24, 39, 0.06);
   --grid-line-strong: rgba(17, 24, 39, 0.1);
+  --paper-net:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  --paper-net-size: 32px 32px;
 }
 
 * {
@@ -54,6 +58,10 @@ body {
   min-width: 320px;
   overflow-x: hidden;
   width: 100%;
+}
+
+main {
+  max-width: 100%;
 }
 
 a {
@@ -288,17 +296,18 @@ ul {
   align-items: center;
   display: grid;
   gap: clamp(40px, 4.5vw, 64px);
-  grid-template-columns: minmax(0, 1fr) minmax(480px, 620px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
+  max-width: 100%;
   padding-bottom: 96px;
   padding-top: 80px;
   position: relative;
 }
 
-.hero::before {
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 32px 32px;
+.hero::before,
+.use-cases::before,
+.how-it-works::before {
+  background-image: var(--paper-net);
+  background-size: var(--paper-net-size);
   content: '';
   inset: 0;
   mask-image: radial-gradient(ellipse 80% 60% at 30% 35%, #000 0%, transparent 75%);
@@ -308,7 +317,10 @@ ul {
   z-index: 0;
 }
 
-.hero > * {
+.hero > *,
+.use-cases > *,
+.how-it-works > * {
+  min-width: 0;
   position: relative;
   z-index: 1;
 }
@@ -339,12 +351,15 @@ ul {
   background: var(--soft-yellow);
   border: 2px solid var(--ink);
   box-shadow: var(--shadow-2);
+  box-sizing: border-box;
   display: inline-flex;
+  flex-wrap: wrap;
   font-size: 0.72rem;
   font-weight: 500;
   gap: 10px;
   letter-spacing: 0.06em;
   margin: 0 0 28px;
+  max-width: 100%;
   padding: 9px 14px;
 }
 
@@ -480,6 +495,7 @@ h1 {
   box-shadow: var(--shadow-10);
   display: flex;
   flex-direction: column;
+  max-width: 100%;
   min-height: 560px;
   min-width: 0;
   position: relative;
@@ -496,7 +512,7 @@ h1 {
   letter-spacing: 0.05em;
   padding: 8px 12px;
   position: absolute;
-  right: -10px;
+  right: 12px;
   top: -16px;
   transform: rotate(3deg);
   z-index: 2;
@@ -1146,10 +1162,6 @@ img.persona-avatar {
   border-right: 0;
 }
 
-.stat-card:nth-child(odd) {
-  background: var(--paper);
-}
-
 .stat-card .stat-eyebrow {
   align-items: center;
   color: var(--ink-soft);
@@ -1288,8 +1300,10 @@ img.persona-avatar {
 /* ============ USE CASES ============ */
 
 .use-cases {
+  max-width: 100%;
   padding-bottom: 96px;
   padding-top: 96px;
+  position: relative;
 }
 
 .card-grid {
@@ -1565,10 +1579,12 @@ img.persona-avatar {
   align-items: start;
   display: grid;
   gap: 64px;
-  grid-template-columns: minmax(340px, 460px) minmax(420px, 720px);
+  grid-template-columns: minmax(0, 460px) minmax(0, 720px);
   justify-content: center;
+  max-width: 100%;
   padding-bottom: 100px;
   padding-top: 96px;
+  position: relative;
 }
 
 .steps {
