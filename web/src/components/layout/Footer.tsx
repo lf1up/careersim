@@ -12,7 +12,7 @@ export function Footer() {
 
   return (
     <footer className="pb-10 pt-1 text-center text-xs leading-5 text-secondary-600 dark:text-secondary-400">
-      Have any questions? Send an email to{' '}
+      Have questions? Send an email to{' '}
       <a
         href={`mailto:${CONTACT_EMAIL}`}
         className="font-semibold text-retro-ink underline decoration-retro-accent decoration-2 underline-offset-4 dark:text-retro-accent-dark dark:decoration-retro-accent2-dark"

@@ -20,7 +20,7 @@ export function B2BBanner() {
   return (
     <section
       aria-labelledby="b2b-banner-heading"
-      className="mt-10 mb-2 retro-fade-in"
+      className="mt-6 mb-3 sm:mb-4 retro-fade-in"
     >
       <div className="retro-card overflow-hidden">
         {/* Accent strip */}
