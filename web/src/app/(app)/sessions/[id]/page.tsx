@@ -581,7 +581,7 @@ export default function SessionDetailPage() {
           // Pills live inline *before* the title so the header's first row
           // immediately communicates "who you're talking to + how hard it
           // is" alongside the scenario name.
-          <span className="flex flex-wrap items-center gap-2 text-lg leading-tight sm:text-xl">
+          <span className="flex flex-wrap items-center gap-2 text-lg leading-tight max-[400px]:text-base sm:text-xl">
             {simulation?.persona_name && (
               <RetroBadge color="cyan">{simulation.persona_name}</RetroBadge>
             )}
@@ -590,7 +590,11 @@ export default function SessionDetailPage() {
                 {difficultyLabel(simulation.difficulty)}
               </RetroBadge>
             )}
-            <span>{simulation?.title ?? session.simulation_slug}</span>
+            {/* Below 400px (e.g. iPhone SE) put the title on its own line so
+                it isn't clipped beside the persona/difficulty pills. */}
+            <span className="min-w-0 break-words max-[400px]:basis-full">
+              {simulation?.title ?? session.simulation_slug}
+            </span>
           </span>
         }
         subtitle={
@@ -609,7 +613,7 @@ export default function SessionDetailPage() {
                 controls then, and phone-height is better spent on the
                 live captions than on a duplicate goals row. */}
             {!inCall && (
-              <span className="flex items-end gap-3 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
+              <span className="flex items-end gap-3 max-[400px]:gap-1.5 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
                 <VoiceCallButton
                   available={voiceAvailable}
                   isCalling={inCall}
@@ -621,7 +625,7 @@ export default function SessionDetailPage() {
                     Report
                   </Button>
                 </Link>
-                <span className="ml-auto flex items-end gap-3">
+                <span className="ml-auto flex items-end gap-3 max-[400px]:gap-1.5">
                   <GoalProgressSummary
                     align="end"
                     progress={session.goal_progress}

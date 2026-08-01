@@ -265,7 +265,7 @@ export const GoalProgressSummary: React.FC<GoalProgressSummaryProps> = ({
           aria-valuemin={0}
           aria-valuemax={denominator}
           aria-label={`${achieved} of ${denominator} goals achieved`}
-          className="h-1.5 w-14 lg:h-2 lg:w-32 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark overflow-hidden shrink-0"
+          className="h-1.5 w-14 max-[400px]:w-10 lg:h-2 lg:w-32 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark overflow-hidden shrink-0"
         >
           <div
             className="h-full bg-green-400 dark:bg-green-500 transition-[width] duration-300 ease-out"

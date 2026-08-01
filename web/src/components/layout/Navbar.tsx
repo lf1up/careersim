@@ -90,7 +90,7 @@ export const Navbar: React.FC = () => {
             <div className="min-w-0 flex-shrink">
               <Link
                 href={homeHref}
-                className="block truncate text-base sm:text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark"
+                className="block truncate text-base max-[400px]:text-sm sm:text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark"
               >
                 {SITE_NAME}
               </Link>
