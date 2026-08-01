@@ -37,7 +37,7 @@ export const RetroCard: React.FC<RetroCardProps> = ({
             headerClassName,
           )}
         >
-          <div>
+          <div className="min-w-0 flex-1">
             {title && (
               <TitleTag className="text-xl font-semibold text-retro-ink dark:text-retro-ink-dark">
                 {title}
@@ -49,7 +49,9 @@ export const RetroCard: React.FC<RetroCardProps> = ({
               </div>
             )}
           </div>
-          {actions && <div className="flex items-center gap-2">{actions}</div>}
+          {actions && (
+            <div className="flex shrink-0 items-center gap-2">{actions}</div>
+          )}
         </div>
       )}
       <div className={clsx('p-6', bodyClassName)}>{children}</div>
