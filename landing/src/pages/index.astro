@@ -371,6 +371,84 @@ const testimonials = [
   },
 ];
 
+const b2bOfferings = [
+  {
+    number: 'B1',
+    tag: 'Training',
+    title: 'Custom simulations',
+    body: 'Scenarios built around your real workflows — your product, your scripts, your edge cases.',
+    tone: 'yellow',
+    bullets: ['Sales discovery & demos', 'Onboarding & ramp', 'Interview loops'],
+    duration: 'Pilot in weeks',
+  },
+  {
+    number: 'B2',
+    tag: 'Personas',
+    title: 'Bespoke AI personas',
+    body: 'Counterparts modeled on your actual customers and stakeholders — tone, objections, and all.',
+    tone: 'pink',
+    bullets: ['Your ICP & segments', 'Voice + text', 'Calibrated pushback'],
+    duration: 'Tuned per team',
+  },
+  {
+    number: 'B3',
+    tag: 'Support',
+    title: 'Customer support practice',
+    body: 'Escalations, angry tickets, and tricky refunds — reps rehearse the hard conversations safely.',
+    tone: 'blue',
+    bullets: ['Escalation drills', 'Complaint handling', 'Live chat & voice'],
+    duration: 'Unlimited replays',
+  },
+  {
+    number: 'B4',
+    tag: 'Content',
+    title: 'Automated content creation',
+    body: 'Persona-driven content pipelines: posts, scripts, and campaigns written in-character, at scale.',
+    tone: 'lime',
+    bullets: ['Social posts', 'Scripts & narratives', 'Campaign variants'],
+    duration: 'Human-in-the-loop',
+  },
+  {
+    number: 'B5',
+    tag: 'Assessment',
+    title: 'Assessment & certification',
+    body: 'Score candidates and teams against your own rubric — consistent, auditable, bias-checked.',
+    tone: 'accent',
+    bullets: ['Hiring screens', 'Pitch certification', 'Rubric scoring'],
+    duration: 'Exportable reports',
+  },
+  {
+    number: 'B6',
+    tag: 'Platform',
+    title: 'White-label & API',
+    body: 'Embed the simulation engine in your own LMS, academy, or product — your brand, our cast.',
+    tone: 'yellow',
+    bullets: ['REST API', 'SSO & embeds', 'Your branding'],
+    duration: 'Usage-based',
+  },
+];
+
+const b2bSteps = [
+  {
+    number: '01',
+    title: 'Discovery call',
+    body: 'We map your use case, audience, and what "good" looks like.',
+    tone: 'cyan',
+  },
+  {
+    number: '02',
+    title: 'Pilot in weeks',
+    body: 'A tailored simulation and persona pack, live with your team.',
+    tone: 'yellow',
+  },
+  {
+    number: '03',
+    title: 'Scale & measure',
+    body: 'Roll out org-wide with progress tracking and reporting.',
+    tone: 'pink',
+  },
+];
+
 const faqs = [
   {
     emoji: '🎯',
@@ -412,6 +490,7 @@ const footerLinks = {
     ...(blogUrl ? [{ label: 'Blog', href: blogUrl }] : []),
     { label: 'How it works', href: '#how-it-works' },
     { label: 'Personas', href: '#personas' },
+    { label: 'For business', href: '#for-business' },
     { label: 'FAQ', href: '#faq' },
   ],
   resources: [
@@ -805,6 +884,55 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section id="for-business" class="for-business section-white" aria-labelledby="b2b-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">For business</p>
+          <h2 id="b2b-title">Bring {siteName} to your team.</h2>
+          <p>The same engine that powers the public simulations — custom-built for your workflows, your customers, and your brand voice.</p>
+        </div>
+
+        <div class="card-grid b2b-grid" data-reveal-stagger>
+          {b2bOfferings.map((item) => (
+            <article class={`use-case-card tone-${item.tone}`}>
+              <div class="case-head">
+                <p class="case-number">{item.number}</p>
+                <span class="case-tag">{item.tag}</span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+              <ul class="case-list">
+                {item.bullets.map((b) => <li>{b}</li>)}
+              </ul>
+              <p class="case-meta">
+                <span>{item.duration}</span>
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <div class="b2b-steps" data-reveal-stagger>
+          {b2bSteps.map((step) => (
+            <article class={`step-card step-card-${step.tone}`}>
+              <span class="step-number" aria-hidden="true">{step.number}</span>
+              <div>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div class="cta-panel b2b-cta" data-reveal>
+          <span class="countdown"><strong>B2B</strong> · custom builds · limited pilot slots</span>
+          <h2>Tell us about your use case.</h2>
+          <p>Custom training simulations, bespoke personas, support practice, and persona-driven content — scoped to your team. We reply within two business days with a pilot proposal.</p>
+          <div class="cta-actions">
+            <a class="button button-dark" href={`mailto:${contactEmail}?subject=${encodeURIComponent('B2B inquiry — custom simulations')}`}>Get in touch</a>
+            <a class="button button-light" href={simulationsUrl}>Try the public sims first</a>
+          </div>
         </div>
       </section>
 

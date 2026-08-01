@@ -1197,6 +1197,46 @@ img.persona-avatar {
   margin-top: 8px;
 }
 
+/* ============ FOR BUSINESS (B2B) ============ */
+
+.for-business {
+  padding-bottom: 96px;
+  padding-top: 96px;
+}
+
+.b2b-grid {
+  /* Inherits .card-grid's 3-column layout — 6 offerings render as 3×2. */
+}
+
+.b2b-steps {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 64px auto 0;
+  max-width: 1280px;
+}
+
+.b2b-steps .step-card {
+  grid-template-columns: 56px 1fr;
+}
+
+.b2b-steps .step-number {
+  font-size: 0.82rem;
+  height: 56px;
+  width: 56px;
+}
+
+.b2b-cta {
+  margin: 72px auto 0;
+}
+
+@media (max-width: 1180px) {
+  .b2b-steps {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 720px;
+  }
+}
+
 /* ============ SECTION HEADINGS ============ */
 
 .section-heading {
