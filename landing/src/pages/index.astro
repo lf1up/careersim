@@ -849,6 +849,49 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           <p>Pick a simulation, talk with an adaptive persona, then get scored feedback that explains what improved and what to try next. Replay the same moment until it stops feeling scary.</p>
         </div>
 
+        <div class="flow-viz" data-reveal aria-label="Practice loop: you send a message, the persona responds, you get scored feedback">
+          <div class="flow-node flow-node-user">
+            <span class="flow-node-tag">You</span>
+            <span class="flow-bubble flow-bubble-user">“I’d like to discuss the package…”</span>
+          </div>
+
+          <svg class="flow-wire" viewBox="0 0 120 24" fill="none" aria-hidden="true">
+            <line class="flow-dash" x1="0" y1="12" x2="112" y2="12" />
+            <path class="flow-arrow" d="M104 5l10 7-10 7" />
+          </svg>
+
+          <div class="flow-node flow-node-persona">
+            <span class="flow-node-tag">Brenda · HR</span>
+            <img
+              class="flow-avatar flow-avatar-img"
+              src="/avatars/brenda-vance-hr-manager.png"
+              alt="Brenda Vance — HR manager persona"
+              width="96"
+              height="96"
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
+            <svg class="flow-loop" viewBox="0 0 220 30" fill="none" aria-hidden="true">
+              <path class="flow-dash flow-dash-loop" d="M210 4 H10 V22" />
+              <path class="flow-arrow" d="M16 16l-6 6-6-6" transform="translate(0 4)" />
+            </svg>
+            <span class="flow-loop-label">reply loop</span>
+          </div>
+
+          <svg class="flow-wire" viewBox="0 0 120 24" fill="none" aria-hidden="true">
+            <line class="flow-dash flow-dash-late" x1="0" y1="12" x2="112" y2="12" />
+            <path class="flow-arrow" d="M104 5l10 7-10 7" />
+          </svg>
+
+          <div class="flow-node flow-node-score">
+            <span class="flow-node-tag">Feedback</span>
+            <span class="flow-bar"><span class="flow-bar-label">Clarity</span><span class="flow-bar-track"><span class="flow-bar-fill is-teal" style="--score: 86%"></span></span><span class="flow-bar-value">86</span></span>
+            <span class="flow-bar"><span class="flow-bar-label">Evidence</span><span class="flow-bar-track"><span class="flow-bar-fill is-yellow" style="--score: 91%"></span></span><span class="flow-bar-value">91</span></span>
+            <span class="flow-bar"><span class="flow-bar-label">Tone</span><span class="flow-bar-track"><span class="flow-bar-fill is-pink" style="--score: 74%"></span></span><span class="flow-bar-value">74</span></span>
+          </div>
+        </div>
+
         <div class="steps" data-reveal-stagger>
           {steps.map((step, index) => (
             <article class={`step-card step-card-${step.tone}`}>

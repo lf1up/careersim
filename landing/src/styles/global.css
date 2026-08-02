@@ -1216,6 +1216,215 @@ img.persona-avatar {
   margin-top: 8px;
 }
 
+/* ============ FLOW VISUALIZATION (how it works) ============ */
+
+.flow-viz {
+  align-items: stretch;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-5);
+  display: grid;
+  gap: 14px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  grid-template-columns: minmax(0, 1.2fr) 72px minmax(0, 0.8fr) 72px minmax(0, 1.2fr);
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: 22px;
+  width: 100%;
+}
+
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.flow-node-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.flow-node-persona {
+  align-items: center;
+  text-align: center;
+}
+
+.flow-bubble-user {
+  background: var(--soft-blue);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-3);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 12px 16px;
+}
+
+.flow-avatar {
+  align-items: center;
+  background: var(--soft-pink);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-3);
+  display: inline-flex;
+  font-weight: 800;
+  height: 96px;
+  justify-content: center;
+  width: 96px;
+}
+
+.flow-avatar-img {
+  background: var(--paper);
+  object-fit: cover;
+  object-position: top;
+}
+
+.flow-typing {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.flow-typing i {
+  animation: flow-dot 1.2s ease-in-out infinite;
+  background: var(--ink);
+  display: block;
+  height: 9px;
+  width: 9px;
+}
+
+.flow-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.flow-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.flow-loop {
+  height: 26px;
+  margin-top: -2px;
+  width: 100%;
+}
+
+.flow-dash-loop {
+  animation: flow-march 1.4s linear infinite reverse;
+}
+
+.flow-loop-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin-top: -4px;
+  text-transform: uppercase;
+}
+
+@keyframes flow-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.flow-wire {
+  align-self: center;
+  height: 24px;
+  width: 100%;
+}
+
+.flow-dash {
+  animation: flow-march 1.4s linear infinite;
+  stroke: var(--ink);
+  stroke-dasharray: 7 6;
+  stroke-width: 2;
+}
+
+.flow-dash-late {
+  animation-delay: 0.7s;
+}
+
+@keyframes flow-march {
+  to { stroke-dashoffset: -13; }
+}
+
+.flow-arrow {
+  stroke: var(--ink);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 2;
+}
+
+.flow-bar {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 74px 1fr 26px;
+}
+
+.flow-bar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.flow-bar-track {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  display: block;
+  height: 14px;
+  overflow: hidden;
+}
+
+.flow-bar-fill {
+  display: block;
+  height: 100%;
+  transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1) 300ms;
+  width: 0;
+}
+
+.flow-viz.is-visible .flow-bar-fill {
+  width: var(--score);
+}
+
+.flow-bar-fill.is-teal { background: var(--accent-2); }
+.flow-bar-fill.is-yellow { background: var(--accent); }
+.flow-bar-fill.is-pink { background: var(--accent-3); }
+
+.flow-bar-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .flow-viz {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
+  }
+  .flow-wire {
+    height: 44px;
+    justify-self: center;
+    transform: rotate(90deg);
+    width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-dash,
+  .flow-typing i {
+    animation: none;
+  }
+  .flow-bar-fill {
+    transition: none;
+    width: var(--score);
+  }
+}
+
 /* ============ FOR BUSINESS (B2B) ============ */
 
 .for-business {
@@ -1599,7 +1808,19 @@ img.persona-avatar {
 .steps {
   display: grid;
   gap: 22px;
+  grid-row: 1;
+  grid-column: 2;
   position: relative;
+}
+
+@media (max-width: 1180px) {
+  .steps {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .flow-viz {
+    grid-row: auto;
+  }
 }
 
 .step-card {
