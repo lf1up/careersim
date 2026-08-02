@@ -1425,6 +1425,268 @@ img.persona-avatar {
   }
 }
 
+/* ============ B2B FLOW (agent in your team) ============ */
+
+.flow-viz-b2b {
+  grid-column: auto;
+  grid-row: auto;
+  grid-template-columns: minmax(0, 0.8fr) 88px minmax(0, 1.3fr) 88px minmax(0, 0.8fr);
+  margin-top: 64px;
+  max-width: 980px;
+  padding-bottom: 30px;
+  position: relative;
+}
+
+.flow-node-team,
+.flow-node-output {
+  align-items: center;
+}
+
+.flow-people {
+  display: flex;
+  gap: 8px;
+}
+
+.flow-person {
+  align-items: center;
+  background: var(--soft-yellow);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.flow-person:nth-child(2) {
+  background: var(--soft-lime);
+}
+
+.flow-person:nth-child(3) {
+  background: var(--soft-pink);
+}
+
+.flow-wire-wrap {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
+.flow-wire-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-node-agent {
+  align-items: center;
+}
+
+.flow-agent-stack {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-agent-core {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-avatar-agent {
+  background: var(--soft-blue);
+  color: var(--ink);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.1rem;
+  height: 72px;
+  width: 72px;
+}
+
+.flow-selfloop {
+  height: 30px;
+  margin-top: 2px;
+  width: 72px;
+}
+
+.flow-dash-selfloop {
+  animation: flow-march 2.6s linear infinite;
+}
+
+.flow-selfloop-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  margin-top: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-vault-wire {
+  height: 34px;
+  width: 20px;
+}
+
+.flow-vault {
+  align-items: center;
+  background: var(--soft-yellow);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+}
+
+.flow-vault-docs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.flow-doc {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  display: inline-block;
+  height: 22px;
+  position: relative;
+  width: 16px;
+}
+
+.flow-doc::before {
+  background: var(--soft-blue);
+  border-bottom: 2px solid var(--ink);
+  border-left: 2px solid var(--ink);
+  content: '';
+  height: 5px;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 5px;
+}
+
+.flow-doc.is-locked {
+  align-items: center;
+  color: var(--accent-3);
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+}
+
+.flow-doc.is-locked::before {
+  display: none;
+}
+
+.flow-vault-tag {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.flow-vault-sub,
+.flow-vault-wire-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.flow-vault-wire-label {
+  border-top: 1.5px dashed var(--ink);
+  color: var(--ink-soft);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.flow-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-chip {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 7px 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-chip:nth-child(2) {
+  background: var(--soft-blue);
+}
+
+.flow-chip:nth-child(3) {
+  background: var(--soft-pink);
+}
+
+.flow-review-arc {
+  height: 40px;
+  left: 24px;
+  pointer-events: none;
+  position: absolute;
+  right: 24px;
+  top: -26px;
+  width: calc(100% - 48px);
+}
+
+.flow-dash-review {
+  animation: flow-march 1.4s linear infinite reverse;
+}
+
+.flow-review-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 600;
+  left: 50%;
+  letter-spacing: 0.08em;
+  position: absolute;
+  text-transform: uppercase;
+  top: -30px;
+  transform: translateX(-50%);
+}
+
+@media (max-width: 900px) {
+  .flow-viz-b2b {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
+    padding-top: 34px;
+  }
+  .flow-review-arc {
+    display: none;
+  }
+  .flow-review-label {
+    position: static;
+    transform: none;
+    display: block;
+    text-align: center;
+    margin-top: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-dash-selfloop,
+  .flow-dash-review {
+    animation: none;
+  }
+}
+
 /* ============ FOR BUSINESS (B2B) ============ */
 
 .for-business {

@@ -957,6 +957,82 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           ))}
         </div>
 
+        <div class="flow-viz flow-viz-b2b" data-reveal aria-label="An AI persona embedded in your team: tasks flow from your team, the persona grounds itself in your data vault, critiques its own drafts, and your team reviews the output">
+          <div class="flow-node flow-node-team">
+            <span class="flow-node-tag">Your team</span>
+            <div class="flow-people" aria-hidden="true">
+              <span class="flow-person">AK</span>
+              <span class="flow-person">JM</span>
+              <span class="flow-person">RS</span>
+            </div>
+          </div>
+
+          <div class="flow-wire-wrap">
+            <svg class="flow-wire" viewBox="0 0 120 24" fill="none" aria-hidden="true">
+              <line class="flow-dash" x1="0" y1="12" x2="112" y2="12" />
+              <path class="flow-arrow" d="M104 5l10 7-10 7" />
+            </svg>
+            <span class="flow-wire-label">tasks</span>
+          </div>
+
+          <div class="flow-node flow-node-agent">
+            <span class="flow-node-tag">AI persona</span>
+            <div class="flow-agent-stack">
+              <div class="flow-agent-core">
+                <span class="flow-avatar flow-avatar-agent" aria-hidden="true">AI</span>
+                <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
+                <svg class="flow-selfloop" viewBox="0 0 72 30" fill="none" aria-hidden="true">
+                  <path class="flow-dash flow-dash-selfloop" d="M58 4 C72 4 72 26 58 26 H14 C0 26 0 8 14 6" />
+                  <path class="flow-arrow" d="M8 1l2 8-9 1" />
+                </svg>
+                <span class="flow-selfloop-label">self-critique &amp; reflection</span>
+              </div>
+              <svg class="flow-vault-wire" viewBox="0 0 24 40" fill="none" aria-hidden="true">
+                <line class="flow-dash" x1="12" y1="40" x2="12" y2="12" />
+                <path class="flow-arrow" d="M5 14l7-10 7 10" />
+              </svg>
+              <div class="flow-vault">
+                <span class="flow-vault-docs" aria-hidden="true">
+                  <span class="flow-doc"></span>
+                  <span class="flow-doc"></span>
+                  <span class="flow-doc is-locked">
+                    <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                      <rect x="2" y="5" width="8" height="6" fill="currentColor" />
+                      <path d="M4 5V3.5a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    </svg>
+                  </span>
+                </span>
+                <span class="flow-vault-tag">Your data vault</span>
+                <span class="flow-vault-sub">tickets · docs · playbooks</span>
+                <span class="flow-vault-wire-label">grounded in your data</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-wire-wrap">
+            <svg class="flow-wire" viewBox="0 0 120 24" fill="none" aria-hidden="true">
+              <line class="flow-dash flow-dash-late" x1="0" y1="12" x2="112" y2="12" />
+              <path class="flow-arrow" d="M104 5l10 7-10 7" />
+            </svg>
+            <span class="flow-wire-label">drafts &amp; replies</span>
+          </div>
+
+          <div class="flow-node flow-node-output">
+            <span class="flow-node-tag">Output</span>
+            <div class="flow-chips">
+              <span class="flow-chip">handled ticket</span>
+              <span class="flow-chip">draft post</span>
+              <span class="flow-chip">scored session</span>
+            </div>
+          </div>
+
+          <svg class="flow-review-arc" viewBox="0 0 1000 44" preserveAspectRatio="none" fill="none" aria-hidden="true">
+            <path class="flow-dash flow-dash-review" d="M985 42 V22 C985 8 900 4 500 4 C100 4 15 8 15 22 V42" />
+            <path class="flow-arrow" d="M9 34l6 8 6-8" />
+          </svg>
+          <span class="flow-review-label">review &amp; feedback</span>
+        </div>
+
         <div class="cta-panel b2b-cta" data-reveal>
           <span class="countdown"><strong>B2B</strong> · custom builds · limited pilot slots</span>
           <h2>Tell us about your use case.</h2>
