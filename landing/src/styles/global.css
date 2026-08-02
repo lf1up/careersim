@@ -2106,11 +2106,9 @@ img.persona-avatar {
   .site-header {
     gap: 14px;
     min-height: 72px;
-    padding: 10px 16px;
+    padding-block: 10px;
   }
   .wordmark {
-    font-size: 0.9rem;
-    letter-spacing: 0.05em;
     min-width: 0;
   }
   .header-actions {
@@ -2121,7 +2119,9 @@ img.persona-avatar {
     width: 36px;
   }
   .header-b2b {
-    display: none;
+    font-size: 0.88rem;
+    min-height: 44px;
+    padding-inline: 14px;
   }
   .header-cta {
     font-size: 0;
@@ -2132,6 +2132,20 @@ img.persona-avatar {
   .header-cta::after {
     content: 'Practice';
     font-size: 0.88rem;
+  }
+}
+
+/* Hide Business CTA only on very narrow phones. */
+@media (max-width: 500px) {
+  .header-b2b {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .wordmark {
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
   }
 }
 
