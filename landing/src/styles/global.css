@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&family=Press+Start+2P&display=swap');
 
 :root {
   --paper: #fffdf5;
@@ -1216,6 +1216,516 @@ img.persona-avatar {
   margin-top: 8px;
 }
 
+/* ============ FLOW VISUALIZATION (how it works) ============ */
+
+.flow-viz {
+  align-items: stretch;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-5);
+  display: grid;
+  gap: 14px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  grid-template-columns: minmax(0, 1.2fr) 72px minmax(0, 0.8fr) 72px minmax(0, 1.2fr);
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: 22px;
+  width: 100%;
+}
+
+.flow-node {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.flow-node-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.flow-node-tag-bold {
+  font-weight: 800;
+}
+
+.flow-node-persona {
+  align-items: center;
+  text-align: center;
+}
+
+.flow-bubble-user {
+  background: var(--soft-blue);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-3);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 12px 16px;
+}
+
+.flow-avatar {
+  align-items: center;
+  background: var(--soft-pink);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-3);
+  display: inline-flex;
+  font-weight: 800;
+  height: 96px;
+  justify-content: center;
+  width: 96px;
+}
+
+.flow-avatar-img {
+  background: var(--paper);
+  object-fit: cover;
+  object-position: top;
+}
+
+.flow-typing {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.flow-typing i {
+  animation: flow-dot 1.2s ease-in-out infinite;
+  background: var(--ink);
+  display: block;
+  height: 9px;
+  width: 9px;
+}
+
+.flow-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.flow-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.flow-loop {
+  height: 38px;
+  margin-top: -2px;
+  width: 100%;
+}
+
+.flow-dash-loop {
+  animation: flow-march 1.4s linear infinite reverse;
+}
+
+.flow-loop-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-top: -4px;
+  text-transform: uppercase;
+}
+
+@keyframes flow-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.flow-wire {
+  align-self: center;
+  height: 32px;
+  width: 100%;
+}
+
+.flow-dash {
+  animation: flow-march 1.4s linear infinite;
+  stroke: var(--ink);
+  stroke-dasharray: 12 8;
+  stroke-linecap: square;
+  stroke-width: 5.5;
+}
+
+.flow-dash-late {
+  animation-delay: 0.7s;
+}
+
+@keyframes flow-march {
+  to { stroke-dashoffset: -20; }
+}
+
+.flow-arrow {
+  stroke: var(--ink);
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 5.5;
+}
+
+.flow-bar {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 88px 1fr 30px;
+}
+
+.flow-bar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.flow-bar-track {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  display: block;
+  height: 14px;
+  overflow: hidden;
+}
+
+.flow-bar-fill {
+  display: block;
+  height: 100%;
+  transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1) 300ms;
+  width: 0;
+}
+
+.flow-viz.is-visible .flow-bar-fill {
+  width: var(--score);
+}
+
+.flow-bar-fill.is-teal { background: var(--accent-2); }
+.flow-bar-fill.is-yellow { background: var(--accent); }
+.flow-bar-fill.is-pink { background: var(--accent-3); }
+
+.flow-bar-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .flow-viz {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
+  }
+  .flow-wire {
+    height: 44px;
+    justify-self: center;
+    transform: rotate(90deg);
+    width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-dash,
+  .flow-typing i {
+    animation: none;
+  }
+  .flow-bar-fill {
+    transition: none;
+    width: var(--score);
+  }
+}
+
+/* ============ B2B FLOW (agent in your team) ============ */
+
+.flow-viz-b2b {
+  grid-column: auto;
+  grid-row: auto;
+  grid-template-columns: minmax(0, 0.8fr) 88px minmax(0, 1.3fr) 88px minmax(0, 0.8fr);
+  margin-top: 64px;
+  max-width: 980px;
+  padding-bottom: 30px;
+  padding-top: 56px;
+  position: relative;
+}
+
+.flow-node-team,
+.flow-node-output {
+  align-items: center;
+}
+
+.flow-people {
+  display: flex;
+  gap: 8px;
+}
+
+.flow-person {
+  align-items: center;
+  background: var(--soft-yellow);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.flow-person:nth-child(2) {
+  background: var(--soft-lime);
+}
+
+.flow-person:nth-child(3) {
+  background: var(--soft-pink);
+}
+
+.flow-wire-wrap {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
+.flow-wire-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-node-agent {
+  align-items: center;
+}
+
+.flow-agent-stack {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-agent-core {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-agent-core .flow-typing {
+  margin-top: 6px;
+}
+
+.flow-avatar-agent {
+  background: var(--soft-blue);
+  color: var(--ink);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1.1rem;
+  height: 72px;
+  width: 72px;
+}
+
+.flow-selfloop {
+  height: 40px;
+  margin-top: 2px;
+  overflow: visible;
+  width: 72px;
+}
+
+.flow-dash-selfloop {
+  animation: flow-march 2.6s linear infinite;
+  stroke-dasharray: 10 7;
+  stroke-width: 4;
+}
+
+.flow-arrow-selfloop {
+  stroke-width: 4;
+}
+
+.flow-selfloop-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-vault-wire {
+  height: 34px;
+  width: 20px;
+}
+
+.flow-vault {
+  align-items: center;
+  background: var(--soft-yellow);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+}
+
+.flow-vault-docs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.flow-doc {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  display: inline-block;
+  height: 22px;
+  position: relative;
+  width: 16px;
+}
+
+.flow-doc::before {
+  background: var(--soft-blue);
+  border-bottom: 2px solid var(--ink);
+  border-left: 2px solid var(--ink);
+  content: '';
+  height: 5px;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 5px;
+}
+
+.flow-doc.is-locked {
+  align-items: center;
+  color: var(--accent-3);
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+}
+
+.flow-doc.is-locked::before {
+  display: none;
+}
+
+.flow-vault-tag {
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.flow-vault-sub,
+.flow-vault-wire-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.flow-vault-wire-label {
+  border-top: 1.5px dashed var(--ink);
+  color: var(--ink-soft);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.flow-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-chip {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 7px 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-chip:nth-child(2) {
+  background: var(--soft-blue);
+}
+
+.flow-chip:nth-child(3) {
+  background: var(--soft-pink);
+}
+
+.flow-review-arc {
+  height: 52px;
+  left: 28px;
+  pointer-events: none;
+  position: absolute;
+  right: 28px;
+  top: 28px;
+  width: calc(100% - 56px);
+}
+
+.flow-dash-review {
+  animation: flow-march 1.4s linear infinite reverse;
+}
+
+.flow-review-label {
+  background: var(--surface);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  left: 50%;
+  letter-spacing: 0.06em;
+  padding: 0 10px;
+  position: absolute;
+  text-transform: uppercase;
+  top: 10px;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.flow-review-return {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .flow-viz-b2b {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 480px;
+    padding-top: 22px;
+  }
+  .flow-review-arc {
+    display: none;
+  }
+  .flow-review-label {
+    background: none;
+    display: block;
+    left: auto;
+    margin: 12px 0 6px;
+    padding: 0;
+    position: static;
+    text-align: center;
+    transform: none;
+  }
+  .flow-review-return {
+    display: block;
+    height: 32px;
+    justify-self: center;
+    margin: 0 auto;
+    width: 110px;
+  }
+  .flow-review-return .flow-dash,
+  .flow-review-return .flow-arrow {
+    stroke-width: 3.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-dash-selfloop,
+  .flow-dash-review {
+    animation: none;
+  }
+}
+
 /* ============ FOR BUSINESS (B2B) ============ */
 
 .for-business {
@@ -1599,7 +2109,19 @@ img.persona-avatar {
 .steps {
   display: grid;
   gap: 22px;
+  grid-row: 1;
+  grid-column: 2;
   position: relative;
+}
+
+@media (max-width: 1180px) {
+  .steps {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .flow-viz {
+    grid-row: auto;
+  }
 }
 
 .step-card {

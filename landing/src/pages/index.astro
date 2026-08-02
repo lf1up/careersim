@@ -849,6 +849,49 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           <p>Pick a simulation, talk with an adaptive persona, then get scored feedback that explains what improved and what to try next. Replay the same moment until it stops feeling scary.</p>
         </div>
 
+        <div class="flow-viz" data-reveal aria-label="Practice loop: you send a message, the persona responds, you get scored feedback">
+          <div class="flow-node flow-node-user">
+            <span class="flow-node-tag">You</span>
+            <span class="flow-bubble flow-bubble-user">“I’d like to discuss the package…”</span>
+          </div>
+
+          <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+            <line class="flow-dash" x1="0" y1="16" x2="100" y2="16" />
+            <path class="flow-arrow" d="M96 4l18 12-18 12" />
+          </svg>
+
+          <div class="flow-node flow-node-persona">
+            <span class="flow-node-tag">Brenda · HR</span>
+            <img
+              class="flow-avatar flow-avatar-img"
+              src="/avatars/brenda-vance-hr-manager.png"
+              alt="Brenda Vance — HR manager persona"
+              width="96"
+              height="96"
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
+            <svg class="flow-loop" viewBox="0 0 220 44" fill="none" aria-hidden="true">
+              <path class="flow-dash flow-dash-loop" d="M210 6 H12 V24" />
+              <path class="flow-arrow" d="M2 24l10 14 10-14" />
+            </svg>
+            <span class="flow-loop-label">reply loop</span>
+          </div>
+
+          <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+            <line class="flow-dash flow-dash-late" x1="0" y1="16" x2="100" y2="16" />
+            <path class="flow-arrow" d="M96 4l18 12-18 12" />
+          </svg>
+
+          <div class="flow-node flow-node-score">
+            <span class="flow-node-tag flow-node-tag-bold">Feedback</span>
+            <span class="flow-bar"><span class="flow-bar-label">Clarity</span><span class="flow-bar-track"><span class="flow-bar-fill is-teal" style="--score: 86%"></span></span><span class="flow-bar-value">86</span></span>
+            <span class="flow-bar"><span class="flow-bar-label">Evidence</span><span class="flow-bar-track"><span class="flow-bar-fill is-yellow" style="--score: 91%"></span></span><span class="flow-bar-value">91</span></span>
+            <span class="flow-bar"><span class="flow-bar-label">Tone</span><span class="flow-bar-track"><span class="flow-bar-fill is-pink" style="--score: 74%"></span></span><span class="flow-bar-value">74</span></span>
+          </div>
+        </div>
+
         <div class="steps" data-reveal-stagger>
           {steps.map((step, index) => (
             <article class={`step-card step-card-${step.tone}`}>
@@ -912,6 +955,86 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
               </p>
             </article>
           ))}
+        </div>
+
+        <div class="flow-viz flow-viz-b2b" data-reveal aria-label="An AI persona embedded in your team: tasks flow from your team, the persona grounds itself in your data vault, critiques its own drafts, and your team reviews the output">
+          <div class="flow-node flow-node-team">
+            <span class="flow-node-tag flow-node-tag-bold">Your team</span>
+            <div class="flow-people" aria-hidden="true">
+              <span class="flow-person">AK</span>
+              <span class="flow-person">JM</span>
+              <span class="flow-person">RS</span>
+            </div>
+          </div>
+
+          <div class="flow-wire-wrap">
+            <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+              <line class="flow-dash" x1="0" y1="16" x2="100" y2="16" />
+              <path class="flow-arrow" d="M96 4l18 12-18 12" />
+            </svg>
+            <span class="flow-wire-label">tasks</span>
+          </div>
+
+          <div class="flow-node flow-node-agent">
+            <span class="flow-node-tag flow-node-tag-bold">AI persona</span>
+            <div class="flow-agent-stack">
+              <div class="flow-agent-core">
+                <span class="flow-avatar flow-avatar-agent" aria-hidden="true">AI</span>
+                <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
+                <svg class="flow-selfloop" viewBox="0 0 72 40" fill="none" aria-hidden="true">
+                  <path class="flow-dash flow-dash-selfloop" d="M46 10 H52 C64 10 64 34 52 34 H20 C8 34 8 10 20 10 H22" />
+                  <path class="flow-arrow flow-arrow-selfloop" d="M26 5l12 5-12 5" />
+                </svg>
+                <span class="flow-selfloop-label">self-critique &amp; reflection</span>
+              </div>
+              <svg class="flow-vault-wire" viewBox="0 0 24 40" fill="none" aria-hidden="true">
+                <line class="flow-dash" x1="12" y1="40" x2="12" y2="12" />
+                <path class="flow-arrow" d="M5 14l7-10 7 10" />
+              </svg>
+              <div class="flow-vault">
+                <span class="flow-vault-docs" aria-hidden="true">
+                  <span class="flow-doc"></span>
+                  <span class="flow-doc"></span>
+                  <span class="flow-doc is-locked">
+                    <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                      <rect x="2" y="5" width="8" height="6" fill="currentColor" />
+                      <path d="M4 5V3.5a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    </svg>
+                  </span>
+                </span>
+                <span class="flow-vault-tag">Your data vault</span>
+                <span class="flow-vault-sub">tickets · docs · playbooks</span>
+                <span class="flow-vault-wire-label">grounded in your data</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-wire-wrap">
+            <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+              <line class="flow-dash flow-dash-late" x1="0" y1="16" x2="100" y2="16" />
+              <path class="flow-arrow" d="M96 4l18 12-18 12" />
+            </svg>
+            <span class="flow-wire-label">drafts &amp; replies</span>
+          </div>
+
+          <div class="flow-node flow-node-output">
+            <span class="flow-node-tag flow-node-tag-bold">Output</span>
+            <div class="flow-chips">
+              <span class="flow-chip">handled ticket</span>
+              <span class="flow-chip">draft post</span>
+              <span class="flow-chip">scored session</span>
+            </div>
+          </div>
+
+          <span class="flow-review-label">review &amp; feedback</span>
+          <svg class="flow-review-arc" viewBox="0 0 1000 72" preserveAspectRatio="none" fill="none" aria-hidden="true">
+            <path class="flow-dash flow-dash-review" d="M985 58 V28 C985 14 900 10 500 10 C100 10 15 14 15 28 V58" />
+            <path class="flow-arrow" d="M3 48l12 16 12-16" />
+          </svg>
+          <svg class="flow-review-return" viewBox="0 0 160 48" fill="none" aria-hidden="true">
+            <path class="flow-dash flow-dash-review" d="M140 6 V34 H20 V14" />
+            <path class="flow-arrow" d="M12 20l8-14 8 14" />
+          </svg>
         </div>
 
         <div class="cta-panel b2b-cta" data-reveal>
