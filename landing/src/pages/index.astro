@@ -352,21 +352,21 @@ const testimonials = [
     quote: 'I walked into my Stripe loop already used to being interrupted. The negotiation rerun alone got me +$22k.',
     name: 'Daniel R.',
     role: 'Senior PM · ex-Booking',
-    initials: 'DR',
+    emoji: '🧑‍💼',
     tone: 'yellow',
   },
   {
     quote: 'The feedback scoring was the unlock. It told me exactly when my answers turned vague — which is when I always lose interviewers.',
     name: 'Priya S.',
     role: 'Engineering manager',
-    initials: 'PS',
+    emoji: '👩‍💻',
     tone: 'blue',
   },
   {
     quote: 'Rehearsing the layoff conversation twice in private was 100× better than reading another article about it.',
     name: 'Marcus T.',
     role: 'Director of Operations',
-    initials: 'MT',
+    emoji: '👨‍💼',
     tone: 'pink',
   },
 ];
@@ -851,7 +851,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
 
         <div class="flow-viz" data-reveal aria-label="Practice loop: you send a message, the persona responds, you get scored feedback">
           <div class="flow-node flow-node-user">
-            <span class="flow-node-tag">You</span>
+            <span class="flow-node-tag flow-node-tag-bold">You</span>
             <span class="flow-bubble flow-bubble-user">“I’d like to discuss the package…”</span>
           </div>
 
@@ -861,7 +861,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           </svg>
 
           <div class="flow-node flow-node-persona">
-            <span class="flow-node-tag">Brenda · HR</span>
+            <span class="flow-node-tag flow-node-tag-bold">Brenda · HR</span>
             <img
               class="flow-avatar flow-avatar-img"
               src="/avatars/brenda-vance-hr-manager.png"
@@ -920,7 +920,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
               <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
               <blockquote>{t.quote}</blockquote>
               <div class="testimonial-author">
-                <span class="persona-avatar" aria-hidden="true">{t.initials}</span>
+                <span class="persona-avatar persona-avatar-emoji" aria-hidden="true">{t.emoji}</span>
                 <div>
                   <p class="testimonial-name">{t.name}</p>
                   <p class="testimonial-role">{t.role}</p>
@@ -961,9 +961,9 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           <div class="flow-node flow-node-team">
             <span class="flow-node-tag flow-node-tag-bold">Your team</span>
             <div class="flow-people" aria-hidden="true">
-              <span class="flow-person">AK</span>
-              <span class="flow-person">JM</span>
-              <span class="flow-person">RS</span>
+              <span class="flow-person">👩‍💻</span>
+              <span class="flow-person">👨‍💼</span>
+              <span class="flow-person">🧑‍🔧</span>
             </div>
           </div>
 
@@ -979,7 +979,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             <span class="flow-node-tag flow-node-tag-bold">AI persona</span>
             <div class="flow-agent-stack">
               <div class="flow-agent-core">
-                <span class="flow-avatar flow-avatar-agent" aria-hidden="true">AI</span>
+                <span class="flow-avatar flow-avatar-agent" aria-hidden="true"><span class="flow-avatar-emoji">🤖</span></span>
                 <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
                 <svg class="flow-selfloop" viewBox="0 0 72 40" fill="none" aria-hidden="true">
                   <path class="flow-dash flow-dash-selfloop" d="M46 10 H52 C64 10 64 34 52 34 H20 C8 34 8 10 20 10 H22" />

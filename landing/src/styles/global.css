@@ -1251,6 +1251,7 @@ img.persona-avatar {
 }
 
 .flow-node-tag-bold {
+  font-size: 0.88rem;
   font-weight: 800;
 }
 
@@ -1460,10 +1461,12 @@ img.persona-avatar {
   border: 2px solid var(--ink);
   box-shadow: var(--shadow-2);
   display: inline-flex;
-  font-size: 0.78rem;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 1.25rem;
   font-weight: 800;
   height: 44px;
   justify-content: center;
+  line-height: 1;
   width: 44px;
 }
 
@@ -1517,10 +1520,14 @@ img.persona-avatar {
 .flow-avatar-agent {
   background: var(--soft-blue);
   color: var(--ink);
-  font-family: 'Press Start 2P', monospace;
-  font-size: 1.1rem;
   height: 72px;
+  line-height: 1;
   width: 72px;
+}
+
+.flow-avatar-emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 2rem;
 }
 
 .flow-selfloop {
@@ -2274,6 +2281,13 @@ img.persona-avatar {
   height: 44px;
   width: 44px;
   font-size: 0.7rem;
+}
+
+.testimonial-author .persona-avatar-emoji {
+  background: var(--paper);
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .testimonial-name {
