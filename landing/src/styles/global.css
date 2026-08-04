@@ -2139,6 +2139,14 @@ img.persona-avatar {
   grid-template-columns: 64px 1fr;
   padding: 22px 24px;
   position: relative;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.step-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translate(3px, 3px);
 }
 
 .step-card-cyan {
@@ -2242,6 +2250,14 @@ img.persona-avatar {
   flex-direction: column;
   gap: 18px;
   padding: 26px 24px;
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.testimonial-card:hover {
+  box-shadow: var(--shadow-2);
+  transform: translate(3px, 3px);
 }
 
 .testimonial-card.tone-yellow {
