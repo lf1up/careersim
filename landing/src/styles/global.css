@@ -2392,6 +2392,31 @@ img.persona-avatar {
   min-width: 200px;
 }
 
+.cta-panel .cta-note {
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: -6px;
+  max-width: none;
+}
+
+.cta-panel .cta-note a {
+  color: #064e3b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 2.5px;
+  text-underline-offset: 5px;
+}
+
+.cta-panel .cta-note a:hover {
+  color: #022c22;
+  text-decoration-thickness: 3px;
+}
+
 .countdown {
   align-items: center;
   background: var(--surface);
