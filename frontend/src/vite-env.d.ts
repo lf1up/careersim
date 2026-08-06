@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_API_URL: string
   readonly VITE_SOCKET_URL: string
   readonly VITE_PORT: string
+  readonly VITE_SITE_NAME: string
   // more env variables...
 }
 

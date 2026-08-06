@@ -51,7 +51,7 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <Link to="/dashboard" className="text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark">
-                CAREERSIM.ai
+                {import.meta.env.VITE_SITE_NAME?.trim() || 'careersim.local'}
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8 sm:items-center">
