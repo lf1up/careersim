@@ -249,6 +249,7 @@ pnpm typecheck  # tsc --noEmit
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
 | `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/business`, legal pages, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door. Contact form APIs stay on `web` (`/api/altcha-challenge`, `/api/contact`) so they share the apex bot-challenge session |
+| `LANDING_OBSERVABILITY_BASEPATH` | unset | Optional landing Web Analytics path (e.g. `/b17bf9fe580cd936`). Rewrites that prefix to `LANDING_ORIGIN` as a fallback; landing pages normally load analytics from absolute `VERCEL_URL` endpoints |
 | `RESEND_API_KEY` | unset | Resend API key for `/business` contact-form delivery |
 | `CONTACT_FROM_EMAIL` | `onboarding@resend.dev` | Verified Resend sender for inquiry emails |
 | `CONTACT_TO_EMAIL` | falls back to `NEXT_PUBLIC_CONTACT_EMAIL` | Inbox that receives `/business` inquiries |

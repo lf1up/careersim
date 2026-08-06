@@ -1,5 +1,6 @@
 ---
 import Analytics from '@vercel/analytics/astro';
+import { landingAnalyticsProps } from '../lib/analytics';
 import '../styles/global.css';
 
 const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
@@ -10,6 +11,7 @@ const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://caree
 // Only set when the web blog is live — unset hides Blog nav/footer links.
 const blogUrl = import.meta.env.LANDING_BLOG_URL?.trim() || '';
 const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
+const analyticsProps = landingAnalyticsProps();
 
 interface Props {
   title: string;
@@ -161,6 +163,6 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
       </section>
     </main>
 
-    <Analytics />
+    <Analytics {...analyticsProps} />
   </body>
 </html>

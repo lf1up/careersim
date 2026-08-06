@@ -1,5 +1,6 @@
 ---
 import Analytics from '@vercel/analytics/astro';
+import { landingAnalyticsProps } from '../lib/analytics';
 import '../styles/global.css';
 
 const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
@@ -7,6 +8,7 @@ const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.l
 const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
 const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
 const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
+const analyticsProps = landingAnalyticsProps();
 
 const pageUrl = `${siteUrl}/business`;
 const pageTitle = `${siteName} for Business | Custom AI personas for training, support & content`;
@@ -205,7 +207,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <Analytics />
+    <Analytics {...analyticsProps} />
   </head>
   <body>
     <header class="site-header">
