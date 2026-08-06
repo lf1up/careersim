@@ -1,0 +1,743 @@
+---
+import Analytics from '@vercel/analytics/astro';
+import '../styles/global.css';
+
+const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
+const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.local';
+const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
+const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
+const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
+
+const pageUrl = `${siteUrl}/business`;
+const pageTitle = `${siteName} for Business | Custom AI personas for training, support & content`;
+const pageDescription =
+  'Custom AI training simulations, bespoke personas, support practice, and persona-driven content — built on your workflows. Book a pilot call.';
+
+const proofSession = {
+  sessionTitle: 'enterprise-discovery.session',
+  persona: {
+    avatar: '/avatars/marcus-whitfield-timeboxed-director.png',
+    initials: 'MW',
+    tone: 4,
+    name: 'Marcus',
+    role: 'Time-boxed director',
+  },
+  meta: { mode: 'Discovery', difficulty: 4, round: '02 / 04', time: '03:05' },
+  messages: [
+    {
+      type: 'ai',
+      label: 'Marcus · Director',
+      text: '“I have ten minutes. Your deck says 30% faster onboarding — show me the mechanism, not the marketing.”',
+    },
+    {
+      type: 'user',
+      label: 'Your rep',
+      text: '“Fair. Two mechanisms: persona-led ramp for new hires, and scenario drills for the escalation paths your team flags most…”',
+    },
+  ],
+  typing: 'Marcus is responding',
+  scores: [
+    { label: 'Clarity', value: 88 },
+    { label: 'Evidence', value: 91 },
+    { label: 'Pace', value: 76 },
+  ],
+  tip: 'Strong pivot to mechanism. Quantify the ramp claim once, then stop selling.',
+  recording: '03:05',
+};
+
+const b2bOfferings = [
+  {
+    number: 'B1',
+    tag: 'Training',
+    title: 'Custom simulations',
+    body: 'Scenarios built around your real workflows — your product, your scripts, your edge cases.',
+    tone: 'yellow',
+    bullets: ['Sales discovery & demos', 'Onboarding & ramp', 'Interview loops'],
+    duration: 'Pilot in weeks',
+  },
+  {
+    number: 'B2',
+    tag: 'Personas',
+    title: 'Bespoke AI personas',
+    body: 'Counterparts modeled on your actual customers and stakeholders — tone, objections, and all.',
+    tone: 'pink',
+    bullets: ['Your ICP & segments', 'Voice + text', 'Calibrated pushback'],
+    duration: 'Tuned per team',
+  },
+  {
+    number: 'B3',
+    tag: 'Support',
+    title: 'Customer support practice',
+    body: 'Escalations, angry tickets, and tricky refunds — reps rehearse the hard conversations safely.',
+    tone: 'blue',
+    bullets: ['Escalation drills', 'Complaint handling', 'Live chat & voice'],
+    duration: 'Unlimited replays',
+  },
+  {
+    number: 'B4',
+    tag: 'Content',
+    title: 'Automated content creation',
+    body: 'Persona-driven content pipelines: posts, scripts, and campaigns written in-character, at scale.',
+    tone: 'lime',
+    bullets: ['Social posts', 'Scripts & narratives', 'Campaign variants'],
+    duration: 'Human-in-the-loop',
+  },
+  {
+    number: 'B5',
+    tag: 'Assessment',
+    title: 'Assessment & certification',
+    body: 'Score candidates and teams against your own rubric — consistent, auditable, bias-checked.',
+    tone: 'accent',
+    bullets: ['Hiring screens', 'Pitch certification', 'Rubric scoring'],
+    duration: 'Exportable reports',
+  },
+  {
+    number: 'B6',
+    tag: 'Platform',
+    title: 'White-label & API',
+    body: 'Embed the simulation engine in your own LMS, academy, or product — your brand, our cast.',
+    tone: 'yellow',
+    bullets: ['REST API', 'SSO & embeds', 'Your branding'],
+    duration: 'Usage-based',
+  },
+];
+
+const b2bSteps = [
+  {
+    number: '01',
+    title: 'Discovery call',
+    body: 'We map your use case, audience, and what "good" looks like.',
+    tone: 'cyan',
+  },
+  {
+    number: '02',
+    title: 'Pilot in weeks',
+    body: 'A tailored simulation and persona pack, live with your team.',
+    tone: 'yellow',
+  },
+  {
+    number: '03',
+    title: 'Scale & measure',
+    body: 'Roll out org-wide with progress tracking and reporting.',
+    tone: 'pink',
+  },
+];
+
+const pilotIncludes = [
+  'One custom simulation track built on your real scenarios',
+  'A bespoke persona pack modeled on your customers or stakeholders',
+  'Scored sessions with rubric-based feedback for every rep',
+  'Weekly review loop with your enablement or L&D lead',
+  'Results readout: completion, score deltas, qualitative notes',
+];
+
+const b2bFaqs = [
+  {
+    emoji: '🧭',
+    question: 'How does an engagement work?',
+    answer:
+      'Every engagement starts with a scoped pilot: one use case, one team, a few weeks. If the pilot proves out, we scale from there — more tracks, more teams, deeper integration.',
+  },
+  {
+    emoji: '🔒',
+    question: 'Where does our data go?',
+    answer:
+      'Your tickets, docs, and playbooks stay in a dedicated vault used only to ground your personas. Nothing is shared across customers, and everything is deleted on request.',
+  },
+  {
+    emoji: '⏱️',
+    question: 'How fast can we start?',
+    answer:
+      'Pilots are measured in weeks, not quarters. After the discovery call we come back with a concrete proposal and timeline for your use case.',
+  },
+  {
+    emoji: '🛠️',
+    question: 'Can it handle our specific use case?',
+    answer:
+      'Very likely — the engine is scenario-agnostic. If your team practices conversations (sales, support, interviews, reviews), we can build it. The discovery call is where we pressure-test fit.',
+  },
+  {
+    emoji: '💬',
+    question: 'What does it cost?',
+    answer:
+      'Every deployment is different, so pricing is covered on the pilot call once we understand scope — no generic rate card.',
+  },
+];
+
+const useCaseOptions = [
+  { value: 'training', label: 'Training & onboarding' },
+  { value: 'support', label: 'Support practice' },
+  { value: 'content', label: 'Content pipeline' },
+  { value: 'assessment', label: 'Assessment & certification' },
+  { value: 'platform', label: 'White-label / API' },
+  { value: 'other', label: 'Something else' },
+];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': `${pageUrl}#page`,
+      name: pageTitle,
+      url: pageUrl,
+      description: pageDescription,
+      inLanguage: 'en',
+      isPartOf: { '@id': `${siteUrl}#website` },
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': `${pageUrl}#faq`,
+      mainEntity: b2bFaqs.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+      })),
+    },
+  ],
+};
+
+const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"></path></svg>`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDescription} />
+    <link rel="canonical" href={pageUrl} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={pageUrl} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    <meta name="theme-color" content="#fffdf5" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <Analytics />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label={`${siteName} home`}>
+        {siteName}
+        <span class="status-pill">Beta</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Business page sections">
+        <a href="#offerings">Offerings</a>
+        <a href="#how">How it works</a>
+        <a href="#pilot">Pilot</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <div class="header-actions">
+        <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
+          <Fragment set:html={githubIcon} />
+        </a>
+        <a class="button button-light header-b2b" href={simulationsUrl}>Public sims</a>
+        <a class="button button-accent header-cta" href="#contact">Book a pilot call</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- 1 · Hero -->
+      <section class="hero section-paper" aria-labelledby="hero-title">
+        <div class="hero-copy" data-reveal>
+          <p class="badge"><span class="badge-emoji" aria-hidden="true">🏢</span><span class="badge-text">For teams · Custom builds · Pilot-first</span></p>
+          <h1 id="hero-title">
+            High-stakes conversations, <span class="hl-yellow">rehearsed</span> before they're <span class="hl-pink">real</span>.
+          </h1>
+          <p class="hero-subhead">
+            <span class="pixel-name">{siteName}</span> builds AI personas for training, support practice, and content — custom-built on your workflows, your customers, and your brand voice.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-dark" href="#contact">Book a pilot call</a>
+            <a class="button button-light" href={simulationsUrl}>Try a public sim</a>
+          </div>
+          <ul class="hero-meta" aria-label="Business highlights">
+            <li class="hero-meta-item"><span class="check">✓</span>Pilot live in weeks, not quarters</li>
+            <li class="hero-meta-item"><span class="check">✓</span>Grounded in your tickets, docs &amp; playbooks</li>
+            <li class="hero-meta-item"><span class="check">✓</span>Human review built into every loop</li>
+          </ul>
+        </div>
+
+        <!-- 2 · Proof strip: the same preview component, framed for a buyer -->
+        <aside class="product-preview" aria-label="What your team sees in a session" data-reveal>
+          <div class="window-bar">
+            <span class="window-dot dot-red"></span>
+            <span class="window-dot dot-yellow"></span>
+            <span class="window-dot dot-green"></span>
+            <span class="session-title">{proofSession.sessionTitle}</span>
+          </div>
+
+          <div class="preview-panels">
+            <div class="preview-panel is-active">
+              <div class="preview-body">
+                <aside class="persona-rail" aria-label="Active persona">
+                  <img
+                    class={`persona-avatar tone-${proofSession.persona.tone}`}
+                    src={proofSession.persona.avatar}
+                    alt={`${proofSession.persona.name} — ${proofSession.persona.role}`}
+                    width="56"
+                    height="56"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div>
+                    <p class="persona-name">{proofSession.persona.name}</p>
+                    <p class="persona-role">{proofSession.persona.role}</p>
+                  </div>
+                  <div class="persona-meta">
+                    <div class="persona-meta-row">
+                      <span>Mode</span>
+                      <span>{proofSession.meta.mode}</span>
+                    </div>
+                    <div class="persona-meta-row">
+                      <span>Difficulty</span>
+                      <span class="difficulty-dots" aria-label={`Difficulty ${proofSession.meta.difficulty} of 5`}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <span class={i < proofSession.meta.difficulty ? 'is-on' : ''}></span>
+                        ))}
+                      </span>
+                    </div>
+                    <div class="persona-meta-row">
+                      <span>Round</span>
+                      <span>{proofSession.meta.round}</span>
+                    </div>
+                    <div class="persona-meta-row">
+                      <span>Time</span>
+                      <span>{proofSession.meta.time}</span>
+                    </div>
+                  </div>
+                </aside>
+
+                <div class="preview-chat">
+                  {proofSession.messages.map((m) => (
+                    <article class={`message-card message-${m.type}`}>
+                      <p class="message-label">{m.label}</p>
+                      <p>{m.text}</p>
+                    </article>
+                  ))}
+
+                  <div class="typing" aria-live="polite">
+                    <span>{proofSession.typing}</span>
+                    <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+                  </div>
+
+                  <article class="feedback-card">
+                    <p class="message-label">This is what your rep sees — live coaching, every session</p>
+                    <div class="score-row">
+                      {proofSession.scores.map((s) => (
+                        <div class="score-cell">
+                          <p class="score-label">{s.label}</p>
+                          <p class="score-value">{s.value}<small>/100</small></p>
+                          <div class="score-bar"><div style={`--w: ${s.value}%`}></div></div>
+                        </div>
+                      ))}
+                    </div>
+                    <p class="feedback-tip">{proofSession.tip}</p>
+                  </article>
+                </div>
+              </div>
+
+              <div class="preview-footer">
+                <span class="left"><span class="live-dot" aria-hidden="true"></span>Recording · {proofSession.recording}</span>
+                <span class="right">
+                  <span class="kbd">Space</span> Pause
+                  <span class="kbd">R</span> Rerun
+                  <span class="kbd">Esc</span> Quit
+                </span>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <!-- 3 · Offerings -->
+      <section id="offerings" class="for-business section-white" aria-labelledby="offerings-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">What we build</p>
+          <h2 id="offerings-title">Bring AI personas to your team.</h2>
+          <p>The same engine that powers the public simulations — custom-built for your workflows, your customers, and your brand voice.</p>
+        </div>
+
+        <div class="card-grid b2b-grid" data-reveal-stagger>
+          {b2bOfferings.map((item) => (
+            <article class={`use-case-card tone-${item.tone}`}>
+              <div class="case-head">
+                <p class="case-number">{item.number}</p>
+                <span class="case-tag">{item.tag}</span>
+              </div>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+              <ul class="case-list">
+                {item.bullets.map((b) => <li>{b}</li>)}
+              </ul>
+              <p class="case-meta">
+                <span>{item.duration}</span>
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <!-- 4 · Flow viz -->
+        <div class="flow-viz flow-viz-b2b" data-reveal aria-label="An AI persona embedded in your team: tasks flow from your team, the persona grounds itself in your data vault, critiques its own drafts, and your team reviews the output">
+          <div class="flow-node flow-node-team">
+            <span class="flow-node-tag flow-node-tag-bold">Your team</span>
+            <div class="flow-people" aria-hidden="true">
+              <span class="flow-person">👩‍💻</span>
+              <span class="flow-person">👨‍💼</span>
+              <span class="flow-person">🧑‍🔧</span>
+            </div>
+          </div>
+
+          <div class="flow-wire-wrap">
+            <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+              <line class="flow-dash" x1="0" y1="16" x2="100" y2="16" />
+              <path class="flow-arrow" d="M96 4l18 12-18 12" />
+            </svg>
+            <span class="flow-wire-label">tasks</span>
+          </div>
+
+          <div class="flow-node flow-node-agent">
+            <span class="flow-node-tag flow-node-tag-bold">AI persona</span>
+            <div class="flow-agent-stack">
+              <div class="flow-agent-core">
+                <span class="flow-avatar flow-avatar-agent" aria-hidden="true">AI</span>
+                <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
+                <svg class="flow-selfloop" viewBox="0 0 72 40" fill="none" aria-hidden="true">
+                  <path class="flow-dash flow-dash-selfloop" d="M46 10 H52 C64 10 64 34 52 34 H20 C8 34 8 10 20 10 H22" />
+                  <path class="flow-arrow flow-arrow-selfloop" d="M26 5l12 5-12 5" />
+                </svg>
+                <span class="flow-selfloop-label">self-critique &amp; reflection</span>
+              </div>
+              <svg class="flow-vault-wire" viewBox="0 0 24 40" fill="none" aria-hidden="true">
+                <line class="flow-dash" x1="12" y1="40" x2="12" y2="12" />
+                <path class="flow-arrow" d="M5 14l7-10 7 10" />
+              </svg>
+              <div class="flow-vault">
+                <span class="flow-vault-docs" aria-hidden="true">
+                  <span class="flow-doc"></span>
+                  <span class="flow-doc"></span>
+                  <span class="flow-doc is-locked">
+                    <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                      <rect x="2" y="5" width="8" height="6" fill="currentColor" />
+                      <path d="M4 5V3.5a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    </svg>
+                  </span>
+                </span>
+                <span class="flow-vault-tag">Your data vault</span>
+                <span class="flow-vault-sub">tickets · docs · playbooks</span>
+                <span class="flow-vault-wire-label">grounded in your data</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-wire-wrap">
+            <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+              <line class="flow-dash flow-dash-late" x1="0" y1="16" x2="100" y2="16" />
+              <path class="flow-arrow" d="M96 4l18 12-18 12" />
+            </svg>
+            <span class="flow-wire-label">drafts &amp; replies</span>
+          </div>
+
+          <div class="flow-node flow-node-output">
+            <span class="flow-node-tag flow-node-tag-bold">Output</span>
+            <div class="flow-chips">
+              <span class="flow-chip">handled ticket</span>
+              <span class="flow-chip">draft post</span>
+              <span class="flow-chip">scored session</span>
+            </div>
+          </div>
+
+          <span class="flow-review-label">review &amp; feedback</span>
+          <svg class="flow-review-arc" viewBox="0 0 1000 72" preserveAspectRatio="none" fill="none" aria-hidden="true">
+            <path class="flow-dash flow-dash-review" d="M985 58 V28 C985 14 900 10 500 10 C100 10 15 14 15 28 V58" />
+            <path class="flow-arrow" d="M3 48l12 16 12-16" />
+          </svg>
+          <svg class="flow-review-return" viewBox="0 0 160 48" fill="none" aria-hidden="true">
+            <path class="flow-dash flow-dash-review" d="M140 6 V34 H20 V14" />
+            <path class="flow-arrow" d="M12 20l8-14 8 14" />
+          </svg>
+        </div>
+      </section>
+
+      <!-- 5 · How it works -->
+      <section id="how" class="for-business section-paper" aria-labelledby="how-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">How it works</p>
+          <h2 id="how-title">From discovery call to working pilot.</h2>
+          <p>No procurement maze, no year-long rollout. One scoped pilot proves the value before you commit to anything bigger.</p>
+        </div>
+
+        <div class="b2b-steps" data-reveal-stagger>
+          {b2bSteps.map((step) => (
+            <article class={`step-card step-card-${step.tone}`}>
+              <span class="step-number" aria-hidden="true">{step.number}</span>
+              <div>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <!-- 6 · Pilot panel (no pricing — decision #4) -->
+      <section id="pilot" class="for-business section-white" aria-labelledby="pilot-title">
+        <div class="cta-panel b2b-cta" data-reveal>
+          <span class="countdown"><strong>PILOT</strong> · one team · a few weeks</span>
+          <h2 id="pilot-title">What a pilot includes.</h2>
+          <ul class="pilot-list">
+            {pilotIncludes.map((item) => (
+              <li><span class="check">✓</span>{item}</li>
+            ))}
+          </ul>
+          <div class="cta-actions">
+            <a class="button button-dark" href="#contact">Book a pilot call</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7 · B2B mini-FAQ -->
+      <section id="faq" class="for-business section-paper" aria-labelledby="faq-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">Questions teams ask</p>
+          <h2 id="faq-title">Before the call.</h2>
+        </div>
+
+        <div class="faq-grid" data-reveal-stagger>
+          {b2bFaqs.map((item) => (
+            <article class="faq-card">
+              <h3>
+                <span class="faq-emoji" aria-hidden="true">{item.emoji}</span>
+                <span class="faq-question-text">{item.question}</span>
+              </h3>
+              <p>{item.answer}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <!-- 8 · Contact form -->
+      <section id="contact" class="for-business section-white" aria-labelledby="contact-title">
+        <div class="section-heading centered" data-reveal>
+          <p class="eyebrow">Book a pilot call</p>
+          <h2 id="contact-title">Tell us about your use case.</h2>
+          <p>We reply within two business days with a pilot proposal. Everything you share stays between us.</p>
+        </div>
+
+        <div class="contact-wrap" data-reveal>
+          <form
+            id="business-contact-form"
+            class="contact-form"
+            method="post"
+            action="/api/contact"
+            data-endpoint="/api/contact"
+            data-challenge-endpoint="/api/altcha-challenge"
+            novalidate
+          >
+            <div class="form-row">
+              <label class="form-field">
+                <span class="form-label">Name</span>
+                <input class="form-input" type="text" name="name" autocomplete="name" required maxlength="120" placeholder="Ada Lovelace" />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Work email</span>
+                <input class="form-input" type="email" name="email" autocomplete="email" required maxlength="254" placeholder="ada@company.com" />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="form-field">
+                <span class="form-label">Company</span>
+                <input class="form-input" type="text" name="company" autocomplete="organization" required maxlength="160" placeholder="Analytical Engines Ltd" />
+              </label>
+              <label class="form-field">
+                <span class="form-label">Use case</span>
+                <span class="form-select-wrap">
+                  <select class="form-input form-select" name="useCase" required>
+                    {useCaseOptions.map((opt) => (
+                      <option value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+            </div>
+
+            <label class="form-field">
+              <span class="form-label">What are you trying to achieve?</span>
+              <textarea
+                class="form-input form-textarea"
+                name="message"
+                rows="5"
+                required
+                minlength="20"
+                maxlength="4000"
+                placeholder="Team size, the conversations you want to rehearse, current tooling, timeline…"
+              ></textarea>
+            </label>
+
+            <!-- Honeypot: invisible to humans, irresistible to bots -->
+            <div class="form-hp" aria-hidden="true">
+              <label>
+                Website
+                <input type="text" name="website" tabindex="-1" autocomplete="off" />
+              </label>
+            </div>
+
+            <!-- Altcha proof-of-work widget (no-JS visitors fall back to email) -->
+            <altcha-widget
+              class="contact-altcha"
+              challengeurl="/api/altcha-challenge"
+              name="altcha"
+              hidefooter
+            ></altcha-widget>
+
+            <p class="form-status" data-form-status role="status" aria-live="polite"></p>
+
+            <div class="cta-actions">
+              <button class="button button-dark" type="submit">Send inquiry</button>
+            </div>
+            <p class="form-alt">
+              Prefer email? <a href={`mailto:${contactEmail}?subject=${encodeURIComponent('B2B pilot inquiry')}`}>{contactEmail}</a>
+            </p>
+          </form>
+
+          <div class="contact-success" data-contact-success hidden>
+            <span class="contact-success-emoji" aria-hidden="true">📬</span>
+            <h3>Inquiry sent.</h3>
+            <p>Thanks — we reply within two business days with a pilot proposal. Talk soon.</p>
+          </div>
+        </div>
+
+        <footer class="site-footer">
+          <div class="footer-brand">
+            <a class="footer-wordmark" href="/" aria-label={`${siteName} home`}>{siteName}</a>
+            <p class="footer-blurb">An AI career simulator for the conversations that actually move the needle — interviews, negotiations, 1:1s.</p>
+            <div class="footer-socials">
+              <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
+                <Fragment set:html={githubIcon} />
+              </a>
+            </div>
+          </div>
+
+          <div class="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href={simulationsUrl}>Public sims</a></li>
+              <li><a href="#offerings">Offerings</a></li>
+              <li><a href="#faq">FAQ</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Resources</h4>
+            <ul>
+              <li><a href={githubUrl}>GitHub</a></li>
+              <li><a href={`mailto:${contactEmail}`}>Contact</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Legal</h4>
+            <ul>
+              <li><a href="/privacy">Privacy</a></li>
+              <li><a href="/terms">Terms</a></li>
+              <li><a href="/security">Security</a></li>
+            </ul>
+          </div>
+        </footer>
+
+        <div class="footer-bottom">
+          <span>© 2026 {siteName} · All rights reserved</span>
+          <span>Built with care · <a href={`mailto:${contactEmail}`}>{contactEmail}</a></span>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      import 'altcha';
+    </script>
+
+    <script is:inline>
+      (() => {
+        // Reveal-on-scroll (same pattern as the homepage).
+        if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+          document.querySelectorAll('[data-reveal], [data-reveal-stagger]').forEach((el) => {
+            el.classList.add('is-visible');
+          });
+        } else {
+          const io = new IntersectionObserver(
+            (entries) => {
+              for (const entry of entries) {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add('is-visible');
+                  io.unobserve(entry.target);
+                }
+              }
+            },
+            { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
+          );
+          document.querySelectorAll('[data-reveal], [data-reveal-stagger]').forEach((el) => {
+            io.observe(el);
+          });
+        }
+
+        // Contact form: fetch submit + inline status.
+        const form = document.getElementById('business-contact-form');
+        if (!form) return;
+        const status = form.querySelector('[data-form-status]');
+        const success = document.querySelector('[data-contact-success]');
+        const submitBtn = form.querySelector('button[type="submit"]');
+
+        const setStatus = (message, kind) => {
+          if (!status) return;
+          status.textContent = message;
+          status.dataset.kind = kind || '';
+        };
+
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!form.reportValidity()) return;
+
+          setStatus('', '');
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Sending…';
+
+          try {
+            const response = await fetch(form.dataset.endpoint, {
+              method: 'POST',
+              body: new FormData(form),
+            });
+
+            if (response.ok) {
+              form.hidden = true;
+              if (success) success.hidden = false;
+              return;
+            }
+
+            let detail = 'Something went wrong — please try again, or email us directly.';
+            try {
+              const body = await response.json();
+              if (body && typeof body.error === 'string') detail = body.error;
+            } catch (_err) { /* keep default */ }
+            setStatus(detail, 'error');
+          } catch (_err) {
+            setStatus('Network error — check your connection and try again.', 'error');
+          } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send inquiry';
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

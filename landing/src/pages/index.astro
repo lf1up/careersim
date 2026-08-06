@@ -490,7 +490,7 @@ const footerLinks = {
     ...(blogUrl ? [{ label: 'Blog', href: blogUrl }] : []),
     { label: 'How it works', href: '#how-it-works' },
     { label: 'Personas', href: '#personas' },
-    { label: 'For business', href: '#for-business' },
+    { label: 'For business', href: '/business' },
     { label: 'FAQ', href: '#faq' },
   ],
   resources: [
@@ -594,7 +594,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
           <Fragment set:html={githubIcon} />
         </a>
-        <a class="button button-light header-b2b" href="#for-business">Business</a>
+        <a class="button button-light header-b2b" href="/business">Business</a>
         <a class="button button-accent header-cta" href={appUrl}>Start practicing</a>
       </div>
     </header>
@@ -1042,7 +1042,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           <h2>Tell us about your use case.</h2>
           <p>Custom training simulations, bespoke personas, support practice, and persona-driven content — scoped to your team. We reply within two business days with a pilot proposal.</p>
           <div class="cta-actions">
-            <a class="button button-dark" href={`mailto:${contactEmail}?subject=${encodeURIComponent('B2B inquiry — custom simulations')}`}>Get in touch</a>
+            <a class="button button-dark" href="/business">Get in touch</a>
             <a class="button button-light" href={simulationsUrl}>Try the public simulations first</a>
           </div>
           <p class="cta-note">

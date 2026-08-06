@@ -18,10 +18,15 @@
   "license": "MIT",
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
+    "@types/node": "^26.1.2",
     "astro": "^7.1.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1"
+    "@astrojs/vercel": "^11.0.4",
+    "@vercel/analytics": "^2.0.1",
+    "altcha": "^3.2.1",
+    "altcha-lib": "^2.3.2",
+    "resend": "^6.18.1"
   }
 }
