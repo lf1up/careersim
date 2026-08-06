@@ -28,6 +28,10 @@ package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
 `CONTACT_*`, and `ALTCHA_*` in `web/.env.example` / the web Vercel project —
 not here.
 
+Web Analytics on proxied pages (`/`, `/business`, legal) also goes through
+the apex: landing injects `/_vercel/insights/*`, which is served by the
+**web** Vercel project. Enable Web Analytics there (not only on landing).
+
 ## ⚙️ Scripts
 
 ```bash

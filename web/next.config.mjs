@@ -132,23 +132,6 @@ const nextConfig = {
       '/avatars/:path*',
     ];
 
-    // Landing Web Analytics unique path (PUBLIC_VERCEL_OBSERVABILITY_*),
-    // e.g. `/b17bf9fe580cd936`. Prefer absolute URLs from the landing build;
-    // this rewrite is a fallback if a relative path still hits the apex.
-    const landingObsBase = process.env.LANDING_OBSERVABILITY_BASEPATH?.trim().replace(
-      /\/$/,
-      '',
-    );
-    const landingObsRewrite =
-      landingObsBase && landingObsBase.startsWith('/')
-        ? [
-            {
-              source: `${landingObsBase}/:path*`,
-              destination: `${landingOrigin}${landingObsBase}/:path*`,
-            },
-          ]
-        : [];
-
     return {
       beforeFiles: [
         ...landingRoutes.map((source) => ({
@@ -159,7 +142,6 @@ const nextConfig = {
           source,
           destination: `${landingOrigin}${source}`,
         })),
-        ...landingObsRewrite,
         {
           source: '/favicon.svg',
           destination: `${landingOrigin}/favicon.svg`,
