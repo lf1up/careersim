@@ -119,6 +119,11 @@ const nextConfig = {
       '/privacy',
       '/terms',
       '/security',
+      // /business contact form (Astro serverless). Keep these specific —
+      // do not blanket-proxy `/api/*` or we would steal web's own routes
+      // (e.g. `/api/revalidate`).
+      '/api/altcha-challenge',
+      '/api/contact',
     ];
 
     const landingAssetPrefixes = [

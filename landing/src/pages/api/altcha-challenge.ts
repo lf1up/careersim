@@ -8,7 +8,12 @@ const expiresInMs = 10 * 60 * 1000;
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      // Challenges are single-use and time-bound; never let a proxy/browser
+      // serve a stale 304'd payload through the apex rewrite.
+      'cache-control': 'no-store',
+    },
   });
 }
 
