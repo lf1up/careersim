@@ -9,6 +9,7 @@ export default function robots(): MetadataRoute.Robots {
     '/llms.txt',
     '/simulations',
     '/simulations/',
+    '/business',
     '/privacy',
     '/terms',
     '/security',

@@ -27,6 +27,7 @@ export async function GET(): Promise<Response> {
     '## Core Pages',
     '',
     `- [Simulation catalog](${absoluteUrl('/simulations')}): Browse AI career simulations for interviews, workplace communication, feedback, and professional growth.`,
+    `- [For business](${absoluteUrl('/business')}): Custom AI personas for team training, support practice, and persona-driven content — pilot-first.`,
     ...(blogEnabled
       ? [
           `- [Blog](${absoluteUrl('/blog')}): Guides and practice tips for career-defining conversations.`,

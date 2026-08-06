@@ -115,6 +115,7 @@ const nextConfig = {
     const landingRoutes = [
       // Marketing pages.
       '/',
+      '/business',
       '/privacy',
       '/terms',
       '/security',
