@@ -13,37 +13,14 @@ const pageTitle = `${siteName} for Business | Custom AI personas for training, s
 const pageDescription =
   'Custom AI training simulations, bespoke personas, support practice, and persona-driven content — built on your workflows. Book a pilot call.';
 
-const proofSession = {
-  sessionTitle: 'enterprise-discovery.session',
-  persona: {
-    avatar: '/avatars/marcus-whitfield-timeboxed-director.png',
-    initials: 'MW',
-    tone: 4,
-    name: 'Marcus',
-    role: 'Time-boxed director',
-  },
-  meta: { mode: 'Discovery', difficulty: 4, round: '02 / 04', time: '03:05' },
-  messages: [
-    {
-      type: 'ai',
-      label: 'Marcus · Director',
-      text: '“I have ten minutes. Your deck says 30% faster onboarding — show me the mechanism, not the marketing.”',
-    },
-    {
-      type: 'user',
-      label: 'Your rep',
-      text: '“Fair. Two mechanisms: persona-led ramp for new hires, and scenario drills for the escalation paths your team flags most…”',
-    },
-  ],
-  typing: 'Marcus is responding',
-  scores: [
-    { label: 'Clarity', value: 88 },
-    { label: 'Evidence', value: 91 },
-    { label: 'Pace', value: 76 },
-  ],
-  tip: 'Strong pivot to mechanism. Quantify the ramp claim once, then stop selling.',
-  recording: '03:05',
-};
+const agentFeed = [
+  { agent: 'Support agent', action: 'drafted a reply', target: 'ticket #4821 · refund dispute', badge: 'Queued for review', tone: 'yellow' },
+  { agent: 'Coach agent', action: 'scored a session', target: 'discovery call · new-hire ramp', badge: 'Self-critique passed', tone: 'blue' },
+  { agent: 'Content agent', action: 'drafted a post', target: 'launch notes · in your brand voice', badge: 'Self-critique passed', tone: 'pink' },
+  { agent: 'Support agent', action: 'resolved', target: 'ticket #4790 · password reset', badge: 'Auto-handled · policy match', tone: 'lime' },
+  { agent: 'Assessment agent', action: 'scored a candidate', target: 'rubric: senior sales screen', badge: 'Queued for review', tone: 'accent' },
+  { agent: 'Coach agent', action: 'flagged a pattern', target: 'pricing objection · 4 sessions this week', badge: 'Self-critique passed', tone: 'blue' },
+];
 
 const b2bOfferings = [
   {
@@ -259,10 +236,10 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         <div class="hero-copy" data-reveal>
           <p class="badge"><span class="badge-emoji" aria-hidden="true">🏢</span><span class="badge-text">For teams · Custom builds · Pilot-first</span></p>
           <h1 id="hero-title">
-            High-stakes conversations, <span class="hl-yellow">rehearsed</span> before they're <span class="hl-pink">real</span>.
+            Your team's newest hire is an <span class="hl-yellow">AI agent</span> — <span class="hl-pink">grounded</span> in your data.
           </h1>
           <p class="hero-subhead">
-            <span class="pixel-name">{siteName}</span> builds AI personas for training, support practice, and content — custom-built on your workflows, your customers, and your brand voice.
+            <span class="pixel-name">{siteName}</span> builds agents that rehearse conversations, answer tickets, and draft content — grounded in your data vault, self-critiqued, and reviewed by your team before anything ships.
           </p>
           <div class="hero-actions">
             <a class="button button-dark" href="#contact">Book a pilot call</a>
@@ -275,94 +252,33 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
           </ul>
         </div>
 
-        <!-- 2 · Proof strip: the same preview component, framed for a buyer -->
-        <aside class="product-preview" aria-label="What your team sees in a session" data-reveal>
+        <!-- 2 · Agent activity feed: the workforce doing real work -->
+        <aside class="product-preview agent-feed" aria-label="What your agents are doing right now" data-reveal>
           <div class="window-bar">
             <span class="window-dot dot-red"></span>
             <span class="window-dot dot-yellow"></span>
             <span class="window-dot dot-green"></span>
-            <span class="session-title">{proofSession.sessionTitle}</span>
+            <span class="session-title">your-team.agents — live</span>
           </div>
 
-          <div class="preview-panels">
-            <div class="preview-panel is-active">
-              <div class="preview-body">
-                <aside class="persona-rail" aria-label="Active persona">
-                  <img
-                    class={`persona-avatar tone-${proofSession.persona.tone}`}
-                    src={proofSession.persona.avatar}
-                    alt={`${proofSession.persona.name} — ${proofSession.persona.role}`}
-                    width="56"
-                    height="56"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <div>
-                    <p class="persona-name">{proofSession.persona.name}</p>
-                    <p class="persona-role">{proofSession.persona.role}</p>
-                  </div>
-                  <div class="persona-meta">
-                    <div class="persona-meta-row">
-                      <span>Mode</span>
-                      <span>{proofSession.meta.mode}</span>
-                    </div>
-                    <div class="persona-meta-row">
-                      <span>Difficulty</span>
-                      <span class="difficulty-dots" aria-label={`Difficulty ${proofSession.meta.difficulty} of 5`}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <span class={i < proofSession.meta.difficulty ? 'is-on' : ''}></span>
-                        ))}
-                      </span>
-                    </div>
-                    <div class="persona-meta-row">
-                      <span>Round</span>
-                      <span>{proofSession.meta.round}</span>
-                    </div>
-                    <div class="persona-meta-row">
-                      <span>Time</span>
-                      <span>{proofSession.meta.time}</span>
-                    </div>
-                  </div>
-                </aside>
-
-                <div class="preview-chat">
-                  {proofSession.messages.map((m) => (
-                    <article class={`message-card message-${m.type}`}>
-                      <p class="message-label">{m.label}</p>
-                      <p>{m.text}</p>
-                    </article>
-                  ))}
-
-                  <div class="typing" aria-live="polite">
-                    <span>{proofSession.typing}</span>
-                    <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-                  </div>
-
-                  <article class="feedback-card">
-                    <p class="message-label">This is what your rep sees — live coaching, every session</p>
-                    <div class="score-row">
-                      {proofSession.scores.map((s) => (
-                        <div class="score-cell">
-                          <p class="score-label">{s.label}</p>
-                          <p class="score-value">{s.value}<small>/100</small></p>
-                          <div class="score-bar"><div style={`--w: ${s.value}%`}></div></div>
-                        </div>
-                      ))}
-                    </div>
-                    <p class="feedback-tip">{proofSession.tip}</p>
-                  </article>
+          <div class="agent-feed-body">
+            {agentFeed.map((item) => (
+              <article class="agent-feed-item">
+                <span class={`agent-dot tone-${item.tone}`} aria-hidden="true"></span>
+                <div class="agent-feed-text">
+                  <p class="agent-feed-line">
+                    <strong>{item.agent}</strong> {item.action}
+                  </p>
+                  <p class="agent-feed-target">{item.target}</p>
                 </div>
-              </div>
+                <span class={`agent-badge tone-${item.tone}`}>{item.badge}</span>
+              </article>
+            ))}
+          </div>
 
-              <div class="preview-footer">
-                <span class="left"><span class="live-dot" aria-hidden="true"></span>Recording · {proofSession.recording}</span>
-                <span class="right">
-                  <span class="kbd">Space</span> Pause
-                  <span class="kbd">R</span> Rerun
-                  <span class="kbd">Esc</span> Quit
-                </span>
-              </div>
-            </div>
+          <div class="preview-footer">
+            <span class="left"><span class="live-dot" aria-hidden="true"></span>Agents working · human review on</span>
+            <span class="right">Grounded in your data vault</span>
           </div>
         </aside>
       </section>
@@ -624,7 +540,10 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             <p>Thanks — we reply within two business days with a pilot proposal. Talk soon.</p>
           </div>
         </div>
+      </section>
 
+      <!-- 7 · Footer (same dark shell as the homepage) -->
+      <section class="cta-section" aria-label="Site footer">
         <footer class="site-footer">
           <div class="footer-brand">
             <a class="footer-wordmark" href="/" aria-label={`${siteName} home`}>{siteName}</a>
