@@ -119,11 +119,10 @@ const nextConfig = {
       '/privacy',
       '/terms',
       '/security',
-      // /business contact form (Astro serverless). Keep these specific —
-      // do not blanket-proxy `/api/*` or we would steal web's own routes
-      // (e.g. `/api/revalidate`).
-      '/api/altcha-challenge',
-      '/api/contact',
+      // Contact form APIs live in this Next app (`/api/altcha-challenge`,
+      // `/api/contact`) so they share the apex challenge session. Do not
+      // rewrite them to LANDING_ORIGIN — cross-project proxies get HTML
+      // bot-challenge pages and break ALTCHA (expects application/json).
     ];
 
     const landingAssetPrefixes = [

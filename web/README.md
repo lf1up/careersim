@@ -248,7 +248,12 @@ pnpm typecheck  # tsc --noEmit
 | `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@careersim.local` | Public support/contact email displayed in the app footer |
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
-| `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/business`, legal pages, `/_astro/*`, `/favicon.svg`, and the landing contact endpoints (`/api/altcha-challenge`, `/api/contact`) to that origin so `web` can serve as the single-domain front door |
+| `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/business`, legal pages, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door. Contact form APIs stay on `web` (`/api/altcha-challenge`, `/api/contact`) so they share the apex bot-challenge session |
+| `RESEND_API_KEY` | unset | Resend API key for `/business` contact-form delivery |
+| `CONTACT_FROM_EMAIL` | `onboarding@resend.dev` | Verified Resend sender for inquiry emails |
+| `CONTACT_TO_EMAIL` | falls back to `NEXT_PUBLIC_CONTACT_EMAIL` | Inbox that receives `/business` inquiries |
+| `ALTCHA_HMAC_KEY` | unset | Server-only secret for signing/verifying the `/business` ALTCHA widget (independent from `api`'s key) |
+| `ALTCHA_MAX_NUMBER` | `50000` | PoW difficulty for the `/business` ALTCHA challenge |
 | `NEXT_PUBLIC_BLOG_ENABLED` | unset / `false` | Opt-in for the blog (**off by default**). Omit the var, or set `false`/`0`, to keep it off. `true`/`1` plus `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` enables `/blog`; otherwise routes 404 and sitemap / robots / `llms.txt` omit blog URLs. Landing links use `LANDING_BLOG_URL` (separate, also unset by default) |
 | `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`). Required with the Content API key for the blog to enable |
 | `GHOST_PUBLIC_URL` | unset | Optional browser-facing Ghost origin for `next/image` when it differs from `GHOST_API_URL` |

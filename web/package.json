@@ -15,6 +15,7 @@
     "@tryghost/content-api": "^1.12.10",
     "@vercel/analytics": "^2.0.1",
     "altcha": "^3.0.4",
+    "altcha-lib": "^2.3.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "eventsource-parser": "^3.0.8",
@@ -25,7 +26,8 @@
     "react-dom": "^19.2.5",
     "react-hot-toast": "^2.6.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "resend": "^6.18.1"
   },
   "devDependencies": {
     "@types/dompurify": "^3.2.0",
