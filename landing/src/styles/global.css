@@ -2403,6 +2403,10 @@ img.persona-avatar {
   max-width: none;
 }
 
+.cta-panel .cta-note-lead {
+  white-space: nowrap;
+}
+
 .cta-panel .cta-note a {
   color: #064e3b;
   font-family: 'JetBrains Mono', monospace;
@@ -2418,6 +2422,13 @@ img.persona-avatar {
 .cta-panel .cta-note a:hover {
   color: #022c22;
   text-decoration-thickness: 3px;
+}
+
+@media (max-width: 560px) {
+  .cta-panel .cta-note a {
+    display: block;
+    margin-top: 0.2em;
+  }
 }
 
 .countdown {
