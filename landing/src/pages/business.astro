@@ -217,7 +217,6 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
       <nav class="nav-links" aria-label="Business page sections">
         <a href="#offerings">Offerings</a>
         <a href="#how">How it works</a>
-        <a href="#pilot">Pilot</a>
         <a href="#faq">FAQ</a>
       </nav>
 
@@ -225,8 +224,8 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         <a class="icon-button" href={githubUrl} target="_blank" rel="noreferrer" aria-label={`View ${siteName} on GitHub`}>
           <Fragment set:html={githubIcon} />
         </a>
-        <a class="button button-light header-b2b" href={simulationsUrl}>Public sims</a>
-        <a class="button button-accent header-cta" href="#contact">Book a pilot call</a>
+        <a class="button button-light header-b2b" href={simulationsUrl}>Simulations</a>
+        <a class="button button-accent header-cta" href="#contact">Book pilot call</a>
       </div>
     </header>
 
@@ -242,8 +241,8 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             <span class="pixel-name">{siteName}</span> builds agents that rehearse conversations, answer tickets, and draft content — grounded in your data vault, self-critiqued, and reviewed by your team before anything ships.
           </p>
           <div class="hero-actions">
-            <a class="button button-dark" href="#contact">Book a pilot call</a>
-            <a class="button button-light" href={simulationsUrl}>Try a public sim</a>
+            <a class="button button-dark" href="#contact">Book pilot call</a>
+            <a class="button button-light" href={simulationsUrl}>Try public simulations</a>
           </div>
           <ul class="hero-meta" aria-label="Business highlights">
             <li class="hero-meta-item"><span class="check">✓</span>Pilot live in weeks, not quarters</li>
@@ -392,7 +391,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         </div>
       </section>
 
-      <!-- 5 · How it works -->
+      <!-- 5 · How it works + pilot -->
       <section id="how" class="for-business section-paper" aria-labelledby="how-title">
         <div class="section-heading centered" data-reveal>
           <p class="eyebrow">How it works</p>
@@ -411,11 +410,8 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             </article>
           ))}
         </div>
-      </section>
 
-      <!-- 6 · Pilot panel (no pricing — decision #4) -->
-      <section id="pilot" class="for-business section-white" aria-labelledby="pilot-title">
-        <div class="cta-panel b2b-cta" data-reveal>
+        <div id="pilot" class="cta-panel b2b-cta" data-reveal>
           <span class="countdown"><strong>PILOT</strong> · one team · a few weeks</span>
           <h2 id="pilot-title">What a pilot includes.</h2>
           <ul class="pilot-list">
@@ -424,13 +420,13 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             ))}
           </ul>
           <div class="cta-actions">
-            <a class="button button-dark" href="#contact">Book a pilot call</a>
+            <a class="button button-dark" href="#contact">Book pilot call</a>
           </div>
         </div>
       </section>
 
-      <!-- 7 · B2B mini-FAQ -->
-      <section id="faq" class="for-business section-paper" aria-labelledby="faq-title">
+      <!-- 6 · B2B mini-FAQ -->
+      <section id="faq" class="for-business section-white" aria-labelledby="faq-title">
         <div class="section-heading centered" data-reveal>
           <p class="eyebrow">Questions teams ask</p>
           <h2 id="faq-title">Before the call.</h2>
@@ -449,8 +445,8 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
         </div>
       </section>
 
-      <!-- 8 · Contact form -->
-      <section id="contact" class="for-business section-white" aria-labelledby="contact-title">
+      <!-- 7 · Contact + footer (same dark shell as the homepage CTA) -->
+      <section id="contact" class="cta-section" aria-labelledby="contact-title">
         <div class="section-heading centered" data-reveal>
           <p class="eyebrow">Book a pilot call</p>
           <h2 id="contact-title">Tell us about your use case.</h2>
@@ -540,10 +536,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             <p>Thanks — we reply within two business days with a pilot proposal. Talk soon.</p>
           </div>
         </div>
-      </section>
 
-      <!-- 7 · Footer (same dark shell as the homepage) -->
-      <section class="cta-section" aria-label="Site footer">
         <footer class="site-footer">
           <div class="footer-brand">
             <a class="footer-wordmark" href="/" aria-label={`${siteName} home`}>{siteName}</a>
@@ -559,7 +552,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             <h4>Product</h4>
             <ul>
               <li><a href="/">Home</a></li>
-              <li><a href={simulationsUrl}>Public sims</a></li>
+              <li><a href={simulationsUrl}>Public simulations</a></li>
               <li><a href="#offerings">Offerings</a></li>
               <li><a href="#faq">FAQ</a></li>
             </ul>
