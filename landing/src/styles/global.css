@@ -1415,10 +1415,19 @@ img.persona-avatar {
     max-width: 480px;
   }
   .flow-wire {
-    height: 44px;
+    height: 58px;
     justify-self: center;
     transform: rotate(90deg);
-    width: 44px;
+    width: 58px;
+  }
+
+  .flow-wire-wrap {
+    gap: 6px;
+    margin: 4px 0;
+  }
+
+  .flow-wire-label {
+    font-size: 0.78rem;
   }
 }
 
@@ -1724,6 +1733,12 @@ img.persona-avatar {
   .flow-review-return .flow-dash,
   .flow-review-return .flow-arrow {
     stroke-width: 3.5;
+  }
+
+  /* Mobile return path ends at the upward arrow; march toward the tip
+     (desktop arc uses reverse for its opposite geometry). */
+  .flow-review-return .flow-dash-review {
+    animation-direction: normal;
   }
 }
 
