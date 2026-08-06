@@ -2412,6 +2412,7 @@ img.persona-avatar {
   text-decoration-color: var(--ink);
   text-decoration-thickness: 2.5px;
   text-underline-offset: 5px;
+  white-space: nowrap;
 }
 
 .cta-panel .cta-note a:hover {
