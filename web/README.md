@@ -269,10 +269,12 @@ applies to other `NEXT_PUBLIC_*` values such as `NEXT_PUBLIC_CONTACT_EMAIL`,
 landing project's deployment origin, for example
 `https://careersim-landing.vercel.app`.
 
-No ALTCHA configuration lives on the client — the HMAC key, challenge TTL,
-and PoW difficulty are all server-side (`ALTCHA_HMAC_KEY`,
-`ALTCHA_MAX_NUMBER` in `api/.env`). The widget only sees the signed
-challenge payload.
+No ALTCHA configuration lives on the client — the widget only sees the
+signed challenge payload. Auth forms use `api/.env` (`ALTCHA_HMAC_KEY`,
+`ALTCHA_MAX_NUMBER`). The `/business` contact form uses a **separate**
+pair on this app (`web/.env` / the web Vercel project): `RESEND_API_KEY`,
+`CONTACT_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `ALTCHA_HMAC_KEY`,
+`ALTCHA_MAX_NUMBER`.
 
 ## 🎨 Design notes
 

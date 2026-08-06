@@ -23,6 +23,11 @@ Copy `.env.example` to `.env` and adjust as needed. Blog nav/footer links stay
 hidden unless you set `LANDING_BLOG_URL` (leave it unset by default to match
 `web` when `NEXT_PUBLIC_BLOG_ENABLED` is omitted or false).
 
+The `/business` contact form on `careersim.ai` is handled by the `web`
+package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
+`CONTACT_*`, and `ALTCHA_*` in `web/.env.example` / the web Vercel project —
+not here.
+
 ## ⚙️ Scripts
 
 ```bash
