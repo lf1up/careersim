@@ -2442,6 +2442,8 @@ img.persona-avatar {
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: center;
+  margin-inline: auto;
   max-width: 1080px;
   width: 100%;
 }
