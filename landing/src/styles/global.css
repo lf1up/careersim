@@ -3389,6 +3389,12 @@ img.persona-avatar {
   font-weight: 700;
 }
 
+/* Author `display: grid/flex` beats the UA [hidden] rule without !important. */
+.contact-form[hidden],
+.contact-success[hidden] {
+  display: none !important;
+}
+
 .contact-success {
   background: var(--surface);
   border: 2px solid var(--ink);

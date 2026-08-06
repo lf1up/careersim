@@ -532,7 +532,7 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             </p>
           </form>
 
-          <div class="contact-success" data-contact-success hidden>
+          <div class="contact-success" data-contact-success hidden tabindex="-1" role="status" aria-live="polite">
             <span class="contact-success-emoji" aria-hidden="true">📬</span>
             <h3>Inquiry sent.</h3>
             <p>Thanks — we reply within two business days with a pilot proposal. Talk soon.</p>
@@ -640,7 +640,11 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
 
             if (response.ok) {
               form.hidden = true;
-              if (success) success.hidden = false;
+              if (success) {
+                success.hidden = false;
+                success.focus({ preventScroll: true });
+                success.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
               return;
             }
 
@@ -650,9 +654,10 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
               if (body && typeof body.error === 'string') detail = body.error;
             } catch (_err) { /* keep default */ }
             setStatus(detail, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Send inquiry';
           } catch (_err) {
             setStatus('Network error — check your connection and try again.', 'error');
-          } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Send inquiry';
           }
