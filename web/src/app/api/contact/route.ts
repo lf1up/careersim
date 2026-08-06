@@ -2,6 +2,12 @@ import { verifySolution } from 'altcha-lib/v1';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
+import {
+  CONTACT_RATE_LIMIT_MESSAGE,
+  clientIp,
+  consumeContactQuotas,
+} from '@/lib/contact-rate-limit';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +102,16 @@ export async function POST(request: Request): Promise<NextResponse> {
       { error: 'Verification failed — refresh the page and try again.' },
       400,
     );
+  }
+
+  // 3 sends per hour per IP and per submitter email (after ALTCHA passes).
+  if (
+    !consumeContactQuotas([
+      `ip:${clientIp(request)}`,
+      `email:${email.toLowerCase()}`,
+    ])
+  ) {
+    return json({ error: CONTACT_RATE_LIMIT_MESSAGE }, 429);
   }
 
   const apiKey = process.env.RESEND_API_KEY?.trim();
