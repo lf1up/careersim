@@ -3370,7 +3370,10 @@ img.persona-avatar {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85rem;
   margin: 0;
-  min-height: 1.2em;
+}
+
+.form-status:empty {
+  display: none;
 }
 
 .form-status[data-kind='error'] {
@@ -3386,8 +3389,20 @@ img.persona-avatar {
 }
 
 .form-alt a {
-  color: var(--ink);
-  font-weight: 700;
+  color: #0a7a58;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 2.5px;
+  text-underline-offset: 5px;
+  white-space: nowrap;
+}
+
+.form-alt a:hover {
+  color: #064e3b;
+  text-decoration-thickness: 3px;
 }
 
 /* Author `display: grid/flex` beats the UA [hidden] rule without !important. */
@@ -3421,6 +3436,7 @@ img.persona-avatar {
 
 .contact-form .cta-actions {
   justify-content: center;
+  margin-top: 10px;
 }
 
 .contact-form .cta-actions .button[disabled] {
