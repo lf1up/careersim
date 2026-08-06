@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { RetroBadge } from '@/components/ui/RetroBadge';
-import { CONTACT_EMAIL } from '@/lib/seo';
 
 const HIGHLIGHTS = [
   'Custom simulations',
@@ -14,7 +13,7 @@ const HIGHLIGHTS = [
 
 /**
  * Full-width B2B banner appended to the bottom of the public
- * `/simulations` catalogue. Server component; CTA is a plain mailto.
+ * `/simulations` catalogue. Server component; CTA opens /business.
  */
 export function B2BBanner() {
   return (
@@ -54,9 +53,7 @@ export function B2BBanner() {
 
           <div className="flex flex-col gap-3 shrink-0">
             <a
-              href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-                'B2B inquiry — custom simulations',
-              )}`}
+              href="/business"
               className="retro-btn-base inline-flex items-center justify-center bg-black dark:bg-retro-ink-dark text-white dark:text-retro-paper-dark hover:opacity-90 px-6 py-3 text-sm font-semibold tracking-wider2 whitespace-nowrap"
             >
               GET IN TOUCH →
