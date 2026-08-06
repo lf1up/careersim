@@ -1767,6 +1767,7 @@ img.persona-avatar {
 
 .b2b-cta {
   margin: 72px auto 0;
+  padding-top: 22px;
 }
 
 @media (max-width: 1180px) {
@@ -2693,7 +2694,7 @@ img.persona-avatar {
   }
 }
 
-/* Compact header actions before Business + Practice crowd the wordmark. */
+/* Compact header actions before secondary + primary CTAs crowd the wordmark. */
 @media (max-width: 960px) {
   .site-header {
     gap: 14px;
@@ -2722,13 +2723,13 @@ img.persona-avatar {
     padding-inline: 14px;
   }
   .header-cta::after {
-    content: 'Practice';
+    content: attr(data-compact);
     font-size: 0.88rem;
   }
 }
 
-/* Hide Business CTA only on very narrow phones. */
-@media (max-width: 500px) {
+/* Hide secondary header CTA on narrow phones. */
+@media (max-width: 540px) {
   .header-b2b {
     display: none;
   }
@@ -2738,6 +2739,18 @@ img.persona-avatar {
   .wordmark {
     font-size: 0.8rem;
     letter-spacing: 0.04em;
+  }
+}
+
+@media (max-width: 350px) {
+  .header-cta {
+    min-height: 36px;
+    min-width: 0;
+    padding-inline: 10px;
+  }
+
+  .header-cta::after {
+    font-size: 0.78rem;
   }
 }
 
@@ -3207,22 +3220,32 @@ img.persona-avatar {
   display: grid;
   gap: 12px;
   list-style: none;
-  margin: 24px auto 0;
+  margin: 0 auto;
   max-width: 640px;
   padding: 0;
   text-align: left;
 }
 
 .pilot-list li {
-  align-items: baseline;
+  align-items: flex-start;
   display: flex;
+  font-weight: 700;
   gap: 10px;
+  line-height: 1.45;
 }
 
 .pilot-list .check {
-  color: var(--accent-4);
+  align-items: center;
+  background: var(--ink);
+  color: var(--paper);
+  display: inline-flex;
   flex-shrink: 0;
-  font-weight: 900;
+  font-size: 0.72rem;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  margin-top: 2px;
+  width: 18px;
 }
 
 .contact-wrap {
@@ -3525,11 +3548,41 @@ img.persona-avatar {
 
 @media (max-width: 560px) {
   .agent-feed-item {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 8px 12px;
+    align-items: start;
+    column-gap: 12px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'dot text'
+      '. badge';
+    padding: 12px 14px;
+    row-gap: 8px;
   }
+
+  .agent-dot {
+    grid-area: dot;
+    margin-top: 5px;
+  }
+
+  .agent-feed-text {
+    grid-area: text;
+  }
+
+  .agent-feed-line {
+    font-size: 0.9rem;
+  }
+
+  .agent-feed-target {
+    font-size: 0.72rem;
+    overflow-wrap: anywhere;
+  }
+
   .agent-badge {
-    margin-left: 26px;
+    grid-area: badge;
+    justify-self: start;
+    letter-spacing: 0.06em;
+    max-width: 100%;
+    padding: 4px 8px;
+    white-space: normal;
   }
 }
