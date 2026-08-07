@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap');
+@import '../styles/fonts.css';
 
 @tailwind base;
 @tailwind components;
