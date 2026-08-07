@@ -169,9 +169,11 @@ export const Navbar: React.FC = () => {
             <GitHubLink className="!h-9 !w-9" />
             <ThemeToggle className="!h-9 !w-9" />
             <button
+              type="button"
               onClick={() => setIsMobileMenuOpen((v) => !v)}
               aria-expanded={isMobileMenuOpen}
               aria-controls="mobile-menu"
+              aria-label={isMobileMenuOpen ? 'Close main menu' : 'Open main menu'}
               className="inline-flex h-9 w-9 items-center justify-center border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
             >
               <svg
@@ -179,6 +181,7 @@ export const Navbar: React.FC = () => {
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"

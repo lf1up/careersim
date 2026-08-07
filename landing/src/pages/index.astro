@@ -683,9 +683,13 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
                       </div>
                       <div class="persona-meta-row">
                         <span>Difficulty</span>
-                        <span class="difficulty-dots" aria-label={`Difficulty ${session.meta.difficulty} of 5`}>
+                        <span
+                          class="difficulty-dots"
+                          role="img"
+                          aria-label={`Difficulty ${session.meta.difficulty} of 5`}
+                        >
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <span class={i < session.meta.difficulty ? 'is-on' : ''}></span>
+                            <span class={i < session.meta.difficulty ? 'is-on' : ''} aria-hidden="true"></span>
                           ))}
                         </span>
                       </div>

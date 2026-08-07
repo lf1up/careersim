@@ -144,9 +144,11 @@ export const Navbar: React.FC = () => {
           <div className="sm:hidden flex items-center space-x-2">
             <ThemeToggle />
             <button
+              type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-expanded={isMobileMenuOpen}
               aria-controls="mobile-menu"
+              aria-label={isMobileMenuOpen ? 'Close main menu' : 'Open main menu'}
               className="inline-flex items-center justify-center p-2 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 active:translate-x-[1px] active:translate-y-[1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
             >
               <svg
@@ -154,6 +156,7 @@ export const Navbar: React.FC = () => {
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
