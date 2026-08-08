@@ -1,5 +1,20 @@
 const landingOrigin = process.env.LANDING_ORIGIN?.replace(/\/$/, '');
 
+// Vercel "Protection Bypass for Automation" secret for the landing
+// project (landing → Settings → Deployment Protection). Once Standard
+// Protection locks the landing deployment behind Vercel Auth, this is
+// appended server-side to every rewrite destination so only this web
+// app can fetch the origin. Never sent to clients. Leave unset while
+// the landing project is unprotected (local dev, pre-rollout).
+const landingBypass = process.env.LANDING_BYPASS_SECRET?.trim();
+
+/** Append the protection bypass secret to a landing rewrite destination. */
+const withBypass = (url) => {
+  if (!landingBypass) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}x-vercel-protection-bypass=${encodeURIComponent(landingBypass)}`;
+};
+
 // Public API base URL — used by `next/image` so the optimizer is allowed
 // to fetch persona avatars from the API service. We accept both the
 // browser-visible URL (`NEXT_PUBLIC_API_URL`) and an optional internal one
@@ -136,15 +151,17 @@ const nextConfig = {
       beforeFiles: [
         ...landingRoutes.map((source) => ({
           source,
-          destination: `${landingOrigin}${source === '/' ? '/' : source}`,
+          destination: withBypass(
+            `${landingOrigin}${source === '/' ? '/' : source}`,
+          ),
         })),
         ...landingAssetPrefixes.map((source) => ({
           source,
-          destination: `${landingOrigin}${source}`,
+          destination: withBypass(`${landingOrigin}${source}`),
         })),
         {
           source: '/favicon.svg',
-          destination: `${landingOrigin}/favicon.svg`,
+          destination: withBypass(`${landingOrigin}/favicon.svg`),
         },
       ],
     };
