@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     rag_chunk_overlap: int = 100
     rag_top_k: int = 4
     rag_chroma_persist_dir: str = ".chroma_db"
+    # Optional local cross-encoder rerank of merged vector candidates.
+    # Requires the `rerank` extra (sentence-transformers). Fail-open: any
+    # model load/inference error degrades to plain vector order.
+    rag_rerank_enabled: bool = False
+    rag_rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    rag_rerank_candidates_multiplier: int = 3
 
     # -------------------------------------------------------------------
     # Persona / simulation data from S3

@@ -7,6 +7,7 @@ relevant collections for a given simulation session.
 
 import hashlib
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -38,6 +39,31 @@ def _file_content_hash(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()
 
 
+_FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+_FRONTMATTER_TAGS_RE = re.compile(r"^tags:\s*\[(?P<tags>[^\]]*)\]\s*$", re.MULTILINE)
+
+
+def _split_frontmatter(text: str) -> tuple[list[str], str]:
+    """Split a leading `---` YAML-ish frontmatter block off a markdown doc.
+
+    Only `tags: [a, b, c]` is read (hand-rolled on purpose — no YAML dep
+    for one field). The frontmatter is stripped from the returned body so
+    it never pollutes embeddings. Returns ([], text) when absent.
+    """
+    match = _FRONTMATTER_RE.match(text)
+    if not match:
+        return [], text
+    tags: list[str] = []
+    tags_match = _FRONTMATTER_TAGS_RE.search(match.group(1))
+    if tags_match:
+        tags = [
+            t.strip().strip("'\"").lower()
+            for t in tags_match.group("tags").split(",")
+            if t.strip()
+        ]
+    return tags, text[match.end():]
+
+
 def _load_markdown_files(directory: Path) -> list[Document]:
     """Load all .md files from a directory into LangChain Documents."""
     docs: list[Document] = []
@@ -48,17 +74,45 @@ def _load_markdown_files(directory: Path) -> list[Document]:
         try:
             text = md_file.read_text(encoding="utf-8")
             if text.strip():
+                tags, body = _split_frontmatter(text)
+                if not body.strip():
+                    continue
                 docs.append(Document(
-                    page_content=text,
+                    page_content=body,
                     metadata={
                         "source": str(md_file.relative_to(directory.parent.parent)),
                         "filename": md_file.name,
+                        "tags": ", ".join(tags),
                     },
                 ))
         except Exception as e:
             logger.warning(f"Failed to read {md_file}: {e}")
 
     return docs
+
+
+def _build_where_filter(
+    doc_types: Optional[list[str]] = None,
+    tags: Optional[list[str]] = None,
+) -> Optional[dict]:
+    """Build a Chroma `where` filter from optional doc_type / tag constraints.
+
+    Conjunctive constraints become exact metadata filters instead of
+    vector geometry — which is precisely the failure mode single-vector
+    retrieval provably cannot represent (arXiv:2508.21038).
+    Returns None when no constraints are given (unfiltered search).
+    """
+    clauses: list[dict] = []
+    if doc_types:
+        clauses.append({"doc_type": {"$in": doc_types}})
+    for tag in tags or []:
+        # tags metadata is stored as a comma-joined lowercase string
+        clauses.append({"tags": {"$contains": tag.lower()}})
+    if not clauses:
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
 
 
 class RetrievalService:
@@ -111,15 +165,21 @@ class RetrievalService:
         self,
         collection_name: str,
         doc_dir: Path,
+        doc_type: Optional[str] = None,
     ) -> Optional[Chroma]:
         """Index documents from doc_dir into the named collection if needed.
 
         Skips files whose content hash is already in the collection metadata
-        to avoid re-embedding unchanged documents.
+        to avoid re-embedding unchanged documents. When doc_type is given,
+        it is stamped onto every chunk's metadata for filtered retrieval.
         """
         raw_docs = _load_markdown_files(doc_dir)
         if not raw_docs:
             return None
+
+        if doc_type:
+            for doc in raw_docs:
+                doc.metadata["doc_type"] = doc_type
 
         chunks = self._splitter.split_documents(raw_docs)
         if not chunks:
@@ -179,18 +239,21 @@ class RetrievalService:
         self._ensure_collection_indexed(
             self._collection_name(COLLECTION_PREFIX_SIM, simulation_slug),
             sim_dir,
+            doc_type="simulation",
         )
 
         persona_dir = docs_dir / "personas" / persona_slug
         self._ensure_collection_indexed(
             self._collection_name(COLLECTION_PREFIX_PERSONA, persona_slug),
             persona_dir,
+            doc_type="persona",
         )
 
         shared_dir = docs_dir / "shared"
         self._ensure_collection_indexed(
             self._collection_name(COLLECTION_SHARED),
             shared_dir,
+            doc_type="shared",
         )
 
         logger.info(
@@ -203,16 +266,34 @@ class RetrievalService:
         simulation_slug: str,
         persona_slug: str,
         top_k: Optional[int] = None,
+        doc_types: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
     ) -> list[Document]:
         """Retrieve relevant document chunks for a query.
 
         Searches across simulation-specific, persona-specific, and shared
         collections, then merges and deduplicates by relevance score.
 
+        Optional `doc_types` / `tags` become exact Chroma metadata filters
+        (conjunctive constraints the single-vector geometry can't express).
+
+        When RAG_RERANK_ENABLED is on, the merged candidate pool (top
+        `multiplier * k` by vector score) is re-scored by a local
+        cross-encoder before the final top-k cut. Any reranker failure
+        falls back to plain vector order.
+
         Returns at most top_k total chunks across all collections.
         """
         k = top_k or self._top_k
-        per_collection_k = max(k, 3)
+        settings = get_settings()
+        rerank_enabled = settings.rag_rerank_enabled
+        candidate_k = (
+            k * max(1, settings.rag_rerank_candidates_multiplier)
+            if rerank_enabled
+            else k
+        )
+        per_collection_k = max(candidate_k, 3)
+        where = _build_where_filter(doc_types, tags)
 
         collection_names = [
             self._collection_name(COLLECTION_PREFIX_SIM, simulation_slug),
@@ -237,8 +318,11 @@ class RetrievalService:
             )
 
             try:
+                kwargs: dict = {"k": per_collection_k}
+                if where is not None:
+                    kwargs["filter"] = where
                 results = store.similarity_search_with_relevance_scores(
-                    query, k=per_collection_k
+                    query, **kwargs
                 )
                 for doc, score in results:
                     doc.metadata["collection"] = col_name
@@ -255,12 +339,33 @@ class RetrievalService:
             if h not in seen_hashes:
                 seen_hashes.add(h)
                 unique.append(doc)
-            if len(unique) >= k:
+            if len(unique) >= candidate_k:
                 break
+
+        reranked = False
+        if rerank_enabled and len(unique) > 1:
+            try:
+                from .reranker import get_reranker
+
+                reranker = get_reranker(settings.rag_rerank_model)
+                scores = reranker.score(query, [d.page_content for d in unique])
+                if scores is not None:
+                    unique = [
+                        d
+                        for d, _s in sorted(
+                            zip(unique, scores), key=lambda x: x[1], reverse=True
+                        )
+                    ]
+                    reranked = True
+            except Exception as e:
+                logger.warning(f"Rerank failed, using vector order: {e}")
+
+        unique = unique[:k]
 
         logger.debug(
             f"Retrieved {len(unique)} chunks for query: '{query[:60]}...' "
-            f"(searched {len(collection_names)} collections)"
+            f"(searched {len(collection_names)} collections, "
+            f"filtered={where is not None}, reranked={reranked})"
         )
         return unique
 

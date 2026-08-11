@@ -26,6 +26,13 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
 ]
+# ---- Local cross-encoder reranker -------------------------------------
+# Pulled only into images/environments that set RAG_RERANK_ENABLED=true.
+# The import inside careersim_agent.services.reranker is lazy, so the
+# base agent and the pytest suite don't need torch installed.
+rerank = [
+    "sentence-transformers>=3.0.0",
+]
 # ---- Voice mode (self-hosted defaults) -------------------------------
 # Installed only into the `agent-voice` worker image (see
 # docker-compose.local.yml) — the regular `agent` chat process and the
