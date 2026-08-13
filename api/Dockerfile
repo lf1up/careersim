@@ -7,7 +7,9 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml* ./
+# pnpm-workspace.yaml carries the pnpm.overrides security patches — without
+# it the frozen install fails with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH.
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 RUN apk add --no-cache python3 make g++ \
  && pnpm install --frozen-lockfile --prod=false
 
@@ -17,7 +19,7 @@ COPY . .
 RUN pnpm build
 
 FROM base AS prod-deps
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 RUN apk add --no-cache python3 make g++ \
  && pnpm install --frozen-lockfile --prod=true \
  && apk del python3 make g++
