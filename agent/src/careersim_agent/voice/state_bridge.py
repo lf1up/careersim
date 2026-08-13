@@ -7,9 +7,12 @@ to:
 
 1. Pull the freshest ``state_snapshot`` for a session right before
    the call begins (``GET /v1/internal/sessions/:id/state-for-voice``).
-2. Push every completed turn back through the user-facing
-   ``POST /v1/sessions/:id/messages`` flow so goal eval, sentiment /
-   emotion, nudges, etc. all run unchanged.
+2. Push every completed turn back through the internal
+   ``POST /v1/internal/sessions/:id/messages/stream`` flow so goal eval,
+   sentiment / emotion, nudges, etc. all run unchanged. The internal
+   route is authenticated by the shared ``X-Internal-Key`` — the worker
+   never touches the user's bearer token, so no user credential rides
+   LiveKit participant metadata (which every room participant can read).
 
 The ``/v1`` segment mirrors the API's ``API_VERSION_PREFIX``: the local
 compose stack sets ``v1`` on both services, while unset (the
@@ -136,41 +139,11 @@ class APIClient:
             )
         return resp.json()
 
-    async def post_user_message(
-        self,
-        session_id: str,
-        user_text: str,
-        *,
-        bearer_token: str,
-    ) -> dict[str, Any]:
-        """Persist a user turn via the public messages endpoint.
-
-        Voice turns are user-initiated, so we use the user's bearer
-        token (forwarded from the web client at call-start time) so
-        the existing ownership + rate-limit policies in
-        ``api/src/modules/sessions/sessions.route.ts`` apply
-        unchanged.
-        """
-        client = await self._ensure_client()
-        url = f"{self._base_url}{self._version_path}/sessions/{session_id}/messages"
-        resp = await client.post(
-            url,
-            json={"content": user_text},
-            headers={"Authorization": f"Bearer {bearer_token}"},
-        )
-        if resp.status_code >= 400:
-            raise RuntimeError(
-                f"post user message failed for {session_id}: "
-                f"{resp.status_code} {resp.text[:200]}"
-            )
-        return resp.json()
-
     async def stream_user_message(
         self,
         session_id: str,
         user_text: "str | list[str]",
         *,
-        bearer_token: str,
         expected_message_count: Optional[int] = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Persist a user turn and stream the persona reply as it generates.
@@ -181,9 +154,10 @@ class APIClient:
         transcript bubble while the persona composes one reply to the
         whole batch.
 
-        Hits the user-facing SSE endpoint
-        ``POST /v1/sessions/:id/messages/stream``, which emits one
-        ``event: message`` per AI bubble (the main reply plus each
+        Hits the internal SSE endpoint
+        ``POST /v1/internal/sessions/:id/messages/stream`` (authenticated
+        by the client's default ``X-Internal-Key`` header), which emits
+        one ``event: message`` per AI bubble (the main reply plus each
         follow-up burst) and a terminal ``event: done`` once the full
         turn has been persisted server-side. Yields plain dicts:
 
@@ -192,10 +166,9 @@ class APIClient:
         - ``{"type": "error", "message": str}``
 
         The HTTP request is kept open until ``done`` so the API's
-        ``prepareStream`` persist callback runs exactly once — preserving
-        the same persistence guarantee as :meth:`post_user_message`.
-        Nothing is persisted server-side until ``done``, so a caller may
-        safely abort mid-stream (abandon-and-rerun) without leaving a
+        ``prepareStream`` persist callback runs exactly once. Nothing is
+        persisted server-side until ``done``, so a caller may safely
+        abort mid-stream (abandon-and-rerun) without leaving a
         half-committed turn behind.
 
         ``expected_message_count`` (optional) is an optimistic
@@ -206,7 +179,7 @@ class APIClient:
         stream's own commit.
         """
         client = await self._ensure_client()
-        url = f"{self._base_url}{self._version_path}/sessions/{session_id}/messages/stream"
+        url = f"{self._base_url}{self._version_path}/internal/sessions/{session_id}/messages/stream"
         content: "str | list[str]" = (
             list(user_text) if isinstance(user_text, list) else user_text
         )
@@ -226,10 +199,7 @@ class APIClient:
             # dividers in the UI. Web text chat omits this (defaults to
             # "text" server-side).
             json=body,
-            headers={
-                "Authorization": f"Bearer {bearer_token}",
-                "Accept": "text/event-stream",
-            },
+            headers={"Accept": "text/event-stream"},
             timeout=timeout,
         ) as resp:
             if resp.status_code >= 400:

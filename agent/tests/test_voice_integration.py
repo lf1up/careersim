@@ -141,7 +141,7 @@ class FakeAPI:
         return dict(self.budget_response)
 
     async def stream_user_message(
-        self, session_id: str, user_text: str, *, bearer_token: str
+        self, session_id: str, user_text: str
     ) -> AsyncIterator[dict[str, Any]]:
         self.user_messages.append((session_id, user_text))
         bubbles = self.reply_bubbles.pop(0) if self.reply_bubbles else ["ok"]
@@ -184,7 +184,6 @@ async def _run_call(
     captions: FakeCaptions,
     api: FakeAPI,
     session_id: str,
-    bearer_token: str,
     *,
     audio_starts: list[float],
     audio_ends: list[float],
@@ -235,9 +234,7 @@ async def _run_call(
 
         # Stream the reply and speak each bubble as it arrives.
         bubble_offset = 0.0
-        async for event in api.stream_user_message(
-            session_id, result.text, bearer_token=bearer_token
-        ):
+        async for event in api.stream_user_message(session_id, result.text):
             if event["type"] != "message":
                 continue
             bubble = event["content"]
@@ -320,7 +317,6 @@ async def test_full_call_flow_round_trips_state_and_captions() -> None:
         captions,
         api,
         session_id="sess-int",
-        bearer_token="user-bearer-xyz",
         audio_starts=[2.0, 8.0],
         audio_ends=[3.5, 9.5],
     )
@@ -334,8 +330,9 @@ async def test_full_call_flow_round_trips_state_and_captions() -> None:
     assert len(tts.synthesised) >= 3
     assert any("Thanks for jumping on" in s for s in tts.synthesised)
 
-    # 3. User messages were forwarded to the API with the bearer, and each
-    #    reply stream was drained to its terminal `done` (persistence ran).
+    # 3. User messages were forwarded to the API (internal-key auth — no
+    #    user bearer anywhere), and each reply stream was drained to its
+    #    terminal `done` (persistence ran).
     assert api.user_messages == [
         ("sess-int", "I'm a senior engineer"),
         ("sess-int", "Around 240k base"),
@@ -390,7 +387,6 @@ async def test_no_duplicate_opening_when_transcript_already_has_one() -> None:
         captions,
         api,
         session_id="sess-reopen",
-        bearer_token="t",
         audio_starts=[1.0],
         audio_ends=[2.0],
     )
@@ -431,7 +427,6 @@ async def test_streamed_followup_bubbles_are_each_spoken_separately() -> None:
         captions,
         api,
         session_id="sess-burst",
-        bearer_token="t",
         audio_starts=[1.0],
         audio_ends=[2.0],
     )
@@ -483,7 +478,6 @@ async def test_full_call_flow_persona_without_voice_block_still_runs() -> None:
         captions,
         api,
         session_id="sess-no-voice",
-        bearer_token="t",
         audio_starts=[0.5],
         audio_ends=[1.0],
     )
@@ -534,7 +528,6 @@ async def test_call_end_report_carries_call_duration_and_analysis() -> None:
         FakeCaptions(),
         api,
         session_id="sess-dur",
-        bearer_token="t",
         audio_starts=[2.0],
         audio_ends=[3.0],
     )

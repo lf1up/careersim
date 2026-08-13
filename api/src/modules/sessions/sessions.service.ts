@@ -161,6 +161,22 @@ export interface SessionsService {
     session: SessionRow;
     persist: (finalState: AgentWireState, newMessages: AgentMessage[]) => Promise<SessionDetail>;
   }>;
+
+  /**
+   * Internal-caller variant of prepareStream: loads by session id alone,
+   * with NO ownership check — the X-Internal-Key shared secret on the
+   * route is the entire auth boundary. Used by the agent-voice worker to
+   * persist spoken turns without holding the user's bearer token.
+   */
+  prepareStreamInternal(
+    sessionId: string,
+    /** Origin to stamp on the persisted delta (defaults to voice). */
+    source?: MessageSource,
+    expectedMessageCount?: number,
+  ): Promise<{
+    session: SessionRow;
+    persist: (finalState: AgentWireState, newMessages: AgentMessage[]) => Promise<SessionDetail>;
+  }>;
 }
 
 /**
@@ -250,6 +266,17 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
     if (!row) throw notFound('Session not found');
     if (row.userId !== userId) throw forbidden('You do not own this session');
+    return row;
+  }
+
+  /**
+   * Load by id with NO ownership check. Only for routes guarded by the
+   * X-Internal-Key shared secret (the agent-voice worker) — user-facing
+   * handlers must keep going through loadSessionOrThrow.
+   */
+  async function loadSessionInternal(sessionId: string): Promise<SessionRow> {
+    const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+    if (!row) throw notFound('Session not found');
     return row;
   }
 
@@ -632,42 +659,60 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
 
     async prepareStream(userId, sessionId, source = 'text', expectedMessageCount) {
       const session = await loadSessionOrThrow(userId, sessionId);
-      if (expectedMessageCount !== undefined) {
-        const actual = (session.stateSnapshot.messages ?? []).length;
-        if (actual !== expectedMessageCount) {
-          throw conflict(
-            'Session transcript changed since the caller last read it',
-            'TURN_CONFLICT',
-          );
-        }
-      }
-      return {
-        session,
-        persist: async (finalState, newMessages) => {
-          const response: AgentConversationResponse = {
-            state: finalState,
-            messages: newMessages,
-            goal_progress: finalState.goal_progress ?? [],
-            analysis: {
-              user_sentiment: finalState.last_user_sentiment ?? null,
-              user_emotion: finalState.last_user_emotion ?? null,
-              ai_sentiment: finalState.last_ai_sentiment ?? null,
-              ai_emotion: finalState.last_ai_emotion ?? null,
-            },
-          };
-          // The streaming caller decides whether human-turn counters should
-          // reset. Today turn/stream always follows a user message, and
-          // proactive/stream never does. We detect the former by checking if
-          // the incoming delta starts with a HumanMessage.
-          const existingCount = await countMessages(db, session.id);
-          const delta = (finalState.messages ?? []).slice(existingCount);
-          const isHumanTurn = delta.some((m) => m.role === 'human');
-          const patch: UpdatePatch = isHumanTurn ? humanTurnPatch(new Date()) : {};
-          return applyResponse(session, response, patch, source);
-        },
-      };
+      return buildStreamContext(session, source, expectedMessageCount);
+    },
+
+    async prepareStreamInternal(sessionId, source = 'voice', expectedMessageCount) {
+      const session = await loadSessionInternal(sessionId);
+      return buildStreamContext(session, source, expectedMessageCount);
     },
   };
+
+  /**
+   * Shared core of prepareStream / prepareStreamInternal: the optimistic
+   * TURN_CONFLICT precondition plus the persist callback that commits the
+   * streamed delta once the agent emits `done`.
+   */
+  function buildStreamContext(
+    session: SessionRow,
+    source: MessageSource,
+    expectedMessageCount?: number,
+  ) {
+    if (expectedMessageCount !== undefined) {
+      const actual = (session.stateSnapshot.messages ?? []).length;
+      if (actual !== expectedMessageCount) {
+        throw conflict(
+          'Session transcript changed since the caller last read it',
+          'TURN_CONFLICT',
+        );
+      }
+    }
+    return {
+      session,
+      persist: async (finalState: AgentWireState, newMessages: AgentMessage[]) => {
+        const response: AgentConversationResponse = {
+          state: finalState,
+          messages: newMessages,
+          goal_progress: finalState.goal_progress ?? [],
+          analysis: {
+            user_sentiment: finalState.last_user_sentiment ?? null,
+            user_emotion: finalState.last_user_emotion ?? null,
+            ai_sentiment: finalState.last_ai_sentiment ?? null,
+            ai_emotion: finalState.last_ai_emotion ?? null,
+          },
+        };
+        // The streaming caller decides whether human-turn counters should
+        // reset. Today turn/stream always follows a user message, and
+        // proactive/stream never does. We detect the former by checking if
+        // the incoming delta starts with a HumanMessage.
+        const existingCount = await countMessages(db, session.id);
+        const delta = (finalState.messages ?? []).slice(existingCount);
+        const isHumanTurn = delta.some((m) => m.role === 'human');
+        const patch: UpdatePatch = isHumanTurn ? humanTurnPatch(new Date()) : {};
+        return applyResponse(session, response, patch, source);
+      },
+    };
+  }
 }
 
 export type { MessageRow };

@@ -337,6 +337,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         db: opts.db,
         webAppUrl: opts.webAppUrl,
         mailProductName: opts.mail.productName,
+        nodeEnv: opts.nodeEnv,
+        jwtExpiresIn: opts.jwtExpiresIn ?? '7d',
       });
       await scope.register(simulationsRoutes, { agent: opts.agent });
       await scope.register(personasRoutes, { agent: opts.agent });
@@ -345,6 +347,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         agent: opts.agent,
         corsAllowedOrigins,
         corsAllowAllWhenEmpty,
+        internalKey,
       });
       await scope.register(analyticsRoutes, { db: opts.db });
       await scope.register(voiceRoutes, {

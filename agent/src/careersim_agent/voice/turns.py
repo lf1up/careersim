@@ -65,10 +65,11 @@ class TurnManager:
 
     Args:
         session_id: Session the turns belong to.
-        bearer_token: User bearer forwarded to the streaming endpoint.
         api: ``state_bridge.APIClient``-compatible object. Uses
             ``stream_user_message`` (list-of-texts form) and
             ``fetch_state_for_voice`` (abort/commit reconciliation).
+            Auth rides the client's default ``X-Internal-Key`` header —
+            no user bearer token is involved.
         speak: Coroutine that TTS-plays one reply bubble.
         on_ai_bubble: Called after each spoken bubble (metadata recording).
         speak_state: The worker's shared playback dict — reads/writes the
@@ -87,7 +88,6 @@ class TurnManager:
         self,
         *,
         session_id: str,
-        bearer_token: str,
         api: Any,
         speak: Callable[[str], Awaitable[None]],
         on_ai_bubble: Callable[[str], None],
@@ -99,7 +99,6 @@ class TurnManager:
         flush_timeout_sec: float = TEARDOWN_FLUSH_TIMEOUT_SEC,
     ) -> None:
         self._session_id = session_id
-        self._bearer_token = bearer_token
         self._api = api
         self._speak = speak
         self._on_ai_bubble = on_ai_bubble
@@ -387,7 +386,6 @@ class TurnManager:
                 async for event in self._api.stream_user_message(
                     self._session_id,
                     list(texts),
-                    bearer_token=self._bearer_token,
                     expected_message_count=self._expected_count,
                 ):
                     etype = event.get("type")

@@ -433,3 +433,100 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+describe('POST /internal/sessions/:id/messages/stream (worker turn route)', () => {
+  const INTERNAL_KEY = 'test-internal-key';
+
+  let h: TestHarness;
+  beforeEach(async () => {
+    h = await buildTestApp({ voice: { enabled: true, internalKey: INTERNAL_KEY } });
+  });
+  afterEach(async () => {
+    await h.close();
+  });
+
+  async function createSession(headers: Record<string, string>): Promise<{ id: string }> {
+    return (
+      await h.app.inject({
+        method: 'POST',
+        url: '/v1/sessions',
+        payload: { simulation_slug: SLUG },
+        headers,
+      })
+    ).json();
+  }
+
+  it('streams and persists a spoken turn under the internal key — no user JWT involved', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/v1/internal/sessions/${session.id}/messages/stream`,
+      payload: { content: 'spoken hi', source: 'voice' },
+      headers: { 'x-internal-key': INTERNAL_KEY },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+    const events = parseSSE(res.body);
+    expect(events.map((e) => e.event)).toEqual(['message', 'done']);
+
+    // Persisted as a voice turn, readable by the session owner.
+    const detail = await h.app.inject({
+      method: 'GET',
+      url: `/v1/sessions/${session.id}`,
+      headers: authHeader,
+    });
+    const tail = detail.json().messages.slice(-2);
+    expect(tail).toEqual([
+      expect.objectContaining({ role: 'human', content: 'spoken hi', source: 'voice' }),
+      expect.objectContaining({ role: 'ai', content: 'echo:spoken hi', source: 'voice' }),
+    ]);
+  });
+
+  it('rejects calls without the internal key (401) and ignores user JWTs', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+
+    const noKey = await h.app.inject({
+      method: 'POST',
+      url: `/v1/internal/sessions/${session.id}/messages/stream`,
+      payload: { content: 'hi' },
+    });
+    expect(noKey.statusCode).toBe(401);
+
+    const wrongKey = await h.app.inject({
+      method: 'POST',
+      url: `/v1/internal/sessions/${session.id}/messages/stream`,
+      payload: { content: 'hi' },
+      headers: { 'x-internal-key': 'wrong-key' },
+    });
+    expect(wrongKey.statusCode).toBe(401);
+
+    // A valid user JWT is NOT a credential for the internal surface.
+    const bearerOnly = await h.app.inject({
+      method: 'POST',
+      url: `/v1/internal/sessions/${session.id}/messages/stream`,
+      payload: { content: 'hi' },
+      headers: authHeader,
+    });
+    expect(bearerOnly.statusCode).toBe(401);
+  });
+
+  it('503s when the internal key is unset (fail-closed)', async () => {
+    // No voice config at all → internalKey defaults to '' and the route
+    // must refuse rather than accept unauthenticated "internal" calls.
+    const fh = await buildTestApp();
+    try {
+      const res = await fh.app.inject({
+        method: 'POST',
+        url: '/v1/internal/sessions/00000000-0000-0000-0000-000000000000/messages/stream',
+        payload: { content: 'hi' },
+        headers: { 'x-internal-key': 'anything' },
+      });
+      expect(res.statusCode).toBe(503);
+    } finally {
+      await fh.close();
+    }
+  });
+});

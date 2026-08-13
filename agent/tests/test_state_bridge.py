@@ -190,9 +190,7 @@ async def test_stream_user_message_yields_each_bubble() -> None:
     _install_mock(api, handler)
     events: list[dict] = []
     try:
-        async for ev in api.stream_user_message(
-            "sess-1", "hello", bearer_token="user-bearer"
-        ):
+        async for ev in api.stream_user_message("sess-1", "hello"):
             events.append(ev)
     finally:
         await api.aclose()
@@ -204,13 +202,14 @@ async def test_stream_user_message_yields_each_bubble() -> None:
         {"type": "done"},
     ]
 
-    # Request hits the user-facing streaming route with the bearer token
-    # and an SSE Accept header.
+    # Request hits the INTERNAL streaming route under the shared key —
+    # never the user-facing route, and never with a user bearer token.
     assert len(captured) == 1
     req = captured[0]
     assert req.method == "POST"
-    assert req.url.path == "/sessions/sess-1/messages/stream"
-    assert req.headers["Authorization"] == "Bearer user-bearer"
+    assert req.url.path == "/internal/sessions/sess-1/messages/stream"
+    assert req.headers["X-Internal-Key"] == "secret-key"
+    assert "authorization" not in {k.lower() for k in req.headers.keys()}
     assert req.headers["Accept"] == "text/event-stream"
     # Voice turns are tagged so the persisted transcript can be split with
     # voice-call dividers in the UI.
@@ -233,9 +232,7 @@ async def test_stream_user_message_skips_empty_content_and_surfaces_errors() -> 
     _install_mock(api, handler)
     events: list[dict] = []
     try:
-        async for ev in api.stream_user_message(
-            "sess-2", "hi", bearer_token="t"
-        ):
+        async for ev in api.stream_user_message("sess-2", "hi"):
             events.append(ev)
     finally:
         await api.aclose()
@@ -256,9 +253,7 @@ async def test_stream_user_message_raises_on_non_200() -> None:
     _install_mock(api, handler)
     try:
         with pytest.raises(RuntimeError):
-            async for _ in api.stream_user_message(
-                "sess-3", "hi", bearer_token="t"
-            ):
+            async for _ in api.stream_user_message("sess-3", "hi"):
                 pass
     finally:
         await api.aclose()

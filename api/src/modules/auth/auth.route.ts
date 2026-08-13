@@ -1,7 +1,9 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
+import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 
 import type { AppDatabase } from '../../db/client.js';
+import { SESSION_COOKIE } from '../../plugins/auth.js';
 import { badRequest } from '../../plugins/errors.js';
 import { rateLimitPolicy } from '../../plugins/rate-limit.js';
 import { createAuthService, type UserDto } from './auth.service.js';
@@ -33,6 +35,25 @@ interface AuthRouteOptions {
   db: AppDatabase;
   webAppUrl: string;
   mailProductName: string;
+  /** Drives the cookie's `Secure` attribute (on in production only). */
+  nodeEnv?: string;
+  /**
+   * JWT lifetime string (e.g. '7d', '1h') — mirrored into the session
+   * cookie's Max-Age so the browser drops it when the token expires.
+   * Unparseable values fall back to a browser-session cookie.
+   */
+  jwtExpiresIn?: string;
+}
+
+/** Parse a JWT-style lifetime ('30s', '15m', '1h', '7d') into seconds. */
+function expiresInToSeconds(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const match = /^(\d+)\s*([smhd])$/i.exec(value.trim());
+  if (!match) return undefined;
+  const n = Number(match[1]);
+  const unit = match[2]!.toLowerCase();
+  const factor = unit === 's' ? 1 : unit === 'm' ? 60 : unit === 'h' ? 3600 : 86400;
+  return n * factor;
 }
 
 function buildLinkUrl(webAppUrl: string, path: string, token: string): string {
@@ -42,9 +63,26 @@ function buildLinkUrl(webAppUrl: string, path: string, token: string): string {
 
 export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, opts) => {
   const service = createAuthService(opts.db);
+  const cookieMaxAge = expiresInToSeconds(opts.jwtExpiresIn);
 
   async function signUser(user: { id: string; email: string }): Promise<string> {
     return app.jwt.sign({ sub: user.id, email: user.email });
+  }
+
+  /**
+   * Issue the JWT both ways: in the JSON body (Bearer clients — CLI,
+   * mobile, tests) AND as an httpOnly session cookie (browser clients).
+   * The cookie is host-only, SameSite=Lax, and Secure in production, so
+   * the web app never has to touch the token in JavaScript.
+   */
+  function setSessionCookie(reply: FastifyReply, token: string): void {
+    reply.setCookie(SESSION_COOKIE, token, {
+      httpOnly: true,
+      path: '/',
+      sameSite: 'lax',
+      secure: opts.nodeEnv === 'production',
+      ...(cookieMaxAge !== undefined ? { maxAge: cookieMaxAge } : {}),
+    });
   }
 
   // -- Registration + email verification --------------------------------
@@ -113,10 +151,11 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         response: { 200: authResponseSchema },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { email, code } = request.body;
       const user = await service.verifyEmail(email, code);
       const token = await signUser(user);
+      setSessionCookie(reply, token);
       return { token, user: service.toDto(user) };
     },
   );
@@ -134,11 +173,12 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         response: { 200: authResponseSchema },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { email, password, altcha } = request.body;
       await app.altcha.verify(altcha);
       const user = await service.verifyCredentials(email, password);
       const token = await signUser(user);
+      setSessionCookie(reply, token);
       return { token, user: service.toDto(user) };
     },
   );
@@ -180,9 +220,10 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         response: { 200: authResponseSchema },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const user = await service.consumeMagicLink(request.body.token);
       const token = await signUser(user);
+      setSessionCookie(reply, token);
       return { token, user: service.toDto(user) };
     },
   );
@@ -224,10 +265,32 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         response: { 200: authResponseSchema },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const user = await service.resetPassword(request.body.token, request.body.password);
       const token = await signUser(user);
+      setSessionCookie(reply, token);
       return { token, user: service.toDto(user) };
+    },
+  );
+
+  // -- Logout -----------------------------------------------------------
+
+  app.post(
+    '/auth/logout',
+    {
+      schema: {
+        tags: ['auth'],
+        summary: 'Clear the httpOnly session cookie',
+        description:
+          'Stateless: the JWT is not revoked server-side, the browser simply ' +
+          'drops the cookie. Unauthenticated calls are allowed so an expired ' +
+          'session can still log out cleanly.',
+        response: { 200: noContentResponseSchema },
+      },
+    },
+    async (_request, reply) => {
+      reply.clearCookie(SESSION_COOKIE, { path: '/' });
+      return { ok: true as const };
     },
   );
 
@@ -331,10 +394,11 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         response: { 200: authResponseSchema },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const user = await service.confirmEmailChange(request.user.sub, request.body.code);
       // Re-issue a JWT because the `email` claim changed.
       const token = await signUser(user);
+      setSessionCookie(reply, token);
       return { token, user: service.toDto(user) };
     },
   );

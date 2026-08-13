@@ -111,14 +111,18 @@ def run_worker() -> int:
     return 0
 
 
-async def _resolve_session_metadata(room: Any) -> tuple[str, str] | None:
-    """Pull ``(session_id, bearer_token)`` out of room/participant metadata.
+async def _resolve_session_metadata(room: Any) -> str | None:
+    """Pull the ``session_id`` out of room/participant metadata.
 
-    The API encodes both values as JSON when minting the LiveKit join
-    token. Because that metadata is attached to the *participant* (LiveKit
+    The API encodes it as JSON when minting the LiveKit join token.
+    Because that metadata is attached to the *participant* (LiveKit
     scopes ``AccessToken.metadata`` to the participant, not the room), we
     look there first — falling back to ``room.metadata`` in case a future
     deploy sets room-level metadata via the RoomService API.
+
+    Only the session id travels in metadata (it is visible to every room
+    participant); the worker authenticates to the API with the shared
+    ``X-Internal-Key`` instead of any user credential.
 
     Returns ``None`` if neither carries a usable payload (after a short
     grace period waiting for the user participant to connect).
@@ -126,7 +130,7 @@ async def _resolve_session_metadata(room: Any) -> tuple[str, str] | None:
     import asyncio
     import json
 
-    def _parse(raw: str | None) -> tuple[str, str] | None:
+    def _parse(raw: str | None) -> str | None:
         raw = (raw or "").strip()
         if not raw:
             return None
@@ -135,10 +139,9 @@ async def _resolve_session_metadata(room: Any) -> tuple[str, str] | None:
         except json.JSONDecodeError:
             return None
         sid = str(obj.get("session_id") or "")
-        tok = str(obj.get("bearer_token") or "")
-        return (sid, tok) if sid and tok else None
+        return sid or None
 
-    def _scan() -> tuple[str, str] | None:
+    def _scan() -> str | None:
         # Room first (forward-compat), then any remote participant.
         found = _parse(getattr(room, "metadata", None))
         if found:
@@ -164,9 +167,9 @@ async def _voice_entrypoint(ctx: Any) -> None:
 
     Each call mints a brand-new :class:`LangGraphAdapter` for the
     room from the wire-format state pulled out of the API. The join
-    token's metadata carries ``session_id`` + ``bearer_token`` (set
-    when the API mints the token in :file:`api/src/modules/voice`);
-    LiveKit attaches it to the user *participant*, so we read it via
+    token's metadata carries the ``session_id`` (set when the API
+    mints the token in :file:`api/src/modules/voice`); LiveKit
+    attaches it to the user *participant*, so we read it via
     :func:`_resolve_session_metadata`.
 
     NOTE: this MUST stay a module-level function (not a closure inside
@@ -186,21 +189,20 @@ async def _voice_entrypoint(ctx: Any) -> None:
     await ctx.connect()
     room = ctx.room
 
-    # Session ID + bearer token arrive as JSON metadata minted by the API
-    # when it issues the join token. LiveKit's ``AccessToken.metadata`` is
+    # The session ID arrives as JSON metadata minted by the API when it
+    # issues the join token. LiveKit's ``AccessToken.metadata`` is
     # *participant*-scoped, so this JSON lands on the user participant's
     # ``.metadata`` — not ``room.metadata``. We read it off the participant
     # (with a room-metadata fallback for forward compatibility), waiting a
     # few seconds for the user to connect if the agent got here first.
-    resolved = await _resolve_session_metadata(room)
-    if resolved is None:
+    session_id = await _resolve_session_metadata(room)
+    if session_id is None:
         logger.warning(
             "room %s: no session metadata on room or participants; "
             "cannot resolve session",
             room.name,
         )
         return
-    session_id, bearer = resolved
 
     api = APIClient.from_env()
     try:
@@ -285,7 +287,6 @@ async def _voice_entrypoint(ctx: Any) -> None:
             captions=captions,
             api=api,
             session_id=session_id,
-            bearer_token=bearer,
             tuning=tuning,
             max_duration_sec=max_duration_sec,
             cap_seconds=cap_seconds,
@@ -332,7 +333,6 @@ async def _run_room_session(
     captions: object,
     api: object,
     session_id: str,
-    bearer_token: str,
     tuning: object,
     max_duration_sec: float | None = None,
     cap_seconds: float | None = None,
@@ -551,7 +551,6 @@ async def _run_room_session(
 
     turns = TurnManager(
         session_id=session_id,
-        bearer_token=bearer_token,
         api=api,
         speak=speak,
         on_ai_bubble=_record_ai_bubble,

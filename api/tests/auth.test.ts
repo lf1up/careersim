@@ -904,3 +904,123 @@ describe('auth', () => {
     expect(second.json().error).toBe('INVALID_CODE');
   });
 });
+
+describe('auth session cookie (httpOnly)', () => {
+  let h: TestHarness;
+  beforeEach(async () => {
+    h = await buildTestApp();
+  });
+  afterEach(async () => {
+    await h.close();
+  });
+
+  function sessionCookieHeader(res: { headers: Record<string, unknown> }): string {
+    const raw = res.headers['set-cookie'];
+    const cookies = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const session = cookies.find((c) => String(c).startsWith('careersim_auth='));
+    expect(session, 'expected a careersim_auth Set-Cookie header').toBeDefined();
+    return String(session);
+  }
+
+  it('login sets an httpOnly session cookie alongside the token body', async () => {
+    const { token } = await registerAndAuth(h.app);
+    void token;
+
+    const login = await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { email: 'alice@example.com', password: 'super-secret-123' },
+    });
+    expect(login.statusCode).toBe(200);
+    expect(login.json().token).toBeDefined();
+
+    const cookie = sessionCookieHeader(login);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(cookie).toMatch(/SameSite=Lax/i);
+    expect(cookie).toMatch(/Path=\//i);
+    expect(cookie).toMatch(/Max-Age=/i);
+    // Test env is not production → no Secure attribute.
+    expect(cookie).not.toMatch(/Secure/i);
+  });
+
+  it('authenticates /auth/me with the cookie alone (no Authorization header)', async () => {
+    await registerAndAuth(h.app);
+    const login = await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { email: 'alice@example.com', password: 'super-secret-123' },
+    });
+    const cookie = sessionCookieHeader(login).split(';')[0]!;
+
+    const me = await h.app.inject({
+      method: 'GET',
+      url: '/v1/auth/me',
+      headers: { cookie },
+    });
+    expect(me.statusCode).toBe(200);
+    expect(me.json().email).toBe('alice@example.com');
+  });
+
+  it('rejects a garbage cookie value with 401', async () => {
+    const me = await h.app.inject({
+      method: 'GET',
+      url: '/v1/auth/me',
+      headers: { cookie: 'careersim_auth=not-a-real-jwt' },
+    });
+    expect(me.statusCode).toBe(401);
+  });
+
+  it('logout clears the cookie (and works unauthenticated)', async () => {
+    const res = await h.app.inject({ method: 'POST', url: '/v1/auth/logout' });
+    expect(res.statusCode).toBe(200);
+    const cookie = sessionCookieHeader(res);
+    // Cleared cookies carry an empty value + an expiry in the past.
+    expect(cookie).toMatch(/careersim_auth=;/);
+    expect(cookie).toMatch(/Expires=/i);
+  });
+
+  it('sets the cookie on verify-email, magic-link consume, and reset-password too', async () => {
+    // verify-email
+    const email = 'cookie-flows@example.com';
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/register',
+      payload: { email, password: 'super-secret-123' },
+    });
+    const code = extractCode(lastMailTo(h.outbox, email).text);
+    const verify = await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/verify-email',
+      payload: { email, code },
+    });
+    sessionCookieHeader(verify);
+
+    // magic-link consume
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/login/email-link',
+      payload: { email },
+    });
+    const linkToken = extractLinkToken(lastMailTo(h.outbox, email).text);
+    const consume = await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/magic-link/consume',
+      payload: { token: linkToken },
+    });
+    sessionCookieHeader(consume);
+
+    // reset-password
+    await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/forgot-password',
+      payload: { email },
+    });
+    const resetToken = extractLinkToken(lastMailTo(h.outbox, email).text);
+    const reset = await h.app.inject({
+      method: 'POST',
+      url: '/v1/auth/reset-password',
+      payload: { token: resetToken, password: 'new-secret-456' },
+    });
+    sessionCookieHeader(reset);
+  });
+});

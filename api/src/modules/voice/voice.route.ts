@@ -54,21 +54,9 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
       },
     },
     async (request) => {
-      // Pull the bearer token straight off the request — we forward it
-      // to the agent-voice worker via the room metadata so the worker
-      // can re-enter the API as the user when persisting turns.
-      const authHeader = request.headers.authorization ?? '';
-      const bearerToken = authHeader.startsWith('Bearer ')
-        ? authHeader.slice('Bearer '.length).trim()
-        : '';
-      if (!bearerToken) {
-        throw new HttpError(401, 'Missing bearer token', 'unauthorized');
-      }
-
       const result = await service.startCall({
         userId: request.user.sub,
         sessionId: request.params.id,
-        bearerToken,
       });
 
       return {

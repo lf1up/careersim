@@ -61,7 +61,6 @@ class ScriptedAPI:
         session_id: str,
         texts: list[str],
         *,
-        bearer_token: str,
         expected_message_count: Any = None,
     ) -> AsyncIterator[dict[str, Any]]:
         self.calls.append(list(texts))
@@ -91,7 +90,6 @@ def _make_manager(
 
     return TurnManager(
         session_id="sess-t",
-        bearer_token="tok",
         api=api,
         speak=speak,
         on_ai_bubble=lambda _b: None,

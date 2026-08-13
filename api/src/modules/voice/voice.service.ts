@@ -71,13 +71,14 @@ export interface VoiceService {
   /**
    * Start a voice call for `sessionId`. Verifies ownership, checks the
    * daily quota, marks the session as call-in-progress, and mints a
-   * LiveKit join token whose participant metadata carries `session_id`
-   * + `bearer_token` so the agent-voice worker can re-enter the API.
+   * LiveKit join token whose participant metadata carries only the
+   * `session_id` — the agent-voice worker re-enters the API via the
+   * internal-key routes, so no user credential ever rides the metadata
+   * (participant metadata is visible to every room participant).
    */
   startCall(args: {
     userId: string;
     sessionId: string;
-    bearerToken: string;
   }): Promise<VoiceStartResult>;
 
   /**
@@ -261,7 +262,7 @@ export function createVoiceService(
   }
 
   return {
-    async startCall({ userId, sessionId, bearerToken }) {
+    async startCall({ userId, sessionId }) {
       ensureEnabled();
 
       // 1. Ownership + existence check.
@@ -347,13 +348,13 @@ export function createVoiceService(
         ttl: tokenTtl,
         // LiveKit accepts arbitrary JSON in `metadata`. NOTE: this is
         // *participant*-scoped metadata (it rides on the user's
-        // participant, not `room.metadata`). The agent-voice worker
-        // reads it off the remote participant to discover which session
-        // to load and which bearer token to forward back to
-        // /sessions/:id/messages on each turn.
+        // participant, not `room.metadata`) and is visible to every
+        // room participant — so it carries ONLY the session id. The
+        // agent-voice worker reads it off the remote participant to
+        // discover which session to load, then persists turns through
+        // the internal-key route (no user JWT anywhere in the room).
         metadata: JSON.stringify({
           session_id: sessionId,
-          bearer_token: bearerToken,
         }),
       });
       const grant: VideoGrant = {

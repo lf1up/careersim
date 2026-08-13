@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
@@ -29,6 +31,13 @@ interface SessionsRouteOptions {
   corsAllowedOrigins?: string[];
   /** Empty-allowlist policy for the SSE proxy's manual CORS echo. */
   corsAllowAllWhenEmpty?: boolean;
+  /**
+   * Shared secret the agent-voice worker sends as `X-Internal-Key` on
+   * `/internal/sessions/:id/messages/stream` (same `AGENT_INTERNAL_KEY`
+   * the other internal voice routes use). When empty the internal route
+   * 503s rather than silently allowing all callers.
+   */
+  internalKey?: string;
 }
 
 export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async (app, opts) => {
@@ -245,6 +254,69 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       });
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Internal voice-turn route. The agent-voice worker persists spoken turns
+  // here under the X-Internal-Key shared secret instead of the user's bearer
+  // token, so user JWTs never ride LiveKit participant metadata (visible to
+  // every room participant). No ownership check or per-user rate limit: the
+  // shared secret is the trust boundary, and voice abuse is bounded by the
+  // /voice/start quota gate plus the worker-reported call-duration debit.
+  // ---------------------------------------------------------------------------
+
+  app.post(
+    '/internal/sessions/:id/messages/stream',
+    {
+      config: { rateLimit: rateLimitPolicy.voiceInternal() },
+      schema: {
+        tags: ['internal'],
+        summary: 'Internal: persist a voice turn and stream the persona reply (SSE)',
+        params: z.object({ id: z.uuid() }),
+        body: sendMessageSchema,
+        hide: true,
+      },
+    },
+    async (request, reply) => {
+      assertInternalKey(request.headers['x-internal-key']);
+      const userMessages = Array.isArray(request.body.content)
+        ? request.body.content
+        : [request.body.content];
+      const source = request.body.source ?? 'voice';
+      const expectedMessageCount = request.body.expected_message_count;
+      await runSseProxy(app, request, reply, {
+        kind: 'turn',
+        corsAllowedOrigins,
+        corsAllowAllWhenEmpty,
+        load: () =>
+          service.prepareStreamInternal(
+            request.params.id,
+            source,
+            expectedMessageCount,
+          ),
+        agent: (state, signal) =>
+          opts.agent.streamTurn({ state, userMessages, signal }),
+      });
+    },
+  );
+
+  // Shared guard for the internal worker<->API turn route. Timing-safe
+  // comparison; fails closed (503) when the key is unset so a misconfigured
+  // deploy never accepts unauthenticated internal calls.
+  function assertInternalKey(provided: unknown): void {
+    const expected = opts.internalKey ?? '';
+    if (!expected) {
+      throw new HttpError(
+        503,
+        'Internal session routes are disabled (AGENT_INTERNAL_KEY unset)',
+        'internal_disabled',
+      );
+    }
+    const providedBuf = Buffer.from(typeof provided === 'string' ? provided : '', 'utf8');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
+      throw new HttpError(401, 'Internal key required', 'unauthorized');
+    }
+  }
 };
 
 // ---------------------------------------------------------------------------

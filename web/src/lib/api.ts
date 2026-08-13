@@ -16,8 +16,6 @@ import type {
 } from './types';
 import { readSse } from './sse';
 
-const TOKEN_STORAGE_KEY = 'careersim.authToken';
-
 // `NEXT_PUBLIC_API_URL` is the FULL base URL of the api service — version
 // path included when the API runs with a prefix, e.g.
 // `https://api.careersim.ai/v1`, or just the origin for an unprefixed API
@@ -29,20 +27,10 @@ const TOKEN_STORAGE_KEY = 'careersim.authToken';
 const apiBaseUrl = () =>
   (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1').replace(/\/+$/, '');
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
-}
-
-export function setToken(token: string): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
-}
-
-export function clearToken(): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-}
+// Auth is cookie-based: the API sets an httpOnly session cookie at
+// login/verify time and every request below rides with
+// `credentials: 'include'`. No token is ever stored in JavaScript-
+// reachable storage, so an XSS payload cannot exfiltrate credentials.
 
 export class ApiError extends Error {
   status: number;
@@ -98,12 +86,11 @@ interface RequestOptions {
   method?: string;
   body?: unknown;
   signal?: AbortSignal;
-  auth?: boolean;
   headers?: Record<string, string>;
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, signal, auth = true, headers = {} } = opts;
+  const { method = 'GET', body, signal, headers = {} } = opts;
 
   const finalHeaders: Record<string, string> = {
     Accept: 'application/json',
@@ -114,16 +101,10 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     finalHeaders['Content-Type'] = 'application/json';
   }
 
-  if (auth) {
-    const token = getToken();
-    if (token) {
-      finalHeaders.Authorization = `Bearer ${token}`;
-    }
-  }
-
   const response = await fetch(`${apiBaseUrl()}${path}`, {
     method,
     headers: finalHeaders,
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
   });
@@ -182,7 +163,6 @@ export const apiClient = {
     return request<PendingRegistration>('/auth/register', {
       method: 'POST',
       body: base,
-      auth: false,
     });
   },
 
@@ -195,19 +175,15 @@ export const apiClient = {
     await request<{ ok: true }>('/auth/resend-verification', {
       method: 'POST',
       body: { email },
-      auth: false,
     });
   },
 
-  /** Confirm a 6-digit email code and sign in. */
+  /** Confirm a 6-digit email code and sign in (sets the session cookie). */
   async verifyEmail(email: string, code: string): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/verify-email', {
+    return request<AuthResponse>('/auth/verify-email', {
       method: 'POST',
       body: { email, code },
-      auth: false,
     });
-    setToken(res.token);
-    return res;
   },
 
   async login(
@@ -215,13 +191,10 @@ export const apiClient = {
     password: string,
     altcha?: string,
   ): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/login', {
+    return request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: altcha ? { email, password, altcha } : { email, password },
-      auth: false,
     });
-    setToken(res.token);
-    return res;
   },
 
   /** Ask the backend to email a single-use magic-link sign-in URL. */
@@ -229,37 +202,29 @@ export const apiClient = {
     await request<{ ok: true }>('/auth/login/email-link', {
       method: 'POST',
       body: altcha ? { email, altcha } : { email },
-      auth: false,
     });
   },
 
-  /** Exchange a magic-link token (from the email URL) for a JWT. */
+  /** Exchange a magic-link token (from the email URL) for a session. */
   async consumeMagicLink(token: string): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/magic-link/consume', {
+    return request<AuthResponse>('/auth/magic-link/consume', {
       method: 'POST',
       body: { token },
-      auth: false,
     });
-    setToken(res.token);
-    return res;
   },
 
   async forgotPassword(email: string, altcha?: string): Promise<void> {
     await request<{ ok: true }>('/auth/forgot-password', {
       method: 'POST',
       body: altcha ? { email, altcha } : { email },
-      auth: false,
     });
   },
 
   async resetPassword(token: string, password: string): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/reset-password', {
+    return request<AuthResponse>('/auth/reset-password', {
       method: 'POST',
       body: { token, password },
-      auth: false,
     });
-    setToken(res.token);
-    return res;
   },
 
   async me(): Promise<User> {
@@ -290,16 +255,17 @@ export const apiClient = {
   },
 
   async confirmEmailChange(code: string): Promise<AuthResponse> {
-    const res = await request<AuthResponse>('/auth/me/email-change/confirm', {
+    return request<AuthResponse>('/auth/me/email-change/confirm', {
       method: 'POST',
       body: { code },
     });
-    setToken(res.token);
-    return res;
   },
 
-  logout(): void {
-    clearToken();
+  /** Clear the server-side session cookie. Best-effort: even on network
+   *  failure the local state resets and the (expiring) cookie is useless
+   *  to anyone who can't read it anyway. */
+  async logout(): Promise<void> {
+    await request<{ ok: true }>('/auth/logout', { method: 'POST' });
   },
 
   // ---------- simulations ----------
@@ -389,14 +355,10 @@ export const apiClient = {
     content: string | string[],
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent, void, void> {
-    const token = getToken();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
     return readSse(`${apiBaseUrl()}/sessions/${id}/messages/stream`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ content }),
       signal,
     });
@@ -406,14 +368,10 @@ export const apiClient = {
     id: string,
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent, void, void> {
-    const token = getToken();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
     return readSse(`${apiBaseUrl()}/sessions/${id}/proactive/stream`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ trigger_type: 'followup' }),
       signal,
     });
@@ -447,5 +405,3 @@ export const apiClient = {
     });
   },
 };
-
-export { getToken };

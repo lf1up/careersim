@@ -93,19 +93,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let cancelled = false;
     const bootstrap = async () => {
-      const token =
-        typeof window !== 'undefined'
-          ? window.localStorage.getItem('careersim.authToken')
-          : null;
-      if (!token) {
-        dispatch({ type: 'SET_LOADING', payload: false });
-        return;
-      }
+      // Session state lives in the httpOnly cookie, not localStorage —
+      // ask the API who we are. A 401 simply means "not signed in".
       try {
         const user = await apiClient.me();
         if (!cancelled) dispatch({ type: 'SET_USER', payload: user });
       } catch {
-        apiClient.logout();
         if (!cancelled) dispatch({ type: 'CLEAR_USER' });
       }
     };
@@ -240,13 +233,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const user = await apiClient.me();
       dispatch({ type: 'SET_USER', payload: user });
     } catch {
-      apiClient.logout();
       dispatch({ type: 'CLEAR_USER' });
     }
   }, []);
 
   const logout = useCallback(() => {
-    apiClient.logout();
+    // Clear local state immediately; the cookie clear round-trips in the
+    // background (best-effort — an unreachable API leaves an httpOnly
+    // cookie nobody's JavaScript can read, bounded by its own expiry).
+    void apiClient.logout().catch(() => undefined);
     dispatch({ type: 'CLEAR_USER' });
     toast.success('Logged out');
   }, []);

@@ -622,8 +622,8 @@ describe('voice mode — token contents', () => {
     await h.close();
   });
 
-  it('encodes session_id + bearer_token in the room metadata', async () => {
-    const { authHeader, token } = await registerAndAuth(h.app);
+  it('encodes only the session_id in the room metadata (never a bearer token)', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(h, authHeader);
 
     const res = await h.app.inject({
@@ -644,9 +644,10 @@ describe('voice mode — token contents', () => {
     );
     expect(claims.metadata).toBeDefined();
     const metadata = JSON.parse(claims.metadata);
-    expect(metadata).toMatchObject({
-      session_id: session.id,
-      bearer_token: token,
-    });
+    expect(metadata).toMatchObject({ session_id: session.id });
+    // Participant metadata is visible to every room participant, so no
+    // user credential may ride it — the worker re-enters the API via
+    // the internal-key route instead.
+    expect(metadata).not.toHaveProperty('bearer_token');
   });
 });
