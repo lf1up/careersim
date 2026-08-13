@@ -1,19 +1,12 @@
 name: Build and Push Docker Images
 
+# DISABLED — every job in this workflow builds an image for a deprecated
+# service (backend/, rag/, transformers/). Automatic push/PR triggers have
+# been removed so the workflow no longer runs on its own; it remains
+# manually dispatchable for reference until the deprecated directories are
+# removed. Image builds for the active stack (api/, web/, agent/) should be
+# authored as a new workflow when needed.
 on:
-  push:
-    branches:
-      - main
-      - v2
-    paths:
-      - 'backend/**'
-      - '.github/workflows/build-images.yml'
-  pull_request:
-    branches:
-      - main
-      - v2
-    paths:
-      - 'backend/**'
   workflow_dispatch:
     inputs:
       build_backend:
