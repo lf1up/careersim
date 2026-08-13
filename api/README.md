@@ -45,18 +45,20 @@ Interactive OpenAPI docs are exposed at `http://localhost:8000/v1/docs`.
 
 ## 🛣️ Endpoints (v1)
 
-Every route — including the service index, `/v1/health`, the docs, and the
-internal worker routes — lives under a version prefix controlled by the
-`API_VERSION_PREFIX` env var. Empty/unset means **no prefix** (`/health`,
-`/auth/...`) — the bare-container default used by the current cloud setup.
-Locally the rule is `v1`: `api/.env` and `docker-compose.local.yml` set
-`API_VERSION_PREFIX=v1` on both the API and the agent-voice worker, and the
-web app's `NEXT_PUBLIC_API_URL` (a full base URL) carries the matching `/v1`
-path. The tables below show that local `v1` surface.
+Every versioned route — the service index, `/v1/health` readiness probe, the
+docs, and the internal worker routes — lives under a version prefix controlled
+by the `API_VERSION_PREFIX` env var. Empty/unset means **no prefix**
+(`/auth/...`) — the bare-container default used by the current cloud setup.
+Process liveness at `GET /health` is **never** prefixed, so load balancers
+don't need to know the API version. Locally the rule is `v1`: `api/.env` and
+`docker-compose.local.yml` set `API_VERSION_PREFIX=v1` on both the API and the
+agent-voice worker, and the web app's `NEXT_PUBLIC_API_URL` (a full base URL)
+carries the matching `/v1` path. The tables below show that local `v1` surface.
 
 | Method | Path | Auth | CAPTCHA | Rate limit | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| GET  | `/v1/health` | public | — | 200/min per IP (global) | Liveness + db/agent ping |
+| GET  | `/health` | public | — | 200/min per IP (global) | Process liveness (no db/agent ping) |
+| GET  | `/v1/health` | public | — | 200/min per IP (global) | Version readiness: db + agent ping |
 | GET  | `/v1/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
 | POST | `/v1/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
 | POST | `/v1/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/v1/auth/register`, which *is* gated |
@@ -141,7 +143,7 @@ api/
 │   │   └── errors.ts           # HttpError + Zod validation mapping
 │   └── modules/
 │       ├── auth/               # register, verify, login, magic-link, forgot/reset, profile (change pw/email)
-│       ├── health/             # /health with db + agent probes
+│       ├── health/             # GET /health liveness + GET {prefix}/health db/agent readiness
 │       ├── simulations/        # agent passthrough
 │       ├── sessions/           # create, list, get, turn (batch + SSE), proactive, debrief report (cached)
 │       ├── analytics/          # GET /v1/analytics/overview — read-only aggregation over sessions + cached reports (no tables of its own)
@@ -306,7 +308,7 @@ See `.env.example` for the authoritative list. Required in production:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `API_VERSION_PREFIX` | — (no prefix) | Version segment every route is served under. Empty/unset → unprefixed routes (bare-container / cloud default); accepts `1`, `v1`, or `/v1` equivalently. Local dev + compose set `v1`. Keep it in sync with the path in the web app's `NEXT_PUBLIC_API_URL` (a full base URL) and with the agent-voice worker's `API_VERSION_PREFIX` |
+| `API_VERSION_PREFIX` | — (no prefix) | Version segment versioned routes are served under. Empty/unset → unprefixed versioned routes (bare-container / cloud default); accepts `1`, `v1`, or `/v1` equivalently. Process liveness at `GET /health` is never prefixed. Local dev + compose set `v1`. Keep it in sync with the path in the web app's `NEXT_PUBLIC_API_URL` (a full base URL) and with the agent-voice worker's `API_VERSION_PREFIX` |
 | `DATABASE_URL` | — | Postgres connection string |
 | `AGENT_API_URL` | — | Base URL of the agent FastAPI server (`agent/ --serve api`) |
 | `AGENT_INTERNAL_KEY` | — | Shared secret sent as `X-Internal-Key` on every API ⇒ agent call. Must match the agent's `AGENT_INTERNAL_KEY`. Leave empty for single-service dev (agent accepts unauthenticated calls with a warning); set to a long random string in production |

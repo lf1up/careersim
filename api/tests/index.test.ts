@@ -42,14 +42,19 @@ describe('GET /v1', () => {
 });
 
 describe('custom version prefix (API_VERSION_PREFIX)', () => {
-  it('moves the whole surface — index, health, and pointers — to the new segment', async () => {
+  it('moves the versioned surface — index, readiness, and pointers — to the new segment', async () => {
     const h = await buildTestApp({ versionPrefix: 'v2' });
     try {
       const missed = await h.app.inject({ method: 'GET', url: '/v1/health' });
       expect(missed.statusCode).toBe(404);
 
-      const health = await h.app.inject({ method: 'GET', url: '/v2/health' });
-      expect(health.statusCode).toBe(200);
+      const readiness = await h.app.inject({ method: 'GET', url: '/v2/health' });
+      expect(readiness.statusCode).toBe(200);
+      expect(readiness.json()).toEqual({ status: 'ok', db: 'ok', agent: 'ok' });
+
+      const liveness = await h.app.inject({ method: 'GET', url: '/health' });
+      expect(liveness.statusCode).toBe(200);
+      expect(liveness.json()).toEqual({ status: 'ok' });
 
       const index = await h.app.inject({ method: 'GET', url: '/v2' });
       expect(index.statusCode).toBe(200);
@@ -59,14 +64,17 @@ describe('custom version prefix (API_VERSION_PREFIX)', () => {
     }
   });
 
-  it('serves unprefixed routes when the prefix is empty (bare-container / cloud default)', async () => {
+  it('serves unprefixed versioned routes when the prefix is empty (bare-container / cloud default)', async () => {
     const h = await buildTestApp({ versionPrefix: '' });
     try {
       const missed = await h.app.inject({ method: 'GET', url: '/v1/health' });
       expect(missed.statusCode).toBe(404);
 
+      // No version prefix → no versioned readiness route; `/health` is
+      // the process liveness probe only (would otherwise collide).
       const health = await h.app.inject({ method: 'GET', url: '/health' });
       expect(health.statusCode).toBe(200);
+      expect(health.json()).toEqual({ status: 'ok' });
 
       const index = await h.app.inject({ method: 'GET', url: '/' });
       expect(index.statusCode).toBe(200);

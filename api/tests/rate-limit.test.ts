@@ -56,6 +56,23 @@ describe('rate limiting', () => {
     expect(body.retryAfter).toBeGreaterThan(0);
   });
 
+  it('enforces the global default on the root liveness probe', async () => {
+    h = await buildTestApp({
+      rateLimitEnabled: true,
+      rateLimitGlobalMax: 3,
+      rateLimitGlobalTimeWindow: '1 minute',
+    });
+
+    for (let i = 0; i < 3; i++) {
+      const res = await h.app.inject({ method: 'GET', url: '/health' });
+      expect(res.statusCode).toBe(200);
+    }
+
+    const limited = await h.app.inject({ method: 'GET', url: '/health' });
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toMatchObject({ error: 'RATE_LIMITED' });
+  });
+
   it('isolates per-email buckets on /auth/resend-verification', async () => {
     h = await buildTestApp({ rateLimitEnabled: true });
 

@@ -24,7 +24,7 @@ import mailerPlugin, { type MailMessage } from './plugins/mailer.js';
 import rateLimitPlugin from './plugins/rate-limit.js';
 import { analyticsRoutes } from './modules/analytics/analytics.route.js';
 import { authRoutes } from './modules/auth/auth.route.js';
-import { healthRoutes } from './modules/health/health.route.js';
+import { healthRoutes, livenessRoutes } from './modules/health/health.route.js';
 import { personasRoutes } from './modules/personas/personas.route.js';
 import { sessionsRoutes } from './modules/sessions/sessions.route.js';
 import { simulationsRoutes } from './modules/simulations/simulations.route.js';
@@ -40,12 +40,15 @@ export interface BuildAppOptions {
   nodeEnv?: 'development' | 'test' | 'production';
   logger?: boolean | Record<string, unknown>;
   /**
-   * Bare path segment (no slashes) every route is served under —
-   * service index, health, docs, and internal worker routes included.
-   * Comes from the `API_VERSION_PREFIX` env var, already normalized by
-   * `loadEnv` ('1', 'v1', '/v1/' all → 'v1'). Empty/undefined means no
-   * prefix — the bare-container (cloud) default; the local compose
-   * stack sets 'v1'.
+   * Bare path segment (no slashes) versioned routes are served under —
+   * service index, versioned health, docs, and internal worker routes
+   * included. Comes from the `API_VERSION_PREFIX` env var, already
+   * normalized by `loadEnv` ('1', 'v1', '/v1/' all → 'v1').
+   * Empty/undefined means no prefix — the bare-container (cloud)
+   * default; the local compose stack sets 'v1'.
+   *
+   * The process-level `GET /health` liveness probe is *not* prefixed;
+   * it always lives at the app root.
    */
   versionPrefix?: string;
   /**
@@ -139,7 +142,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     logger: opts.logger ?? false,
   }).withTypeProvider<ZodTypeProvider>();
   const docsEnabled = (opts.nodeEnv ?? process.env.NODE_ENV ?? 'development') === 'development';
-  // '' when unset — routes then live at the root (/health, /auth/...).
+  // '' when unset — versioned routes then live at the root (/auth/...).
+  // `GET /health` is always registered at the app root (see livenessRoutes).
   const routePrefix = opts.versionPrefix ? `/${opts.versionPrefix}` : '';
 
   app.setValidatorCompiler(validatorCompiler);
@@ -269,16 +273,24 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   }
 
   // ---------------------------------------------------------------------
-  // Every route — including the service index, health probe, docs, and
-  // the internal worker<->API voice routes — lives under the version
-  // prefix (`API_VERSION_PREFIX`). Unset means unprefixed routes (the
+  // Process liveness always lives at the app root (`GET /health`) so
+  // probes don't need to know `API_VERSION_PREFIX`. The versioned
+  // surface — service index, readiness `/health`, docs, and the
+  // internal worker<->API voice routes — lives under the version
+  // prefix. Unset means unprefixed versioned routes (the
   // bare-container / cloud default); compose + .env set `v1` locally.
+  //
+  // When the prefix is empty, the versioned readiness probe would
+  // collide with root liveness, so we skip registering it and `/health`
+  // is the process check only.
   //
   // NOTE: fp()-wrapped plugins (altcha, mailer, rate-limit, auth) break
   // encapsulation and MUST NOT define routes, or they'd escape this
   // prefix. Their routes live in standalone plugins registered here
   // (see `altchaChallengeRoutes`).
   // ---------------------------------------------------------------------
+  await app.register(livenessRoutes);
+
   await app.register(
     async (scope) => {
       if (docsEnabled) {
@@ -331,7 +343,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         },
       );
 
-      await scope.register(healthRoutes, { db: opts.db, agent: opts.agent });
+      // Versioned readiness (`GET {prefix}/health`) — skipped when the
+      // prefix is empty so it doesn't collide with root liveness.
+      if (routePrefix) {
+        await scope.register(healthRoutes, { db: opts.db, agent: opts.agent });
+      }
       await scope.register(altchaChallengeRoutes);
       await scope.register(authRoutes, {
         db: opts.db,
