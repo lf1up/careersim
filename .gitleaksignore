@@ -1,0 +1,34 @@
+# Gitleaks allow-list for known-benign historical findings.
+# Each entry is the exact fingerprint gitleaks reports (commit:path:rule:line).
+#
+# Rotated 2026-08-13: dead OpenRouter key that lived in the k8s dev overlay.
+# The literal stays in history (rotation, not deletion, is the remediation);
+# removing it would require a destructive history rewrite.
+3eb1410cfafdbdcf5e45c702473fabed75130d89:infrastructure/k8s/base/app-secrets.yaml:generic-api-key:15
+531ae3f07d9f46cc6cd6090adc9c84988a7b02bf:infrastructure/k8s/overlays/dev/kustomization.yaml:generic-api-key:64
+#
+# False positives: documentation placeholders (YOUR_TOKEN), env.example
+# sample values, and a placeholder JWT_SECRET string in the prod overlay.
+32b6006e65bb4ea0df5e74126bcf6cf966b9a059:rag/README.md:curl-auth-header:151
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:104
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:109
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:115
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:134
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:147
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:88
+400865e6f19dcf030438385d8463977b5218bb81:rag/README.md:curl-auth-header:93
+5e1c509a336a9885c886156098de120a2614cfb9:transformers/README.md:curl-auth-header:92
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/AUTHENTICATION.md:curl-auth-header:221
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/AUTHENTICATION.md:curl-auth-header:33
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/AUTHENTICATION.md:curl-auth-header:37
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/README.md:curl-auth-header:159
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/README.md:curl-auth-header:164
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/README.md:curl-auth-header:172
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/README.md:curl-auth-header:180
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/README.md:curl-auth-header:188
+8e023e6f41b1f303603ec82ab4c243de64f34b49:transformers/env.example:generic-api-key:30
+b79eaef5c9b3f6bc6e9e5d2a1f621fb3f3f20b32:infrastructure/k8s/overlays/prod/kustomization.yaml:generic-api-key:32
+#
+# False positives: public Figma file keys (URL identifiers, not credentials).
+2bba4f390993ca0ffeec78198ef4085f5172bf6b:landing/figma/design-source.json:generic-api-key:2
+2bba4f390993ca0ffeec78198ef4085f5172bf6b:landing/figma/sync-summary.json:generic-api-key:4
