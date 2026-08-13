@@ -27,6 +27,12 @@ export interface MailerOptions {
    */
   devFallback?: boolean;
   outbox?: MailMessage[];
+  /**
+   * In production the dev-fallback transport redacts message bodies from
+   * logs — they carry magic links and reset codes that must not land in
+   * log aggregation when SMTP is misconfigured.
+   */
+  nodeEnv?: 'development' | 'test' | 'production';
 }
 
 declare module 'fastify' {
@@ -41,6 +47,8 @@ export default fp<MailerOptions>(
     const from = opts.from;
     const outbox: MailMessage[] = opts.outbox ?? [];
     const useSmtp = Boolean(opts.smtp?.host) && !opts.devFallback;
+    const isProduction = opts.nodeEnv === 'production';
+    let warnedProductionFallback = false;
 
     let transporter: Transporter | null = null;
     if (useSmtp && opts.smtp) {
@@ -71,11 +79,17 @@ export default fp<MailerOptions>(
             'mail.sent',
           );
         } else {
+          if (isProduction && !warnedProductionFallback) {
+            app.log.warn(
+              'SMTP is not configured in production — emails are captured to the outbox and bodies are redacted from logs',
+            );
+            warnedProductionFallback = true;
+          }
           app.log.info(
             {
               to: message.to,
               subject: message.subject,
-              text: message.text,
+              ...(isProduction ? {} : { text: message.text }),
             },
             'mail.devFallback',
           );

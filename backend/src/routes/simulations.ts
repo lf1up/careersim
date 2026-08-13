@@ -1168,7 +1168,7 @@ router.post('/:id/sessions/:sessionId/messages', authenticateToken as any, async
               if (burstMax > 1) {
                 const rangeFactor = (burstMax - burstMin) / (burstMax || 1);
                 const burstProbability = 0.3 + (rangeFactor * 0.5); // 30-80% based on range
-                if (Math.random() < burstProbability) {
+                if (randomFloat() < burstProbability) {
                   const burstCount = randomInt(burstMin, burstMax);
                   extraCount = Math.max(0, burstCount - 1);
                 }

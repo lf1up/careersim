@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { buildPgPoolConfig } from '../src/db/client.js';
@@ -29,5 +33,32 @@ describe('buildPgPoolConfig', () => {
       connectionString: 'postgres://user:pass@db.example.com:5432/careersim?connect_timeout=10',
       ssl: { rejectUnauthorized: false },
     });
+  });
+
+  it('verifies the server certificate when sslmode is verify-full', () => {
+    const config = buildPgPoolConfig('postgres://user:pass@db.example.com:5432/careersim?sslmode=verify-full');
+
+    expect(config).toEqual({
+      connectionString: 'postgres://user:pass@db.example.com:5432/careersim',
+      ssl: { rejectUnauthorized: true },
+    });
+  });
+
+  it('loads a pinned CA when verify-full provides sslrootcert', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pg-ca-'));
+    const caPath = join(dir, 'ca.pem');
+    writeFileSync(caPath, 'TEST-CA');
+    try {
+      const config = buildPgPoolConfig(
+        `postgres://user:pass@db.example.com:5432/careersim?sslmode=verify-full&sslrootcert=${caPath}`,
+      );
+
+      expect(config).toEqual({
+        connectionString: 'postgres://user:pass@db.example.com:5432/careersim',
+        ssl: { rejectUnauthorized: true, ca: 'TEST-CA' },
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -5,6 +5,16 @@ export function parseCorsAllowedOrigins(value: string): string[] {
     .filter(Boolean);
 }
 
-export function isCorsOriginAllowed(origin: string, allowedOrigins: readonly string[]): boolean {
-  return allowedOrigins.length === 0 || allowedOrigins.includes(origin);
+/**
+ * The empty-allowlist policy is explicit: callers pass `allowAllWhenEmpty`
+ * (true in dev/test, false in production) so a missing
+ * `CORS_ALLOWED_ORIGINS` can never silently open a production deployment.
+ */
+export function isCorsOriginAllowed(
+  origin: string,
+  allowedOrigins: readonly string[],
+  allowAllWhenEmpty: boolean,
+): boolean {
+  if (allowedOrigins.length === 0) return allowAllWhenEmpty;
+  return allowedOrigins.includes(origin);
 }

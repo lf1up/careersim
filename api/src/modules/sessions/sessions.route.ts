@@ -27,11 +27,14 @@ interface SessionsRouteOptions {
   db: AppDatabase;
   agent: AgentClient;
   corsAllowedOrigins?: string[];
+  /** Empty-allowlist policy for the SSE proxy's manual CORS echo. */
+  corsAllowAllWhenEmpty?: boolean;
 }
 
 export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async (app, opts) => {
   const service = createSessionsService(opts.db, opts.agent);
   const corsAllowedOrigins = opts.corsAllowedOrigins ?? [];
+  const corsAllowAllWhenEmpty = opts.corsAllowAllWhenEmpty ?? false;
 
   app.post(
     '/sessions',
@@ -173,6 +176,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       await runSseProxy(app, request, reply, {
         kind: 'proactive',
         corsAllowedOrigins,
+        corsAllowAllWhenEmpty,
         load: () => service.prepareStream(request.user.sub, request.params.id),
         agent: (state, signal) =>
           opts.agent.streamProactive({ state, triggerType: trigger, signal }),
@@ -228,6 +232,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       await runSseProxy(app, request, reply, {
         kind: 'turn',
         corsAllowedOrigins,
+        corsAllowAllWhenEmpty,
         load: () =>
           service.prepareStream(
             request.user.sub,
@@ -250,6 +255,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
 interface SseProxyContext {
   kind: 'turn' | 'proactive';
   corsAllowedOrigins: readonly string[];
+  corsAllowAllWhenEmpty: boolean;
   load: () => Promise<{
     session: { stateSnapshot: AgentWireState };
     persist: (
@@ -288,7 +294,7 @@ async function runSseProxy(
   if (
     typeof origin === 'string' &&
     origin.length > 0 &&
-    isCorsOriginAllowed(origin, ctx.corsAllowedOrigins)
+    isCorsOriginAllowed(origin, ctx.corsAllowedOrigins, ctx.corsAllowAllWhenEmpty)
   ) {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Credentials'] = 'true';

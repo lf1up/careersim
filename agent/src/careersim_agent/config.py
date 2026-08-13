@@ -3,6 +3,7 @@
 from functools import lru_cache
 from typing import Literal, Optional
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     # OpenAI API Configuration
@@ -80,6 +82,16 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
+
+    # Deployment environment. Read from ENVIRONMENT, falling back to
+    # NODE_ENV so existing k8s configMaps / compose files (which already
+    # set NODE_ENV=production) flip the agent to fail-closed auth without
+    # a config change. Anything other than "production" keeps the
+    # dev-mode conveniences described under `agent_internal_key`.
+    environment: Literal["development", "test", "production"] = Field(
+        default="development",
+        validation_alias=AliasChoices("ENVIRONMENT", "NODE_ENV"),
+    )
 
     # -------------------------------------------------------------------
     # Internal API authentication

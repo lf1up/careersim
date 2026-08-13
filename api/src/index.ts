@@ -20,6 +20,9 @@ async function main(): Promise<void> {
     webAppUrl: env.WEB_APP_URL,
     cors: {
       allowedOrigins: env.CORS_ALLOWED_ORIGINS,
+      // Empty allowlist reflects any origin in dev/test but denies all
+      // cross-origin browser requests in production.
+      allowAllWhenEmpty: env.NODE_ENV !== 'production',
     },
     mail: {
       from: env.MAIL_FROM,

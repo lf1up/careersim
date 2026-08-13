@@ -62,7 +62,10 @@ secretGenerator:
       - SESSION_SECRET=dev-session-secret-at-least-32-characters-long-435e6670f51
       - SMTP_USER=
       - SMTP_PASS=
-      - OPENAI_API_KEY=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
+      # Never commit real keys here — inject at deploy time via
+      # ExternalSecrets/SealedSecrets or CI. A live OpenRouter key was
+      # committed in this spot and had to be rotated (2026-08-13).
+      - OPENAI_API_KEY=fill-me-in
       - STRIPE_SECRET_KEY=
       - STRIPE_WEBHOOK_SECRET=
       - STRIPE_PUBLISHABLE_KEY=

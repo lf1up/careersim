@@ -539,3 +539,52 @@ class TestInternalApiKey:
         """Default fixture runs with AGENT_INTERNAL_KEY unset → no auth."""
         resp = client.get("/simulations")
         assert resp.status_code == 200
+
+    def test_production_without_key_refuses_to_boot(self, monkeypatch):
+        """ENVIRONMENT=production + unset key must crash the app factory."""
+        from careersim_agent import config as config_module
+
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        # Empty string, not delenv: the env var must override the dev
+        # placeholder in agent/.env (see conftest.py).
+        monkeypatch.setenv("AGENT_INTERNAL_KEY", "")
+        config_module.get_settings.cache_clear()
+        try:
+            with pytest.raises(RuntimeError, match="AGENT_INTERNAL_KEY"):
+                create_api_app()
+        finally:
+            config_module.get_settings.cache_clear()
+
+    def test_production_unset_key_fails_closed(self, client, monkeypatch):
+        """An app booted in dev must still fail closed once the env flips."""
+        from careersim_agent import config as config_module
+
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        # Empty string, not delenv: the env var must override the dev
+        # placeholder in agent/.env (see conftest.py).
+        monkeypatch.setenv("AGENT_INTERNAL_KEY", "")
+        config_module.get_settings.cache_clear()
+        try:
+            assert client.get("/simulations").status_code == 503
+            # /health stays open for infra probes.
+            assert client.get("/health").status_code == 200
+        finally:
+            config_module.get_settings.cache_clear()
+
+    def test_production_with_key_boots_and_enforces(self, monkeypatch):
+        from careersim_agent import config as config_module
+
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("AGENT_INTERNAL_KEY", "secret-test-key")
+        config_module.get_settings.cache_clear()
+        try:
+            prod_client = TestClient(create_api_app())
+            assert prod_client.get("/health").status_code == 200
+            assert prod_client.get("/simulations").status_code == 401
+            resp = prod_client.get(
+                "/simulations",
+                headers={"X-Internal-Key": "secret-test-key"},
+            )
+            assert resp.status_code == 200
+        finally:
+            config_module.get_settings.cache_clear()

@@ -59,7 +59,9 @@ async def require_internal_key(
     :func:`create_api_app`.  When the configured key is empty (unset
     env var) the agent runs in "dev mode" — it logs a one-line warning
     on first request and accepts everything. This keeps local `pytest`,
-    the Gradio console, and single-service dev sessions trivial.
+    the Gradio console, and single-service dev sessions trivial. Under
+    ``ENVIRONMENT``/``NODE_ENV=production`` an unset key fails closed
+    instead: every gated route returns 503.
 
     Comparison uses :func:`hmac.compare_digest` to avoid trivially
     leaking key length / prefix via response-time side channels, even
@@ -71,6 +73,13 @@ async def require_internal_key(
     settings = get_settings()
     expected = settings.agent_internal_key
     if not expected:
+        if settings.environment == "production":
+            # Fail closed: an unset key must never mean "open to everyone".
+            logger.error("AGENT_INTERNAL_KEY is unset in production — refusing request")
+            raise HTTPException(
+                status_code=503,
+                detail="Agent is not configured for production use",
+            )
         # Don't spam the logs on every request — emit a single warning
         # the first time we notice the unset key, then stay quiet.
         if not getattr(require_internal_key, "_warned_unset", False):
@@ -284,6 +293,15 @@ def _done_event_to_sse(state: dict) -> str:
 # -- App factory --------------------------------------------------------------
 
 def create_api_app() -> FastAPI:
+    # Crash loudly at boot rather than serve an unauthenticated agent.
+    settings = get_settings()
+    if settings.environment == "production" and not settings.agent_internal_key:
+        raise RuntimeError(
+            "AGENT_INTERNAL_KEY must be set when ENVIRONMENT/NODE_ENV is "
+            "'production' — otherwise the agent accepts unauthenticated "
+            "requests from anyone who can reach it."
+        )
+
     # Pull persona / simulation data from S3 when the feature flag is on
     # (no-op otherwise). Gradio / voice sync from their own run_* paths
     # in main.py; this covers --serve api and direct app factories
@@ -359,7 +377,7 @@ def create_api_app() -> FastAPI:
             return _build_response(state)
         except Exception as e:
             logger.error(f"conversation/init failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @app.post("/conversation/turn", response_model=ConversationResponse)
     async def conversation_turn(req: TurnRequest):
@@ -373,7 +391,7 @@ def create_api_app() -> FastAPI:
             return _build_response(state)
         except Exception as e:
             logger.error(f"conversation/turn failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @app.post("/conversation/proactive", response_model=ConversationResponse)
     async def conversation_proactive(req: ProactiveRequest):
@@ -385,7 +403,7 @@ def create_api_app() -> FastAPI:
             return _build_response(state)
         except Exception as e:
             logger.error(f"conversation/proactive failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @app.post("/conversation/debrief", response_model=DebriefResponse)
     async def conversation_debrief(req: DebriefRequest):
@@ -416,7 +434,7 @@ def create_api_app() -> FastAPI:
             raise HTTPException(status_code=502, detail=str(e)) from e
         except Exception as e:
             logger.error(f"conversation/debrief failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
     # -- SSE streaming endpoints ----------------------------------------------
 
@@ -448,7 +466,7 @@ def create_api_app() -> FastAPI:
             return StreamingResponse(generate(), media_type="text/event-stream")
         except Exception as e:
             logger.error(f"conversation/init/stream failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @app.post("/conversation/turn/stream")
     async def conversation_turn_stream(req: TurnRequest):
@@ -475,7 +493,7 @@ def create_api_app() -> FastAPI:
             return StreamingResponse(generate(), media_type="text/event-stream")
         except Exception as e:
             logger.error(f"conversation/turn/stream failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     @app.post("/conversation/proactive/stream")
     async def conversation_proactive_stream(req: ProactiveRequest):
@@ -495,6 +513,6 @@ def create_api_app() -> FastAPI:
             return StreamingResponse(generate(), media_type="text/event-stream")
         except Exception as e:
             logger.error(f"conversation/proactive/stream failed: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail="Internal server error")
 
     return app

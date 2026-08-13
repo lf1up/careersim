@@ -58,6 +58,11 @@ export interface BuildTestAppOptions {
   rateLimitGlobalTimeWindow?: string;
   corsAllowedOrigins?: string[];
   /**
+   * Empty-allowlist CORS policy passed through to `buildApp`. Defaults
+   * to false (deny cross-origin), matching the production default.
+   */
+  corsAllowAllWhenEmpty?: boolean;
+  /**
    * Voice mode config injected into `buildApp`. The default leaves
    * voice disabled so existing tests stay unaffected; the dedicated
    * voice suite flips `enabled: true` and provides matching LiveKit
@@ -92,6 +97,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     webAppUrl: 'http://localhost:3000',
     cors: {
       allowedOrigins: options?.corsAllowedOrigins,
+      allowAllWhenEmpty: options?.corsAllowAllWhenEmpty,
     },
     logger: process.env.VITEST_DEBUG === '1' ? { level: 'debug' } : false,
     mail: {

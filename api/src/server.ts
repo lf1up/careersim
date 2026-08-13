@@ -57,6 +57,12 @@ export interface BuildAppOptions {
   cors?: {
     /** Empty means preserve wide-open CORS behavior. */
     allowedOrigins?: string[];
+    /**
+     * Policy when `allowedOrigins` is empty: true reflects any origin
+     * (dev/test convenience), false denies all cross-origin browser
+     * requests. Defaults to false (deny) so production fails closed.
+     */
+    allowAllWhenEmpty?: boolean;
   };
   mail: {
     from: string;
@@ -142,14 +148,14 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   registerErrorHandler(app);
 
   const corsAllowedOrigins = opts.cors?.allowedOrigins ?? [];
+  const corsAllowAllWhenEmpty = opts.cors?.allowAllWhenEmpty ?? false;
   await app.register(cors, {
     credentials: true,
-    origin:
-      corsAllowedOrigins.length === 0
-        ? true
-        : (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
-            cb(null, !origin || isCorsOriginAllowed(origin, corsAllowedOrigins));
-          },
+    origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
+      // No Origin header = same-origin or non-browser client; CORS doesn't apply.
+      if (!origin) return cb(null, true);
+      cb(null, isCorsOriginAllowed(origin, corsAllowedOrigins, corsAllowAllWhenEmpty));
+    },
   });
   await app.register(sensible);
 
@@ -195,6 +201,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     smtp: opts.mail.smtp,
     devFallback: opts.mail.devFallback,
     outbox: opts.mail.outbox,
+    nodeEnv: opts.nodeEnv,
   });
 
   await app.register(altchaPlugin, {
@@ -337,6 +344,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         db: opts.db,
         agent: opts.agent,
         corsAllowedOrigins,
+        corsAllowAllWhenEmpty,
       });
       await scope.register(analyticsRoutes, { db: opts.db });
       await scope.register(voiceRoutes, {

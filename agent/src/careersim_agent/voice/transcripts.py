@@ -89,7 +89,8 @@ class NullCaptionPublisher:
     """No-op publisher used in tests / smoke / dry-run scenarios."""
 
     async def publish(self, caption: Caption) -> None:
-        logger.debug("caption(null): role=%s text=%r final=%s", caption.role, caption.text, caption.is_final)
+        # Transcript text is user PII — log shape only, never content.
+        logger.debug("caption(null): role=%s chars=%d final=%s", caption.role, len(caption.text), caption.is_final)
 
     async def publish_control(self, payload: dict[str, Any]) -> None:
         logger.debug("control(null): %r", payload)

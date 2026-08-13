@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { Pool, type PoolConfig } from 'pg';
 import { drizzle as drizzlePg, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { drizzle as drizzlePglite, type PgliteDatabase } from 'drizzle-orm/pglite';
@@ -25,10 +27,28 @@ export function buildPgPoolConfig(databaseUrl: string): PoolConfig {
   const sslMode = url.searchParams.get('sslmode')?.toLowerCase();
 
   if (sslMode === 'require') {
+    // Postgres semantics: encrypt, but don't verify the server identity —
+    // encrypted yet MITM-able. Kept for compatibility; use `verify-full`
+    // with `sslrootcert` in production so the server certificate is checked.
     url.searchParams.delete('sslmode');
     return {
       connectionString: url.toString(),
       ssl: { rejectUnauthorized: false },
+    };
+  }
+
+  if (sslMode === 'verify-ca' || sslMode === 'verify-full') {
+    url.searchParams.delete('sslmode');
+    // node-postgres doesn't understand the libpq `sslrootcert` param, so
+    // resolve it ourselves; without it, the system CA store is used.
+    const sslRootCert = url.searchParams.get('sslrootcert');
+    url.searchParams.delete('sslrootcert');
+    return {
+      connectionString: url.toString(),
+      ssl: {
+        rejectUnauthorized: true,
+        ...(sslRootCert ? { ca: readFileSync(sslRootCert, 'utf8') } : {}),
+      },
     };
   }
 

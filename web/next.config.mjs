@@ -121,6 +121,24 @@ const nextConfig = {
     // `Cache-Control` from the API still controls browser caching.
     minimumCacheTTL: 60 * 60 * 24,
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Voice mode needs the mic on our own origin; nothing else does.
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          // Full CSP needs an inline-script nonce story first; frame-ancestors
+          // alone is the cheap high-value clickjacking guard.
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     if (!landingOrigin) return [];
 

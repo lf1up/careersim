@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
@@ -221,7 +223,9 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
         'voice_internal_disabled',
       );
     }
-    if (typeof provided !== 'string' || provided !== expected) {
+    const providedBuf = Buffer.from(typeof provided === 'string' ? provided : '', 'utf8');
+    const expectedBuf = Buffer.from(expected, 'utf8');
+    if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
       throw new HttpError(401, 'Internal key required', 'unauthorized');
     }
   }
