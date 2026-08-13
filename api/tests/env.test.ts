@@ -62,4 +62,22 @@ describe('loadEnv', () => {
       );
     });
   });
+
+  describe('VOICE_WORKER_URL', () => {
+    it('is empty by default', () => {
+      expect(loadEnv(baseEnv).VOICE_WORKER_URL).toBe('');
+    });
+
+    it('accepts a URL', () => {
+      expect(
+        loadEnv({ ...baseEnv, VOICE_WORKER_URL: 'http://agent-voice:8081' }).VOICE_WORKER_URL,
+      ).toBe('http://agent-voice:8081');
+    });
+
+    it('rejects a non-URL', () => {
+      expect(() => loadEnv({ ...baseEnv, VOICE_WORKER_URL: 'not-a-url' })).toThrow(
+        /VOICE_WORKER_URL/,
+      );
+    });
+  });
 });

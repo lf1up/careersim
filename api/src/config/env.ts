@@ -146,6 +146,21 @@ const EnvSchema = z
     // user can't be locked out. Set to 0 to disable the guard
     // entirely. Default ~70 min mirrors the `cap + 10 min` token TTL.
     VOICE_ACTIVE_CALL_STALE_SECONDS: z.coerce.number().int().nonnegative().default(70 * 60),
+    // LiveKit Agents worker HTTP health (GET `/` on host:port, default
+    // 8081). Empty → versioned `/health` reports `voice: skipped`.
+    // Only probed when VOICE_ENABLED is true.
+    VOICE_WORKER_URL: z
+      .string()
+      .default('')
+      .transform((v, ctx) => {
+        const trimmed = v.trim();
+        if (!trimmed) return '';
+        if (!URL.canParse(trimmed)) {
+          ctx.addIssue({ code: 'custom', message: 'VOICE_WORKER_URL must be a valid URL' });
+          return z.NEVER;
+        }
+        return trimmed;
+      }),
   })
   .superRefine((env, ctx) => {
     if (

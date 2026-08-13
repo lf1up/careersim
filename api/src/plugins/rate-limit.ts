@@ -209,6 +209,12 @@ declare module 'fastify' {
      * directly from this module as a typed table.
      */
     rateLimitEnabled: boolean;
+    /**
+     * Shared Redis client used as the rate-limit store. `null` when the
+     * plugin is disabled or `REDIS_URL` is unset (in-memory LRU). The
+     * versioned health probe pings this when present.
+     */
+    redis: Redis | null;
   }
 }
 
@@ -229,11 +235,12 @@ export default fp<RateLimitOptions>(
     }
 
     if (!enabled) {
+      app.decorate('redis', null);
       app.log.info('rate-limit plugin disabled (RATE_LIMIT_ENABLED=false)');
       return;
     }
 
-    let redis: Redis | undefined;
+    let redis: Redis | null = null;
     if (opts.redisUrl) {
       // Eager connect (no `lazyConnect`) so the socket handshake happens
       // alongside the rest of app startup — by the time we accept the
@@ -268,6 +275,7 @@ export default fp<RateLimitOptions>(
     } else {
       app.log.info('rate-limit: using in-memory LRU store (REDIS_URL not set)');
     }
+    app.decorate('redis', redis);
 
     await app.register(rateLimit, {
       global: true,
@@ -288,9 +296,9 @@ export default fp<RateLimitOptions>(
       // through rather than 500. Availability of auth/chat beats
       // perfect rate-limit precision during an infra incident.
       skipOnError: true,
-      // If `redis` is undefined the plugin uses its built-in LRU store,
+      // If `redis` is null the plugin uses its built-in LRU store,
       // which is exactly what we want in single-instance / dev.
-      redis,
+      redis: redis ?? undefined,
       keyGenerator: byIp,
       // Re-shape 429 responses to match our `{ error, message, retryAfter }`
       // envelope. `context.after` is a human-readable duration like "30s";

@@ -1,7 +1,22 @@
+import { request } from 'undici';
+
 import { HttpAgentClient } from './agent/client.js';
 import { loadEnv } from './config/env.js';
 import { createPgClient } from './db/client.js';
 import { buildApp } from './server.js';
+
+/** Cheap GET used by the versioned health probe (voice worker). */
+async function pingHttp(url: string): Promise<void> {
+  const res = await request(url, {
+    method: 'GET',
+    headersTimeout: 3_000,
+    bodyTimeout: 3_000,
+  });
+  await res.body.text();
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    throw new Error(`GET ${url} -> ${res.statusCode}`);
+  }
+}
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -56,6 +71,10 @@ async function main(): Promise<void> {
       activeCallStaleSeconds: env.VOICE_ACTIVE_CALL_STALE_SECONDS,
       internalKey: env.AGENT_INTERNAL_KEY,
     },
+    voiceHealth:
+      env.VOICE_ENABLED && env.VOICE_WORKER_URL
+        ? { ping: () => pingHttp(env.VOICE_WORKER_URL) }
+        : undefined,
     logger: {
       level: env.LOG_LEVEL,
       transport:

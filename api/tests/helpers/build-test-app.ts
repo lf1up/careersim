@@ -77,6 +77,16 @@ export interface BuildTestAppOptions {
     activeCallStaleSeconds?: number;
     internalKey?: string;
   };
+  /**
+   * Optional cache ping for the versioned health probe. Omit to leave
+   * `cache: "skipped"` (the default harness has no Redis).
+   */
+  cache?: { ping: () => Promise<void> };
+  /**
+   * Optional voice-worker ping for the versioned health probe. Omit to
+   * leave `voice: "skipped"`.
+   */
+  voiceHealth?: { ping: () => Promise<void> };
 }
 
 export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestHarness> {
@@ -116,6 +126,8 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
       globalMax: options?.rateLimitGlobalMax,
       globalTimeWindow: options?.rateLimitGlobalTimeWindow,
     },
+    cache: options?.cache,
+    voiceHealth: options?.voiceHealth,
     voice: options?.voice
       ? {
           enabled: options.voice.enabled,

@@ -58,7 +58,7 @@ carries the matching `/v1` path. The tables below show that local `v1` surface.
 | Method | Path | Auth | CAPTCHA | Rate limit | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | GET  | `/health` | public | — | 200/min per IP (global) | Process liveness (no db/agent ping) |
-| GET  | `/v1/health` | public | — | 200/min per IP (global) | Version readiness: db + agent ping |
+| GET  | `/v1/health` | public | — | 200/min per IP (global) | Version readiness: db + agent + cache + voice ping |
 | GET  | `/v1/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
 | POST | `/v1/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
 | POST | `/v1/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/v1/auth/register`, which *is* gated |
@@ -143,7 +143,7 @@ api/
 │   │   └── errors.ts           # HttpError + Zod validation mapping
 │   └── modules/
 │       ├── auth/               # register, verify, login, magic-link, forgot/reset, profile (change pw/email)
-│       ├── health/             # GET /health liveness + GET {prefix}/health db/agent readiness
+│       ├── health/             # GET /health liveness + GET {prefix}/health db/agent/cache/voice readiness
 │       ├── simulations/        # agent passthrough
 │       ├── sessions/           # create, list, get, turn (batch + SSE), proactive, debrief report (cached)
 │       ├── analytics/          # GET /v1/analytics/overview — read-only aggregation over sessions + cached reports (no tables of its own)
@@ -337,6 +337,7 @@ a redeploy:
 | `VOICE_ACTIVE_CALL_STALE_SECONDS` | `4200` | Single-active-call guard window. An un-ended call row older than this is treated as a crashed worker (so the user isn't locked out); `0` disables the guard |
 | `LIVEKIT_URL` | — | SFU URL the API mints tokens against. Must match the `livekit` + `agent` services |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | LiveKit credentials used to sign short-lived join tokens (TTL defaults to `cap + 10 min`) |
+| `VOICE_WORKER_URL` | — | LiveKit Agents worker health base URL (`GET /`, default port 8081). Empty or voice disabled → `/v1/health` reports `voice: skipped` |
 
 Outbound email (optional in dev — leave `SMTP_HOST` blank to log rendered
 emails through the Fastify logger and read verification codes / magic

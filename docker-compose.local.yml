@@ -90,6 +90,8 @@ services:
       DATABASE_URL: postgres://careersim:careersim_password@postgres:5432/careersim
       REDIS_URL: redis://redis:6379
       AGENT_API_URL: http://agent:8001
+      # LiveKit Agents worker health (GET / on :8081). Used by /v1/health.
+      VOICE_WORKER_URL: http://agent-voice:8081
       # AGENT_INTERNAL_KEY is picked up from `./api/.env` and must match
       # the `AGENT_INTERNAL_KEY` in `./agent/.env`. Leave both unset in
       # local dev (the agent falls back to unauthenticated mode with a
@@ -372,6 +374,11 @@ services:
       context: ./agent
       dockerfile: Dockerfile
       target: voice-runtime
+    ports:
+      # LiveKit Agents HTTP health (GET /). Host `pnpm dev` probes this via
+      # VOICE_WORKER_URL=http://localhost:8081; in-compose the API uses
+      # http://agent-voice:8081 on the Docker network.
+      - "8081:8081"
     env_file:
       - ./agent/.env
     environment:

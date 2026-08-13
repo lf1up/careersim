@@ -50,7 +50,13 @@ describe('custom version prefix (API_VERSION_PREFIX)', () => {
 
       const readiness = await h.app.inject({ method: 'GET', url: '/v2/health' });
       expect(readiness.statusCode).toBe(200);
-      expect(readiness.json()).toEqual({ status: 'ok', db: 'ok', agent: 'ok' });
+      expect(readiness.json()).toEqual({
+        status: 'ok',
+        db: 'ok',
+        agent: 'ok',
+        cache: 'skipped',
+        voice: 'skipped',
+      });
 
       const liveness = await h.app.inject({ method: 'GET', url: '/health' });
       expect(liveness.statusCode).toBe(200);

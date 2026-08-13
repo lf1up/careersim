@@ -115,6 +115,18 @@ export interface BuildAppOptions {
     createSessionTimeWindow?: string;
   };
   /**
+   * Optional cache ping used by the versioned health probe. Tests inject
+   * this to exercise `cache: ok | error` without a live Redis. Production
+   * leaves it unset and the probe pings `app.redis` when present.
+   */
+  cache?: { ping: () => Promise<void> };
+  /**
+   * Optional voice-worker ping used by the versioned health probe. Tests
+   * inject this; production wires it from `VOICE_WORKER_URL` when voice
+   * mode is enabled.
+   */
+  voiceHealth?: { ping: () => Promise<void> };
+  /**
    * Voice mode (browser-native LiveKit + chained pipeline).
    *
    * Routes register unconditionally — the OpenAPI surface stays
@@ -346,7 +358,24 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       // Versioned readiness (`GET {prefix}/health`) — skipped when the
       // prefix is empty so it doesn't collide with root liveness.
       if (routePrefix) {
-        await scope.register(healthRoutes, { db: opts.db, agent: opts.agent });
+        const redis = app.redis;
+        await scope.register(healthRoutes, {
+          db: opts.db,
+          agent: opts.agent,
+          cache:
+            opts.cache ??
+            (redis
+              ? {
+                  ping: async () => {
+                    if (redis.status !== 'ready') {
+                      throw new Error(`redis status ${redis.status}`);
+                    }
+                    await redis.ping();
+                  },
+                }
+              : undefined),
+          voice: opts.voiceHealth,
+        });
       }
       await scope.register(altchaChallengeRoutes);
       await scope.register(authRoutes, {
