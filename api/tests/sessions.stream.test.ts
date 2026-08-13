@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { AgentStreamEvent, AgentWireState } from '../src/agent/types.js';
+import type { AgentMessage, AgentStreamEvent, AgentWireState } from '../src/agent/types.js';
 
 import {
   buildTestApp,
@@ -142,22 +142,23 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     ]);
   });
 
-  it('emits a TURN_CONFLICT error (and persists nothing) when a concurrent turn commits first', async () => {
-    // The first stream is gated open until a second full turn commits, so
-    // its persist runs against a stale session version. Pre-fix this was a
-    // silent lost update; now it must surface as a coded SSE error.
+  it('a new turn supersedes an in-flight turn for the same session', async () => {
+    // The per-session turn registry aborts the previous in-flight turn and
+    // awaits its cleanup before the new turn loads state, so two turns can
+    // never race their version-guarded persists into a TURN_CONFLICT.
     class GatedAgent extends FakeAgent {
-      releaseFirst!: () => void;
       firstStarted!: Promise<void>;
+      firstAborted!: Promise<void>;
       private signalStarted!: () => void;
-      private gate: Promise<void>;
       private turnIndex = 0;
 
       constructor() {
         super();
         this.firstStarted = new Promise((r) => (this.signalStarted = r));
-        this.gate = new Promise((r) => (this.releaseFirst = r));
+        this.firstAborted = new Promise((r) => (this.signalAborted = r));
       }
+
+      private signalAborted!: () => void;
 
       override async *streamTurn(args: {
         state: AgentWireState;
@@ -167,7 +168,19 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
         const index = this.turnIndex++;
         if (index === 0) {
           this.signalStarted();
-          await this.gate;
+          // Stay "in flight" until aborted (or the test ends), like a real
+          // agent fetch mid-generation.
+          await new Promise<void>((resolve) => {
+            if (args.signal?.aborted) return resolve();
+            args.signal?.addEventListener('abort', () => {
+              this.signalAborted();
+              resolve();
+            });
+          });
+          // The proxy must not persist or forward anything from the
+          // superseded turn, even though the agent still yields events.
+          yield* super.streamTurn(args);
+          return;
         }
         yield* super.streamTurn(args);
       }
@@ -195,26 +208,24 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       });
       await gated.firstStarted;
 
-      // A second turn runs to completion and bumps the session version.
+      // The second turn supersedes: it aborts the first, awaits its
+      // cleanup, then runs to completion without any conflict.
       const second = await gh.app.inject({
         method: 'POST',
         url: `/v1/sessions/${session.id}/messages/stream`,
         payload: { content: 'fast turn' },
         headers: authHeader,
       });
+      await gated.firstAborted;
       expect(parseSSE(second.body).map((e) => e.event)).toEqual(['message', 'done']);
 
-      // Unblock the first turn: its persist must now 409, not overwrite.
-      gated.releaseFirst();
+      // The superseded turn ends quietly: no done, no error event.
       const first = await firstReq;
       const firstEvents = parseSSE(first.body);
-      const errorEvent = firstEvents.find((e) => e.event === 'error');
-      expect(errorEvent).toBeDefined();
-      expect((errorEvent!.data as { code?: string }).code).toBe('TURN_CONFLICT');
       expect(firstEvents.some((e) => e.event === 'done')).toBe(false);
+      expect(firstEvents.some((e) => e.event === 'error')).toBe(false);
 
-      // Only the committed (fast) turn is in the transcript — the stale
-      // turn persisted nothing.
+      // Only the superseding turn is in the transcript.
       const detail = await gh.app.inject({
         method: 'GET',
         url: `/v1/sessions/${session.id}`,
@@ -272,11 +283,12 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
     expect(parseSSE(fresh.body).map((e) => e.event)).toEqual(['message', 'done']);
   });
 
-  it('does not persist a turn whose client disconnected before done', async () => {
-    // The voice worker abandons a turn by closing the SSE and re-sends the
-    // messages in a new request. If generation already finished when the
-    // client hung up, persisting anyway would duplicate the re-sent turn —
-    // the proxy must drop the result instead.
+  it('keeps the bubbles already delivered when the client disconnects mid-turn', async () => {
+    // The web client interrupts a turn by closing the SSE and sending a new
+    // message. Incremental persistence means everything already forwarded
+    // survives — the transcript must contain the human message and the
+    // first AI bubble, while the unfinished remainder of the turn (the
+    // final state at `done`) is dropped.
     class GatedAgent extends FakeAgent {
       release!: () => void;
       firstBubbleSent!: Promise<void>;
@@ -326,7 +338,7 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       const resp = await fetch(`${base}/v1/sessions/${session.id}/messages/stream`, {
         method: 'POST',
         headers: { ...authHeader, 'content-type': 'application/json' },
-        body: JSON.stringify({ content: 'abandoned turn' }),
+        body: JSON.stringify({ content: 'interrupted turn' }),
         signal: controller.signal,
       });
       const reader = resp.body!.getReader();
@@ -335,25 +347,162 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       controller.abort();
 
       // Give the close event a beat to reach the server, then let the
-      // agent stream finish — the proxy must skip the persist.
+      // agent stream finish — the proxy must not persist the final state.
       await new Promise((r) => setTimeout(r, 150));
       gated.release();
       await new Promise((r) => setTimeout(r, 250));
 
-      const after = (
+      const messages = (
         await gh.app.inject({
           method: 'GET',
           url: `/v1/sessions/${session.id}`,
           headers: authHeader,
         })
-      ).json().messages.length;
-      expect(after).toBe(before);
+      ).json().messages;
+      // Exactly the delivered prefix: the human message + the first bubble.
+      expect(messages.length).toBe(before + 2);
+      expect(messages.slice(-2)).toEqual([
+        expect.objectContaining({ role: 'human', content: 'interrupted turn' }),
+        expect.objectContaining({ role: 'ai', content: 'echo:interrupted turn' }),
+      ]);
     } finally {
       await gh.close();
     }
   });
 
-  it('persists nothing when the agent stream fails before done', async () => {
+  it('persists each streamed message before forwarding it', async () => {
+    // Mid-burst, the transcript must already contain the first AI bubble
+    // while the follow-up is still generating — "seen by the client"
+    // implies "persisted".
+    class BurstAgent extends FakeAgent {
+      release!: () => void;
+      firstBubbleSent!: Promise<void>;
+      private signalBubble!: () => void;
+      private gate: Promise<void>;
+
+      constructor() {
+        super();
+        this.firstBubbleSent = new Promise((r) => (this.signalBubble = r));
+        this.gate = new Promise((r) => (this.release = r));
+      }
+
+      override async *streamTurn(args: {
+        state: AgentWireState;
+        userMessages: string[];
+        signal?: AbortSignal;
+      }): AsyncIterable<AgentStreamEvent> {
+        const prior = args.state.messages ?? [];
+        const humans = args.userMessages.map<AgentMessage>((m) => ({
+          role: 'human',
+          content: m,
+        }));
+        const afterFirst: AgentWireState = {
+          ...args.state,
+          messages: [...prior, ...humans, { role: 'ai', content: 'bubble one' }],
+        };
+        const afterSecond: AgentWireState = {
+          ...args.state,
+          messages: [
+            ...prior,
+            ...humans,
+            { role: 'ai', content: 'bubble one' },
+            { role: 'ai', content: 'bubble two' },
+          ],
+        };
+        yield {
+          type: 'message',
+          data: {
+            content: 'bubble one',
+            typing_delay_sec: 0.1,
+            is_followup: false,
+            state: afterFirst,
+          },
+        };
+        this.signalBubble();
+        await this.gate; // follow-up still "generating"
+        yield {
+          type: 'message',
+          data: {
+            content: 'bubble two',
+            typing_delay_sec: 0.1,
+            is_followup: true,
+            state: afterSecond,
+          },
+        };
+        yield {
+          type: 'done',
+          data: { state: afterSecond, messages: afterSecond.messages ?? [], goal_progress: [] },
+        };
+      }
+    }
+
+    const burst = new BurstAgent();
+    const gh = await buildTestApp({ agent: burst });
+    try {
+      await gh.app.listen({ port: 0, host: '127.0.0.1' });
+      const address = gh.app.server.address();
+      const base = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`;
+
+      const { authHeader } = await registerAndAuth(gh.app);
+      const session = (
+        await gh.app.inject({
+          method: 'POST',
+          url: '/v1/sessions',
+          payload: { simulation_slug: SLUG },
+          headers: authHeader,
+        })
+      ).json();
+      const before = session.messages.length;
+
+      const controller = new AbortController();
+      const resp = await fetch(`${base}/v1/sessions/${session.id}/messages/stream`, {
+        method: 'POST',
+        headers: { ...authHeader, 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'burst please' }),
+        signal: controller.signal,
+      });
+      const reader = resp.body!.getReader();
+      await burst.firstBubbleSent;
+      await reader.read(); // first bubble delivered
+
+      // While the follow-up is still gated, the transcript must already
+      // contain the human message and the first bubble.
+      const midTurn = (
+        await gh.app.inject({
+          method: 'GET',
+          url: `/v1/sessions/${session.id}`,
+          headers: authHeader,
+        })
+      ).json().messages;
+      expect(midTurn.length).toBe(before + 2);
+      expect(midTurn.slice(-2)).toEqual([
+        expect.objectContaining({ role: 'human', content: 'burst please' }),
+        expect.objectContaining({ role: 'ai', content: 'bubble one' }),
+      ]);
+
+      burst.release();
+      // Drain the stream to completion.
+      while (!(await reader.read()).done) {
+        /* consume */
+      }
+
+      const afterTurn = (
+        await gh.app.inject({
+          method: 'GET',
+          url: `/v1/sessions/${session.id}`,
+          headers: authHeader,
+        })
+      ).json().messages;
+      expect(afterTurn.length).toBe(before + 3);
+      expect(afterTurn[afterTurn.length - 1]).toEqual(
+        expect.objectContaining({ role: 'ai', content: 'bubble two' }),
+      );
+    } finally {
+      await gh.close();
+    }
+  });
+
+  it('keeps the delivered bubble when the agent stream fails before done', async () => {
     class FailingAgent extends FakeAgent {
       override async *streamTurn(args: {
         state: AgentWireState;
@@ -398,15 +547,20 @@ describe('POST /sessions/:id/messages/stream (SSE proxy)', () => {
       expect(events.some((e) => e.event === 'error')).toBe(true);
       expect(events.some((e) => e.event === 'done')).toBe(false);
 
-      // Nothing was persisted — persistence only happens on `done`.
+      // The bubble the client already saw was persisted incrementally;
+      // only the unfinished remainder of the turn is missing.
       const after = (
         await fh.app.inject({
           method: 'GET',
           url: `/v1/sessions/${session.id}`,
           headers: authHeader,
         })
-      ).json().messages.length;
-      expect(after).toBe(before);
+      ).json().messages;
+      expect(after.length).toBe(before + 2);
+      expect(after.slice(-2)).toEqual([
+        expect.objectContaining({ role: 'human', content: 'doomed turn' }),
+        expect.objectContaining({ role: 'ai', content: 'echo:doomed turn' }),
+      ]);
     } finally {
       await fh.close();
     }
@@ -482,6 +636,90 @@ describe('POST /internal/sessions/:id/messages/stream (worker turn route)', () =
       expect.objectContaining({ role: 'human', content: 'spoken hi', source: 'voice' }),
       expect.objectContaining({ role: 'ai', content: 'echo:spoken hi', source: 'voice' }),
     ]);
+  });
+
+  it('does not persist a turn whose client disconnected before done', async () => {
+    // The voice worker abandons a turn by closing the SSE and re-sends the
+    // messages in a new request. If generation already finished when the
+    // client hung up, persisting anyway would duplicate the re-sent turn —
+    // the internal route stays done-only and must drop the result instead.
+    class GatedAgent extends FakeAgent {
+      release!: () => void;
+      firstBubbleSent!: Promise<void>;
+      private signalBubble!: () => void;
+      private gate: Promise<void>;
+
+      constructor() {
+        super();
+        this.firstBubbleSent = new Promise((r) => (this.signalBubble = r));
+        this.gate = new Promise((r) => (this.release = r));
+      }
+
+      override async *streamTurn(args: {
+        state: AgentWireState;
+        userMessages: string[];
+        signal?: AbortSignal;
+      }): AsyncIterable<AgentStreamEvent> {
+        const events: AgentStreamEvent[] = [];
+        for await (const event of super.streamTurn(args)) events.push(event);
+        yield events[0]!; // the reply bubble reaches the client...
+        this.signalBubble();
+        await this.gate; // ...then generation "finishes" after the client left
+        yield* events.slice(1);
+      }
+    }
+
+    const gated = new GatedAgent();
+    const gh = await buildTestApp({
+      agent: gated,
+      voice: { enabled: true, internalKey: INTERNAL_KEY },
+    });
+    try {
+      await gh.app.listen({ port: 0, host: '127.0.0.1' });
+      const address = gh.app.server.address();
+      const base = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`;
+
+      const { authHeader } = await registerAndAuth(gh.app);
+      const session = (
+        await gh.app.inject({
+          method: 'POST',
+          url: '/v1/sessions',
+          payload: { simulation_slug: SLUG },
+          headers: authHeader,
+        })
+      ).json();
+      const before = session.messages.length;
+
+      // Real socket (not inject) so aborting actually closes the connection.
+      const controller = new AbortController();
+      const resp = await fetch(`${base}/v1/internal/sessions/${session.id}/messages/stream`, {
+        method: 'POST',
+        headers: { 'x-internal-key': INTERNAL_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({ content: 'abandoned turn', source: 'voice' }),
+        signal: controller.signal,
+      });
+      const reader = resp.body!.getReader();
+      await gated.firstBubbleSent;
+      await reader.read(); // consume the first bubble, then hang up
+      controller.abort();
+
+      // Give the close event a beat to reach the server, then let the
+      // agent stream finish — the proxy must skip the persist.
+      await new Promise((r) => setTimeout(r, 150));
+      gated.release();
+      await new Promise((r) => setTimeout(r, 250));
+
+      const after = (
+        await gh.app.inject({
+          method: 'GET',
+          url: `/v1/sessions/${session.id}`,
+          headers: authHeader,
+        })
+      ).json().messages.length;
+      expect(after).toBe(before);
+    } finally {
+      await gh.close();
+    }
   });
 
   it('rejects calls without the internal key (401) and ignores user JWTs', async () => {

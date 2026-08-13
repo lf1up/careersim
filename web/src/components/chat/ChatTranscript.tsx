@@ -31,6 +31,14 @@ interface ChatTranscriptProps {
    */
   pendingHumans?: string[];
   /**
+   * AI bubbles from an interrupted turn. They are already persisted
+   * server-side (the API persists each streamed message before forwarding
+   * it) and are kept on screen — rendered before the new pending humans,
+   * matching the real chronology — until a refetch/`done` lands them in
+   * `messages`.
+   */
+  keptBurst?: string[];
+  /**
    * AI messages already delivered within the current burst but not yet
    * persisted via `done`. Each renders as its own "pending" bubble so the
    * typing indicator can appear between them while the persona "types"
@@ -40,8 +48,11 @@ interface ChatTranscriptProps {
   /** Currently-streaming AI message content (the in-flight bubble). */
   pendingAssistant?: string | null;
   /**
-   * True while waiting on the agent — either before the first chunk of a
-   * turn, or during the simulated pause between burst messages.
+   * True while the turn stream is open and the persona may still be
+   * "typing": before the first message of a turn, during follow-up
+   * generation between burst messages (each a separate agent-side LLM
+   * call), and during the simulated typing pause. Renders as dots below
+   * the latest bubble until `done` clears it.
    */
   isWaiting?: boolean;
   /**
@@ -55,6 +66,7 @@ interface ChatTranscriptProps {
 export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   messages,
   pendingHumans,
+  keptBurst,
   burstedAssistant,
   pendingAssistant,
   isWaiting,
@@ -69,11 +81,12 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
     const el = containerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, pendingHumans, burstedAssistant, pendingAssistant, isWaiting]);
+  }, [messages, pendingHumans, keptBurst, burstedAssistant, pendingAssistant, isWaiting]);
 
   const empty =
     messages.length === 0 &&
     (pendingHumans?.length ?? 0) === 0 &&
+    (keptBurst?.length ?? 0) === 0 &&
     !pendingAssistant &&
     !isWaiting &&
     (burstedAssistant?.length ?? 0) === 0;
@@ -81,7 +94,9 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   // Build a flat ordered list with metadata so we can decide which AI bubbles
   // should show the avatar (first AI in a streak) vs. align to the same
   // gutter without one (subsequent bursts/follow-ups). Persisted messages
-  // come first, then the in-flight pendingHumans, then the current AI burst.
+  // come first, then an interrupted turn's kept AI bubbles, then the
+  // in-flight pendingHumans, then the current AI burst — chronological for
+  // interrupts (the persona's partial reply precedes the new human message).
   const items: BubbleItem[] = [];
   for (const m of messages) {
     // Older messages persisted before voice tagging have no `source`;
@@ -90,17 +105,19 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   }
   // Pending bubbles only ever appear in live text chat (voice mode swaps the
   // composer/transcript for the call surface), so they are always text.
+  keptBurst?.forEach((content, i) => {
+    items.push({ key: `kept-${i}`, role: 'ai', content, source: 'text' });
+  });
   pendingHumans?.forEach((content, i) => {
     items.push({
       key: `pending-human-${i}`,
       role: 'human',
       content,
       source: 'text',
-      pending: true,
     });
   });
   burstedAssistant?.forEach((content, i) => {
-    items.push({ key: `burst-${i}`, role: 'ai', content, source: 'text', pending: true });
+    items.push({ key: `burst-${i}`, role: 'ai', content, source: 'text' });
   });
   if (pendingAssistant) {
     items.push({
@@ -108,7 +125,6 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
       role: 'ai',
       content: pendingAssistant,
       source: 'text',
-      pending: true,
     });
   }
 
@@ -138,7 +154,6 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
         key={item.key}
         role={item.role}
         content={item.content}
-        pending={item.pending}
         persona={persona}
         showAvatar={showAvatar}
       />,
@@ -159,7 +174,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
         </p>
       )}
       {rendered}
-      {!pendingAssistant && isWaiting && (
+      {isWaiting && (
         <TypingIndicator
           persona={persona}
           // Only label on a fresh AI streak (start of a turn). Suppressed
@@ -178,13 +193,11 @@ interface BubbleItem {
   content: string;
   /** Origin of the message — drives the voice-call divider grouping. */
   source: 'text' | 'voice';
-  pending?: boolean;
 }
 
 interface BubbleProps {
   role: 'human' | 'ai';
   content: string;
-  pending?: boolean;
   persona?: ChatPersona;
   /** Render the persona avatar in the gutter (AI bubbles only). */
   showAvatar?: boolean;
@@ -193,7 +206,6 @@ interface BubbleProps {
 const Bubble: React.FC<BubbleProps> = ({
   role,
   content,
-  pending,
   persona,
   showAvatar,
 }) => {
@@ -206,7 +218,6 @@ const Bubble: React.FC<BubbleProps> = ({
           className={clsx(
             'max-w-[85%] px-4 py-3 border-2 shadow-retro-2 dark:shadow-retro-dark-2',
             'bg-primary-100 dark:bg-primary-900 border-black dark:border-retro-ink-dark',
-            pending && 'opacity-80',
           )}
         >
           <MarkdownMessage content={content} />
@@ -244,7 +255,6 @@ const Bubble: React.FC<BubbleProps> = ({
           className={clsx(
             'px-4 py-3 border-2 shadow-retro-2 dark:shadow-retro-dark-2',
             'bg-white dark:bg-retro-surface-dark border-black dark:border-retro-ink-dark',
-            pending && 'opacity-80',
           )}
         >
           <MarkdownMessage content={content} />

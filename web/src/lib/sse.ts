@@ -66,19 +66,33 @@ export async function* readSse(
     }
   };
 
-  const pumping = pump();
+  // Capture a pump failure instead of letting the promise reject bare: the
+  // consumer may abandon this generator mid-stream (e.g. a superseded turn
+  // aborts the fetch), in which case nothing would ever await `pumping` and
+  // the rejection would surface as an unhandled promise rejection.
+  let pumpError: unknown = null;
+  const pumping = pump().catch((err) => {
+    pumpError = err;
+  });
 
-  while (true) {
-    if (queue.length > 0) {
-      yield queue.shift()!;
-      continue;
+  try {
+    while (true) {
+      if (queue.length > 0) {
+        yield queue.shift()!;
+        continue;
+      }
+      if (done) break;
+      await new Promise<void>((resolve) => {
+        resolveNext = resolve;
+      });
+      resolveNext = null;
     }
-    if (done) break;
-    await new Promise<void>((resolve) => {
-      resolveNext = resolve;
-    });
-    resolveNext = null;
+  } finally {
+    // The consumer broke out early — stop the network read so the response
+    // body doesn't keep buffering in the background.
+    await reader.cancel().catch(() => {});
   }
 
   await pumping;
+  if (pumpError) throw pumpError;
 }

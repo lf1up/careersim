@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { AgentStreamEvent, AgentWireState } from '../src/agent/types.js';
 import { sessions } from '../src/db/schema.js';
 import {
   buildTestApp,
@@ -455,6 +456,67 @@ describe('POST /sessions/:id/nudge', () => {
     });
     expect(detail.statusCode).toBe(200);
     expect(detail.json().session_config.starts_conversation).toBe('sometimes');
+  });
+
+  it("returns { nudged: false, reason: 'turn_in_flight' } while a turn is streaming", async () => {
+    // A streaming turn owns the session: a nudge dispatched mid-turn would
+    // race the turn's version-guarded commits, so the poll skips instead.
+    class GatedAgent extends FakeAgent {
+      release!: () => void;
+      started!: Promise<void>;
+      private signalStarted!: () => void;
+      private gate: Promise<void>;
+
+      constructor() {
+        super();
+        this.started = new Promise((r) => (this.signalStarted = r));
+        this.gate = new Promise((r) => (this.release = r));
+      }
+
+      override async *streamTurn(args: {
+        state: AgentWireState;
+        userMessages: string[];
+        signal?: AbortSignal;
+      }): AsyncIterable<AgentStreamEvent> {
+        this.signalStarted();
+        await this.gate;
+        yield* super.streamTurn(args);
+      }
+    }
+
+    const gated = new GatedAgent();
+    h = await buildTestApp({ agent: gated });
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(h, authHeader);
+
+    const streamReq = h.app.inject({
+      method: 'POST',
+      url: `/v1/sessions/${session.id}/messages/stream`,
+      payload: { content: 'hi' },
+      headers: authHeader,
+    });
+    await gated.started;
+
+    const res = await h.app.inject({
+      method: 'POST',
+      url: `/v1/sessions/${session.id}/nudge`,
+      headers: authHeader,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ nudged: false, reason: 'turn_in_flight' });
+
+    gated.release();
+    const streamRes = await streamReq;
+    expect(streamRes.statusCode).toBe(200);
+
+    // Once the turn settles, the nudge poll returns to the normal policy
+    // path (here: the turn just reset the idle clock, so not_enough_idle).
+    const after = await h.app.inject({
+      method: 'POST',
+      url: `/v1/sessions/${session.id}/nudge`,
+      headers: authHeader,
+    });
+    expect(after.json()).toMatchObject({ nudged: false, reason: 'not_enough_idle' });
   });
 });
 

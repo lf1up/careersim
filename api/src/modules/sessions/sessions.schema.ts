@@ -54,6 +54,8 @@ export const nudgeSkippedResponseSchema = z.object({
    *   (or set `inactivityNudges.max` to 0). Clients can stop polling.
    * - agent_silent:      idle + budget both OK, but the agent graph returned
    *   without appending an AI message. Budget slot is refunded.
+   * - turn_in_flight:    a chat turn is currently streaming for this session;
+   *   nudging now would race the turn's commits, so skip and retry later.
    */
   reason: z.enum([
     'no_human_activity',
@@ -61,6 +63,7 @@ export const nudgeSkippedResponseSchema = z.object({
     'budget_exhausted',
     'nudges_disabled',
     'agent_silent',
+    'turn_in_flight',
   ]),
   idle_seconds: z.number().int(),
   nudge_count: z.number().int(),

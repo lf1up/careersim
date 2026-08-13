@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { apiClient } from '@/lib/api';
+import { dropPersistedPrefix } from '@/lib/chat-batch';
 import type {
   GoalProgress,
   GoalStatus,
@@ -30,6 +31,14 @@ import {
 import { VoiceCallButton } from '@/components/voice/VoiceCallButton';
 import { VoiceCallSurface } from '@/components/voice/VoiceCallSurface';
 import { isVoiceEnabledClientSide } from '@/lib/voice';
+
+// Grace window before the typing indicator appears in the gap after a
+// rendered bubble. A follow-up-free turn finishes its post-message
+// bookkeeping (analysis, goal evaluation) and emits `done` within roughly
+// a second of the last bubble, so with a ~1s delay the dots never flash
+// on single-message turns — while a turn that IS generating follow-ups
+// keeps the stream open long enough for the dots to appear and stay.
+const GAP_TYPING_INDICATOR_DELAY_MS = 1000;
 
 // Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
 // the persona's typing pause between burst messages without leaving a dead
@@ -162,6 +171,12 @@ export default function SessionDetailPage() {
   // streamingAssistant bubble. We commit each prior message here as soon as
   // the next one starts so the typing indicator can appear in the gap.
   const [committedBurst, setCommittedBurst] = useState<string[]>([]);
+  // AI bubbles from an interrupted turn. They are already persisted
+  // server-side (the API persists each streamed message before forwarding
+  // it), so they must survive the turn switch — the next turn's `done`
+  // would otherwise replace the transcript with one that never contained
+  // them. Cleared once a refetch/`done` lands them in `session.messages`.
+  const [keptBurst, setKeptBurst] = useState<string[]>([]);
   // Nudge auto-polling control:
   // - `permanentlyDisabled` flips on when the server says `nudges_disabled`
   //   (the persona opted out). Never resumes for this session.
@@ -186,6 +201,15 @@ export default function SessionDetailPage() {
   // batch in the same tick it appends to it (React state reads are stale
   // inside the same event handler).
   const pendingHumansRef = useRef<string[]>([]);
+  // Same-tick mirrors of the in-flight AI bubbles, read by `handleSend`
+  // when it interrupts a streaming turn.
+  const committedBurstRef = useRef<string[]>([]);
+  const streamingAssistantRef = useRef<string | null>(null);
+  // True while a turn stream is in flight — distinguishes an interrupt
+  // (keep already-shown bubbles, refetch, dedupe the batch) from a fresh
+  // send. Stored as a ref because `handleSend` reads it in the same tick
+  // the previous send's state updates may not have flushed yet.
+  const streamActiveRef = useRef(false);
   // Busy flag read *inside* the nudge-polling interval. Stored as a ref so the
   // interval doesn't get torn down & recreated on every streaming chunk.
   const busyRef = useRef(false);
@@ -283,6 +307,15 @@ export default function SessionDetailPage() {
     busyRef.current = sending || isWaiting || streamingAssistant !== null;
   }, [sending, isWaiting, streamingAssistant]);
 
+  // Same-tick mirrors of the in-flight AI bubbles for `handleSend`'s
+  // interrupt path (state reads would be stale inside its event handler).
+  useEffect(() => {
+    committedBurstRef.current = committedBurst;
+  }, [committedBurst]);
+  useEffect(() => {
+    streamingAssistantRef.current = streamingAssistant;
+  }, [streamingAssistant]);
+
   // Inactivity-nudge auto-polling.
   //
   // The `api` service uses a pull model: it only fires a nudge when the client
@@ -373,12 +406,26 @@ export default function SessionDetailPage() {
       // the same tick).
       const localBurst: string[] = [];
       let currentStreaming: string | null = null;
+      // Typing-indicator control for the gap after a rendered bubble. The
+      // dots appear only after a short delay — a turn with no follow-ups
+      // emits `done` inside that window, so the indicator never flashes
+      // there — but once shown they stay up while the stream is open.
+      let gapDotsVisible = false;
+      let gapTimer: ReturnType<typeof setTimeout> | null = null;
+      const clearGapTimer = () => {
+        if (gapTimer !== null) {
+          clearTimeout(gapTimer);
+          gapTimer = null;
+        }
+      };
       try {
         for await (const event of stream) {
           if (event.type === 'message') {
             const role = (event.data.role as string | undefined) ?? 'ai';
             const content = (event.data.content as string | undefined) ?? '';
             if (role !== 'ai' || !content) continue;
+
+            clearGapTimer();
 
             // Follow-up within a burst: commit the previously-streamed
             // message as its own bubble, then show the typing indicator for
@@ -389,6 +436,7 @@ export default function SessionDetailPage() {
               currentStreaming = null;
               setStreamingAssistant(null);
               setIsWaiting(true);
+              gapDotsVisible = true;
 
               const rawDelay =
                 typeof event.data.typing_delay_sec === 'number'
@@ -406,14 +454,35 @@ export default function SessionDetailPage() {
             }
 
             currentStreaming = content;
-            setIsWaiting(false);
             setStreamingAssistant(currentStreaming);
+            if (gapDotsVisible) {
+              // Already shown (typing pause or fired gap timer) — keep the
+              // dots rendering while the stream is open.
+              setIsWaiting(true);
+            } else {
+              // First bubble of the turn: the initial-wait dots are
+              // consumed. They come back only if the turn is still
+              // producing (follow-up generation) once the grace window
+              // elapses — otherwise `done` beats the timer and no
+              // trailing dots appear.
+              setIsWaiting(false);
+              gapTimer = setTimeout(() => {
+                gapTimer = null;
+                if (signal.aborted) return;
+                gapDotsVisible = true;
+                setIsWaiting(true);
+              }, GAP_TYPING_INDICATOR_DELAY_MS);
+            }
           } else if (event.type === 'done') {
+            clearGapTimer();
             if (event.data.session) {
               applySessionUpdate(event.data.session);
             }
             setCommittedBurst([]);
             setStreamingAssistant(null);
+            // The authoritative transcript now contains everything an
+            // interrupted turn left in keptBurst.
+            setKeptBurst([]);
             // The turn is committed — the batch is now part of the
             // persisted transcript.
             pendingHumansRef.current = [];
@@ -433,6 +502,10 @@ export default function SessionDetailPage() {
         const latest = await apiClient.getSession(sessionId);
         applySessionUpdate(latest);
       } finally {
+        // The gap timer must never fire into a superseded turn, so it is
+        // cleared even on the abort path — unlike the state cleanup below,
+        // which the newer send owns.
+        clearGapTimer();
         // Skip cleanup when a newer send superseded this stream — the new
         // turn owns the pending bubbles and streaming state now.
         if (!signal.aborted) {
@@ -451,20 +524,69 @@ export default function SessionDetailPage() {
     async (content: string) => {
       setSending(true);
       // Compose the turn: any messages already awaiting a reply plus this
-      // one. Sending while the persona is replying abandons that reply
-      // (abort below — the server persists nothing before `done`) and
-      // re-runs the turn against the whole batch.
-      const batch = [...pendingHumansRef.current, content];
+      // one.
+      let batch = [...pendingHumansRef.current, content];
       pendingHumansRef.current = batch;
       setPendingHumans(batch);
       setIsWaiting(true);
       // A human reply resets the server-side nudge budget, so re-arm polling.
       setNudgesPausedUntilHumanReply(false);
-      abortRef.current?.abort();
+
+      // Claim the turn BEFORE any await: a second send landing mid-refetch
+      // must see a stream as in-flight (and supersede this one) rather than
+      // take the fresh-send path on stale state.
+      const interrupted = streamActiveRef.current;
+      const previous = abortRef.current;
       const abort = new AbortController();
       abortRef.current = abort;
+      streamActiveRef.current = true;
+
+      if (interrupted) {
+        // Interrupt: a turn is still streaming. Everything it already
+        // delivered is already persisted server-side (the API persists each
+        // message before forwarding it), so keep those bubbles on screen —
+        // the next turn's `done` would otherwise wipe them with a
+        // transcript that never contained them. Then stop the old turn and
+        // re-run the graph on the full transcript.
+        const kept = [
+          ...committedBurstRef.current,
+          ...(streamingAssistantRef.current !== null
+            ? [streamingAssistantRef.current]
+            : []),
+        ];
+        if (kept.length > 0) {
+          setKeptBurst((prev) => [...prev, ...kept]);
+        }
+        setCommittedBurst([]);
+        setStreamingAssistant(null);
+        previous?.abort();
+        // Reconcile with the authoritative transcript: kept bubbles land in
+        // `session.messages` at the right position, and any humans the
+        // aborted turn already persisted drop out of the batch so they are
+        // not sent (and persisted) twice.
+        try {
+          const latest = await apiClient.getSession(sessionId);
+          applySessionUpdate(latest, { notify: false });
+          setKeptBurst([]);
+          batch = dropPersistedPrefix(batch, latest.messages);
+          pendingHumansRef.current = batch;
+          setPendingHumans(batch);
+        } catch {
+          // Refetch failed — proceed with the optimistic batch. The
+          // expected-message-count precondition turns a real divergence
+          // into a cheap TURN_CONFLICT before any generation happens.
+        }
+      } else {
+        previous?.abort();
+      }
+
       try {
-        const stream = apiClient.streamMessage(sessionId, batch, abort.signal);
+        const stream = apiClient.streamMessage(
+          sessionId,
+          batch,
+          abort.signal,
+          sessionRef.current?.messages.length,
+        );
         await runStream(stream, abort.signal);
       } catch (err) {
         if ((err as Error).name === 'AbortError' || abort.signal.aborted) {
@@ -473,11 +595,13 @@ export default function SessionDetailPage() {
           return;
         }
         if ((err as Error).name === 'TurnConflictError') {
-          // A concurrent writer (e.g. a voice call) committed first; the
-          // batch itself was NOT persisted. Refresh and retry once.
+          // A concurrent writer committed first. Refresh, drop whatever the
+          // transcript already has, and retry once with what remains.
           try {
             const latest = await apiClient.getSession(sessionId);
             applySessionUpdate(latest, { notify: false });
+            setKeptBurst([]);
+            batch = dropPersistedPrefix(batch, latest.messages);
             // runStream's finally already cleared the pending state (it ran
             // to completion once the conflict error propagated). Rehydrate
             // it with the batch we're about to retry so the optimistic
@@ -485,7 +609,19 @@ export default function SessionDetailPage() {
             // sees these messages in pendingHumansRef.
             pendingHumansRef.current = batch;
             setPendingHumans(batch);
-            const retry = apiClient.streamMessage(sessionId, batch, abort.signal);
+            if (batch.length === 0) {
+              // Everything we wanted to say is already persisted — nothing
+              // to re-run.
+              setIsWaiting(false);
+              return;
+            }
+            setIsWaiting(true);
+            const retry = apiClient.streamMessage(
+              sessionId,
+              batch,
+              abort.signal,
+              latest.messages.length,
+            );
             await runStream(retry, abort.signal);
             return;
           } catch (retryErr) {
@@ -511,6 +647,7 @@ export default function SessionDetailPage() {
         // call returning must not mark the active stream as idle.
         if (abortRef.current === abort) {
           setSending(false);
+          streamActiveRef.current = false;
         }
       }
     },
@@ -538,6 +675,18 @@ export default function SessionDetailPage() {
     try {
       const latest = await apiClient.getSession(sessionId);
       applySessionUpdate(latest, { notify: false });
+      // A text turn abandoned by the call left its in-flight bubbles in
+      // local state; the refetched transcript is authoritative now (its
+      // partials were persisted incrementally). Keep only the humans that
+      // never persisted as pending — they ride along with the next send.
+      // No turn is in flight, so the typing indicator stays off.
+      setCommittedBurst([]);
+      setStreamingAssistant(null);
+      setKeptBurst([]);
+      const rest = dropPersistedPrefix(pendingHumansRef.current, latest.messages, false);
+      pendingHumansRef.current = rest;
+      setPendingHumans(rest);
+      setIsWaiting(false);
     } catch {
       // Ignore — the next normal action (send / nudge) will refresh.
     }
@@ -710,6 +859,7 @@ export default function SessionDetailPage() {
             <ChatTranscript
               messages={session.messages}
               pendingHumans={pendingHumans}
+              keptBurst={keptBurst}
               burstedAssistant={committedBurst}
               pendingAssistant={streamingAssistant}
               isWaiting={isWaiting}
@@ -727,7 +877,7 @@ export default function SessionDetailPage() {
           </RetroPanel>
 
           <RetroCard className="shrink-0" bodyClassName="!p-3 sm:!p-6">
-            <ChatComposer sending={sending} onSend={handleSend} />
+            <ChatComposer onSend={handleSend} />
           </RetroCard>
         </>
       )}

@@ -211,6 +211,13 @@ export interface AgentStreamMessageEvent {
   is_followup?: boolean;
   goal_progress?: AgentGoalProgress[];
   analysis?: AgentAnalysis;
+  /**
+   * Full state snapshot at the moment this message was produced. Enables
+   * incremental persistence in the SSE proxy (each delivered message is
+   * durable immediately). Optional so an older agent degrades the proxy
+   * to done-only persistence instead of breaking the stream.
+   */
+  state?: AgentWireState;
 }
 
 /** SSE final `event: done` payload. */

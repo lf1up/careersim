@@ -6,18 +6,10 @@ import { Button } from '@/components/ui/Button';
 import { RetroTextArea } from '@/components/ui/RetroInput';
 
 interface ChatComposerProps {
-  /**
-   * True while a reply is streaming. Sending stays ENABLED — a message
-   * sent mid-reply abandons the in-flight turn and re-runs it with the
-   * whole batch (see the session page's `handleSend`). The flag only
-   * drives the button label so the user knows a reply is in progress.
-   */
-  sending?: boolean;
   onSend: (content: string) => Promise<void> | void;
 }
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
-  sending,
   onSend,
 }) => {
   const [value, setValue] = useState('');
@@ -64,7 +56,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         className="sm:px-4 sm:py-2 sm:text-sm"
         disabled={!value.trim()}
       >
-        {sending ? 'Send more' : 'Send'}
+        Send
       </Button>
     </form>
   );

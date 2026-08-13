@@ -277,6 +277,12 @@ def _message_event_to_sse(event: MessageEvent) -> str:
             "ai_sentiment": event.state.get("last_ai_sentiment"),
             "ai_emotion": event.state.get("last_ai_emotion"),
         },
+        # Full state snapshot at this point in the graph. Lets the API
+        # persist each streamed message incrementally, so a client that
+        # abandons the turn mid-burst keeps everything already delivered.
+        # Consumers that don't need it (voice worker, web client) can
+        # ignore it — the field is additive.
+        "state": serialize_state(event.state),
     })
 
 

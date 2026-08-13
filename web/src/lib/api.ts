@@ -349,17 +349,28 @@ export const apiClient = {
    * messages before the persona replied) — and stream the reply. A batch
    * persists each item as its own bubble; the persona composes a single
    * reply to the whole batch.
+   *
+   * `expectedMessageCount` is the transcript length the client believes is
+   * persisted; the API fails fast with TURN_CONFLICT (before generating)
+   * when the transcript moved on, so the caller can refetch and retry
+   * cheaply instead of discovering the conflict after a full generation.
    */
   streamMessage(
     id: string,
     content: string | string[],
     signal?: AbortSignal,
+    expectedMessageCount?: number,
   ): AsyncGenerator<StreamEvent, void, void> {
     return readSse(`${apiBaseUrl()}/sessions/${id}/messages/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({
+        content,
+        ...(expectedMessageCount !== undefined
+          ? { expected_message_count: expectedMessageCount }
+          : {}),
+      }),
       signal,
     });
   },

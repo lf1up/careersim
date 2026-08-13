@@ -325,6 +325,9 @@ export class FakeAgent implements AgentClient {
         is_followup: false,
         goal_progress: [],
         analysis: {},
+        // Mirrors the real agent: every message event carries the full
+        // state snapshot so the API can persist incrementally.
+        state: newState,
       },
     };
     yield {
@@ -361,6 +364,7 @@ export class FakeAgent implements AgentClient {
         is_followup: args.triggerType === 'followup',
         goal_progress: [],
         analysis: {},
+        state: newState,
       },
     };
     yield {

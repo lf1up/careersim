@@ -16,6 +16,10 @@ import { rateLimitPolicy } from '../../plugins/rate-limit.js';
 import { isCorsOriginAllowed } from '../../utils/cors.js';
 import { createSessionsService } from './sessions.service.js';
 import {
+  clearInFlightTurn,
+  supersedeInFlightTurn,
+} from './turn-registry.js';
+import {
   createSessionSchema,
   followupProactiveSchema,
   nudgeResponseSchema,
@@ -184,6 +188,8 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       const trigger: ProactiveTrigger = 'followup';
       await runSseProxy(app, request, reply, {
         kind: 'proactive',
+        sessionId: request.params.id,
+        persistence: 'done-only',
         corsAllowedOrigins,
         corsAllowAllWhenEmpty,
         load: () => service.prepareStream(request.user.sub, request.params.id),
@@ -240,6 +246,8 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       const expectedMessageCount = request.body.expected_message_count;
       await runSseProxy(app, request, reply, {
         kind: 'turn',
+        sessionId: request.params.id,
+        persistence: 'incremental',
         corsAllowedOrigins,
         corsAllowAllWhenEmpty,
         load: () =>
@@ -285,6 +293,11 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
       const expectedMessageCount = request.body.expected_message_count;
       await runSseProxy(app, request, reply, {
         kind: 'turn',
+        sessionId: request.params.id,
+        // The voice worker's abandon-and-rerun re-send depends on
+        // done-only persistence ("close before `done` ⇒ nothing
+        // persisted"). Do not change this to incremental.
+        persistence: 'done-only',
         corsAllowedOrigins,
         corsAllowAllWhenEmpty,
         load: () =>
@@ -320,12 +333,24 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
 };
 
 // ---------------------------------------------------------------------------
-// Shared SSE proxy helper. Forwards every `message` event 1:1 and persists
-// the delta on the final `done` event.
+// Shared SSE proxy helper. Forwards every agent `message` event (minus the
+// heavy per-event state snapshot, which clients never read) and persists
+// according to `persistence`:
+//
+//  - 'incremental' (public chat turns): every message event is persisted
+//    BEFORE it is forwarded, so anything the client renders is already
+//    durable — abandoning the stream mid-turn (the web client's interrupt)
+//    never loses messages the user has seen.
+//  - 'done-only' (voice + proactive): persists the delta once on the final
+//    `done` event and drops the turn entirely when the client disconnects
+//    first — the agent-voice worker's abandon-and-rerun re-send contract
+//    depends on "close before `done` ⇒ nothing persisted".
 // ---------------------------------------------------------------------------
 
 interface SseProxyContext {
   kind: 'turn' | 'proactive';
+  sessionId: string;
+  persistence: 'incremental' | 'done-only';
   corsAllowedOrigins: readonly string[];
   corsAllowAllWhenEmpty: boolean;
   load: () => Promise<{
@@ -350,81 +375,123 @@ async function runSseProxy(
   reply: import('fastify').FastifyReply,
   ctx: SseProxyContext,
 ): Promise<void> {
-  const { session, persist } = await ctx.load();
-
-  // We write directly to `reply.raw`, which bypasses Fastify's reply lifecycle
-  // — including the @fastify/cors hook that would otherwise add CORS headers.
-  // Echo allowed request origins manually so browsers don't block the SSE
-  // response once the preflight OPTIONS has already succeeded.
-  const headers: Record<string, string> = {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no',
-  };
-  const origin = request.headers.origin;
-  if (
-    typeof origin === 'string' &&
-    origin.length > 0 &&
-    isCorsOriginAllowed(origin, ctx.corsAllowedOrigins, ctx.corsAllowAllWhenEmpty)
-  ) {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Credentials'] = 'true';
-    headers.Vary = 'Origin';
-  }
-
-  reply.raw.writeHead(200, headers);
-
   const abort = new AbortController();
-  // Detect the client hanging up mid-stream via the RESPONSE's `close`
-  // (it fires when the connection terminates before our own `end()`).
-  // `request.raw`'s close is NOT a reliable disconnect signal here: once
-  // the request body has been fully consumed, Node may never emit it for
-  // a mid-response connection teardown — which left abandoned turns
-  // running (and persisting) to completion.
-  reply.raw.once('close', () => abort.abort());
-
-  const writeEvent = (type: string, data: unknown) => {
-    reply.raw.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
-  };
+  let settle!: () => void;
+  const settled = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
+  // Set once SSE headers are on the wire; before that the request must
+  // behave like a normal (non-SSE) failed/successful HTTP call.
+  let streaming = false;
 
   try {
-    let finalState: AgentWireState | null = null;
-    for await (const event of ctx.agent(session.stateSnapshot, abort.signal)) {
-      if (event.type === 'message') {
-        writeEvent('message', event.data);
-      } else if (event.type === 'done') {
-        // Clients rely on "connection closed before `done` ⇒ nothing was
-        // persisted" (the voice worker aborts a stale turn by closing the
-        // SSE and re-sends the messages in a new request). The abort signal
-        // only cancels the upstream agent fetch — if generation had already
-        // finished, we would land here and persist a turn the caller
-        // abandoned, which the re-send then duplicates. So: if the client
-        // is gone, drop the result instead of persisting it.
-        if (abort.signal.aborted) {
-          request.log.info(
-            { kind: ctx.kind },
-            'client disconnected before done; skipping persist',
-          );
-          return;
+    if (ctx.persistence === 'incremental') {
+      // Serialize turns per session: abort the previous in-flight turn and
+      // await its cleanup, so version-guarded persists never race. The
+      // registration also marks the session busy so the nudge endpoint
+      // skips it mid-turn instead of colliding with our commits.
+      await supersedeInFlightTurn(ctx.sessionId, { abort, settled });
+    }
+
+    const { session, persist } = await ctx.load();
+
+    // We write directly to `reply.raw`, which bypasses Fastify's reply lifecycle
+    // — including the @fastify/cors hook that would otherwise add CORS headers.
+    // Echo allowed request origins manually so browsers don't block the SSE
+    // response once the preflight OPTIONS has already succeeded.
+    const headers: Record<string, string> = {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    };
+    const origin = request.headers.origin;
+    if (
+      typeof origin === 'string' &&
+      origin.length > 0 &&
+      isCorsOriginAllowed(origin, ctx.corsAllowedOrigins, ctx.corsAllowAllWhenEmpty)
+    ) {
+      headers['Access-Control-Allow-Origin'] = origin;
+      headers['Access-Control-Allow-Credentials'] = 'true';
+      headers.Vary = 'Origin';
+    }
+
+    reply.raw.writeHead(200, headers);
+    streaming = true;
+
+    // Detect the client hanging up mid-stream via the RESPONSE's `close`
+    // (it fires when the connection terminates before our own `end()`).
+    // `request.raw`'s close is NOT a reliable disconnect signal here: once
+    // the request body has been fully consumed, Node may never emit it for
+    // a mid-response connection teardown — which left abandoned turns
+    // running (and persisting) to completion.
+    reply.raw.once('close', () => abort.abort());
+
+    const writeEvent = (type: string, data: unknown) => {
+      reply.raw.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
+      let finalState: AgentWireState | null = null;
+      for await (const event of ctx.agent(session.stateSnapshot, abort.signal)) {
+        // Stop immediately once aborted (client hang-up or a superseding
+        // turn) instead of draining events an agent may still produce
+        // while its cancellation propagates.
+        if (abort.signal.aborted) break;
+        if (event.type === 'message') {
+          const { state: eventState, ...publicEvent } = event.data;
+          if (ctx.persistence === 'incremental' && eventState) {
+            // Persist BEFORE forwarding: anything the client renders is
+            // already durable, so an interrupt never loses it.
+            await persist(eventState, eventState.messages ?? []);
+          }
+          writeEvent('message', publicEvent);
+        } else if (event.type === 'done') {
+          // Done-only callers rely on "connection closed before `done` ⇒
+          // nothing was persisted" (the voice worker aborts a stale turn by
+          // closing the SSE and re-sends the messages in a new request).
+          // The abort signal only cancels the upstream agent fetch — if
+          // generation had already finished, we would land here and persist
+          // a turn the caller abandoned, which the re-send then duplicates.
+          // So: if the client is gone, drop the result instead of
+          // persisting it. Incremental turns have already persisted every
+          // forwarded message, so their `done` only lands the final state
+          // (goal evaluation etc.) and is safe to write regardless.
+          if (ctx.persistence === 'done-only' && abort.signal.aborted) {
+            request.log.info(
+              { kind: ctx.kind },
+              'client disconnected before done; skipping persist',
+            );
+            return;
+          }
+          finalState = event.data.state;
+          const persisted = await persist(event.data.state, event.data.messages ?? []);
+          writeEvent('done', { state: event.data.state, session: persisted });
         }
-        finalState = event.data.state;
-        const persisted = await persist(event.data.state, event.data.messages ?? []);
-        writeEvent('done', { state: event.data.state, session: persisted });
+      }
+      if (!finalState && !abort.signal.aborted) {
+        writeEvent('error', { message: 'Stream ended without done event' });
+      }
+    } catch (err) {
+      if (abort.signal.aborted) {
+        // Client-side interrupts abort the upstream fetch mid-turn — an
+        // expected control flow, not a failure worth an error log.
+        request.log.info({ kind: ctx.kind }, 'stream aborted by client');
+      } else {
+        request.log.error({ err, kind: ctx.kind }, 'SSE proxy failed');
+        writeEvent('error', {
+          message: err instanceof Error ? err.message : 'Stream failed',
+          // Machine-readable code (e.g. TURN_CONFLICT) so streaming callers
+          // can distinguish retryable persistence conflicts from hard errors.
+          ...(err instanceof HttpError && err.code ? { code: err.code } : {}),
+        });
       }
     }
-    if (!finalState && !abort.signal.aborted) {
-      writeEvent('error', { message: 'Stream ended without done event' });
-    }
-  } catch (err) {
-    request.log.error({ err, kind: ctx.kind }, 'SSE proxy failed');
-    writeEvent('error', {
-      message: err instanceof Error ? err.message : 'Stream failed',
-      // Machine-readable code (e.g. TURN_CONFLICT) so streaming callers
-      // can distinguish retryable persistence conflicts from hard errors.
-      ...(err instanceof HttpError && err.code ? { code: err.code } : {}),
-    });
   } finally {
-    reply.raw.end();
+    if (streaming) reply.raw.end();
+    if (ctx.persistence === 'incremental') {
+      clearInFlightTurn(ctx.sessionId, abort);
+    }
+    settle();
   }
 }

@@ -18,6 +18,7 @@ import {
   type SessionRow,
 } from '../../db/schema.js';
 import { badRequest, conflict, forbidden, notFound } from '../../plugins/errors.js';
+import { isTurnInFlight } from './turn-registry.js';
 
 export interface Range {
   min: number;
@@ -90,7 +91,10 @@ export type NudgeSkipReason =
   /** Idle + budget OK, but the agent graph returned without appending a new
    *  AI message (e.g. a proactive guard inside the graph short-circuited).
    *  We refund the budget slot so clients can try again later. */
-  | 'agent_silent';
+  | 'agent_silent'
+  /** A chat turn is currently streaming for this session. Nudging now would
+   *  race the turn's version-guarded commits, so the poll skips instead. */
+  | 'turn_in_flight';
 
 export type NudgeResult =
   | { nudged: true; session: SessionDetail }
@@ -504,6 +508,22 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       const session = await loadSessionOrThrow(userId, sessionId);
       const now = new Date();
 
+      // A streaming chat turn owns the session right now: the nudge's
+      // idempotency check is evaluated at POST time, but the turn only
+      // resets `lastHumanMessageAt` when its first messages persist — so
+      // without this guard a nudge dispatched mid-turn would collide with
+      // the turn's commits on the version guard. Skip; the next poll
+      // retries once the turn has settled.
+      if (isTurnInFlight(sessionId)) {
+        const baselineMs = (session.lastHumanMessageAt ?? session.createdAt).getTime();
+        return {
+          nudged: false,
+          reason: 'turn_in_flight',
+          idle_seconds: Math.floor((now.getTime() - baselineMs) / 1000),
+          nudge_count: session.nudgeCountSinceHuman,
+        };
+      }
+
       // Policy is derived purely from the persona's conversationStyle — the
       // API trusts whatever the agent declared (mirroring the Gradio dev UI).
       const persona = resolvePersonaPolicy(session.stateSnapshot);
@@ -687,6 +707,13 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         );
       }
     }
+    // The persist callback may run several times per turn — once per
+    // streamed AI message on the public route (incremental persistence),
+    // then once more at `done`. Each call claims the next row version, so
+    // chain the expectation across calls instead of reusing the version
+    // the session was loaded at.
+    let nextExpectedVersion = session.version;
+
     return {
       session,
       persist: async (finalState: AgentWireState, newMessages: AgentMessage[]) => {
@@ -709,7 +736,14 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         const delta = (finalState.messages ?? []).slice(existingCount);
         const isHumanTurn = delta.some((m) => m.role === 'human');
         const patch: UpdatePatch = isHumanTurn ? humanTurnPatch(new Date()) : {};
-        return applyResponse(session, response, patch, source);
+        const detail = await applyResponse(
+          { ...session, version: nextExpectedVersion },
+          response,
+          patch,
+          source,
+        );
+        nextExpectedVersion += 1;
+        return detail;
       },
     };
   }
