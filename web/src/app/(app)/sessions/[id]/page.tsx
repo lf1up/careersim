@@ -40,6 +40,17 @@ import { isVoiceEnabledClientSide } from '@/lib/voice';
 // keeps the stream open long enough for the dots to appear and stay.
 const GAP_TYPING_INDICATOR_DELAY_MS = 1000;
 
+// Backoff schedule (ms between polls) for the post-call settle polls in
+// `handleCallEnded`. The agent-voice worker persists the call's tail only
+// AFTER the client disconnects — it drains the STT queue, drains any
+// in-flight turn to its `done`, and fires one final unspoken turn for
+// utterances that never got a reply (TurnManager.flush) — so a single
+// hangup refetch races that flush and the last turn(s) would only appear
+// on a manual refresh. The polls run on a fixed schedule with no early
+// "transcript looks stable" exit: the flush can go quiet for 10s+ between
+// the in-flight drain and the final unspoken turn.
+const VOICE_SETTLE_DELAYS_MS = [1500, 2500, 4000, 6000, 8000, 10000];
+
 // Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
 // the persona's typing pause between burst messages without leaving a dead
 // timer running when the user starts another turn.
@@ -210,6 +221,10 @@ export default function SessionDetailPage() {
   // send. Stored as a ref because `handleSend` reads it in the same tick
   // the previous send's state updates may not have flushed yet.
   const streamActiveRef = useRef(false);
+  // Generation counter guarding the post-call settle polls (see
+  // `handleCallEnded`): bumped on each call end (only the newest loop
+  // survives), on call start, and on unmount / session switch.
+  const voiceSettleRef = useRef(0);
   // Busy flag read *inside* the nudge-polling interval. Stored as a ref so the
   // interval doesn't get torn down & recreated on every streaming chunk.
   const busyRef = useRef(false);
@@ -288,6 +303,8 @@ export default function SessionDetailPage() {
     return () => {
       cancelled = true;
       abortRef.current?.abort();
+      // Cancel any post-call settle polling still running for this session.
+      voiceSettleRef.current += 1;
     };
   }, [applySessionUpdate, sessionId]);
 
@@ -655,6 +672,10 @@ export default function SessionDetailPage() {
   );
 
   const handleStartCall = useCallback(() => {
+    // Cancel any post-call settle polling still running from a previous
+    // call — the new call owns the surface now, and its own call end
+    // re-arms the polling when it finishes.
+    voiceSettleRef.current += 1;
     // Optimistically flip into call mode so the surface mounts and
     // can call /voice/start itself; the surface handles errors and
     // calls back through `onCallEnded` to flip us back if anything
@@ -669,26 +690,64 @@ export default function SessionDetailPage() {
 
   const handleCallEnded = useCallback(async () => {
     setInCall(false);
+    // Only the newest call end's settle loop survives.
+    const settleGeneration = ++voiceSettleRef.current;
+
     // Refetch the session so any persona turns that happened during
     // the call (persisted by the agent-voice worker) show up in the
     // chat transcript as soon as we go back to text mode.
-    try {
-      const latest = await apiClient.getSession(sessionId);
-      applySessionUpdate(latest, { notify: false });
-      // A text turn abandoned by the call left its in-flight bubbles in
-      // local state; the refetched transcript is authoritative now (its
-      // partials were persisted incrementally). Keep only the humans that
-      // never persisted as pending — they ride along with the next send.
-      // No turn is in flight, so the typing indicator stays off.
-      setCommittedBurst([]);
-      setStreamingAssistant(null);
-      setKeptBurst([]);
-      const rest = dropPersistedPrefix(pendingHumansRef.current, latest.messages, false);
-      pendingHumansRef.current = rest;
-      setPendingHumans(rest);
-      setIsWaiting(false);
-    } catch {
-      // Ignore — the next normal action (send / nudge) will refresh.
+    const reconcile = async (): Promise<void> => {
+      try {
+        const latest = await apiClient.getSession(sessionId);
+        if (settleGeneration !== voiceSettleRef.current) return;
+        // A text turn started after the call owns the transcript now —
+        // its `done` applies the authoritative session, so a late voice
+        // poll must not interleave with its optimistic bubbles.
+        if (streamActiveRef.current) return;
+        const previous = sessionRef.current;
+        if (previous !== null) {
+          // A newer snapshot already landed (e.g. a nudge fired between
+          // polls) — never regress the transcript.
+          if (latest.updated_at < previous.updated_at) return;
+          // Nothing persisted since the last apply — skip the no-op
+          // re-render. (`updated_at` bumps on every committed turn.)
+          if (
+            latest.updated_at === previous.updated_at &&
+            latest.messages.length === previous.messages.length
+          ) {
+            return;
+          }
+        }
+        applySessionUpdate(latest, { notify: false });
+        // A text turn abandoned by the call left its in-flight bubbles in
+        // local state; the refetched transcript is authoritative now (its
+        // partials were persisted incrementally). Keep only the humans that
+        // never persisted as pending — they ride along with the next send.
+        // No turn is in flight, so the typing indicator stays off.
+        setCommittedBurst([]);
+        setStreamingAssistant(null);
+        setKeptBurst([]);
+        const rest = dropPersistedPrefix(pendingHumansRef.current, latest.messages, false);
+        pendingHumansRef.current = rest;
+        setPendingHumans(rest);
+        setIsWaiting(false);
+      } catch {
+        // Ignore — the settle polls below (and the next normal action)
+        // keep retrying.
+      }
+    };
+
+    // Immediate refetch — picks up every turn already committed.
+    await reconcile();
+
+    // Settle polls: the worker's teardown flush (see
+    // VOICE_SETTLE_DELAYS_MS) persists the call's tail seconds after we
+    // disconnect, so keep polling on a backed-off schedule to land it
+    // without a manual refresh.
+    for (const delay of VOICE_SETTLE_DELAYS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      if (settleGeneration !== voiceSettleRef.current) return;
+      await reconcile();
     }
   }, [applySessionUpdate, sessionId]);
 
