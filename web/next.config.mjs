@@ -1,20 +1,5 @@
 const landingOrigin = process.env.LANDING_ORIGIN?.replace(/\/$/, '');
 
-// Vercel "Protection Bypass for Automation" secret for the landing
-// project (landing → Settings → Deployment Protection). Once Standard
-// Protection locks the landing deployment behind Vercel Auth, this is
-// appended server-side to every rewrite destination so only this web
-// app can fetch the origin. Never sent to clients. Leave unset while
-// the landing project is unprotected (local dev, pre-rollout).
-const landingBypass = process.env.LANDING_BYPASS_SECRET?.trim();
-
-/** Append the protection bypass secret to a landing rewrite destination. */
-const withBypass = (url) => {
-  if (!landingBypass) return url;
-  const sep = url.includes('?') ? '&' : '?';
-  return `${url}${sep}x-vercel-protection-bypass=${encodeURIComponent(landingBypass)}`;
-};
-
 // Public API base URL — used by `next/image` so the optimizer is allowed
 // to fetch persona avatars from the API service. We accept both the
 // browser-visible URL (`NEXT_PUBLIC_API_URL`) and an optional internal one
@@ -139,51 +124,10 @@ const nextConfig = {
       },
     ];
   },
-  async rewrites() {
-    if (!landingOrigin) return [];
-
-    // Routes served by the Astro landing project that should proxy through
-    // the Next.js apex (`careersim.ai`) instead of being handled by Next.
-    // Anything not listed here falls through to the Next.js app.
-    const landingRoutes = [
-      // Marketing pages.
-      '/',
-      '/business',
-      '/privacy',
-      '/terms',
-      '/security',
-      // Contact form APIs live in this Next app (`/api/altcha-challenge`,
-      // `/api/contact`) so they share the apex challenge session. Do not
-      // rewrite them to LANDING_ORIGIN — cross-project proxies get HTML
-      // bot-challenge pages and break ALTCHA (expects application/json).
-    ];
-
-    const landingAssetPrefixes = [
-      // Astro bundle output.
-      '/_astro/:path*',
-      // Static assets under landing/public/...
-      '/avatars/:path*',
-    ];
-
-    return {
-      beforeFiles: [
-        ...landingRoutes.map((source) => ({
-          source,
-          destination: withBypass(
-            `${landingOrigin}${source === '/' ? '/' : source}`,
-          ),
-        })),
-        ...landingAssetPrefixes.map((source) => ({
-          source,
-          destination: withBypass(`${landingOrigin}${source}`),
-        })),
-        {
-          source: '/favicon.svg',
-          destination: withBypass(`${landingOrigin}/favicon.svg`),
-        },
-      ],
-    };
-  },
+  // Marketing pages (`/`, `/business`, legal, `/_astro/*`, `/favicon.svg`)
+  // are proxied in `src/proxy.ts` rather than `rewrites()`, so we can
+  // strip the landing project's `x-robots-tag: noindex` before it reaches
+  // the apex. Contact form APIs stay on this Next app.
 };
 
 export default nextConfig;

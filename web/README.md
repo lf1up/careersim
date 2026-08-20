@@ -181,6 +181,7 @@ for admin + Content API + feature images, set that as Ghost's `url` and as
 ```text
 web/
 ├── src/
+│   ├── proxy.ts                             # apex → landing origin (strips noindex)
 │   ├── app/
 │   │   ├── layout.tsx                       # providers + toaster
 │   │   ├── page.tsx                         # redirect("/dashboard")
@@ -248,7 +249,7 @@ pnpm typecheck  # tsc --noEmit
 | `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@careersim.local` | Public support/contact email displayed in the app footer |
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
-| `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `web` rewrites `/`, `/business`, legal pages, `/_astro/*`, and `/favicon.svg` to that origin so `web` can serve as the single-domain front door. Contact form APIs stay on `web` (`/api/altcha-challenge`, `/api/contact`) so they share the apex bot-challenge session. Marketing pages also send Web Analytics to this project's `/_vercel/insights/*` — enable Web Analytics on the **web** Vercel project |
+| `LANDING_ORIGIN` | unset | Optional origin for the Astro landing deployment. When set, `src/proxy.ts` fetches `/`, `/business`, legal pages, `/_astro/*`, and `/favicon.svg` from that origin so `web` can serve as the single-domain front door, and strips the landing project's `x-robots-tag: noindex` (Vercel Standard Protection) so the apex stays indexable. Contact form APIs stay on `web` (`/api/altcha-challenge`, `/api/contact`) so they share the apex challenge session. Marketing pages also send Web Analytics to this project's `/_vercel/insights/*` — enable Web Analytics on the **web** Vercel project |
 | `RESEND_API_KEY` | unset | Resend API key for `/business` contact-form delivery |
 | `CONTACT_FROM_EMAIL` | `onboarding@resend.dev` | Verified Resend sender for inquiry emails |
 | `CONTACT_TO_EMAIL` | falls back to `NEXT_PUBLIC_CONTACT_EMAIL` | Inbox that receives `/business` inquiries |
@@ -264,9 +265,9 @@ pnpm typecheck  # tsc --noEmit
 `NEXT_PUBLIC_` prefix), so changes require a rebuild in production. The same
 applies to other `NEXT_PUBLIC_*` values such as `NEXT_PUBLIC_CONTACT_EMAIL`,
 `NEXT_PUBLIC_VOICE_ENABLED`, and `NEXT_PUBLIC_BLOG_ENABLED`.
-`LANDING_ORIGIN` is server-side Next.js config used by rewrites; set it to the
-landing project's deployment origin, for example
-`https://careersim-landing.vercel.app`.
+`LANDING_ORIGIN` is server-side (read by `src/proxy.ts` and used at build
+time for `NEXT_PUBLIC_HAS_LANDING_ORIGIN`); set it to the landing project's
+deployment origin, for example `https://careersim-landing.vercel.app`.
 
 No ALTCHA configuration lives on the client — the widget only sees the
 signed challenge payload. Auth forms use `api/.env` (`ALTCHA_HMAC_KEY`,
