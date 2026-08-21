@@ -84,10 +84,6 @@ const ghostCdnRemotePatterns = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Auto-memoize client components/hooks (ChatTranscript, session page, etc.).
-  // Next 16 applies this only to JSX/hook files via SWC; keep existing
-  // useMemo/useCallback in place — removing them can change compile output.
-  reactCompiler: true,
   env: {
     NEXT_PUBLIC_HAS_LANDING_ORIGIN: landingOrigin ? 'true' : 'false',
   },
