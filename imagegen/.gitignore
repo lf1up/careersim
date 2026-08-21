@@ -1,0 +1,18 @@
+# Generated assets
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# uv
+uv.lock
+
+# Local env
+.env
+.env.local
