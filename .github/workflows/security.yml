@@ -78,11 +78,21 @@ jobs:
         working-directory: agent
         run: uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/agent-requirements.txt
 
-      # PYSEC-2026-311 (ChromaToast RCE) is risk-accepted: it affects only
-      # ChromaDB's Python FastAPI *server*, which we never run — the agent
-      # uses ChromaDB embedded in-process. Revisit when a patch lands.
+      # ChromaDB FastAPI-server CVEs are risk-accepted: they require the
+      # Python HTTP server, which we never run — the agent uses
+      # PersistentClient in-process. No patched PyPI release exists yet
+      # (1.5.9 is latest). Revisit when a patch lands.
+      # - PYSEC-2026-311 / CVE-2026-45829 (ChromaToast pre-auth RCE)
+      # - CVE-2026-45833 (post-auth RCE via update_collection)
+      # - CVE-2026-45830 (cross-tenant IDOR)
+      # - CVE-2026-45831 (RBAC ignores resource context)
       - name: Audit dependencies
-        run: uvx pip-audit --requirement /tmp/agent-requirements.txt --ignore-vuln PYSEC-2026-311
+        run: |
+          uvx pip-audit --requirement /tmp/agent-requirements.txt \
+            --ignore-vuln PYSEC-2026-311 \
+            --ignore-vuln CVE-2026-45830 \
+            --ignore-vuln CVE-2026-45831 \
+            --ignore-vuln CVE-2026-45833
 
   secrets:
     name: Secret scan (gitleaks)
