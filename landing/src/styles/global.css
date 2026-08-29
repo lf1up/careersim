@@ -1291,6 +1291,12 @@ img.persona-avatar {
   grid-column: 1 / -1;
 }
 
+/* On /business (#how is block layout, no section grid gap) the card
+   needs its own top margin below the pilot panel. */
+#how .flow-viz {
+  margin-top: 64px;
+}
+
 .flow-viz .flow-node,
 .flow-viz .flow-wire {
   padding-inline: 22px;

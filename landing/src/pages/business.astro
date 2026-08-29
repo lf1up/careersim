@@ -432,6 +432,56 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
             <a class="button button-dark" href="#contact">Book pilot call</a>
           </div>
         </div>
+
+        <div class="flow-viz" data-reveal aria-label="Practice loop: you send a message, the persona responds, you get scored feedback">
+                  <div class="window-bar">
+                    <span class="window-dot dot-red"></span>
+                    <span class="window-dot dot-yellow"></span>
+                    <span class="window-dot dot-green"></span>
+                    <span class="session-title">practice.session — live</span>
+                  </div>
+        
+                  <div class="flow-node flow-node-user">
+                    <span class="flow-node-tag flow-node-tag-bold">You</span>
+                    <span class="flow-bubble flow-bubble-user">“I’d like to discuss the package…”</span>
+                  </div>
+        
+                  <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+                    <line class="flow-dash" x1="0" y1="16" x2="100" y2="16" />
+                    <path class="flow-arrow" d="M96 4l18 12-18 12" />
+                  </svg>
+        
+                  <div class="flow-node flow-node-persona">
+                    <span class="flow-node-tag flow-node-tag-bold">Brenda · HR</span>
+                    <img
+                      class="flow-avatar flow-avatar-img"
+                      src="/avatars/brenda-vance-hr-manager.png"
+                      alt="Brenda Vance — HR manager persona"
+                      width="96"
+                      height="96"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <svg class="flow-loop" viewBox="0 0 220 44" fill="none" aria-hidden="true">
+                      <path class="flow-dash flow-dash-loop" d="M210 6 H12 V24" />
+                      <path class="flow-arrow" d="M2 24l10 14 10-14" />
+                    </svg>
+                    <span class="flow-loop-label">reply loop</span>
+                  </div>
+        
+                  <svg class="flow-wire" viewBox="0 0 120 32" fill="none" aria-hidden="true">
+                    <line class="flow-dash flow-dash-late" x1="0" y1="16" x2="100" y2="16" />
+                    <path class="flow-arrow" d="M96 4l18 12-18 12" />
+                  </svg>
+        
+                  <div class="flow-node flow-node-score">
+                    <span class="flow-node-tag flow-node-tag-bold">Feedback</span>
+                    <span class="flow-bar"><span class="flow-bar-label">Clarity</span><span class="flow-bar-track"><span class="flow-bar-fill is-teal" style="--score: 86%"></span></span><span class="flow-bar-value">86</span></span>
+                    <span class="flow-bar"><span class="flow-bar-label">Evidence</span><span class="flow-bar-track"><span class="flow-bar-fill is-yellow" style="--score: 91%"></span></span><span class="flow-bar-value">91</span></span>
+                    <span class="flow-bar"><span class="flow-bar-label">Tone</span><span class="flow-bar-track"><span class="flow-bar-fill is-pink" style="--score: 74%"></span></span><span class="flow-bar-value">74</span></span>
+                  </div>
+                </div>
       </section>
 
       <!-- 6 · B2B mini-FAQ -->
