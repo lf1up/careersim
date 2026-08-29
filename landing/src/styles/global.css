@@ -47,6 +47,8 @@ html {
   background: var(--paper);
   color: var(--ink);
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* Anchor jumps land below the sticky header instead of under it. */
+  scroll-padding-top: 96px;
   /* clip (not hidden): hidden makes html/body scroll containers, which
      breaks position: sticky on the site header. */
   overflow-x: hidden;
@@ -216,6 +218,11 @@ ul {
 }
 
 .nav-links a:hover::after {
+  transform: scaleX(1);
+}
+
+/* Scroll-spy active state: same accent underline as hover, persistent. */
+.nav-links a.is-active::after {
   transform: scaleX(1);
 }
 

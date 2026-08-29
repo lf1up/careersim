@@ -1284,6 +1284,53 @@ const githubIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule=
             startAutoCycle();
           }
         });
+
+        // Scroll-spy: highlight the nav link whose section owns the viewport.
+        const navLinks = Array.from(
+          document.querySelectorAll('.nav-links a[href^="#"]'),
+        );
+        if (navLinks.length > 0 && 'IntersectionObserver' in window) {
+          const setActive = (id) => {
+            for (const link of navLinks) {
+              const isActive = link.hash === `#${id}`;
+              link.classList.toggle('is-active', isActive);
+              if (isActive) {
+                link.setAttribute('aria-current', 'true');
+              } else {
+                link.removeAttribute('aria-current');
+              }
+            }
+          };
+
+          const sections = navLinks
+            .map((link) => document.getElementById(link.hash.slice(1)))
+            .filter(Boolean);
+
+          // IO callbacks only carry *changed* entries — track the full
+          // intersecting set across callbacks, then highlight the topmost.
+          const inBand = new Set();
+          const scrollSpy = new IntersectionObserver(
+            (entries) => {
+              for (const entry of entries) {
+                if (entry.isIntersecting) {
+                  inBand.add(entry.target);
+                } else {
+                  inBand.delete(entry.target);
+                }
+              }
+              if (inBand.size > 0) {
+                const topMost = Array.from(inBand).reduce((a, b) =>
+                  a.getBoundingClientRect().top <= b.getBoundingClientRect().top ? a : b,
+                );
+                setActive(topMost.id);
+              }
+            },
+            // Single header-height band just under the sticky header.
+            { rootMargin: '-96px 0px -66% 0px', threshold: 0 },
+          );
+
+          sections.forEach((section) => scrollSpy.observe(section));
+        }
       })();
     </script>
 
