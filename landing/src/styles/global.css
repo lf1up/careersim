@@ -91,8 +91,9 @@ ul {
 
 .site-header {
   align-items: center;
-  background: var(--paper);
+  background: var(--ink);
   border-bottom: 2px solid var(--ink);
+  color: var(--paper);
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(220px, 1fr) auto minmax(280px, 1fr);
@@ -101,6 +102,37 @@ ul {
   position: sticky;
   top: 0;
   z-index: 50;
+}
+
+/* Header buttons keep the retro look but need light ink on the black bar. */
+.site-header .icon-button {
+  background: var(--ink);
+  border-color: var(--paper);
+  box-shadow: 2px 2px 0 rgba(251, 245, 233, 0.35);
+}
+
+.site-header .icon-button svg {
+  fill: var(--paper);
+}
+
+.site-header .button {
+  border-color: var(--paper);
+}
+
+/* Light/accent buttons keep their dark ink text; only the bar went dark. */
+.site-header .button-light,
+.site-header .button-accent {
+  color: var(--ink);
+}
+
+.site-header .button:hover,
+.site-header .icon-button:hover {
+  box-shadow: 2px 2px 0 rgba(251, 245, 233, 0.5);
+}
+
+.site-header .button:active,
+.site-header .icon-button:active {
+  box-shadow: 1px 1px 0 rgba(251, 245, 233, 0.5);
 }
 
 .wordmark,
