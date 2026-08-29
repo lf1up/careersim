@@ -1281,8 +1281,19 @@ img.persona-avatar {
   grid-template-columns: minmax(0, 1.2fr) 72px minmax(0, 0.8fr) 72px minmax(0, 1.2fr);
   margin: 0 auto;
   max-width: 1080px;
-  padding: 22px;
+  /* no side padding: the window bar spans the full card width */
+  padding: 0 0 22px;
   width: 100%;
+}
+
+/* Desktop-window chrome on the practice-loop card too. */
+.flow-viz .window-bar {
+  grid-column: 1 / -1;
+}
+
+.flow-viz .flow-node,
+.flow-viz .flow-wire {
+  padding-inline: 22px;
 }
 
 .flow-node {
