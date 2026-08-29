@@ -1804,7 +1804,6 @@ img.persona-avatar {
   .flow-viz-b2b {
     grid-template-columns: minmax(0, 1fr);
     max-width: 480px;
-    padding-top: 22px;
   }
   .flow-review-arc {
     display: none;
