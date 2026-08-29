@@ -47,7 +47,10 @@ html {
   background: var(--paper);
   color: var(--ink);
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* clip (not hidden): hidden makes html/body scroll containers, which
+     breaks position: sticky on the site header. */
   overflow-x: hidden;
+  overflow-x: clip;
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -57,6 +60,7 @@ body {
   margin: 0;
   min-width: 320px;
   overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
 }
 
@@ -139,7 +143,7 @@ ul {
    disappear into the dark bar, so swap them for paper variants. */
 .site-header .status-pill {
   border-color: var(--paper);
-  box-shadow: 2px 2px 0 rgba(251, 245, 233, 0.35);
+  box-shadow: none;
   color: var(--ink);
 }
 
