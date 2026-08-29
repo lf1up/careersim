@@ -997,7 +997,7 @@ img.persona-avatar {
 
 /* Below ~380px three fixed score cells overflow the preview panel and
    the feedback card crops on the right — stack them instead. */
-@media (max-width: 380px) {
+@media (max-width: 400px) {
   .score-row {
     grid-template-columns: 1fr;
   }
