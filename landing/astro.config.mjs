@@ -9,4 +9,11 @@ export default defineConfig({
   output: 'static',
   adapter: vercel(),
   site: siteUrl,
+  // Dev-only: let Vite serve through throwaway Cloudflare quick tunnels
+  // (random subdomain per launch) used for design reviews.
+  vite: {
+    server: {
+      allowedHosts: ['.trycloudflare.com'],
+    },
+  },
 });
