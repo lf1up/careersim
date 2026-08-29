@@ -1358,6 +1358,7 @@ img.persona-avatar {
 .flow-typing {
   display: inline-flex;
   gap: 5px;
+  margin-top: 10px;
 }
 
 .flow-typing i {
