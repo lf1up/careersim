@@ -1504,6 +1504,9 @@ img.persona-avatar {
   .flow-wire-label {
     font-size: 0.78rem;
   }
+  .flow-loop-label {
+    font-size: 0.8rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1820,11 +1823,19 @@ img.persona-avatar {
     background: none;
     display: block;
     left: auto;
-    margin: 12px 0 6px;
+    margin: 24px 0 6px;
     padding: 0;
     position: static;
     text-align: center;
     transform: none;
+  }
+  /* Mobile only: the diagram labels read too small on phones. */
+  .flow-review-label,
+  .flow-selfloop-label {
+    font-size: 0.8rem;
+  }
+  .flow-wire-label {
+    font-size: 0.82rem;
   }
   .flow-review-return {
     display: block;
