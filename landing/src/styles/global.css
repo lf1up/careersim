@@ -1297,8 +1297,7 @@ img.persona-avatar {
   margin-top: 64px;
 }
 
-.flow-viz .flow-node,
-.flow-viz .flow-wire {
+.flow-viz .flow-node {
   padding-inline: 22px;
 }
 
@@ -1532,8 +1531,7 @@ img.persona-avatar {
 }
 
 /* Diagram nodes carry the insets the card padding used to provide. */
-.flow-viz-b2b .flow-node,
-.flow-viz-b2b .flow-wire-wrap {
+.flow-viz-b2b .flow-node {
   margin-top: 30px;
   padding-inline: 22px;
 }
