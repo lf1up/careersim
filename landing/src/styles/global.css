@@ -108,7 +108,7 @@ ul {
 .site-header .icon-button {
   background: var(--ink);
   border-color: var(--paper);
-  box-shadow: 2px 2px 0 rgba(251, 245, 233, 0.35);
+  box-shadow: none;
 }
 
 .site-header .icon-button svg {
@@ -133,6 +133,14 @@ ul {
 .site-header .button:active,
 .site-header .icon-button:active {
   box-shadow: 1px 1px 0 rgba(251, 245, 233, 0.5);
+}
+
+/* Beta pill: lime fill + green dot stay; ink border/shadow/text would
+   disappear into the dark bar, so swap them for paper variants. */
+.site-header .status-pill {
+  border-color: var(--paper);
+  box-shadow: 2px 2px 0 rgba(251, 245, 233, 0.35);
+  color: var(--ink);
 }
 
 .wordmark,
