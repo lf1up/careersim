@@ -174,8 +174,8 @@ const marquee = [
 
 const stats = [
   { eyebrow: 'Scenarios', value: '12+', label: 'High-stakes career moments — new ones every week.' },
-  { eyebrow: 'Personas', value: '8', label: 'Adaptive AI characters from cautious to combative.' },
-  { eyebrow: 'Feedback signals', value: '6', label: 'Scored on clarity, evidence, confidence, structure, tone, pacing.' },
+  { eyebrow: 'Personas', value: '9+', label: 'Adaptive AI characters from cautious to combative.' },
+  { eyebrow: 'Feedback signals', value: '6+', label: 'Scored on clarity, evidence, confidence, structure, tone, pacing.' },
   { eyebrow: 'Replays', value: '∞', label: 'Practice the same moment until you actually own it.' },
 ];
 
@@ -350,29 +350,6 @@ const steps = [
   },
 ];
 
-const testimonials = [
-  {
-    quote: 'I walked into my Stripe loop already used to being interrupted. The negotiation rerun alone got me +$22k.',
-    name: 'Daniel R.',
-    role: 'Senior PM · ex-Booking',
-    emoji: '🧑‍💼',
-    tone: 'yellow',
-  },
-  {
-    quote: 'The feedback scoring was the unlock. It told me exactly when my answers turned vague — which is when I always lose interviewers.',
-    name: 'Priya S.',
-    role: 'Engineering manager',
-    emoji: '👩‍💻',
-    tone: 'blue',
-  },
-  {
-    quote: 'Rehearsing the layoff conversation twice in private was 100× better than reading another article about it.',
-    name: 'Marcus T.',
-    role: 'Director of Operations',
-    emoji: '👨‍💼',
-    tone: 'pink',
-  },
-];
 
 const b2bOfferings = [
   {
@@ -857,6 +834,13 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
 
         <div class="flow-viz" data-reveal aria-label="Practice loop: you send a message, the persona responds, you get scored feedback">
+          <div class="window-bar">
+            <span class="window-dot dot-red"></span>
+            <span class="window-dot dot-yellow"></span>
+            <span class="window-dot dot-green"></span>
+            <span class="session-title">practice.session — live</span>
+          </div>
+
           <div class="flow-node flow-node-user">
             <span class="flow-node-tag flow-node-tag-bold">You</span>
             <span class="flow-bubble flow-bubble-user">“I’d like to discuss the package…”</span>
@@ -880,7 +864,7 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
             />
             <span class="flow-typing" aria-hidden="true"><i></i><i></i><i></i></span>
             <svg class="flow-loop" viewBox="0 0 220 44" fill="none" aria-hidden="true">
-              <path class="flow-dash flow-dash-loop" d="M210 6 H12 V24" />
+              <path class="flow-dash flow-dash-loop" d="M210 6 V34 M210 6 H12 V24" />
               <path class="flow-arrow" d="M2 24l10 14 10-14" />
             </svg>
             <span class="flow-loop-label">reply loop</span>
@@ -915,30 +899,7 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
       </section>
 
-      <section class="testimonials section-white" aria-labelledby="testimonials-title">
-        <div class="section-heading centered" data-reveal>
-          <p class="eyebrow">From the beta</p>
-          <h2 id="testimonials-title">Practice in private. Show up like you’ve done this before.</h2>
-        </div>
-
-        <div class="testimonial-grid" data-reveal-stagger>
-          {testimonials.map((t) => (
-            <article class={`testimonial-card tone-${t.tone}`}>
-              <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
-              <blockquote>{t.quote}</blockquote>
-              <div class="testimonial-author">
-                <span class="persona-avatar persona-avatar-emoji" aria-hidden="true">{t.emoji}</span>
-                <div>
-                  <p class="testimonial-name">{t.name}</p>
-                  <p class="testimonial-role">{t.role}</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="for-business" class="for-business section-paper" aria-labelledby="b2b-title">
+      <section id="for-business" class="for-business section-white" aria-labelledby="b2b-title">
         <div class="section-heading centered" data-reveal>
           <p class="eyebrow">For business</p>
           <h2 id="b2b-title">Bring AI personas to your team.</h2>
@@ -964,7 +925,30 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
           ))}
         </div>
 
+        <div class="cta-panel b2b-cta" data-reveal>
+          <span class="countdown"><strong>B2B</strong> · custom builds · limited pilot slots</span>
+          <h2>Tell us about your use case.</h2>
+          <p>Custom training simulations, bespoke personas, support practice, and persona-driven content — scoped to your team. We reply within two business days with a pilot proposal.</p>
+          <div class="cta-actions">
+            <a class="button button-dark" href="/business">Get in touch</a>
+            <a class="button button-light" href={simulationsUrl}>Try public simulations</a>
+          </div>
+          <p class="cta-note">
+            <span class="cta-note-lead">or just send an email to</span>{' '}
+            <a href={`mailto:${contactEmail}?subject=${encodeURIComponent('B2B inquiry — custom simulations')}`}>{contactEmail}</a>
+          </p>
+        </div>
+
+        
+
         <div class="flow-viz flow-viz-b2b" data-reveal aria-label="An AI persona embedded in your team: tasks flow from your team, the persona grounds itself in your data vault, critiques its own drafts, and your team reviews the output">
+          <div class="window-bar">
+            <span class="window-dot dot-red"></span>
+            <span class="window-dot dot-yellow"></span>
+            <span class="window-dot dot-green"></span>
+            <span class="session-title">your-team.agents — live</span>
+          </div>
+
           <div class="flow-node flow-node-team">
             <span class="flow-node-tag flow-node-tag-bold">Your team</span>
             <div class="flow-people" aria-hidden="true">
@@ -1044,19 +1028,7 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
           </svg>
         </div>
 
-        <div class="cta-panel b2b-cta" data-reveal>
-          <span class="countdown"><strong>B2B</strong> · custom builds · limited pilot slots</span>
-          <h2>Tell us about your use case.</h2>
-          <p>Custom training simulations, bespoke personas, support practice, and persona-driven content — scoped to your team. We reply within two business days with a pilot proposal.</p>
-          <div class="cta-actions">
-            <a class="button button-dark" href="/business">Get in touch</a>
-            <a class="button button-light" href={simulationsUrl}>Try public simulations</a>
-          </div>
-          <p class="cta-note">
-            <span class="cta-note-lead">or just send an email to</span>{' '}
-            <a href={`mailto:${contactEmail}?subject=${encodeURIComponent('B2B inquiry — custom simulations')}`}>{contactEmail}</a>
-          </p>
-        </div>
+        
 
         <div class="b2b-steps" data-reveal-stagger>
           {b2bSteps.map((step) => (
