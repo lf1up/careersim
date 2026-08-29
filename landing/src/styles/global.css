@@ -2782,7 +2782,7 @@ img.persona-avatar {
 
 @media (max-width: 400px) {
   .wordmark {
-    font-size: 0.9rem;
+    font-size: 1.05rem;
     letter-spacing: 0.04em;
   }
 }
