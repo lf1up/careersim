@@ -2499,6 +2499,12 @@ img.persona-avatar {
   transform: translate(3px, 3px);
 }
 
+/* On the white /business band the surface-white cards vanish into the
+   background — give them the warm paper tint instead. */
+.for-business .faq-card {
+  background: var(--paper-2);
+}
+
 .faq-card h3 {
   align-items: flex-start;
   display: flex;
