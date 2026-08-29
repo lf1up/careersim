@@ -1496,14 +1496,35 @@ img.persona-avatar {
 
 .flow-viz-b2b {
   background: var(--paper-2);
+  gap: 0;
   grid-column: auto;
   grid-row: auto;
   grid-template-columns: minmax(0, 0.8fr) 88px minmax(0, 1.3fr) 88px minmax(0, 0.8fr);
   margin-top: 64px;
   max-width: 980px;
   padding-bottom: 30px;
-  padding-top: 56px;
   position: relative;
+}
+
+/* Desktop-window chrome: the bar spans all five columns... */
+.flow-viz-b2b .window-bar {
+  grid-column: 1 / -1;
+  margin-bottom: 26px;
+}
+
+/* ...and the diagram body keeps its own breathing room. */
+.flow-viz-b2b .flow-node,
+.flow-viz-b2b .flow-wire-wrap {
+  margin-top: 30px;
+}
+
+/* Review arc + its label now start under the window bar, not the card edge. */
+.flow-viz-b2b .flow-review-arc {
+  top: 88px;
+}
+
+.flow-viz-b2b .flow-review-label {
+  top: 70px;
 }
 
 .flow-node-team,
