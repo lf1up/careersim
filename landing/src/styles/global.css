@@ -887,8 +887,7 @@ img.persona-avatar {
 .step-card,
 .faq-card,
 .stat-card,
-.persona-card,
-.testimonial-card {
+.persona-card {
   border: 2px solid var(--ink);
 }
 
@@ -2296,97 +2295,6 @@ img.persona-avatar {
   width: 24px;
 }
 
-/* ============ TESTIMONIALS ============ */
-
-.testimonials {
-  padding-bottom: 96px;
-  padding-top: 96px;
-}
-
-.testimonial-grid {
-  display: grid;
-  gap: 22px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 52px auto 0;
-  max-width: 1280px;
-}
-
-.testimonial-card {
-  background: var(--surface);
-  box-shadow: var(--shadow-5);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 26px 24px;
-  transition:
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.testimonial-card:hover {
-  box-shadow: var(--shadow-2);
-  transform: translate(3px, 3px);
-}
-
-.testimonial-card.tone-yellow {
-  background: var(--soft-yellow);
-}
-.testimonial-card.tone-blue {
-  background: var(--soft-blue);
-}
-.testimonial-card.tone-pink {
-  background: var(--soft-pink);
-}
-
-.testimonial-card .stars {
-  color: var(--ink);
-  font-size: 1.04rem;
-  letter-spacing: 4px;
-}
-
-.testimonial-card blockquote {
-  font-size: 1.04rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  line-height: 1.4;
-  margin: 0;
-}
-
-.testimonial-author {
-  align-items: center;
-  border-top: 2px dashed var(--ink);
-  display: flex;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 16px;
-}
-
-.testimonial-author .persona-avatar {
-  height: 44px;
-  width: 44px;
-  font-size: 0.7rem;
-}
-
-.testimonial-author .persona-avatar-emoji {
-  background: var(--paper);
-  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
-  font-size: 1.35rem;
-  line-height: 1;
-}
-
-.testimonial-name {
-  font-size: 0.94rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.testimonial-role {
-  color: var(--ink-soft);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
 
 /* ============ CTA / FAQ / FOOTER ============ */
 
@@ -2841,8 +2749,7 @@ img.persona-avatar {
     max-width: 100%;
   }
   .card-grid,
-  .persona-grid,
-  .testimonial-grid {
+  .persona-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .stats-strip {
@@ -3002,7 +2909,6 @@ img.persona-avatar {
 
   .card-grid,
   .persona-grid,
-  .testimonial-grid,
   .faq-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3013,7 +2919,6 @@ img.persona-avatar {
 
   .use-cases,
   .personas,
-  .testimonials,
   .for-business {
     padding-bottom: 64px;
     padding-top: 64px;

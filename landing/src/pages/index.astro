@@ -350,29 +350,6 @@ const steps = [
   },
 ];
 
-const testimonials = [
-  {
-    quote: 'I walked into my Stripe loop already used to being interrupted. The negotiation rerun alone got me +$22k.',
-    name: 'Daniel R.',
-    role: 'Senior PM · ex-Booking',
-    emoji: '🧑‍💼',
-    tone: 'yellow',
-  },
-  {
-    quote: 'The feedback scoring was the unlock. It told me exactly when my answers turned vague — which is when I always lose interviewers.',
-    name: 'Priya S.',
-    role: 'Engineering manager',
-    emoji: '👩‍💻',
-    tone: 'blue',
-  },
-  {
-    quote: 'Rehearsing the layoff conversation twice in private was 100× better than reading another article about it.',
-    name: 'Marcus T.',
-    role: 'Director of Operations',
-    emoji: '👨‍💼',
-    tone: 'pink',
-  },
-];
 
 const b2bOfferings = [
   {
@@ -915,30 +892,7 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
       </section>
 
-      <section class="testimonials section-white" aria-labelledby="testimonials-title">
-        <div class="section-heading centered" data-reveal>
-          <p class="eyebrow">From the beta</p>
-          <h2 id="testimonials-title">Practice in private. Show up like you’ve done this before.</h2>
-        </div>
-
-        <div class="testimonial-grid" data-reveal-stagger>
-          {testimonials.map((t) => (
-            <article class={`testimonial-card tone-${t.tone}`}>
-              <p class="stars" aria-label="5 out of 5 stars">★★★★★</p>
-              <blockquote>{t.quote}</blockquote>
-              <div class="testimonial-author">
-                <span class="persona-avatar persona-avatar-emoji" aria-hidden="true">{t.emoji}</span>
-                <div>
-                  <p class="testimonial-name">{t.name}</p>
-                  <p class="testimonial-role">{t.role}</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="for-business" class="for-business section-paper" aria-labelledby="b2b-title">
+      <section id="for-business" class="for-business section-white" aria-labelledby="b2b-title">
         <div class="section-heading centered" data-reveal>
           <p class="eyebrow">For business</p>
           <h2 id="b2b-title">Bring AI personas to your team.</h2>
