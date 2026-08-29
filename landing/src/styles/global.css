@@ -1495,6 +1495,7 @@ img.persona-avatar {
 /* ============ B2B FLOW (agent in your team) ============ */
 
 .flow-viz-b2b {
+  background: var(--paper-2);
   grid-column: auto;
   grid-row: auto;
   grid-template-columns: minmax(0, 0.8fr) 88px minmax(0, 1.3fr) 88px minmax(0, 0.8fr);
@@ -1748,6 +1749,11 @@ img.persona-avatar {
   top: 10px;
   transform: translateX(-50%);
   z-index: 1;
+}
+
+/* Label patch must match the tinted card, not pure white. */
+.flow-viz-b2b .flow-review-label {
+  background: var(--paper-2);
 }
 
 .flow-review-return {
