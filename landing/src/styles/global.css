@@ -1502,20 +1502,23 @@ img.persona-avatar {
   grid-template-columns: minmax(0, 0.8fr) 88px minmax(0, 1.3fr) 88px minmax(0, 0.8fr);
   margin-top: 64px;
   max-width: 980px;
-  padding-bottom: 30px;
+  /* no side padding: the window bar must span the full card width */
+  padding: 0 0 30px;
   position: relative;
 }
 
-/* Desktop-window chrome: the bar spans all five columns... */
+/* Desktop-window chrome: the bar spans all five columns, flush with
+   the card border (the base .flow-viz padding is cancelled above). */
 .flow-viz-b2b .window-bar {
   grid-column: 1 / -1;
-  margin-bottom: 26px;
+  margin-bottom: 48px;
 }
 
-/* ...and the diagram body keeps its own breathing room. */
+/* Diagram nodes carry the insets the card padding used to provide. */
 .flow-viz-b2b .flow-node,
 .flow-viz-b2b .flow-wire-wrap {
   margin-top: 30px;
+  padding-inline: 22px;
 }
 
 /* Review arc + its label now start under the window bar, not the card edge. */
