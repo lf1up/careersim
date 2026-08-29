@@ -995,6 +995,14 @@ img.persona-avatar {
   padding: 10px 12px;
 }
 
+/* Below ~380px three fixed score cells overflow the preview panel and
+   the feedback card crops on the right — stack them instead. */
+@media (max-width: 380px) {
+  .score-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .score-cell .score-label {
   color: rgba(255, 255, 255, 0.55);
   font-family: 'JetBrains Mono', monospace;
