@@ -35,7 +35,7 @@
     "argon2": "^0.44.0",
     "drizzle-orm": "^0.45.2",
     "eventsource-parser": "^3.0.8",
-    "fastify": "^5.8.5",
+    "fastify": "^5.12.1",
     "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^6.1.0",
     "ioredis": "^5.10.1",
