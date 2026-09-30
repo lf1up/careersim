@@ -1,0 +1,131 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "animagine-xl-4.0-opt.safetensors"
+    },
+    "_meta": {
+      "title": "Load Animagine XL 4.0 Opt"
+    }
+  },
+  "2": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "1girl, solo, office lady, long dark brown hair, amber eyes, navy blazer, standing, full body, looking at viewer, simple background, white background, masterpiece, high score, great score, absurdres"
+    },
+    "_meta": {
+      "title": "Positive prompt"
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, cropped, worst quality, low quality, low score, bad score, average score, signature, watermark, username, blurry"
+    },
+    "_meta": {
+      "title": "Negative prompt"
+    }
+  },
+  "4": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 832,
+      "height": 1216,
+      "batch_size": 1
+    },
+    "_meta": {
+      "title": "Latent"
+    }
+  },
+  "5": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["2", 0],
+      "negative": ["3", 0],
+      "latent_image": ["4", 0],
+      "seed": 0,
+      "steps": 28,
+      "cfg": 5.0,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "normal",
+      "denoise": 1.0
+    },
+    "_meta": {
+      "title": "Sample"
+    }
+  },
+  "6": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["5", 0],
+      "vae": ["1", 2]
+    },
+    "_meta": {
+      "title": "Decode"
+    }
+  },
+  "7": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["6", 0],
+      "filename_prefix": "manga_base_raw"
+    },
+    "_meta": {
+      "title": "Save raw render"
+    }
+  },
+  "8": {
+    "class_type": "LoadRembgByBiRefNetModel",
+    "inputs": {
+      "model": "General.safetensors",
+      "device": "AUTO",
+      "use_weight": false,
+      "dtype": "float32"
+    },
+    "_meta": {
+      "title": "Load BiRefNet"
+    }
+  },
+  "9": {
+    "class_type": "RembgByBiRefNet",
+    "inputs": {
+      "model": ["8", 0],
+      "images": ["6", 0]
+    },
+    "_meta": {
+      "title": "Remove background"
+    }
+  },
+  "10": {
+    "class_type": "InvertMask",
+    "inputs": {
+      "mask": ["9", 1]
+    },
+    "_meta": {
+      "title": "Invert mask (JoinImageWithAlpha applies 1 - alpha)"
+    }
+  },
+  "11": {
+    "class_type": "JoinImageWithAlpha",
+    "inputs": {
+      "image": ["9", 0],
+      "alpha": ["10", 0]
+    },
+    "_meta": {
+      "title": "Join RGBA"
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "manga_base_alpha"
+    },
+    "_meta": {
+      "title": "Save transparent sprite"
+    }
+  }
+}
