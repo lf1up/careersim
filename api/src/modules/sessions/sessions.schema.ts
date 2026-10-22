@@ -84,6 +84,7 @@ export const goalProgressSchema = z.record(z.string(), z.unknown());
 export const sessionSummarySchema = z.object({
   id: z.uuid(),
   simulation_slug: z.string(),
+  simulation_title: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   message_count: z.number().int(),
@@ -138,6 +139,7 @@ export const sessionConfigSchema = z.object({
 export const sessionDetailSchema = z.object({
   id: z.uuid(),
   simulation_slug: z.string(),
+  simulation_title: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   messages: z.array(messageSchema),

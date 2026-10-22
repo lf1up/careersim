@@ -6,6 +6,7 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { FastifyInstance } from 'fastify';
 
 import { createPgliteClient, type PgliteClientHandle } from '../../src/db/client.js';
+import type { ApiPlugin } from '../../src/extensions/sdk.js';
 import { buildApp } from '../../src/server.js';
 import { ALTCHA_TEST_BYPASS_TOKEN } from '../../src/plugins/altcha.js';
 import type { MailMessage } from '../../src/plugins/mailer.js';
@@ -87,6 +88,8 @@ export interface BuildTestAppOptions {
    * leave `voice: "skipped"`.
    */
   voiceHealth?: { ping: () => Promise<void> };
+  /** Plugins injected the same way production passes the loader result. */
+  plugins?: ApiPlugin[];
 }
 
 export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestHarness> {
@@ -97,7 +100,9 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
   const agent = options?.agent ?? new FakeAgent();
   const outbox: MailMessage[] = [];
 
-  const app = await buildApp({
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  try {
+    app = await buildApp({
     db: handle.db,
     agent,
     jwtSecret: 'test-secret-test-secret-test-secret',
@@ -128,6 +133,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     },
     cache: options?.cache,
     voiceHealth: options?.voiceHealth,
+    plugins: options?.plugins,
     voice: options?.voice
       ? {
           enabled: options.voice.enabled,
@@ -139,8 +145,12 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
           activeCallStaleSeconds: options.voice.activeCallStaleSeconds,
           internalKey: options.voice.internalKey ?? 'test-internal-key',
         }
-      : undefined,
-  });
+        : undefined,
+    });
+  } catch (err) {
+    await handle.close();
+    throw err;
+  }
 
   return {
     app,

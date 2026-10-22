@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
+import { simulationLabel } from '@/extensions';
 import { apiClient, ApiError } from '@/lib/api';
 import type {
   DebriefReport,
@@ -254,7 +255,12 @@ export default function SessionReportPage() {
                 {difficultyLabel(simulation.difficulty)}
               </RetroBadge>
             )}
-            <span>{simulation?.title ?? session.simulation_slug}</span>
+            <span>
+              {simulationLabel(session.simulation_slug, {
+                catalogTitle: simulation?.title,
+                title: session.simulation_title,
+              })}
+            </span>
           </span>
         }
         subtitle={

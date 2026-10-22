@@ -69,6 +69,12 @@ export const personasRoutes: FastifyPluginAsyncZod<PersonasRouteOptions> = async
     },
     async (req, reply) => {
       const { slug } = req.params as { slug: string };
+      if (slug.includes(':')) {
+        return reply.code(404).send({
+          error: 'avatar_not_found',
+          message: `No avatar found for persona "${slug}".`,
+        });
+      }
       try {
         const upstream = await opts.agent.getPersonaAvatar({
           slug,

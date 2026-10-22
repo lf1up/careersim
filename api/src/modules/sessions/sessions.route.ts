@@ -11,6 +11,7 @@ import type {
   ProactiveTrigger,
 } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
+import type { SimulationProvider } from '../../extensions/sdk.js';
 import { HttpError } from '../../plugins/errors.js';
 import { rateLimitPolicy } from '../../plugins/rate-limit.js';
 import { isCorsOriginAllowed } from '../../utils/cors.js';
@@ -32,6 +33,7 @@ import {
 interface SessionsRouteOptions {
   db: AppDatabase;
   agent: AgentClient;
+  simulationProviders?: readonly SimulationProvider[];
   corsAllowedOrigins?: string[];
   /** Empty-allowlist policy for the SSE proxy's manual CORS echo. */
   corsAllowAllWhenEmpty?: boolean;
@@ -45,7 +47,7 @@ interface SessionsRouteOptions {
 }
 
 export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async (app, opts) => {
-  const service = createSessionsService(opts.db, opts.agent);
+  const service = createSessionsService(opts.db, opts.agent, opts.simulationProviders ?? []);
   const corsAllowedOrigins = opts.corsAllowedOrigins ?? [];
   const corsAllowAllWhenEmpty = opts.corsAllowAllWhenEmpty ?? false;
 

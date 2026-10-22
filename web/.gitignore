@@ -1,5 +1,10 @@
 # dependencies
 /node_modules
+
+# build-time plugins (copied by scripts/plugins.mjs)
+/src/extensions/installed/
+/src/app/(app)/(plugins)/
+/src/app/(public)/(plugins)/
 /.pnp
 .pnp.*
 .yarn/*

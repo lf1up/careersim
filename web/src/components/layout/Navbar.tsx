@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { signedInNavItems } from '@/extensions';
 import { SITE_NAME } from '@/lib/seo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
@@ -43,7 +44,7 @@ export const Navbar: React.FC = () => {
   // While the auth bootstrap is running we can't know yet which variant of
   // the bar to show; render a minimal neutral header so the page doesn't
   // flash "guest → auth" or vice-versa.
-  const navItems = isAuthenticated ? AUTH_NAV_ITEMS : GUEST_NAV_ITEMS;
+  const navItems = isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : GUEST_NAV_ITEMS;
 
   const desktopNavLinkClass = (active: boolean) =>
     clsx(

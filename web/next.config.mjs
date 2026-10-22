@@ -1,4 +1,16 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 const landingOrigin = process.env.LANDING_ORIGIN?.replace(/\/$/, '');
+
+const pluginsInstalled = fileURLToPath(
+  new URL('./src/extensions/installed/index.ts', import.meta.url),
+);
+// Turbopack rejects an absolute alias (`/app/src/...`) as a server-relative
+// import. These paths are relative to the project directory.
+const pluginsEntry = existsSync(pluginsInstalled)
+  ? './src/extensions/installed/index.ts'
+  : './src/extensions/empty.ts';
 
 // Public API base URL — used by `next/image` so the optimizer is allowed
 // to fetch persona avatars from the API service. We accept both the
@@ -84,6 +96,11 @@ const ghostCdnRemotePatterns = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  turbopack: {
+    resolveAlias: {
+      '@careersim/plugins': pluginsEntry,
+    },
+  },
   env: {
     NEXT_PUBLIC_HAS_LANDING_ORIGIN: landingOrigin ? 'true' : 'false',
   },

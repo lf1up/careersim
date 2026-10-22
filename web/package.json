@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
-    "build": "next build",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/plugins.mjs fetch && next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",

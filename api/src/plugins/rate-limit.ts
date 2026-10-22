@@ -87,6 +87,15 @@ function limit(
 }
 
 /**
+ * Per-user bucket that shares this process's rate-limit store (Redis when
+ * configured, otherwise the in-memory LRU) and the host 429 envelope.
+ * Plugins attach the result to a route's `config.rateLimit`.
+ */
+export function perUserLimit(max: number, timeWindow: string): RouteRateLimit {
+  return limit(max, timeWindow, byUser);
+}
+
+/**
  * Mutable config for per-route policies that ops can tune without
  * touching code. Route factories below read from this object at
  * registration time, so the rate-limit plugin can override defaults

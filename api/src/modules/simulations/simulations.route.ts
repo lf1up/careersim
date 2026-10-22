@@ -3,9 +3,11 @@ import { z } from 'zod';
 
 import type { AgentClient } from '../../agent/client.js';
 import { AgentRequestError } from '../../agent/client.js';
+import { providerForSlug, type SimulationProvider } from '../../extensions/sdk.js';
 
 interface SimulationsRouteOptions {
   agent: AgentClient;
+  simulationProviders?: readonly SimulationProvider[];
 }
 
 const simulationSummarySchema = z.object({
@@ -102,6 +104,30 @@ export const simulationsRoutes: FastifyPluginAsyncZod<SimulationsRouteOptions> =
     },
     async (req, reply) => {
       const { slug } = req.params as { slug: string };
+      if (slug.includes(':')) {
+        const provider = providerForSlug(opts.simulationProviders ?? [], slug);
+        if (!provider) {
+          return reply.code(404).send({
+            error: 'simulation_not_found',
+            message: `Simulation "${slug}" was not found.`,
+          });
+        }
+        let userId: string | null = null;
+        try {
+          await req.jwtVerify();
+          userId = req.user.sub;
+        } catch {
+          userId = null;
+        }
+        const detail = await provider.getDetail({ slug, userId });
+        if (!detail) {
+          return reply.code(404).send({
+            error: 'simulation_not_found',
+            message: `Simulation "${slug}" was not found.`,
+          });
+        }
+        return detail;
+      }
       try {
         return await opts.agent.getSimulation(slug);
       } catch (err) {

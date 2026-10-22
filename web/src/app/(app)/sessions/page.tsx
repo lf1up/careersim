@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import type { SessionSummary, Simulation } from '@/lib/types';
 import {
@@ -108,7 +109,10 @@ export default function SessionsPage() {
         <div className="space-y-3 retro-stagger">
           {sorted.map((s) => {
             const sim = simulationBySlug[s.simulation_slug];
-            const title = sim?.title ?? s.simulation_slug;
+            const title = simulationLabel(s.simulation_slug, {
+              catalogTitle: sim?.title,
+              title: s.simulation_title,
+            });
             const hasGoalProgress = s.goal_progress.length > 0;
             const openSession = () => router.push(`/sessions/${s.id}`);
             return (

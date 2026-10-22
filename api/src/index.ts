@@ -3,6 +3,7 @@ import { request } from 'undici';
 import { HttpAgentClient } from './agent/client.js';
 import { loadEnv } from './config/env.js';
 import { createPgClient } from './db/client.js';
+import { loadInstalledPlugins } from './extensions/loader.js';
 import { buildApp } from './server.js';
 
 /** Cheap GET used by the versioned health probe (voice worker). */
@@ -20,6 +21,7 @@ async function pingHttp(url: string): Promise<void> {
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  const plugins = await loadInstalledPlugins();
   const dbHandle = createPgClient(env.DATABASE_URL);
   const agent = new HttpAgentClient(env.AGENT_API_URL, {
     internalKey: env.AGENT_INTERNAL_KEY || undefined,
@@ -62,6 +64,7 @@ async function main(): Promise<void> {
       createSessionMax: env.SESSIONS_CREATE_MAX,
       createSessionTimeWindow: env.SESSIONS_CREATE_WINDOW,
     },
+    plugins,
     voice: {
       enabled: env.VOICE_ENABLED,
       livekitUrl: env.LIVEKIT_URL,

@@ -143,6 +143,8 @@ export interface GoalProgress {
 export interface SessionDetail {
   id: string;
   simulation_slug: string;
+  /** Title from the session snapshot. Null when the snapshot has none. */
+  simulation_title?: string | null;
   created_at: string;
   updated_at: string;
   messages: Message[];
@@ -154,6 +156,8 @@ export interface SessionDetail {
 export interface SessionSummary {
   id: string;
   simulation_slug: string;
+  /** Title from the session snapshot. Null when the snapshot has none. */
+  simulation_title?: string | null;
   created_at: string;
   updated_at: string;
   message_count: number;
@@ -262,6 +266,7 @@ export interface SkillAverage {
 export interface ScoreTrendPoint {
   session_id: string;
   simulation_slug: string;
+  simulation_title?: string | null;
   created_at: string;
   overall_score: number;
   skills: Record<string, number>;
@@ -279,6 +284,7 @@ export interface ToneCount {
 
 export interface SimulationBreakdown {
   simulation_slug: string;
+  simulation_title?: string | null;
   sessions: number;
   completed_sessions: number;
   best_overall_score: number | null;

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import { dropPersistedPrefix } from '@/lib/chat-batch';
 import type {
@@ -801,7 +802,10 @@ export default function SessionDetailPage() {
             {/* Below 400px (e.g. iPhone SE) put the title on its own line so
                 it isn't clipped beside the persona/difficulty pills. */}
             <span className="min-w-0 break-words max-[400px]:basis-full">
-              {simulation?.title ?? session.simulation_slug}
+              {simulationLabel(session.simulation_slug, {
+                catalogTitle: simulation?.title,
+                title: session.simulation_title,
+              })}
             </span>
           </span>
         }
@@ -950,7 +954,10 @@ export default function SessionDetailPage() {
           <p className="text-sm text-retro-ink dark:text-retro-ink-dark">
             Every conversation goal for{' '}
             <span className="font-semibold">
-              {simulation?.title ?? session.simulation_slug}
+              {simulationLabel(session.simulation_slug, {
+                catalogTitle: simulation?.title,
+                title: session.simulation_title,
+              })}
             </span>{' '}
             has been achieved. View your debrief report to see how you did, keep
             practicing in this conversation, or return to the simulations list.
