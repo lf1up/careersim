@@ -1,0 +1,1681 @@
+{
+  "updatedAt": "2026-10-22T20:27:03.874Z",
+  "createdAt": "2026-10-22T19:59:15.745Z",
+  "id": "0kOV4d3jvhsGt2ab",
+  "name": "Persona Conversation Engine",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "88ddd93a-dbdb-4515-91dc-4e224fc7be02",
+      "name": "Chat message",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        48
+      ],
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "webhookId": "0b480aed-1e97-485b-81f2-46533e36c9d5"
+    },
+    {
+      "id": "1cf4cb0f-060e-427e-8ce5-bd509699cca7",
+      "name": "Persona config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        144
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "include": "all",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p-slug",
+              "name": "config.slug",
+              "type": "string",
+              "value": "alex-chen-tech-lead"
+            },
+            {
+              "id": "p-name",
+              "name": "config.name",
+              "type": "string",
+              "value": "Alex Chen"
+            },
+            {
+              "id": "p-role",
+              "name": "config.role",
+              "type": "string",
+              "value": "Passionate Tech Lead"
+            },
+            {
+              "id": "p-category",
+              "name": "config.category",
+              "type": "string",
+              "value": "JOB_SEEKING"
+            },
+            {
+              "id": "p-personality",
+              "name": "config.personality",
+              "type": "string",
+              "value": "Energetic, brilliant, and a bit scattered. Alex is deeply passionate about the product and the team's mission. He values raw talent and genuine enthusiasm over a perfectly polished interview performance."
+            },
+            {
+              "id": "p-primary",
+              "name": "config.primaryGoal",
+              "type": "string",
+              "value": "To find out if the candidate is genuinely excited about the technical challenges and can 'vibe' with the team's collaborative, fast-paced culture."
+            },
+            {
+              "id": "p-hidden",
+              "name": "config.hiddenMotivation",
+              "type": "string",
+              "value": "The team has recently lost a key member due to burnout. Alex is subconsciously looking for a candidate who shows resilience and a proactive attitude, not just technical skills. He wants someone who will be a positive force, not just another cog in the machine."
+            },
+            {
+              "id": "p-difficulty",
+              "name": "config.difficultyLevel",
+              "type": "number",
+              "value": 2
+            },
+            {
+              "id": "s-tone",
+              "name": "config.conversationStyle.tone",
+              "type": "string",
+              "value": "Enthusiastic"
+            },
+            {
+              "id": "s-formality",
+              "name": "config.conversationStyle.formality",
+              "type": "string",
+              "value": "Low"
+            },
+            {
+              "id": "s-pace",
+              "name": "config.conversationStyle.pace",
+              "type": "string",
+              "value": "Fast"
+            },
+            {
+              "id": "s-emotions",
+              "name": "config.conversationStyle.emotionalRange",
+              "type": "array",
+              "value": "={{ [\"excited\", \"curious\", \"concerned\"] }}"
+            },
+            {
+              "id": "s-phrases",
+              "name": "config.conversationStyle.commonPhrases",
+              "type": "array",
+              "value": "={{ [\"That's awesome!\", \"Tell me more about...\", \"How would you approach...\"] }}"
+            },
+            {
+              "id": "s-starts",
+              "name": "config.conversationStyle.startsConversation",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "s-delay-min",
+              "name": "config.conversationStyle.inactivityNudgeDelaySec.min",
+              "type": "number",
+              "value": 20
+            },
+            {
+              "id": "s-delay-max",
+              "name": "config.conversationStyle.inactivityNudgeDelaySec.max",
+              "type": "number",
+              "value": 80
+            },
+            {
+              "id": "s-nudges-min",
+              "name": "config.conversationStyle.inactivityNudges.min",
+              "type": "number",
+              "value": 2
+            },
+            {
+              "id": "s-nudges-max",
+              "name": "config.conversationStyle.inactivityNudges.max",
+              "type": "number",
+              "value": 3
+            },
+            {
+              "id": "s-burst-min",
+              "name": "config.conversationStyle.burstiness.min",
+              "type": "number",
+              "value": 1
+            },
+            {
+              "id": "s-burst-max",
+              "name": "config.conversationStyle.burstiness.max",
+              "type": "number",
+              "value": 3
+            },
+            {
+              "id": "s-wpm",
+              "name": "config.conversationStyle.typingSpeedWpm",
+              "type": "number",
+              "value": 140
+            },
+            {
+              "id": "s-opening",
+              "name": "config.conversationStyle.openingStyle",
+              "type": "string",
+              "value": "Enthusiastic, casual opener that shares excitement about product/team."
+            },
+            {
+              "id": "s-nudge",
+              "name": "config.conversationStyle.nudgeStyle",
+              "type": "string",
+              "value": "Friendly energetic nudge to keep the momentum."
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5018c8c1-6a33-4c45-ad38-1394971741e0",
+      "name": "Simulation config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        448,
+        144
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "include": "all",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sim-slug",
+              "name": "simulation.slug",
+              "type": "string",
+              "value": "tech-cultural-interview-alex"
+            },
+            {
+              "id": "sim-title",
+              "name": "simulation.title",
+              "type": "string",
+              "value": "The Technical & Cultural Fit Interview"
+            },
+            {
+              "id": "sim-description",
+              "name": "simulation.description",
+              "type": "string",
+              "value": "Impress a passionate tech lead while showing genuine enthusiasm for the role"
+            },
+            {
+              "id": "sim-scenario",
+              "name": "simulation.scenario",
+              "type": "string",
+              "value": "You're interviewing with Alex Chen, the engineering lead at a fast-growing startup. The conversation is more casual than formal, and Alex seems genuinely excited about the technology and team culture."
+            },
+            {
+              "id": "sim-objectives",
+              "name": "simulation.objectives",
+              "type": "array",
+              "value": "={{ [\"Show your technical competence and cultural fit\", \"Demonstrate resilience and a positive attitude\", \"Express genuine enthusiasm for the role and technology\"] }}"
+            },
+            {
+              "id": "sim-persona",
+              "name": "simulation.personaSlug",
+              "type": "string",
+              "value": "alex-chen-tech-lead"
+            },
+            {
+              "id": "sim-duration",
+              "name": "simulation.estimatedDurationMinutes",
+              "type": "number",
+              "value": 20
+            },
+            {
+              "id": "sim-difficulty",
+              "name": "simulation.difficulty",
+              "type": "number",
+              "value": 2
+            },
+            {
+              "id": "sim-skills",
+              "name": "simulation.skillsToLearn",
+              "type": "array",
+              "value": "={{ [\"Cultural fit assessment\", \"Enthusiasm communication\", \"Technical discussion\", \"Team collaboration\"] }}"
+            },
+            {
+              "id": "sim-tags",
+              "name": "simulation.tags",
+              "type": "array",
+              "value": "={{ [\"interview\", \"technical\", \"startup\", \"culture\"] }}"
+            },
+            {
+              "id": "sim-sc-comm",
+              "name": "simulation.successCriteria.communication",
+              "type": "array",
+              "value": "={{ [\"Genuine enthusiasm\", \"Technical clarity\", \"Collaborative language\"] }}"
+            },
+            {
+              "id": "sim-sc-ps",
+              "name": "simulation.successCriteria.problemSolving",
+              "type": "array",
+              "value": "={{ [\"Creative thinking\", \"Problem-solving approach\", \"Learning mindset\"] }}"
+            },
+            {
+              "id": "sim-sc-emo",
+              "name": "simulation.successCriteria.emotional",
+              "type": "array",
+              "value": "={{ [\"Positive energy\", \"Resilience indicators\", \"Team-first attitude\"] }}"
+            },
+            {
+              "id": "sim-goals",
+              "name": "simulation.conversationGoals",
+              "type": "array",
+              "value": "={{ [\n  { \"goalNumber\": 1, \"title\": \"Casual Opening and Energy Matching\", \"description\": \"Match Alex's enthusiastic energy while keeping the conversation natural and genuine\", \"keyBehaviors\": [\"Show genuine excitement about the opportunity\", \"Match his casual, friendly tone\", \"Express interest in the company mission or product\"], \"successIndicators\": [\"Alex becomes more animated in responses\", \"Conversation flows naturally without awkward pauses\", \"Mutual enthusiasm builds in the exchange\"], \"evaluationConfig\": { \"behaviorThreshold\": 0.55, \"successThreshold\": 0.55, \"minEvidenceCount\": 2, \"minStrongEvidenceCount\": 1 } },\n  { \"goalNumber\": 2, \"title\": \"Technical Discussion\", \"description\": \"Engage in technical conversation that demonstrates both competence and curiosity\", \"keyBehaviors\": [\"Ask thoughtful technical questions\", \"Share relevant past experiences\", \"Show learning mindset and curiosity\"], \"successIndicators\": [\"Alex gets excited about technical details\", \"Deep technical conversation emerges\", \"He starts sharing insider perspectives\"], \"evaluationConfig\": { \"behaviorThreshold\": 0.6, \"successThreshold\": 0.6, \"minEvidenceCount\": 3, \"minStrongEvidenceCount\": 2 } },\n  { \"goalNumber\": 3, \"title\": \"Team Culture Exploration\", \"description\": \"Explore the team dynamics and show how you would contribute to the collaborative culture\", \"keyBehaviors\": [\"Ask about team collaboration style\", \"Share team-oriented experiences\", \"Demonstrate resilience in past challenges\"], \"successIndicators\": [\"Alex talks about team members positively\", \"He shares challenges and growth stories\", \"Discussion becomes very interactive\"], \"evaluationConfig\": { \"behaviorThreshold\": 0.6, \"successThreshold\": 0.6, \"minEvidenceCount\": 3, \"minStrongEvidenceCount\": 2 } },\n  { \"goalNumber\": 4, \"title\": \"Problem-Solving Demonstration\", \"description\": \"Show your approach to problem-solving and handling challenges in a startup environment\", \"keyBehaviors\": [\"Discuss creative solutions\", \"Show adaptability\", \"Demonstrate growth mindset\"], \"successIndicators\": [\"Alex poses hypothetical challenges or scenarios\", \"Alex shares his own technical opinions or approaches\", \"Alex asks follow-up questions about your solution\"], \"evaluationConfig\": { \"behaviorThreshold\": 0.6, \"successThreshold\": 0.6, \"minEvidenceCount\": 2, \"minStrongEvidenceCount\": 2 } },\n  { \"goalNumber\": 5, \"title\": \"Enthusiastic Wrap-up\", \"description\": \"Close with genuine excitement about the opportunity and next steps\", \"keyBehaviors\": [\"Express authentic enthusiasm\", \"Ask about immediate challenges\", \"Show eagerness to contribute\"], \"successIndicators\": [\"Alex expresses strong interest\", \"He talks about onboarding and team introduction\", \"Conversation ends on a high note\"], \"evaluationConfig\": { \"behaviorThreshold\": 0.55, \"successThreshold\": 0.55, \"minEvidenceCount\": 2, \"minStrongEvidenceCount\": 1 } }\n] }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "df8010e9-da1d-43ae-941b-1f1a6170eea1",
+      "name": "Normalize request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        272
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst isWebhook = !!j.body && typeof j.body === 'object';\nlet req;\nif (isWebhook) {\n  const b = j.body || {};\n  const message = String(b.message || '');\n  let action = String(b.action || '').toLowerCase();\n  if (!['message', 'state', 'tick'].includes(action)) action = message.trim() ? 'message' : 'tick';\n  req = {\n    source: 'webhook',\n    sessionId: String(b.sessionId || 'default'),\n    message: message,\n    action: action,\n    persona: b.persona || null,\n    goals: Array.isArray(b.goals) ? b.goals : null,\n    reset: b.reset === true,\n  };\n} else {\n  const text = String(j.chatInput || '').trim();\n  let action = 'message';\n  if (text === '/state') action = 'state';\n  if (text === '/nudge' || text === '/start') action = 'tick';\n  req = {\n    source: 'chat',\n    sessionId: String(j.sessionId || 'default'),\n    message: action === 'message' ? text : '',\n    action: action,\n    persona: null,\n    goals: null,\n    reset: text === '/reset',\n  };\n  const starts = !!(j.config && j.config.conversationStyle && j.config.conversationStyle.startsConversation);\n  if (req.reset) { req.action = starts ? 'tick' : 'state'; }\n}\nreturn [{ json: req }];"
+      }
+    },
+    {
+      "id": "3bdfd124-d0bb-4796-81e3-d6cbadb94c5c",
+      "name": "Load session",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        272
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "XG2upqKrf8fWPS7v",
+          "cachedResultName": "persona_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $json.sessionId }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "353d86b5-af4b-4756-ba0f-f8ffca8021aa",
+      "name": "Prepare session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        272
+      ],
+      "parameters": {
+        "jsCode": "const req = $('Normalize request').first().json;\nconst rows = $input.all().filter(i => i.json && i.json.state_json);\nconst cfg = $('Persona config').first().json.config || {};\nconst sim = $('Simulation config').first().json.simulation || {};\nconst SCENARIOS = {\n  JOB_SEEKING: 'This is a job interview chat. You are the interviewer; the user is a candidate applying to join your team.'\n};\nfunction rng(r, dMin, dMax) {\n  const o = r || {};\n  const min = Number.isFinite(Number(o.min)) ? Number(o.min) : dMin;\n  const max = Number.isFinite(Number(o.max)) ? Number(o.max) : dMax;\n  return { min: Math.min(min, max), max: Math.max(min, max) };\n}\nfunction list(v) { return Array.isArray(v) ? v.map(String) : (v ? [String(v)] : []); }\nfunction buildPersona(base, override) {\n  const o = override && typeof override === 'object' ? override : {};\n  const c = Object.assign({}, base, o);\n  const s = Object.assign({}, base.conversationStyle || {}, o.conversationStyle || {});\n  const style = {\n    tone: String(s.tone || 'Friendly'),\n    formality: String(s.formality || 'Medium'),\n    pace: String(s.pace || 'Normal'),\n    emotionalRange: list(s.emotionalRange),\n    commonPhrases: list(s.commonPhrases),\n    startsConversation: s.startsConversation === true,\n    inactivityNudgeDelaySec: rng(s.inactivityNudgeDelaySec, 30, 90),\n    inactivityNudges: rng(s.inactivityNudges, 1, 2),\n    burstiness: rng(s.burstiness, 1, 1),\n    typingSpeedWpm: Number(s.typingSpeedWpm) || 120,\n    openingStyle: String(s.openingStyle || 'Friendly, natural opener.'),\n    nudgeStyle: String(s.nudgeStyle || 'Light, friendly nudge.')\n  };\n  const p = {\n    slug: String(c.slug || ''),\n    name: String(c.name || 'Persona'),\n    role: String(c.role || ''),\n    category: String(c.category || ''),\n    personality: String(c.personality || c.description || ''),\n    primaryGoal: String(c.primaryGoal || ''),\n    hiddenMotivation: String(c.hiddenMotivation || ''),\n    difficultyLevel: Number(c.difficultyLevel) || 1,\n    conversationStyle: style\n  };\n  const d = p.difficultyLevel;\n  const difficulty = d <= 2 ? 'friendly and forgiving, gives the other person plenty of room, few curveballs' : d === 3 ? 'balanced: friendly but asks real follow-up questions' : 'skeptical and probing, pushes back on vague answers';\n  const lines = [\n    'You are ' + p.name + (p.role ? ', ' + p.role : '') + '.',\n    SCENARIOS[p.category] || (p.category ? 'Scenario: ' + p.category + '.' : ''),\n    sim.title ? 'Simulation: ' + sim.title + (sim.description ? ' - ' + sim.description : '') : '',\n    sim.scenario ? 'Scenario brief the candidate was given (in it, \"you\" means the candidate): ' + sim.scenario : '',\n    p.personality ? 'Personality: ' + p.personality : '',\n    p.primaryGoal ? 'What you want from this conversation: ' + p.primaryGoal : '',\n    p.hiddenMotivation ? 'Private inner motivation (never say it out loud or hint at it directly; let it quietly shape what you notice and ask about): ' + p.hiddenMotivation : '',\n    'Difficulty ' + d + '/5: ' + difficulty + '.',\n    'Tone: ' + style.tone + '. Formality: ' + style.formality + '. Pace: ' + style.pace + ' (short, punchy messages if fast).',\n    style.emotionalRange.length ? 'Emotions you show: ' + style.emotionalRange.join(', ') + '. Pick the one that fits the moment.' : '',\n    style.commonPhrases.length ? 'Phrases you naturally use now and then (do not use one in every message): ' + style.commonPhrases.map(x => '\"' + x + '\"').join(', ') : '',\n    'Opening style: ' + style.openingStyle,\n    'Nudge style when the other person goes quiet: ' + style.nudgeStyle\n  ];\n  p.profile = lines.filter(Boolean).join('\\n');\n  return p;\n}\nconst DEFAULT_GOALS = Array.isArray(sim.conversationGoals) && sim.conversationGoals.length ? sim.conversationGoals : list(cfg.goals);\nfunction num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }\nfunction toGoal(g, i) {\n  if (typeof g === 'string') return { number: i + 1, title: '', description: g, keyBehaviors: [], successIndicators: [], evaluationConfig: null, status: 'pending', progress: 0, evidence: [] };\n  const o = g || {};\n  const title = String(o.title || '');\n  const desc = String(o.description || o.goal || '');\n  const ec = o.evaluationConfig && typeof o.evaluationConfig === 'object' ? o.evaluationConfig : null;\n  return {\n    number: num(o.goalNumber, i + 1),\n    title: title,\n    description: title && desc ? title + ': ' + desc : (title || desc),\n    keyBehaviors: list(o.keyBehaviors),\n    successIndicators: list(o.successIndicators),\n    evaluationConfig: ec ? { behaviorThreshold: num(ec.behaviorThreshold, 0.6), successThreshold: num(ec.successThreshold, 0.6), minEvidenceCount: num(ec.minEvidenceCount, 2), minStrongEvidenceCount: num(ec.minStrongEvidenceCount, 1) } : null,\n    status: 'pending',\n    progress: 0,\n    evidence: []\n  };\n}\nconst simInfo = Object.assign({}, sim);\ndelete simInfo.conversationGoals;\nlet state = null;\nif (rows.length && !req.reset) {\n  try { state = JSON.parse(rows[0].json.state_json); } catch (e) { state = null; }\n}\nconst now = new Date().toISOString();\nif (!state) {\n  const persona = buildPersona(cfg, req.persona);\n  const goals = (req.goals && req.goals.length ? req.goals : DEFAULT_GOALS).map(toGoal).filter(g => g.description);\n  state = { sessionId: req.sessionId, persona: persona, simulation: simInfo, goals: goals, currentGoalIndex: 0, messages: [], turn: 0, nudgesSinceUser: 0, createdAt: now };\n}\nif (state.goals[state.currentGoalIndex]) state.goals[state.currentGoalIndex].status = state.goals[state.currentGoalIndex].status === 'pending' ? 'in_progress' : state.goals[state.currentGoalIndex].status;\nreturn [{ json: {\n  request: req,\n  state: state,\n  newMessages: [],\n  analysis: { user: null, reply: null },\n  goalUpdate: null,\n  hasUserMessage: false,\n  sendProactive: false,\n  burstCount: 0,\n  runGraph: req.action !== 'state'\n} }];"
+      }
+    },
+    {
+      "id": "4ce19ba3-c771-426d-9c71-edf5a654a5c0",
+      "name": "Run the graph?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        272
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "run",
+              "leftValue": "={{ $json.runGraph }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "79fd775b-20aa-44bc-8181-ac9699e98109",
+      "name": "Process input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\nconst state = ctx.state;\nconst req = ctx.request;\nconst msg = String(req.message || '').trim();\nconst hasUserMessage = req.action === 'message' && msg.length > 0;\nconst now = new Date().toISOString();\nif (hasUserMessage) {\n  state.messages.push({ role: 'user', content: msg, ts: now });\n  state.turn = (state.turn || 0) + 1;\n  state.lastUserAt = now;\n  state.nudgesSinceUser = 0;\n}\nconst currentGoal = state.goals[state.currentGoalIndex] || null;\nconst transcript = state.messages.slice(-20).map(m => (m.role === 'user' ? 'User' : state.persona.name) + ': ' + m.content).join('\\n');\nconst bStyle = ((state.persona && state.persona.conversationStyle) || {}).burstiness || {};\nconst bMin = Math.max(1, Number(bStyle.min) || 1);\nconst bMax = Math.max(bMin, Number(bStyle.max) || bMin);\nconst replyCount = hasUserMessage ? bMin + Math.floor(Math.random() * (bMax - bMin + 1)) : 0;\nreturn [{ json: Object.assign({}, ctx, { state: state, hasUserMessage: hasUserMessage, currentGoal: currentGoal, transcript: transcript || '(no messages yet)', replyCount: replyCount, burstMax: bMax }) }];"
+      }
+    },
+    {
+      "id": "ca791dec-0b6c-45ad-bb53-8f8597d3a464",
+      "name": "User message to score?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1504,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has",
+              "leftValue": "={{ $json.hasUserMessage }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "61b7f80e-65aa-4724-81ac-c141d01c12ab",
+      "name": "Analyze user sentiment and emotion",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1728,
+        192
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Message from the user:\n{{ $json.request.message }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You analyze the emotional content of a single chat message. Return: sentiment (one of positive, neutral, negative), sentiment_score from -1 (very negative) to 1 (very positive), emotion (one lowercase word such as joy, sadness, anger, fear, surprise, disgust, trust, anticipation, curiosity, neutral), intensity from 0 to 1, and a one-sentence note."
+            }
+          ]
+        },
+        "batching": {}
+      }
+    },
+    {
+      "id": "fa6ce339-aded-4834-88b3-7c24184d0d39",
+      "name": "Model: user analysis",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1744,
+        416
+      ],
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "8Htgga5n3GN6iDe5",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "c5903054-c31a-4572-863f-6c61286561c9",
+      "name": "User analysis format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1872,
+        416
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\"sentiment\":\"positive\",\"sentiment_score\":0.6,\"emotion\":\"joy\",\"intensity\":0.5,\"note\":\"Short explanation of the emotional read\"}"
+      }
+    },
+    {
+      "id": "6d9f6049-9793-4283-bbb5-288b5dab64ad",
+      "name": "Generate persona reply",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2080,
+        192
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Process input').item.json.state.persona.profile || ('You are ' + $('Process input').item.json.state.persona.name + '. ' + $('Process input').item.json.state.persona.description) }}\n\nCurrent conversation goal: {{ $('Process input').item.json.currentGoal ? $('Process input').item.json.currentGoal.description : 'All goals are complete. Just keep the conversation pleasant and natural.' }}\n\nThe user's latest message reads as {{ $json.output.sentiment }} (score {{ $json.output.sentiment_score }}), main emotion: {{ $json.output.emotion }} (intensity {{ $json.output.intensity }}).\n\nConversation so far:\n{{ $('Process input').item.json.transcript }}\n\nWrite {{ $('Process input').item.json.state.persona.name }}'s next turn as exactly {{ $('Process input').item.json.replyCount }} separate chat message(s), the way someone texts several quick messages in a row.{{ $('Process input').item.json.replyCount > 1 ? ' Each message continues the thought instead of repeating it. Put a line containing only --- between messages.' : '' }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are role-playing the persona described in the prompt in a one-to-one chat. Stay fully in character, match its tone, formality, pace and emotional range, and never mention being an AI, goals, analysis or the private inner motivation. Respond to what the user just said, match and acknowledge their emotional state, and steer gently toward the current goal without being pushy. Keep each message to 1-2 short sentences and ask at most one question in the whole turn, ideally in the last message. When asked for several messages, separate them with a line containing only ---. Output only the message text, without the persona name prefix, numbering or quotes."
+            }
+          ]
+        },
+        "batching": {}
+      }
+    },
+    {
+      "id": "0403bfb6-fbe9-4bc6-a443-5cdab1d75a97",
+      "name": "Model: persona reply",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        416
+      ],
+      "parameters": {
+        "model": "openai/gpt-6.1-sol",
+        "options": {
+          "temperature": 0.8
+        }
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "8Htgga5n3GN6iDe5",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "9b0a3ee4-9a24-4048-b2f1-000e271868e6",
+      "name": "Analyze reply sentiment and emotion",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2432,
+        192
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Message from the persona:\n{{ $json.text }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You analyze the emotional content of a single chat message. Return: sentiment (one of positive, neutral, negative), sentiment_score from -1 (very negative) to 1 (very positive), emotion (one lowercase word such as joy, sadness, anger, fear, surprise, disgust, trust, anticipation, curiosity, neutral), intensity from 0 to 1, and a one-sentence note."
+            }
+          ]
+        },
+        "batching": {}
+      }
+    },
+    {
+      "id": "c4f926f8-d308-468f-90f7-dd80f60bcc81",
+      "name": "Model: reply analysis",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        416
+      ],
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "8Htgga5n3GN6iDe5",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "229d3ab0-1e9e-4a59-894e-a610c6647d99",
+      "name": "Reply analysis format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2576,
+        416
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\"sentiment\":\"positive\",\"sentiment_score\":0.6,\"emotion\":\"joy\",\"intensity\":0.5,\"note\":\"Short explanation of the emotional read\"}"
+      }
+    },
+    {
+      "id": "3d742ecb-613a-4073-9dee-5351b8d5772d",
+      "name": "Evaluate current goal",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2784,
+        192
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Goal: {{ $('Process input').item.json.currentGoal ? $('Process input').item.json.currentGoal.description : 'No open goal' }}\nKey behaviors the candidate should show: {{ $('Process input').item.json.currentGoal && ($('Process input').item.json.currentGoal.keyBehaviors || []).length ? $('Process input').item.json.currentGoal.keyBehaviors.join('; ') : 'n/a' }}\nSuccess indicators (signs in how the persona reacts): {{ $('Process input').item.json.currentGoal && ($('Process input').item.json.currentGoal.successIndicators || []).length ? $('Process input').item.json.currentGoal.successIndicators.join('; ') : 'n/a' }}\nPrevious scores: behavior {{ $('Process input').item.json.currentGoal ? ($('Process input').item.json.currentGoal.behaviorScore || 0) : 1 }}, success {{ $('Process input').item.json.currentGoal ? ($('Process input').item.json.currentGoal.successScore || 0) : 1 }}, progress {{ $('Process input').item.json.currentGoal ? $('Process input').item.json.currentGoal.progress : 100 }}%\nEvidence already collected: {{ $('Process input').item.json.currentGoal && ($('Process input').item.json.currentGoal.evidence || []).length ? $('Process input').item.json.currentGoal.evidence.map(e => '\"' + e.quote + '\" (' + e.strength + ')').join('; ') : 'none' }}\nUser's latest message: {{ $('Process input').item.json.request.message }}\n\nConversation so far:\n{{ $('Process input').item.json.transcript }}\n{{ $('Process input').item.json.state.persona.name }}: {{ $('Generate persona reply').item.json.text }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You evaluate a practice conversation in which the user (the candidate) works toward a goal while talking with the persona. Judge key behaviors only from the user's messages and success indicators only from how the persona reacts. Return: behavior_score 0-1 (how convincingly the user has shown the key behaviors across the conversation so far), success_score 0-1 (how clearly the success indicators are present), new_evidence (only from the user's latest message, never repeat evidence already collected: a short exact quote, which key behavior it shows, strength strong or moderate; an empty array if none), progress as an integer 0-100 toward the goal, achieved=true only when the goal is clearly met, a one-sentence reasoning, and should_follow_up=true only when the persona would naturally send another message right away without waiting for the user (for example the goal was just achieved and it wants to move on, or its last message ended without a question and the chat would stall). Otherwise should_follow_up=false. If there is no open goal, return both scores 1, new_evidence [], progress 100, achieved true, should_follow_up false."
+            }
+          ]
+        },
+        "batching": {}
+      }
+    },
+    {
+      "id": "81cd5f8f-1cfb-4abc-bbc0-44ea9b31fbdb",
+      "name": "Model: goal evaluation",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        416
+      ],
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "8Htgga5n3GN6iDe5",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "2a4d0fa3-846d-4ec6-b26a-bf077bdf7a19",
+      "name": "Goal evaluation format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2928,
+        416
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\"behavior_score\":0.5,\"success_score\":0.4,\"new_evidence\":[{\"quote\":\"short exact quote from the user\",\"behavior\":\"which key behavior it shows\",\"strength\":\"strong\"}],\"progress\":40,\"achieved\":false,\"reasoning\":\"What the candidate has and has not shown so far\",\"should_follow_up\":false}"
+      }
+    },
+    {
+      "id": "ae801924-eda2-4ceb-9006-c49df340ddfc",
+      "name": "Check proactive",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        320
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $('Process input').first().json;\nconst state = ctx.state;\nconst now = new Date().toISOString();\nconst newMessages = [];\nlet analysis = { user: null, reply: null };\nlet goalUpdate = null;\nlet followUp = false;\nif (ctx.hasUserMessage) {\n  const userA = $('Analyze user sentiment and emotion').first().json.output || {};\n  const reply = String($('Generate persona reply').first().json.text || '').trim();\n  const replyA = $('Analyze reply sentiment and emotion').first().json.output || {};\n  const ev = $('Evaluate current goal').first().json.output || {};\n  const lastUser = state.messages[state.messages.length - 1];\n  if (lastUser && lastUser.role === 'user') lastUser.analysis = userA;\n  let parts = reply.split(/\\n\\s*-{3,}\\s*(?:\\n|$)/).map(s => s.trim()).filter(Boolean);\n  if (parts.length === 1 && (ctx.replyCount || 1) > 1) {\n    const alt = reply.split(/\\n\\s*\\n/).map(s => s.trim()).filter(Boolean);\n    if (alt.length > 1) parts = alt;\n  }\n  const cap = Math.max(1, ctx.burstMax || 3);\n  if (parts.length > cap) parts = parts.slice(0, cap - 1).concat([parts.slice(cap - 1).join(' ')]);\n  parts.forEach((p, i) => {\n    const pm = { role: 'persona', content: p, ts: now, proactive: false, burstIndex: i + 1, burstSize: parts.length, analysis: replyA };\n    state.messages.push(pm);\n    newMessages.push(pm);\n  });\n  analysis = { user: userA, reply: replyA };\n  const idx = state.currentGoalIndex;\n  const goal = state.goals[idx];\n  if (goal) {\n    const before = goal.progress || 0;\n    const clamp01 = v => Math.max(0, Math.min(1, Number(v) || 0));\n    const fresh = Array.isArray(ev.new_evidence) ? ev.new_evidence.filter(e => e && e.quote) : [];\n    goal.evidence = (goal.evidence || []).concat(fresh.map(e => ({ quote: String(e.quote), behavior: String(e.behavior || ''), strength: e.strength === 'strong' ? 'strong' : 'moderate', turn: state.turn }))).slice(-20);\n    goal.behaviorScore = clamp01(ev.behavior_score);\n    goal.successScore = clamp01(ev.success_score);\n    const evCount = goal.evidence.length;\n    const strongCount = goal.evidence.filter(e => e.strength === 'strong').length;\n    let achieved;\n    const ec = goal.evaluationConfig;\n    if (ec) {\n      goal.checks = {\n        behavior: goal.behaviorScore >= ec.behaviorThreshold,\n        success: goal.successScore >= ec.successThreshold,\n        evidence: evCount >= ec.minEvidenceCount,\n        strongEvidence: strongCount >= ec.minStrongEvidenceCount\n      };\n      achieved = goal.checks.behavior && goal.checks.success && goal.checks.evidence && goal.checks.strongEvidence;\n    } else {\n      achieved = ev.achieved === true || Number(ev.progress) >= 100;\n    }\n    goal.progress = Math.max(0, Math.min(100, Math.round(Number(ev.progress) || 0)));\n    if (!achieved) goal.progress = Math.min(goal.progress, 95);\n    goal.lastReasoning = ev.reasoning || '';\n    if (achieved) {\n      goal.status = 'achieved';\n      goal.progress = 100;\n      goal.achievedAt = now;\n      state.currentGoalIndex = idx + 1;\n      if (state.goals[state.currentGoalIndex]) state.goals[state.currentGoalIndex].status = 'in_progress';\n    } else {\n      goal.status = 'in_progress';\n    }\n    goalUpdate = { goalIndex: idx, title: goal.title || '', description: goal.description, previousProgress: before, progress: goal.progress, achieved: goal.status === 'achieved', behaviorScore: goal.behaviorScore, successScore: goal.successScore, evidenceCount: evCount, strongEvidenceCount: strongCount, newEvidence: fresh, checks: goal.checks || null, thresholds: ec || null, reasoning: goal.lastReasoning };\n  }\n  followUp = ev.should_follow_up === true;\n}\nconst style = (state.persona && state.persona.conversationStyle) || {};\nfunction pick(r, dMin, dMax) {\n  const o = r || {};\n  const min = Number.isFinite(Number(o.min)) ? Number(o.min) : dMin;\n  const max = Number.isFinite(Number(o.max)) ? Number(o.max) : dMax;\n  return min + Math.floor(Math.random() * (Math.max(min, max) - min + 1));\n}\nlet burstTarget = 0;\nlet burstKind = null;\nif (ctx.hasUserMessage) {\n  burstTarget = followUp && newMessages.length < Math.max(1, ctx.burstMax || 3) ? 1 : 0;\n  burstKind = 'follow_up';\n} else if (ctx.request.action === 'tick') {\n  if (state.messages.length === 0) {\n    if (style.startsConversation !== false) { burstTarget = pick(style.burstiness, 1, 1); burstKind = 'opener'; }\n  } else {\n    const maxNudges = style.inactivityNudges ? Number(style.inactivityNudges.max) || 1 : 2;\n    if ((state.nudgesSinceUser || 0) < maxNudges) { burstTarget = 1; burstKind = 'nudge'; state.nudgesSinceUser = (state.nudgesSinceUser || 0) + 1; }\n  }\n}\nburstTarget = Math.min(burstTarget, 5);\nconst sendProactive = burstTarget > 0;\nconst currentGoal = state.goals[state.currentGoalIndex] || null;\nconst transcript = state.messages.slice(-20).map(m => (m.role === 'user' ? 'User' : state.persona.name) + ': ' + m.content).join('\\n');\nreturn [{ json: Object.assign({}, ctx, {\n  state: state,\n  newMessages: newMessages,\n  analysis: analysis,\n  goalUpdate: goalUpdate,\n  sendProactive: sendProactive,\n  burstCount: 0,\n  burstTarget: burstTarget,\n  burstKind: burstKind,\n  currentGoal: currentGoal,\n  transcript: transcript || '(no messages yet)'\n}) }];"
+      }
+    },
+    {
+      "id": "c4fa0bf7-bfc7-4201-a44e-b36618717566",
+      "name": "Send a proactive message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3360,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "pro",
+              "leftValue": "={{ $json.sendProactive }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f1b713f5-6a16-4457-b5df-db6a68cbdc58",
+      "name": "Start proactive burst",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        256
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "b84bdeb1-12f0-4f83-83b3-313080289029",
+      "name": "Burst step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        256
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\nconst state = ctx.state;\nconst currentGoal = state.goals[state.currentGoalIndex] || null;\nlet unanswered = 0;\nfor (let i = state.messages.length - 1; i >= 0 && state.messages[i].role !== 'user'; i--) unanswered++;\nconst transcript = state.messages.slice(-20).map(m => (m.role === 'user' ? 'User' : state.persona.name) + ': ' + m.content).join('\\n');\nreturn [{ json: Object.assign({}, ctx, { currentGoal: currentGoal, unanswered: unanswered, transcript: transcript || '(no messages yet)' }) }];"
+      }
+    },
+    {
+      "id": "367e6d5d-eb47-4bec-899a-e7d72eea5467",
+      "name": "Generate proactive message",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2256,
+        128
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.state.persona.profile || ('You are ' + $json.state.persona.name + '. ' + $json.state.persona.description) }}\n\nCurrent conversation goal: {{ $json.currentGoal ? $json.currentGoal.description : 'All goals are complete. Keep things friendly.' }}\n\nWhy you are writing now: {{ $json.burstKind === 'opener' ? 'The conversation has not started yet. Open it in your opening style.' : ($json.burstKind === 'nudge' ? 'The other person has gone quiet. Send one nudge in your nudge style (nudge ' + $json.state.nudgesSinceUser + ' since their last reply).' : 'You just sent a message and are adding another short line right after it, like someone who sends several messages in a row. Continue or extend your thought instead of repeating it.') }}\nThis is message {{ $json.burstCount + 1 }} of {{ $json.burstTarget }} in this burst.\n\nMessages you have already sent in a row without a reply from the user: {{ $json.unanswered }}\n\nConversation so far:\n{{ $json.transcript }}\n\nWrite one proactive message from {{ $json.state.persona.name }}.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are role-playing the persona described in the prompt. The user has not replied yet and you are sending a message on your own initiative, for the reason given in the prompt. Stay in character, match its tone, pace and emotional range, never mention being an AI, goals, analysis or the private inner motivation, never repeat earlier messages, and keep it to 1-2 short sentences. The more unanswered messages there are, the lighter and less demanding you should be. Set continue=true if this message is not the last one in the burst, otherwise continue=false."
+            }
+          ]
+        },
+        "batching": {}
+      }
+    },
+    {
+      "id": "35867610-d4c4-4338-8a2d-e6f6e729b819",
+      "name": "Model: proactive message",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        352
+      ],
+      "parameters": {
+        "model": "openai/gpt-6.1-sol",
+        "options": {
+          "temperature": 0.8
+        }
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "8Htgga5n3GN6iDe5",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "c6b1ea03-a15c-499b-af4c-f8ead478e019",
+      "name": "Proactive message format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2400,
+        352
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\"message\":\"Oh, and one more thing...\",\"continue\":false}"
+      }
+    },
+    {
+      "id": "90a7475a-1493-4faf-977c-d0557b05a075",
+      "name": "Analyze proactive message",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2608,
+        128
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Message from the persona:\n{{ $json.output.message }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You analyze the emotional content of a single chat message. Return: sentiment (one of positive, neutral, negative), sentiment_score from -1 (very negative) to 1 (very positive), emotion (one lowercase word such as joy, sadness, anger, fear, surprise, disgust, trust, anticipation, curiosity, neutral), intensity from 0 to 1, and a one-sentence note."
+            }
+          ]
+        },
+        "batching": {}
+      }
+    },
+    {
+      "id": "6161ca7d-17dd-4856-a1b9-1a024c66d736",
+      "name": "Model: proactive analysis",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2624,
+        352
+      ],
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "credentials": {
+        "openRouterApi": {
+          "id": "8Htgga5n3GN6iDe5",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "id": "fc3874dd-ff5b-4680-8de4-6d8f3f3c55aa",
+      "name": "Proactive analysis format",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2752,
+        352
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{\"sentiment\":\"positive\",\"sentiment_score\":0.6,\"emotion\":\"joy\",\"intensity\":0.5,\"note\":\"Short explanation of the emotional read\"}"
+      }
+    },
+    {
+      "id": "8fd50937-8757-49d7-9e50-460578e88e7c",
+      "name": "Collect proactive message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        128
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $('Burst step').first().json;\nconst gen = $('Generate proactive message').first().json.output || {};\nconst a = $input.first().json.output || {};\nconst state = ctx.state;\nconst newMessages = (ctx.newMessages || []).slice();\nconst content = String(gen.message || '').trim();\nif (content) {\n  const m = { role: 'persona', content: content, ts: new Date().toISOString(), proactive: true, analysis: a };\n  state.messages.push(m);\n  newMessages.push(m);\n}\nconst burstCount = (ctx.burstCount || 0) + 1;\nconst keepGoing = content.length > 0 && burstCount < Math.min(ctx.burstTarget || 1, 5);\nreturn [{ json: Object.assign({}, ctx, { state: state, newMessages: newMessages, burstCount: burstCount, keepGoing: keepGoing }) }];"
+      }
+    },
+    {
+      "id": "74132444-484e-4774-a7cf-2e999d92fd6c",
+      "name": "Send another?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3184,
+        256
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "more",
+              "leftValue": "={{ $json.keepGoing }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a05c50a8-524a-43fd-8cd1-b33beab9cf86",
+      "name": "Burst finished",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        3408,
+        256
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "9b3c679b-514e-4dcb-be84-64755e38d051",
+      "name": "Format response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        368
+      ],
+      "parameters": {
+        "jsCode": "const ctx = $input.first().json;\nconst state = ctx.state;\nconst req = ctx.request;\nconst now = new Date().toISOString();\nstate.messages = (state.messages || []).slice(-60);\nstate.updatedAt = now;\nconst goals = state.goals.map((g, i) => ({ index: i, number: g.number || i + 1, title: g.title || '', description: g.description, status: g.status, progress: g.progress || 0, behaviorScore: g.behaviorScore || 0, successScore: g.successScore || 0, evidenceCount: (g.evidence || []).length, strongEvidenceCount: (g.evidence || []).filter(e => e.strength === 'strong').length, thresholds: g.evaluationConfig || null, checks: g.checks || null }));\nconst completed = goals.filter(g => g.status === 'achieved').length;\nconst overall = goals.length ? Math.round(goals.reduce((s, g) => s + g.progress, 0) / goals.length) : 100;\nconst cg = state.goals[state.currentGoalIndex] || null;\nconst goalProgress = {\n  currentGoal: cg ? { index: state.currentGoalIndex, description: cg.description, progress: cg.progress || 0, status: cg.status } : null,\n  completed: completed,\n  total: goals.length,\n  overallPercent: overall,\n  lastUpdate: ctx.goalUpdate || null,\n  goals: goals\n};\nconst style = (state.persona && state.persona.conversationStyle) || {};\nconst wpm = Number(style.typingSpeedWpm) || 120;\nconst newMessages = (ctx.newMessages || []).map(m => ({ role: m.role, content: m.content, proactive: !!m.proactive, ts: m.ts, typingDelayMs: Math.round(String(m.content || '').split(/\\s+/).filter(Boolean).length / wpm * 60000), analysis: m.analysis || null }));\nconst lastMsg = state.messages[state.messages.length - 1];\nconst maxNudges = style.inactivityNudges ? Number(style.inactivityNudges.max) || 1 : 2;\nconst dly = style.inactivityNudgeDelaySec || { min: 30, max: 90 };\nconst dMin = Number(dly.min) || 30;\nconst dMax = Math.max(dMin, Number(dly.max) || dMin);\nconst nextNudgeInSec = lastMsg && lastMsg.role === 'persona' && (state.nudgesSinceUser || 0) < maxNudges ? dMin + Math.floor(Math.random() * (dMax - dMin + 1)) : null;\nconst response = {\n  sessionId: state.sessionId,\n  action: req.action,\n  state: {\n    persona: state.persona,\n    simulation: state.simulation || null,\n    turn: state.turn || 0,\n    currentGoalIndex: state.currentGoalIndex,\n    messageCount: state.messages.length,\n    lastUserAt: state.lastUserAt || null,\n    createdAt: state.createdAt,\n    updatedAt: now\n  },\n  messages: newMessages,\n  goalProgress: goalProgress,\n  analysis: {\n    user: ctx.analysis ? ctx.analysis.user : null,\n    reply: ctx.analysis ? ctx.analysis.reply : null,\n    proactive: newMessages.filter(m => m.proactive).map(m => m.analysis)\n  },\n  proactiveCount: newMessages.filter(m => m.proactive).length,\n  timing: { typingSpeedWpm: wpm, nextNudgeInSec: nextNudgeInSec, nudgesSinceUser: state.nudgesSinceUser || 0, maxNudges: maxNudges }\n};\nif (req.action === 'state') response.history = state.messages;\nlet chatText;\nif (newMessages.length) {\n  chatText = newMessages.map(m => m.content).join('\\n\\n');\n} else {\n  const lines = goals.map(g => '- ' + (g.title || g.description) + ': ' + g.progress + '% (' + g.status + (g.thresholds ? ', behavior ' + g.behaviorScore + '/' + g.thresholds.behaviorThreshold + ', success ' + g.successScore + '/' + g.thresholds.successThreshold + ', evidence ' + g.evidenceCount + '/' + g.thresholds.minEvidenceCount + ', strong ' + g.strongEvidenceCount + '/' + g.thresholds.minStrongEvidenceCount : '') + ')');\n  chatText = (req.reset ? 'Session reset. ' : '') + (state.simulation && state.simulation.title ? state.simulation.title + '\\n' : '') + 'Goal progress ' + completed + '/' + goals.length + ' (' + overall + '% overall):\\n' + lines.join('\\n') + '\\n\\nCommands: /start or /nudge (persona speaks first or nudges), /state, /reset';\n}\nconst chatMessages = newMessages.length ? newMessages.map((m, i) => ({ text: m.content, delaySec: i === 0 ? 0.2 : Math.round(Math.min(4000, Math.max(800, m.typingDelayMs)) / 100) / 10 })) : [{ text: chatText, delaySec: 0.2 }];\nreturn [{ json: { source: req.source, sessionId: state.sessionId, stateJson: JSON.stringify(state), response: response, chatText: chatText, chatMessages: chatMessages } }];"
+      }
+    },
+    {
+      "id": "0ecc3962-f09e-4738-8677-8548f44a8076",
+      "name": "Save session",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2560,
+        368
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "XG2upqKrf8fWPS7v",
+          "cachedResultName": "persona_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "session_id",
+              "keyValue": "={{ $json.sessionId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "session_id": "={{ $json.sessionId }}",
+            "state_json": "={{ $json.stateJson }}",
+            "last_active": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "state_json",
+              "displayName": "state_json",
+              "type": "string",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_active",
+              "displayName": "last_active",
+              "type": "dateTime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "65981eb7-d4d2-419c-89a2-a48f7742d2ed",
+      "name": "Came from webhook?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2784,
+        368
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "src",
+              "leftValue": "={{ $('Format response').item.json.source }}",
+              "rightValue": "webhook",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7bcf2296-3300-4fcd-9549-77947211aabd",
+      "name": "Return state, messages, goal progress, analysis",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3008,
+        272
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Format response').item.json.response) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "0b89b3a8-a929-47ce-91ee-e35feba5b611",
+      "name": "Split into chat bubbles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3008,
+        656
+      ],
+      "parameters": {
+        "jsCode": "return ($('Format response').first().json.chatMessages || []).map(m => ({ json: m }));"
+      }
+    },
+    {
+      "id": "427e49a6-e018-4794-bfc6-70dc436ba578",
+      "name": "Typing pause",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3456,
+        592
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.delaySec }}",
+        "unit": "seconds"
+      },
+      "webhookId": "400c2d51-f647-40e7-a5d2-e10c08c222aa"
+    },
+    {
+      "id": "e30a7edd-3550-4104-9e98-16cc31062e74",
+      "name": "Return the new persona lines in chat",
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        3008,
+        464
+      ],
+      "parameters": {
+        "operation": "send",
+        "message": "={{ $json.text }}",
+        "options": {}
+      },
+      "webhookId": "0b463846-0c82-4c6a-931f-8f8d8e684b1b"
+    },
+    {
+      "id": "49660d4c-2562-4829-bb03-53c47636dfdd",
+      "name": "Each bubble",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3232,
+        656
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "48bb6cc3-1bd2-497a-a85b-af7750a1f318",
+      "name": "Webhook POST /conversation",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        240
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "conversation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "7f76d1a7-245c-4eb1-b500-01d3f9355de2"
+    }
+  ],
+  "connections": {
+    "Chat message": {
+      "main": [
+        [
+          {
+            "node": "Persona config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persona config": {
+      "main": [
+        [
+          {
+            "node": "Simulation config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulation config": {
+      "main": [
+        [
+          {
+            "node": "Normalize request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize request": {
+      "main": [
+        [
+          {
+            "node": "Load session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load session": {
+      "main": [
+        [
+          {
+            "node": "Prepare session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare session": {
+      "main": [
+        [
+          {
+            "node": "Run the graph?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run the graph?": {
+      "main": [
+        [
+          {
+            "node": "Process input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process input": {
+      "main": [
+        [
+          {
+            "node": "User message to score?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User message to score?": {
+      "main": [
+        [
+          {
+            "node": "Analyze user sentiment and emotion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check proactive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze user sentiment and emotion": {
+      "main": [
+        [
+          {
+            "node": "Generate persona reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model: user analysis": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze user sentiment and emotion",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User analysis format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze user sentiment and emotion",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate persona reply": {
+      "main": [
+        [
+          {
+            "node": "Analyze reply sentiment and emotion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model: persona reply": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate persona reply",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze reply sentiment and emotion": {
+      "main": [
+        [
+          {
+            "node": "Evaluate current goal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model: reply analysis": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze reply sentiment and emotion",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply analysis format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze reply sentiment and emotion",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate current goal": {
+      "main": [
+        [
+          {
+            "node": "Check proactive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model: goal evaluation": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Evaluate current goal",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Goal evaluation format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Evaluate current goal",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check proactive": {
+      "main": [
+        [
+          {
+            "node": "Send a proactive message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a proactive message?": {
+      "main": [
+        [
+          {
+            "node": "Start proactive burst",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start proactive burst": {
+      "main": [
+        [
+          {
+            "node": "Burst step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Burst step": {
+      "main": [
+        [
+          {
+            "node": "Generate proactive message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate proactive message": {
+      "main": [
+        [
+          {
+            "node": "Analyze proactive message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model: proactive message": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate proactive message",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proactive message format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Generate proactive message",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze proactive message": {
+      "main": [
+        [
+          {
+            "node": "Collect proactive message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model: proactive analysis": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze proactive message",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Proactive analysis format": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyze proactive message",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect proactive message": {
+      "main": [
+        [
+          {
+            "node": "Send another?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send another?": {
+      "main": [
+        [
+          {
+            "node": "Burst step",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Burst finished",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Burst finished": {
+      "main": [
+        [
+          {
+            "node": "Format response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format response": {
+      "main": [
+        [
+          {
+            "node": "Save session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save session": {
+      "main": [
+        [
+          {
+            "node": "Came from webhook?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Came from webhook?": {
+      "main": [
+        [
+          {
+            "node": "Return state, messages, goal progress, analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split into chat bubbles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split into chat bubbles": {
+      "main": [
+        [
+          {
+            "node": "Each bubble",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Typing pause": {
+      "main": [
+        [
+          {
+            "node": "Return the new persona lines in chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return the new persona lines in chat": {
+      "main": [
+        [
+          {
+            "node": "Each bubble",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Each bubble": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Typing pause",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook POST /conversation": {
+      "main": [
+        [
+          {
+            "node": "Persona config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [
+    {
+      "id": "5cc5d813-b2f7-4765-8fa6-0da9b1b96a49",
+      "name": "Define persona and scenario",
+      "nodeIds": [
+        "1cf4cb0f-060e-427e-8ce5-bd509699cca7",
+        "5018c8c1-6a33-4c45-ad38-1394971741e0"
+      ],
+      "description": "Who the persona is and what the practice interview is about: personality, style, scenario, goals and pass thresholds"
+    },
+    {
+      "id": "c69c9fd9-fc04-4d88-b152-a9c1f968791b",
+      "name": "Load conversation session",
+      "nodeIds": [
+        "df8010e9-da1d-43ae-941b-1f1a6170eea1",
+        "3bdfd124-d0bb-4796-81e3-d6cbadb94c5c",
+        "353d86b5-af4b-4756-ba0f-f8ffca8021aa",
+        "4ce19ba3-c771-426d-9c71-edf5a654a5c0"
+      ],
+      "description": "Takes a chat or API message, loads the saved conversation by session id, or starts a fresh one from the persona and simulation setup"
+    },
+    {
+      "id": "45d7f4c7-183a-476e-a576-620f0d246a3a",
+      "name": "Reply to the user",
+      "nodeIds": [
+        "79fd775b-20aa-44bc-8181-ac9699e98109",
+        "ca791dec-0b6c-45ad-bb53-8f8597d3a464",
+        "61b7f80e-65aa-4724-81ac-c141d01c12ab",
+        "fa6ce339-aded-4834-88b3-7c24184d0d39",
+        "c5903054-c31a-4572-863f-6c61286561c9",
+        "6d9f6049-9793-4283-bbb5-288b5dab64ad",
+        "0403bfb6-fbe9-4bc6-a443-5cdab1d75a97",
+        "9b0a3ee4-9a24-4048-b2f1-000e271868e6",
+        "c4f926f8-d308-468f-90f7-dd80f60bcc81",
+        "229d3ab0-1e9e-4a59-894e-a610c6647d99",
+        "3d742ecb-613a-4073-9dee-5351b8d5772d",
+        "81cd5f8f-1cfb-4abc-bbc0-44ea9b31fbdb",
+        "2a4d0fa3-846d-4ec6-b26a-bf077bdf7a19",
+        "ae801924-eda2-4ceb-9006-c49df340ddfc",
+        "c4fa0bf7-bfc7-4201-a44e-b36618717566"
+      ],
+      "description": "Scores the user mood, writes the persona reply, scores it too, and updates progress on the current goal"
+    },
+    {
+      "id": "1a27193d-d7ce-4039-b944-1d4d3bdbb1a6",
+      "name": "Send proactive follow-ups",
+      "nodeIds": [
+        "f1b713f5-6a16-4457-b5df-db6a68cbdc58",
+        "b84bdeb1-12f0-4f83-83b3-313080289029",
+        "367e6d5d-eb47-4bec-899a-e7d72eea5467",
+        "35867610-d4c4-4338-8a2d-e6f6e729b819",
+        "c6b1ea03-a15c-499b-af4c-f8ead478e019",
+        "90a7475a-1493-4faf-977c-d0557b05a075",
+        "6161ca7d-17dd-4856-a1b9-1a024c66d736",
+        "fc3874dd-ff5b-4680-8de4-6d8f3f3c55aa",
+        "8fd50937-8757-49d7-9e50-460578e88e7c",
+        "74132444-484e-4774-a7cf-2e999d92fd6c",
+        "a05c50a8-524a-43fd-8cd1-b33beab9cf86"
+      ],
+      "description": "When the persona should speak unprompted, writes and scores openers, nudges and extra lines one at a time, as many as the persona burstiness allo"
+    },
+    {
+      "id": "6b36ffc4-0e6c-48eb-bdc6-7a9ee599edf8",
+      "name": "Save and respond",
+      "nodeIds": [
+        "9b3c679b-514e-4dcb-be84-64755e38d051",
+        "0ecc3962-f09e-4738-8677-8548f44a8076",
+        "65981eb7-d4d2-419c-89a2-a48f7742d2ed",
+        "7bcf2296-3300-4fcd-9549-77947211aabd",
+        "0b89b3a8-a929-47ce-91ee-e35feba5b611",
+        "49660d4c-2562-4829-bb03-53c47636dfdd",
+        "427e49a6-e018-4794-bfc6-70dc436ba578",
+        "e30a7edd-3550-4104-9e98-16cc31062e74"
+      ],
+      "description": "Stores the updated conversation, then answers the API caller with full details or posts each new line to the chat as its own bubble"
+    }
+  ],
+  "pinData": {},
+  "versionId": "563edb7f-583e-4531-b028-69cd089a4deb",
+  "activeVersionId": null,
+  "versionCounter": 6,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
