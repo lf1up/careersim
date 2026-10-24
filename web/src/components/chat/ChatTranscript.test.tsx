@@ -122,3 +122,22 @@ describe('ChatTranscript', () => {
     expect(burstOneIdx).toBeLessThan(burstTwoIdx);
   });
 });
+
+describe('multi-character speakers', () => {
+  it('labels consecutive actors separately, including kept and streaming replies', () => {
+    render(<ChatTranscript
+      messages={[{ ...msg('ai', 'First'), actor_id: 'lead', actor_name: 'Alex' }]}
+      keptBurst={[{ content: 'Second', actor_id: 'hr', actor_name: 'Brenda' }]}
+      pendingAssistant={{ content: 'Third', actor_id: 'lead', actor_name: 'Alex' }}
+      participants={[
+        { actor_id: 'lead', name: 'Alex', persona_slug: 'alex', role: 'Lead' },
+        { actor_id: 'hr', name: 'Brenda', persona_slug: 'brenda', role: 'HR' },
+      ]}
+    />);
+    expect(screen.getAllByRole('group', { name: 'Alex message' })).toHaveLength(2);
+    expect(screen.getByRole('group', { name: 'Brenda message' })).toBeInTheDocument();
+    expect(screen.getByText('First')).toBeInTheDocument();
+    expect(screen.getByText('Second')).toBeInTheDocument();
+    expect(screen.getByText('Third')).toBeInTheDocument();
+  });
+});

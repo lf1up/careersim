@@ -10,13 +10,11 @@ conversation turns:
   before ONE turn is fired with the whole buffer — the API persists each
   item as its own transcript bubble while the persona composes a single
   reply to the batch.
-- Abandon-and-rerun: when a new finalised utterance lands while a reply
-  stream is still in flight (its terminal ``done`` not yet seen), the
-  stream is aborted — the API persists nothing before ``done``, so the
-  abort is clean — and a new turn is fired with ALL pending utterances.
-- ``pending_texts`` is cleared only when a stream's ``done`` confirms the
-  turn was committed server-side, so utterances can never be silently
-  dropped by a cancellation.
+- When a new finalised utterance lands during generation, stop the stream
+  and re-run with only uncommitted utterances. The API saves every reply
+  bubble before forwarding it, so already-spoken responses survive.
+- The first reply bubble (or ``done`` for a silent turn) acknowledges the
+  user batch, removing it from ``pending_texts`` exactly once.
 - Teardown ``flush()`` drains the in-flight turn (or fires one final
   unspoken turn for any uncommitted utterances) so a brief last remark
   still reaches the transcript.
@@ -36,6 +34,26 @@ from typing import Any, Awaitable, Callable, Optional
 from .state_bridge import TurnConflictError
 
 logger = logging.getLogger(__name__)
+
+
+def _release_job_cancellation() -> None:
+    """Let teardown awaits finish after LiveKit cancels the job.
+
+    The Agents SDK gives the entrypoint 15s after the room drops, then
+    cancels it. On Python 3.11+ that cancellation sticks: every later
+    await raises immediately, so the transcript flush never runs.
+    Production turns are often still streaming at that point; local
+    ones have already committed, which is why the loss is production-only.
+    """
+    task = asyncio.current_task()
+    if task is None:
+        return
+    uncancel = getattr(task, "uncancel", None)
+    if uncancel is None:
+        return
+    while getattr(task, "cancelling", lambda: 0)() > 0:
+        uncancel()
+
 
 # How long to wait after a finalised utterance before firing the turn.
 # Natural mid-answer pauses routinely split one spoken response into
@@ -57,6 +75,36 @@ STALL_FILLER_TEXT = "Sorry, give me a moment. I'm still thinking."
 TEARDOWN_FLUSH_TIMEOUT_SEC = 60.0
 
 
+def _committed_prefix_len(
+    pending: list[str],
+    messages: list,
+    *,
+    protect_last: bool,
+) -> int:
+    """How many leading pending texts the latest human run already has.
+
+    The run is the trailing streak of consecutive human messages (an AI
+    reply ends it). A voice turn commits that whole streak or nothing,
+    so a shorter or older match is left alone.
+    """
+    limit = len(pending) - (1 if protect_last else 0)
+    if limit <= 0:
+        return 0
+    run: list[str] = []
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "human":
+            if run:
+                break
+            continue
+        run.append(str(message.get("content") or "").strip())
+    run.reverse()
+    stripped = [text.strip() for text in pending]
+    for count in range(min(limit, len(run)), 0, -1):
+        if stripped[:count] == run[-count:]:
+            return count
+    return 0
+
+
 class TurnManager:
     """Owns the utterance buffer and the single in-flight turn.
 
@@ -75,8 +123,8 @@ class TurnManager:
         speak_state: The worker's shared playback dict — reads/writes the
             ``turn_interrupted`` barge-in latch.
         on_turn_event: Optional coroutine called with ``"superseded"``
-            when an in-flight turn is abandoned (its already-spoken
-            bubbles no longer reflect what will be persisted) and
+            when unfinished generation is cancelled (already-delivered
+            bubbles remain persisted) and
             ``"committed"`` when a turn's ``done`` confirms the server
             persisted it. The worker forwards these to the client as
             caption-grouping control messages.
@@ -109,15 +157,17 @@ class TurnManager:
         self._stall_filler = stall_filler
         self._flush_timeout_sec = flush_timeout_sec
 
-        # Finalised utterances not yet committed by a `done` event.
+        # Finalised utterances not yet acknowledged by a durable reply.
         self.pending_texts: list[str] = []
         self._task: Optional[asyncio.Task[None]] = None
         self._done = False  # current turn's stream saw its terminal `done`
+        self._needs_reconcile = False  # request may have committed without an ack
+        self._attempt_start_count = 0
         self._debounce: Optional[asyncio.Task[None]] = None
         self._closing = False
         # Optimistic precondition for the next turn request: the
-        # transcript length observed by the last `_reconcile_pending`.
-        # None ⇒ no precondition (nothing raced, e.g. a fresh turn).
+        # transcript length observed by reconciliation or a fresh read.
+        # None means the next attempt must fetch its baseline first.
         self._expected_count: Optional[int] = None
 
     # -- utterance intake ---------------------------------------------------
@@ -142,18 +192,15 @@ class TurnManager:
             # `asyncio.wait` so the aborted turn's CancelledError isn't
             # re-raised into this coroutine (which must go on to re-run).
             await asyncio.wait([task])
-            # Already-spoken bubbles from the abandoned reply no longer
-            # match what will be persisted — tell the client to drop them.
+            # Stop the unfinished reply; already-delivered bubbles are saved
+            # and must remain visible in the client.
             await self._emit_turn_event("superseded")
-            # The abort races the turn's terminal `done`: the API may have
-            # committed the turn right before we closed the SSE. Drop any
-            # pending texts that are already in the persisted transcript so
-            # the re-run can't duplicate them. The reconcile also records
-            # the transcript length, which the re-run sends as an
-            # optimistic precondition — if the aborted stream's commit
-            # lands AFTER this fetch, the re-run gets a 409 (and
-            # reconciles again) instead of silently duplicating.
-            await self._reconcile_pending()
+        if self._needs_reconcile:
+            # A cancelled or failed request may have saved a bubble before
+            # its acknowledgement arrived. Exclude the newly appended text;
+            # it was never part of that request. No reconciliation is needed
+            # if cancellation happened before the request was sent.
+            await self._reconcile_pending(protect_last=True)
         self.arm_debounce()
 
     def arm_debounce(self) -> None:
@@ -201,6 +248,25 @@ class TurnManager:
         Bounded by ``flush_timeout_sec`` so a hung API can't wedge
         shutdown.
         """
+        try:
+            await self._flush_pending()
+        except asyncio.CancelledError:
+            # LiveKit cancels the job 15s after the room drops. The
+            # in-flight stream may have saved some bubbles already;
+            # stop it and persist only the unacknowledged buffer.
+            _release_job_cancellation()
+            self._closing = True
+            debounce = self._debounce
+            if debounce is not None and not debounce.done():
+                debounce.cancel()
+            task = self._task
+            if task is not None and not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await task
+            await self._flush_unspoken_tail()
+
+    async def _flush_pending(self) -> None:
         self._closing = True
         debounce = self._debounce
         if debounce is not None and not debounce.done():
@@ -218,23 +284,29 @@ class TurnManager:
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
-        if self.pending_texts:
-            logger.info(
-                "session %s: flushing %d uncommitted utterance(s) at teardown",
-                self._session_id,
-                len(self.pending_texts),
+        await self._flush_unspoken_tail()
+
+    async def _flush_unspoken_tail(self) -> None:
+        if self._needs_reconcile:
+            await self._reconcile_pending(protect_last=False)
+        if not self.pending_texts:
+            return
+        logger.info(
+            "session %s: flushing %d uncommitted utterance(s) at teardown",
+            self._session_id,
+            len(self.pending_texts),
+        )
+        try:
+            await asyncio.wait_for(
+                self._run_turn_with_retry(
+                    list(self.pending_texts), speak_replies=False
+                ),
+                timeout=self._flush_timeout_sec,
             )
-            try:
-                await asyncio.wait_for(
-                    self._run_turn_with_retry(
-                        list(self.pending_texts), speak_replies=False
-                    ),
-                    timeout=self._flush_timeout_sec,
-                )
-            except (asyncio.TimeoutError, Exception):
-                logger.exception(
-                    "session %s: teardown flush turn failed", self._session_id
-                )
+        except (asyncio.TimeoutError, Exception):
+            logger.exception(
+                "session %s: teardown flush turn failed", self._session_id
+            )
 
     # -- internals ----------------------------------------------------------
 
@@ -266,12 +338,17 @@ class TurnManager:
                 "session %s: turn event %r publish failed", self._session_id, kind
             )
 
-    async def _reconcile_pending(self) -> None:
+    async def _reconcile_pending(self, *, protect_last: bool) -> None:
         """Drop pending texts the aborted stream already committed.
 
         Also records the observed transcript length in
         ``_expected_count`` so the next turn request carries it as an
         optimistic precondition.
+
+        ``protect_last`` keeps the utterance that just triggered the
+        abort. A committed turn is the trailing run of human messages,
+        so only an exact prefix of that run is removed — an older copy
+        of the same words elsewhere in a long session is not.
         """
         if not self.pending_texts:
             return
@@ -284,17 +361,15 @@ class TurnManager:
                 self._session_id,
             )
             return
+        self._needs_reconcile = False
         msgs = state.get("messages") or []
         self._expected_count = len(msgs)
-        tail = [
-            str(m.get("content") or "").strip()
-            for m in msgs[-(len(self.pending_texts) + 8):]
-            if isinstance(m, dict) and m.get("role") == "human"
-        ]
-        dropped = 0
-        while self.pending_texts and self.pending_texts[0].strip() in tail:
-            tail.remove(self.pending_texts.pop(0).strip())
-            dropped += 1
+        dropped = _committed_prefix_len(
+            self.pending_texts,
+            msgs[self._attempt_start_count :],
+            protect_last=protect_last,
+        )
+        del self.pending_texts[:dropped]
         if dropped:
             logger.info(
                 "session %s: %d pending utterance(s) were already committed "
@@ -324,6 +399,13 @@ class TurnManager:
     async def _run_turn_with_retry(
         self, texts: list[str], *, speak_replies: bool = True
     ) -> None:
+        if self._needs_reconcile:
+            await self._reconcile_pending(protect_last=False)
+            if self._needs_reconcile:
+                return  # No safe retry until the saved transcript can be read.
+            texts = list(self.pending_texts)
+            if not texts:
+                return
         conflicted = await self._run_turn(texts, speak_replies=speak_replies)
         attempts = 0
         while conflicted and not self._done and attempts < 2:
@@ -341,7 +423,9 @@ class TurnManager:
                 self._session_id,
                 attempts,
             )
-            await self._reconcile_pending()
+            await self._reconcile_pending(protect_last=False)
+            if self._needs_reconcile:
+                return
             texts = list(self.pending_texts)
             if not texts:
                 logger.info(
@@ -361,15 +445,21 @@ class TurnManager:
         Persist + generate through the SAME path as text chat, streamed so
         each bubble (main reply + follow-up bursts) is spoken as it is
         generated. POST /v1/sessions/:id/messages/stream runs the graph
-        server-side and persists the full delta on its terminal `done`
-        event, so goal eval / sentiment / nudges still run exactly once and
-        the spoken reply equals the saved transcript.
+        server-side and persists each bubble before forwarding it. The
+        terminal `done` saves the remaining evaluation state.
 
         Cancelling this coroutine aborts the SSE (closing the connection
         cancels the server-side graph run) — that is the abandon path.
         Returns True when the API reported a retryable TURN_CONFLICT.
         """
+        if self._expected_count is None:
+            state = await self._api.fetch_state_for_voice(self._session_id)
+            self._expected_count = len(state.get("messages") or [])
+        # Limit reconciliation to this attempt's messages: an older "yes"
+        # must never acknowledge a new utterance with the same text.
+        self._attempt_start_count = self._expected_count
         self._done = False
+        self._needs_reconcile = True
         self._speak_state["turn_interrupted"] = False
         bubbles: "asyncio.Queue[str | None]" = asyncio.Queue()
         turn_started = time.monotonic()
@@ -382,6 +472,7 @@ class TurnManager:
 
         async def _drain() -> None:
             first_bubble = True
+            acknowledged = False
             try:
                 async for event in self._api.stream_user_message(
                     self._session_id,
@@ -389,6 +480,13 @@ class TurnManager:
                     expected_message_count=self._expected_count,
                 ):
                     etype = event.get("type")
+                    if etype in ("message", "done") and not acknowledged:
+                        # The API saves before forwarding the first bubble.
+                        # A later done must not consume newer pending words.
+                        acknowledged = True
+                        self._needs_reconcile = False
+                        del self.pending_texts[: len(texts)]
+                        self._expected_count = None
                     if etype == "message":
                         if first_bubble:
                             first_bubble = False
@@ -400,13 +498,7 @@ class TurnManager:
                             )
                         await bubbles.put(event["content"])
                     elif etype == "done":
-                        # Committed server-side. The turn's texts are always
-                        # a prefix of `pending_texts` (new arrivals append),
-                        # so drop exactly that prefix. The precondition is
-                        # consumed — the next fresh turn carries none.
                         self._done = True
-                        del self.pending_texts[: len(texts)]
-                        self._expected_count = None
                     elif etype == "error":
                         if event.get("code") == "TURN_CONFLICT":
                             conflict["hit"] = True

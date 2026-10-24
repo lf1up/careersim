@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gt, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
 
-import type { AgentWireState } from '../../agent/types.js';
+import { isGroupScene, type AgentWireState } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
 import { sessions, voiceMinuteUsage } from '../../db/schema.js';
 import { forbidden, notFound } from '../../plugins/errors.js';
@@ -273,6 +273,10 @@ export function createVoiceService(
         .limit(1);
       if (!session) throw notFound('Session not found');
       if (session.userId !== userId) throw forbidden('You do not own this session');
+
+      if (isGroupScene(session.stateSnapshot)) {
+        throw new HttpError(400, 'Group scenes currently support text chat only', 'GROUP_VOICE_UNSUPPORTED');
+      }
 
       // 2. Quota check (only if the cap is configured).
       if (dailySecondsCap > 0) {

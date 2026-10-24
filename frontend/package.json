@@ -36,7 +36,7 @@
     "postcss": "^8.5.23",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",
-    "vite": "^6.4.2"
+    "vite": "^6.4.4"
   },
   "scripts": {
     "dev": "vite --host",

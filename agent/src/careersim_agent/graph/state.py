@@ -39,6 +39,7 @@ def resolve_starts_conversation(
 
 class EvidenceItem(TypedDict, total=False):
     """Evidence for goal progress."""
+    sourceEventIds: list[str]
     messageIndex: int
     role: Literal["user", "ai"]
     label: str
@@ -78,6 +79,11 @@ class ConversationState(TypedDict, total=False):
     
     This state is passed between nodes and maintains the conversation context.
     """
+    characters: dict[str, dict[str, Any]]
+    scene_next_actor: int
+    scene_replies_remaining: int
+    scene_evaluation_cursor: int
+
     # Session identification
     session_id: str
     
@@ -163,6 +169,8 @@ def create_initial_state(
         Initial conversation state
     """
     from datetime import datetime
+    from ..services.data_loader import load_participants
+    characters = load_participants(simulation)
     
     # Initialize goal progress from simulation goals
     goals = simulation.get("conversationGoals", [])
@@ -188,6 +196,10 @@ def create_initial_state(
 
     return ConversationState(
         session_id=session_id,
+        characters=characters,
+        scene_next_actor=0,
+        scene_replies_remaining=0,
+        scene_evaluation_cursor=0,
         messages=[],
         persona=persona,
         simulation=simulation,
@@ -197,7 +209,7 @@ def create_initial_state(
         last_ai_message=None,
         user_message=None,
         user_messages=None,
-        proactive_trigger="start" if starts else None,
+        proactive_trigger="start" if starts and not characters else None,
         should_send_proactive=False,
         proactive_count=0,
         max_proactive_messages=2,

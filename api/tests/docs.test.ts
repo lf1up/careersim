@@ -1,6 +1,10 @@
+import { createRequire } from 'node:module';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildTestApp, type TestHarness } from './helpers/build-test-app.js';
+
+const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
 
 describe('API docs', () => {
   let h: TestHarness | undefined;
@@ -19,6 +23,9 @@ describe('API docs', () => {
 
     const spec = await h.app.inject({ method: 'GET', url: '/v1/docs/openapi.json' });
     expect(spec.statusCode).toBe(200);
+    expect(spec.json()).toMatchObject({
+      info: { title: 'CareerSIM API', version: pkg.version },
+    });
   });
 
   it('does not register docs routes outside development', async () => {

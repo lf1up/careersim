@@ -72,6 +72,9 @@ export const nudgeSkippedResponseSchema = z.object({
 export const messageSchema = z.object({
   id: z.uuid(),
   role: z.enum(['human', 'ai']),
+  event_id: z.string().nullable().optional(),
+  actor_id: z.string().nullable().optional(),
+  actor_name: z.string().nullable().optional(),
   content: z.string(),
   order_index: z.number().int(),
   source: z.enum(['text', 'voice']),
@@ -137,11 +140,15 @@ export const sessionConfigSchema = z.object({
 });
 
 export const sessionDetailSchema = z.object({
+  evaluation_pending: z.boolean(),
   id: z.uuid(),
   simulation_slug: z.string(),
   simulation_title: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  participants: z.array(z.object({
+    actor_id: z.string(), name: z.string(), persona_slug: z.string(), role: z.string(),
+  })),
   messages: z.array(messageSchema),
   goal_progress: z.array(goalProgressSchema),
   analysis: analysisSchema,

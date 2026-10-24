@@ -206,7 +206,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       info: {
         title: 'CareerSIM API',
         description: 'Fastify + Drizzle API gateway in front of the CareerSIM agent.',
-        version: '0.1.0',
+        version: pkg.version,
       },
       components: {
         securitySchemes: {

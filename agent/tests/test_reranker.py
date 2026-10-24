@@ -8,8 +8,12 @@ from unittest.mock import MagicMock, patch
 import careersim_agent.services  # noqa: F401
 
 from careersim_agent.services.reranker import Reranker, reset_reranker
+from pathlib import Path
+
 from careersim_agent.services.retrieval_service import (
     _build_where_filter,
+    _load_markdown_files,
+    _sanitize_collection_name,
     _split_frontmatter,
 )
 
@@ -47,6 +51,37 @@ class TestSplitFrontmatter:
         tags, body = _split_frontmatter(text)
         assert tags == []
         assert body == "Body."
+
+
+class TestSanitizeCollectionName:
+    def test_pads_names_that_are_shorter_than_three_characters(self):
+        assert _sanitize_collection_name("a!") == "a--"
+
+
+class TestLoadMarkdownFiles:
+    def test_skips_blank_frontmatter_only_and_unreadable_files(self, tmp_path, monkeypatch):
+        folder = tmp_path / "documents" / "shared"
+        folder.mkdir(parents=True)
+        (folder / "blank.md").write_text("  \n")
+        (folder / "front.md").write_text("---\ntags: [money]\n---\n\n")
+        (folder / "bad.md").write_text("secret")
+        (folder / "good.md").write_text("---\ntags: [Money]\n---\n# Title\n\nBody.\n")
+
+        real_read = Path.read_text
+
+        def read_text(self, *args, **kwargs):
+            if self.name == "bad.md":
+                raise OSError("unreadable")
+            return real_read(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", read_text)
+
+        docs = _load_markdown_files(folder)
+        assert [doc.metadata["filename"] for doc in docs] == ["good.md"]
+        assert docs[0].metadata["tags"] == "money"
+        assert "Body." in docs[0].page_content
+
+        assert _load_markdown_files(tmp_path / "missing") == []
 
 
 class TestBuildWhereFilter:

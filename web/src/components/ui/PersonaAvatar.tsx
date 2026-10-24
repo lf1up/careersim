@@ -54,10 +54,11 @@ interface PersonaAvatarProps {
    * Visual treatment.
    * - `square`: fixed-size, square-framed, retro-bordered chip — for grids,
    *   chat headers, and inline use next to a name/badge.
+   * - `panel`: fills one section of a shared portrait frame with a cropped image.
    * - `wide`: full-width, native 3:2 banner — for the simulation detail
    *   hero. Keeps the retro border + shadow but drops the circular crop.
    */
-  variant?: 'square' | 'wide';
+  variant?: 'square' | 'wide' | 'panel';
   /**
    * Rendered side length in CSS pixels for the `square` variant. Drives
    * `width`/`height` on the underlying `<Image>` so Next.js can pick the
@@ -125,7 +126,7 @@ export function PersonaAvatar({
   // 500-ing on dev/compose URLs while still using the optimizer in prod.
   const unoptimized = FORCE_UNOPTIMIZED || pointsAtPrivateHost(src);
 
-  if (variant === 'wide') {
+  if (variant === 'wide' || variant === 'panel') {
     // Full-bleed banner: native 3:2, takes the parent's width. The wrapper
     // keeps the retro border + shadow so it still reads as a framed chip,
     // just no longer round/square. `sizes="100vw"` is a reasonable default
@@ -135,7 +136,8 @@ export function PersonaAvatar({
     return (
       <div
         className={clsx(
-          'relative w-full overflow-hidden border-2 border-black bg-cyan-200 text-retro-ink shadow-retro-2 dark:border-retro-ink-dark dark:bg-cyan-900 dark:text-retro-ink-dark dark:shadow-retro-dark-2',
+          'relative w-full overflow-hidden bg-cyan-200 text-retro-ink dark:bg-cyan-900 dark:text-retro-ink-dark',
+          variant === 'panel' ? 'h-full' : "border-2 border-black shadow-retro-2 dark:border-retro-ink-dark dark:shadow-retro-dark-2 after:pointer-events-none after:absolute after:inset-0 after:z-10 after:border-4 after:border-black after:content-['']",
           className,
         )}
         title={name}
@@ -149,12 +151,12 @@ export function PersonaAvatar({
             sizes={responsiveSizes}
             priority={priority}
             unoptimized={unoptimized}
-            className="block h-auto w-full"
+            className={variant === 'panel' ? 'block h-full w-full object-cover' : 'block h-auto w-full'}
             onError={() => setFailed(true)}
           />
         ) : (
           <div
-            className="flex aspect-[3/2] w-full items-center justify-center text-3xl font-semibold"
+            className={clsx('flex w-full items-center justify-center text-3xl font-semibold', variant === 'panel' ? 'h-full' : 'aspect-[3/2]')}
             aria-label={altText}
           >
             {initials(name)}

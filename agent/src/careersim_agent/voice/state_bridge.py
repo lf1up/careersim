@@ -165,11 +165,10 @@ class APIClient:
         - ``{"type": "done"}``
         - ``{"type": "error", "message": str}``
 
-        The HTTP request is kept open until ``done`` so the API's
-        ``prepareStream`` persist callback runs exactly once. Nothing is
-        persisted server-side until ``done``, so a caller may safely
-        abort mid-stream (abandon-and-rerun) without leaving a
-        half-committed turn behind.
+        Each message is persisted before forwarding, including the user
+        batch with the first reply. ``done`` saves the remaining evaluation
+        state. Aborting stops future generation without removing saved
+        replies; callers must retry only uncommitted user utterances.
 
         ``expected_message_count`` (optional) is an optimistic
         precondition: the transcript length this turn was based on. The

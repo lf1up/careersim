@@ -172,6 +172,10 @@ def evaluate_goals(state: ConversationState) -> dict[str, Any]:
         evidence_so_far=list(target_progress.get("evidence", [])),
     )
 
+    if state.get("characters") and eval_result.get("failed"):
+        # Streamed utterances are already durable; leave their assessment cursor pending.
+        return {"evaluation_complete": False, "needs_evaluation": True}
+
     behavior_score = eval_result["behavior_score"]
     success_score = eval_result["success_score"]
     message_count = state.get("message_count", 0)

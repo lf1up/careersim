@@ -10,9 +10,17 @@ interface SimulationsRouteOptions {
   simulationProviders?: readonly SimulationProvider[];
 }
 
+const participantSchema = z.object({
+  actor_id: z.string(),
+  name: z.string(),
+  persona_slug: z.string(),
+  role: z.string(),
+});
+
 const simulationSummarySchema = z.object({
   slug: z.string(),
   title: z.string(),
+  participants: z.array(participantSchema).default([]),
   persona_name: z.string(),
   persona_slug: z.string().nullable().optional(),
   avatar_url: z.string().nullable().optional(),
@@ -49,6 +57,7 @@ const simulationDetailSchema = z.object({
   description: z.string(),
   scenario: z.string(),
   objectives: z.array(z.string()).default([]),
+  participants: z.array(participantSchema).default([]),
   persona_name: z.string(),
   persona_slug: z.string().nullable().optional(),
   avatar_url: z.string().nullable().optional(),

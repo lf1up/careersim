@@ -150,12 +150,18 @@ export const messages = pgTable(
       .references(() => sessions.id, { onDelete: 'cascade' }),
     role: messageRoleEnum('role').notNull(),
     content: text('content').notNull(),
+    eventId: text('event_id'),
+    actorId: text('actor_id'),
+    actorName: text('actor_name'),
     orderIndex: integer('order_index').notNull(),
     source: messageSourceEnum('source').notNull().default('text'),
     typingDelayMs: integer('typing_delay_ms'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('messages_session_idx').on(t.sessionId, t.orderIndex)],
+  (t) => [
+    index('messages_session_idx').on(t.sessionId, t.orderIndex),
+    uniqueIndex('messages_session_event_unique').on(t.sessionId, t.eventId),
+  ],
 );
 
 export const usersRelations = relations(users, ({ many }) => ({

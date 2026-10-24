@@ -13,6 +13,8 @@ import logging
 import uuid
 from collections.abc import Generator
 from dataclasses import dataclass, field
+from copy import deepcopy
+from langgraph.graph.message import add_messages
 from datetime import datetime
 from typing import Any, Literal, Optional
 
@@ -26,47 +28,43 @@ from .data_loader import (
     list_personas,
     list_simulations,
     load_simulation,
+    load_participants,
+    public_participants,
 )
 
 logger = logging.getLogger(__name__)
 
-# Node names that produce new AI messages — must match builder.py constants
-_MESSAGE_NODES = frozenset({"generate_response", "generate_proactive"})
+def serialize_message(message: BaseMessage, state: ConversationState, index: int) -> dict[str, str]:
+    # Stable backfill for pre-v2 snapshots; generated graph IDs are kept verbatim.
+    if not message.id:
+        message.id = str(uuid.uuid5(uuid.NAMESPACE_URL, json.dumps([
+            state.get("session_id", ""), index, message.type, str(message.content)])))
+    persona = state.get("persona", {})
+    if not message.name:
+        message.name = "user" if message.type == "human" else persona.get("slug", "persona")
+    name = message.additional_kwargs.get("actor_name") or (
+        "You" if message.type == "human" else persona.get("name", message.name))
+    return {"role": message.type, "content": str(message.content), "event_id": message.id,
+            "actor_id": message.name, "actor_name": name}
 
-
-# -- Wire-format serialisation helpers ----------------------------------------
 
 def serialize_state(state: ConversationState) -> dict[str, Any]:
-    """Convert a ConversationState (with LangChain message objects) into a
-    plain JSON-serialisable dict suitable for sending over HTTP."""
-    out: dict[str, Any] = {}
-    for key, value in state.items():
-        if key == "messages":
-            out[key] = [
-                {"role": getattr(m, "type", "unknown"), "content": str(m.content)}
-                for m in value
-            ]
-        else:
-            out[key] = value
-    return out
+    return {key: [serialize_message(m, state, i) for i, m in enumerate(value)]
+            if key == "messages" else value for key, value in state.items()}
 
 
 def deserialize_state(data: dict[str, Any]) -> ConversationState:
-    """Reconstruct a ConversationState from the plain-dict wire format,
-    converting message dicts back into LangChain message objects."""
-    messages_raw = data.get("messages", [])
-    messages: list[BaseMessage] = []
-    for m in messages_raw:
-        role = m.get("role", "unknown")
-        content = m.get("content", "")
-        if role == "human":
-            messages.append(HumanMessage(content=content))
-        elif role == "ai":
-            messages.append(AIMessage(content=content))
-
     state = dict(data)
-    state["messages"] = messages
-    return state  # type: ignore[return-value]
+    state["messages"] = []
+    for raw in data.get("messages", []):
+        cls = HumanMessage if raw.get("role") == "human" else AIMessage if raw.get("role") == "ai" else None
+        if cls is None:
+            continue
+        message = cls(content=raw.get("content", ""), id=raw.get("event_id"), name=raw.get("actor_id"),
+                      additional_kwargs={"actor_name": raw["actor_name"]} if raw.get("actor_name") else {})
+        serialize_message(message, state, len(state["messages"]))
+        state["messages"].append(message)
+    return state
 
 
 # -- Typing-delay helpers -----------------------------------------------------
@@ -132,6 +130,9 @@ class MessageEvent:
     is_followup: bool
     state: ConversationState = field(repr=False)
     is_final: bool = False
+    event_id: Optional[str] = None
+    actor_id: Optional[str] = None
+    actor_name: Optional[str] = None
 
 
 # -- Core stateless operations ------------------------------------------------
@@ -169,7 +170,7 @@ class ConversationService:
         )
 
         settings = get_settings()
-        if settings.rag_enabled:
+        if settings.rag_enabled and not state.get("characters"):
             try:
                 from .retrieval_service import get_retrieval_service
 
@@ -253,78 +254,36 @@ class ConversationService:
         self,
         state: ConversationState,
     ) -> Generator[MessageEvent, None, None]:
-        """Run graph.stream() and yield a MessageEvent after every node that
-        produces a new AI message (generate_response / generate_proactive).
-
-        We accumulate state across all node updates so that each yielded
-        ``MessageEvent.state`` reflects the full conversation history up to
-        that point, not just the latest node's partial output.
-
-        Message-producing nodes in this codebase return the *full* updated
-        message list by convention (see ``generate_ai_response`` and
-        ``generate_proactive_message``). LangGraph's ``add_messages`` reducer
-        deduplicates them on the batch path by message ID, but when we iterate
-        ``stream_mode="updates"`` we receive the raw pre-reducer list — so we
-        explicitly diff against the running snapshot and only yield the newly
-        appended tail, otherwise every streamed turn re-emits the entire
-        conversation.
-        """
-        wpm = get_typing_wpm(state)
-        is_first_ai = True
-        ai_index = 0
-
-        # Running snapshot — starts from the input state and is progressively
-        # patched with every node update we receive.
+        """Merge updates with the graph's message reducer and emit each new ID once."""
+        serialize_state(state)
         accumulated = dict(state)
         accumulated["messages"] = list(state.get("messages", []))
-
+        seen = {m.id for m in accumulated["messages"]}
+        ai_index = 0
         for chunk in self._graph.stream(state, stream_mode="updates"):
-            for node_name, node_output in chunk.items():
-                prior_count = len(accumulated["messages"])
-
-                # Merge ALL node outputs into the running snapshot so
-                # non-message fields (goal_progress, analysis, etc.) stay
-                # current. For messages we trust the node's full list (it
-                # always ends with state.messages + any newly-appended ones).
-                for key, value in node_output.items():
-                    if key == "messages":
-                        accumulated["messages"] = list(value)
-                    else:
-                        accumulated[key] = value
-
-                if node_name not in _MESSAGE_NODES:
-                    continue
-
-                for msg in accumulated["messages"][prior_count:]:
-                    if not isinstance(msg, AIMessage):
+            for node_name, update in chunk.items():
+                for key, value in update.items():
+                    accumulated[key] = add_messages(accumulated["messages"], value) if key == "messages" else value
+                for index, message in enumerate(accumulated["messages"]):
+                    if message.id in seen:
                         continue
-
-                    content = str(msg.content)
-                    delay = 0.0 if is_first_ai else compute_typing_delay(content, wpm)
-                    is_first_ai = False
-
+                    seen.add(message.id)
+                    if not isinstance(message, AIMessage):
+                        continue
+                    wire = serialize_message(message, accumulated, index)
+                    character = accumulated.get("characters", {}).get(wire["actor_id"], {})
+                    wpm = get_typing_wpm({"persona": character.get("persona", accumulated.get("persona", {}))})
                     yield MessageEvent(
-                        content=content,
-                        node=node_name,
-                        typing_delay_sec=delay,
-                        message_index=ai_index,
-                        is_followup=(node_name == "generate_proactive"),
-                        state=dict(accumulated),
+                        content=wire["content"], node=node_name,
+                        typing_delay_sec=0 if ai_index == 0 else compute_typing_delay(wire["content"], wpm),
+                        message_index=ai_index, is_followup=node_name == "generate_proactive",
+                        state=deepcopy(accumulated), event_id=wire["event_id"],
+                        actor_id=wire["actor_id"], actor_name=wire["actor_name"],
                     )
                     ai_index += 1
-
-        # Yield a final event carrying the complete post-graph state so that
-        # callers pick up updates from non-message nodes (goal evaluation,
-        # proactive checks, analysis, etc.) that run after the last AI message.
-        yield MessageEvent(
-            content="",
-            node="__done__",
-            typing_delay_sec=0.0,
-            message_index=ai_index,
-            is_followup=False,
-            is_final=True,
-            state=dict(accumulated),
-        )
+        yield MessageEvent(content="", node="__done__", typing_delay_sec=0,
+                           message_index=ai_index, is_followup=False,
+                           is_final=True, state=deepcopy(accumulated))
 
     # -- Catalogue ------------------------------------------------------------
 
@@ -342,6 +301,7 @@ class ConversationService:
             out.append({
                 "slug": s["slug"],
                 "title": s["title"],
+                "participants": s.get("participants", []),
                 "persona_name": s.get("personaName", "Unknown"),
                 "persona_slug": persona_slug,
                 "avatar_url": (
@@ -366,6 +326,7 @@ class ConversationService:
         and difficulty level are forwarded.
         """
         sim, persona = load_simulation(slug)
+        cast = load_participants(sim)
 
         goals: list[dict[str, Any]] = []
         for g in sim.get("conversationGoals", []) or []:
@@ -391,7 +352,8 @@ class ConversationService:
             "description": sim.get("description", ""),
             "scenario": sim.get("scenario", ""),
             "objectives": list(sim.get("objectives", []) or []),
-            "persona_name": persona.get("name", "Unknown"),
+            "participants": public_participants(cast),
+            "persona_name": " & ".join(c["persona"]["name"] for c in cast.values()) if cast else persona.get("name", "Unknown"),
             "persona_slug": persona.get("slug"),
             "avatar_url": (
                 f"/personas/{persona.get('slug')}/avatar"

@@ -28,7 +28,7 @@ class TestSerializeState:
             "turn": "user",
         }
         wire = serialize_state(state)
-        assert wire["messages"] == [
+        assert [{k: m[k] for k in ("role", "content")} for m in wire["messages"]] == [
             {"role": "human", "content": "Hi there"},
             {"role": "ai", "content": "Hello!"},
         ]
@@ -38,7 +38,7 @@ class TestSerializeState:
     def test_empty_messages(self):
         state = {"session_id": "s1", "messages": []}
         wire = serialize_state(state)
-        assert wire["messages"] == []
+        assert [{k: m[k] for k in ("role", "content")} for m in wire["messages"]] == []
 
     def test_non_message_fields_pass_through(self):
         state = {

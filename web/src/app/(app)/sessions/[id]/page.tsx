@@ -9,6 +9,7 @@ import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import { dropPersistedPrefix } from '@/lib/chat-batch';
 import type {
+  AssistantMessage,
   GoalProgress,
   GoalStatus,
   SessionDetail,
@@ -41,16 +42,11 @@ import { isVoiceEnabledClientSide } from '@/lib/voice';
 // keeps the stream open long enough for the dots to appear and stay.
 const GAP_TYPING_INDICATOR_DELAY_MS = 1000;
 
-// Backoff schedule (ms between polls) for the post-call settle polls in
-// `handleCallEnded`. The agent-voice worker persists the call's tail only
-// AFTER the client disconnects — it drains the STT queue, drains any
-// in-flight turn to its `done`, and fires one final unspoken turn for
-// utterances that never got a reply (TurnManager.flush) — so a single
-// hangup refetch races that flush and the last turn(s) would only appear
-// on a manual refresh. The polls run on a fixed schedule with no early
-// "transcript looks stable" exit: the flush can go quiet for 10s+ between
-// the in-flight drain and the final unspoken turn.
-const VOICE_SETTLE_DELAYS_MS = [1500, 2500, 4000, 6000, 8000, 10000];
+// After End call the worker is still writing the tail (it drains speech,
+// then one last turn). That can outlast a short backoff, so the open chat
+// keeps loading the session until the tail is in, or this long has passed.
+const VOICE_SETTLE_INTERVAL_MS = 2000;
+const VOICE_SETTLE_MAX_MS = 180000;
 
 // Sleep for `ms`, resolving early if `signal` is aborted. Used to simulate
 // the persona's typing pause between burst messages without leaving a dead
@@ -177,18 +173,18 @@ export default function SessionDetailPage() {
   // True between "send pressed" and "first AI chunk arrives" — drives the
   // typing indicator.
   const [isWaiting, setIsWaiting] = useState(false);
-  const [streamingAssistant, setStreamingAssistant] = useState<string | null>(null);
+  const [streamingAssistant, setStreamingAssistant] = useState<AssistantMessage | null>(null);
   // Already-delivered AI messages from the current burst, rendered as
   // individual bubbles between `session.messages` and the in-flight
   // streamingAssistant bubble. We commit each prior message here as soon as
   // the next one starts so the typing indicator can appear in the gap.
-  const [committedBurst, setCommittedBurst] = useState<string[]>([]);
+  const [committedBurst, setCommittedBurst] = useState<AssistantMessage[]>([]);
   // AI bubbles from an interrupted turn. They are already persisted
   // server-side (the API persists each streamed message before forwarding
   // it), so they must survive the turn switch — the next turn's `done`
   // would otherwise replace the transcript with one that never contained
   // them. Cleared once a refetch/`done` lands them in `session.messages`.
-  const [keptBurst, setKeptBurst] = useState<string[]>([]);
+  const [keptBurst, setKeptBurst] = useState<AssistantMessage[]>([]);
   // Nudge auto-polling control:
   // - `permanentlyDisabled` flips on when the server says `nudges_disabled`
   //   (the persona opted out). Never resumes for this session.
@@ -206,7 +202,9 @@ export default function SessionDetailPage() {
   // don't show the button on a still-loading or errored session).
   const [inCall, setInCall] = useState(false);
   const [startingCall, setStartingCall] = useState(false);
-  const voiceAvailable = isVoiceEnabledClientSide() && session !== null;
+  const isGroup = (session?.participants?.length ?? 0) > 1;
+  const castName = isGroup ? session?.participants?.map((p) => p.name).join(" & ") : simulation?.persona_name;
+  const voiceAvailable = isVoiceEnabledClientSide() && session !== null && !isGroup;
 
   const abortRef = useRef<AbortController | null>(null);
   // Synchronous mirror of `pendingHumans` — `handleSend` needs the current
@@ -215,8 +213,8 @@ export default function SessionDetailPage() {
   const pendingHumansRef = useRef<string[]>([]);
   // Same-tick mirrors of the in-flight AI bubbles, read by `handleSend`
   // when it interrupts a streaming turn.
-  const committedBurstRef = useRef<string[]>([]);
-  const streamingAssistantRef = useRef<string | null>(null);
+  const committedBurstRef = useRef<AssistantMessage[]>([]);
+  const streamingAssistantRef = useRef<AssistantMessage | null>(null);
   // True while a turn stream is in flight — distinguishes an interrupt
   // (keep already-shown bubbles, refetch, dedupe the batch) from a fresh
   // send. Stored as a ref because `handleSend` reads it in the same tick
@@ -422,8 +420,8 @@ export default function SessionDetailPage() {
       // Local mirror of `committedBurst` so the paced loop has synchronous
       // access (React state updates are async and can't be read back in
       // the same tick).
-      const localBurst: string[] = [];
-      let currentStreaming: string | null = null;
+      const localBurst: AssistantMessage[] = [];
+      let currentStreaming: AssistantMessage | null = null;
       // Typing-indicator control for the gap after a rendered bubble. The
       // dots appear only after a short delay — a turn with no follow-ups
       // emits `done` inside that window, so the indicator never flashes
@@ -471,7 +469,12 @@ export default function SessionDetailPage() {
               if (signal.aborted) return;
             }
 
-            currentStreaming = content;
+            currentStreaming = {
+              content,
+              event_id: typeof event.data.event_id === 'string' ? event.data.event_id : undefined,
+              actor_id: typeof event.data.actor_id === 'string' ? event.data.actor_id : undefined,
+              actor_name: typeof event.data.actor_name === 'string' ? event.data.actor_name : undefined,
+            };
             setStreamingAssistant(currentStreaming);
             if (gapDotsVisible) {
               // Already shown (typing pause or fired gap timer) — keep the
@@ -707,12 +710,16 @@ export default function SessionDetailPage() {
         if (streamActiveRef.current) return;
         const previous = sessionRef.current;
         if (previous !== null) {
+          const grew = latest.messages.length > previous.messages.length;
           // A newer snapshot already landed (e.g. a nudge fired between
-          // polls) — never regress the transcript.
-          if (latest.updated_at < previous.updated_at) return;
+          // polls) — never regress the transcript. A longer transcript
+          // always wins: the tail can land with an older timestamp if
+          // hangup stamped `updated_at` after the worker's write.
+          if (!grew && latest.updated_at < previous.updated_at) return;
           // Nothing persisted since the last apply — skip the no-op
           // re-render. (`updated_at` bumps on every committed turn.)
           if (
+            !grew &&
             latest.updated_at === previous.updated_at &&
             latest.messages.length === previous.messages.length
           ) {
@@ -739,14 +746,13 @@ export default function SessionDetailPage() {
     };
 
     // Immediate refetch — picks up every turn already committed.
+    const started = Date.now();
     await reconcile();
 
-    // Settle polls: the worker's teardown flush (see
-    // VOICE_SETTLE_DELAYS_MS) persists the call's tail seconds after we
-    // disconnect, so keep polling on a backed-off schedule to land it
-    // without a manual refresh.
-    for (const delay of VOICE_SETTLE_DELAYS_MS) {
-      await new Promise((resolve) => setTimeout(resolve, delay));
+    // The worker's final save can take a minute after hangup. Keep
+    // pulling until it lands so the open chat fills in on its own.
+    while (Date.now() - started < VOICE_SETTLE_MAX_MS) {
+      await new Promise((resolve) => setTimeout(resolve, VOICE_SETTLE_INTERVAL_MS));
       if (settleGeneration !== voiceSettleRef.current) return;
       await reconcile();
     }
@@ -792,12 +798,15 @@ export default function SessionDetailPage() {
           // is" alongside the scenario name.
           <span className="flex flex-wrap items-center gap-2 text-lg leading-tight max-[400px]:text-base sm:text-xl">
             {simulation?.persona_name && (
-              <RetroBadge color="cyan">{simulation.persona_name}</RetroBadge>
+              <RetroBadge color="cyan">{castName}</RetroBadge>
             )}
             {simulation && (
               <RetroBadge color={difficultyColor(simulation.difficulty)}>
                 {difficultyLabel(simulation.difficulty)}
               </RetroBadge>
+            )}
+            {session.evaluation_pending && (
+              <RetroBadge color="yellow">Feedback pending — retries next turn</RetroBadge>
             )}
             {/* Below 400px (e.g. iPhone SE) put the title on its own line so
                 it isn't clipped beside the persona/difficulty pills. */}
@@ -922,6 +931,7 @@ export default function SessionDetailPage() {
             <ChatTranscript
               messages={session.messages}
               pendingHumans={pendingHumans}
+              participants={session?.participants}
               keptBurst={keptBurst}
               burstedAssistant={committedBurst}
               pendingAssistant={streamingAssistant}

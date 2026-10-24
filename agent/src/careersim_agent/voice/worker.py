@@ -352,14 +352,11 @@ async def _run_room_session(
       turn via ``api.stream_user_message([texts...])``. Each streamed
       reply bubble (main reply + follow-up bursts) is spoken through
       ``tts.synthesize`` as it arrives. The streaming endpoint persists
-      the full turn server-side on its terminal `done` event — nothing
-      is persisted before that.
-    * Abandon-and-rerun: if a NEW finalised utterance lands while a
-      reply stream is still in flight, the stream is aborted (closing
-      the SSE cancels the server-side graph run before anything is
-      persisted) and one new turn is fired with ALL pending utterances,
-      so the persona composes a single reply to everything the user
-      said. Each utterance still persists as its own transcript bubble.
+      each bubble before forwarding it; `done` saves final evaluation.
+    * If a NEW finalised utterance lands during generation, abort the
+      stream and re-run with only unsaved utterances. Already-delivered
+      replies remain in the transcript. Each user utterance persists as
+      its own transcript bubble.
     * On user speech-onset during persona TTS,
       ``adapter.cancel_inflight()`` aborts the in-flight reply and
       ``tts.aclose()`` cancels playback.
@@ -404,7 +401,7 @@ async def _run_room_session(
     from .persona_voice import VoiceTuning
     from .pipeline import LangGraphAdapter
     from .transcripts import Caption
-    from .turns import TurnManager
+    from .turns import TurnManager, _release_job_cancellation
 
     assert isinstance(adapter, LangGraphAdapter)
     assert isinstance(tuning, VoiceTuning)
@@ -526,8 +523,8 @@ async def _run_room_session(
     # ---- turn manager: buffer utterances, debounce, abandon & re-run -------
     # The aggregation policy lives in voice/turns.py (unit-testable, no
     # LiveKit): buffer finalised utterances, debounce, send the WHOLE
-    # buffer as one turn, abandon+re-run when a new utterance lands
-    # mid-generation, clear only on the stream's terminal `done`.
+    # buffer as one turn, stop generation on a new utterance, and remove
+    # committed texts as soon as the API delivers the first saved bubble.
     def _record_ai_bubble(bubble: str) -> None:
         adapter.record_voice_turn(  # type: ignore[attr-defined]
             VoiceTurnMetadata(
@@ -542,9 +539,8 @@ async def _run_room_session(
     async def _publish_turn_event(kind: str) -> None:
         # Caption-grouping control for the live call surface: `committed`
         # marks the current AI/user caption stacks as belonging to a
-        # finished (persisted) turn; `superseded` tells the client to drop
-        # already-shown AI bubbles from an abandoned reply that will never
-        # be persisted.
+        # finished turn; `superseded` stops the current generation while
+        # preserving already-shown, durably saved AI bubbles.
         await captions.publish_control(  # type: ignore[attr-defined]
             {"type": f"turn_{kind}"}
         )
@@ -557,6 +553,18 @@ async def _run_room_session(
         speak_state=speak_state,
         on_turn_event=_publish_turn_event,
     )
+
+    # LiveKit cancels the entrypoint 15s after the room drops. This
+    # callback runs after that cancel, on a task that is not the
+    # cancelled entrypoint, and persists anything the interrupted
+    # flush could not.
+    async def _flush_tail_on_shutdown(_reason: str = "") -> None:
+        _release_job_cancellation()
+        await turns.flush()
+
+    add_shutdown_callback = getattr(ctx, "add_shutdown_callback", None)
+    if add_shutdown_callback is not None:
+        add_shutdown_callback(_flush_tail_on_shutdown)
 
     # ---- opening turn (persona speaks first, if configured) ----------------
     # In the normal product flow the session — and the persona's opening, if
@@ -806,6 +814,10 @@ async def _run_room_session(
     try:
         await done.wait()
     finally:
+        # A room-disconnect cancel is already pending here. Clear it
+        # before the STT drain and flush awaits, or they raise
+        # immediately and the tail of the call is never written.
+        _release_job_cancellation()
         for task in (forward_task, consume_task, watchdog_task):
             if task is not None and not task.done():
                 task.cancel()

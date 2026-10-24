@@ -13,7 +13,7 @@ import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
 import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
-import { PersonaAvatar } from '@/components/ui/PersonaAvatar';
+import { SimulationPortrait } from '@/components/ui/SimulationPortrait';
 import { RetroDialog } from '@/components/ui/RetroDialog';
 
 function humanizeCategory(category: string | null | undefined): string | null {
@@ -181,12 +181,8 @@ export function SimulationDetailClient({
 
       <RetroCard>
         <div className="space-y-5">
-          <PersonaAvatar
-            name={simulation.persona_name}
-            avatarUrl={simulation.avatar_url}
-            slug={simulation.persona_slug}
-            roleHint={simulation.persona_role}
-            variant="wide"
+          <SimulationPortrait
+            simulation={simulation}
             priority
             sizes="(max-width: 768px) 100vw, 768px"
           />
@@ -200,7 +196,7 @@ export function SimulationDetailClient({
               <span className="font-semibold text-retro-ink dark:text-retro-ink-dark">
                 {simulation.persona_name}
               </span>
-              {simulation.persona_role && (
+              {!simulation.participants?.length && simulation.persona_role && (
                 <span className="text-secondary-600 dark:text-secondary-400">
                   {' '}
                   - {simulation.persona_role}

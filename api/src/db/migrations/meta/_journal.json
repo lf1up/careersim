@@ -50,6 +50,13 @@
       "when": 1784120400000,
       "tag": "0006_session_report",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792777251794,
+      "tag": "0007_message_identity",
+      "breakpoints": true
     }
   ]
 }

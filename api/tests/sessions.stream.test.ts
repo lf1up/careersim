@@ -638,11 +638,9 @@ describe('POST /internal/sessions/:id/messages/stream (worker turn route)', () =
     ]);
   });
 
-  it('does not persist a turn whose client disconnected before done', async () => {
-    // The voice worker abandons a turn by closing the SSE and re-sends the
-    // messages in a new request. If generation already finished when the
-    // client hung up, persisting anyway would duplicate the re-sent turn —
-    // the internal route stays done-only and must drop the result instead.
+  it('keeps a voice reply delivered before disconnect without duplicating it on the next turn', async () => {
+    // A reply heard before interruption must survive even if done never
+    // reaches the worker. The next turn continues from that saved reply.
     class GatedAgent extends FakeAgent {
       release!: () => void;
       firstBubbleSent!: Promise<void>;
@@ -715,8 +713,24 @@ describe('POST /internal/sessions/:id/messages/stream (worker turn route)', () =
           url: `/v1/sessions/${session.id}`,
           headers: authHeader,
         })
-      ).json().messages.length;
-      expect(after).toBe(before);
+      ).json().messages;
+      expect(after.slice(before)).toEqual([
+        expect.objectContaining({ role: 'human', content: 'abandoned turn', source: 'voice' }),
+        expect.objectContaining({ role: 'ai', content: 'echo:abandoned turn', source: 'voice' }),
+      ]);
+      const next = await gh.app.inject({
+        method: 'POST',
+        url: `/v1/internal/sessions/${session.id}/messages/stream`,
+        headers: { 'x-internal-key': INTERNAL_KEY },
+        payload: { content: 'follow-up', source: 'voice', expected_message_count: after.length },
+      });
+      expect(next.statusCode).toBe(200);
+      const final = (await gh.app.inject({
+        method: 'GET', url: `/v1/sessions/${session.id}`, headers: authHeader,
+      })).json().messages;
+      expect(final.slice(before).map((m: { content: string }) => m.content)).toEqual([
+        'abandoned turn', 'echo:abandoned turn', 'follow-up', 'echo:follow-up',
+      ]);
     } finally {
       await gh.close();
     }

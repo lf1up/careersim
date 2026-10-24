@@ -144,3 +144,148 @@ class TestRetrieveRerank:
             out = service.retrieve("q", "sim-1", "p-1")
 
         assert [d.page_content for d in out] == ["x", "y"]
+
+    def test_rerank_exception_falls_back_to_vector_order(self):
+        service, settings = _make_service(rerank_enabled=True)
+        docs = [(_doc("x"), 0.9), (_doc("y"), 0.8)]
+        results = {"sim--sim-1": docs, "persona--p-1": [], "shared": []}
+        FakeChroma, _stores = _stub_collections(service, results)
+
+        with patch.object(rs, "get_settings", return_value=settings), patch(
+            "careersim_agent.services.retrieval_service.Chroma", FakeChroma
+        ), patch(
+            "careersim_agent.services.reranker.get_reranker",
+            side_effect=RuntimeError("no model"),
+        ):
+            out = service.retrieve("q", "sim-1", "p-1")
+
+        assert [d.page_content for d in out] == ["x", "y"]
+
+    def test_skips_empty_missing_and_failing_collections(self):
+        service, settings = _make_service(rerank_enabled=False)
+
+        def get_collection(name):
+            if name.startswith("sim--"):
+                col = MagicMock()
+                col.count.return_value = 0
+                return col
+            if name.startswith("persona--"):
+                raise RuntimeError("no such collection")
+            col = MagicMock()
+            col.count.return_value = 2
+            return col
+
+        service._client.get_collection.side_effect = get_collection
+
+        class FakeChroma:
+            def __init__(self, client=None, collection_name=None, embedding_function=None):
+                self.collection_name = collection_name
+
+            def similarity_search_with_relevance_scores(self, query, k=None, filter=None):
+                raise RuntimeError("search down")
+
+        with patch.object(rs, "get_settings", return_value=settings), patch(
+            "careersim_agent.services.retrieval_service.Chroma", FakeChroma
+        ):
+            assert service.retrieve("q", "sim-1", "p-1") == []
+
+    def test_duplicate_chunks_are_dropped(self):
+        service, settings = _make_service(rerank_enabled=False)
+        results = {
+            "sim--sim-1": [(_doc("first", "same"), 0.9), (_doc("second", "same"), 0.8)],
+            "persona--p-1": [],
+            "shared": [],
+        }
+        FakeChroma, _stores = _stub_collections(service, results)
+
+        with patch.object(rs, "get_settings", return_value=settings), patch(
+            "careersim_agent.services.retrieval_service.Chroma", FakeChroma
+        ):
+            docs = service.retrieve("q", "sim-1", "p-1")
+
+        assert [d.page_content for d in docs] == ["first"]
+
+
+class TestIndexingAndFormatting:
+    def test_absolute_persist_dir_is_not_rewritten(self):
+        settings = MagicMock()
+        settings.rag_embedding_model = "fake"
+        settings.openai_api_key = "sk-fake"
+        settings.openai_base_url = "https://example.test/v1"
+        settings.openai_default_headers = {"X-Title": "CareerSIM"}
+        settings.rag_chunk_size = 800
+        settings.rag_chunk_overlap = 100
+        settings.rag_top_k = 2
+        settings.rag_chroma_persist_dir = "/tmp/chroma-abs"
+
+        with patch.object(rs, "get_settings", return_value=settings), patch(
+            "careersim_agent.services.retrieval_service.OpenAIEmbeddings"
+        ) as embeddings, patch("careersim_agent.services.retrieval_service.chromadb"):
+            service = rs.RetrievalService()
+
+        assert service._persist_dir.as_posix() == "/tmp/chroma-abs"
+        kwargs = embeddings.call_args.kwargs
+        assert kwargs["base_url"] == "https://example.test/v1"
+        assert kwargs["default_headers"] == {"X-Title": "CareerSIM"}
+
+    def test_no_chunks_and_no_doc_type_index_nothing(self, tmp_path):
+        service, _settings = _make_service(rerank_enabled=False)
+        (tmp_path / "note.md").write_text("Hello.\n")
+        service._splitter.split_documents = lambda docs: []
+
+        assert service._ensure_collection_indexed("sim--x", tmp_path) is None
+
+    def test_reloads_hashes_when_the_memory_cache_misses_them(self, tmp_path):
+        service, _settings = _make_service(rerank_enabled=False)
+        (tmp_path / "note.md").write_text("Hello from the doc.\n")
+        service._splitter.split_documents = lambda docs: docs
+        content_hash = rs._file_content_hash("Hello from the doc.\n")
+
+        class _Ghost(dict):
+            """Hashes look known, but the collection key was never stored."""
+
+            def get(self, key, default=None):
+                return {content_hash}
+
+            def __contains__(self, key):
+                return False
+
+        service._indexed_hashes = _Ghost()
+        stored = MagicMock()
+        stored.get.return_value = {
+            "metadatas": [{"content_hash": content_hash}, None, {"source": "note.md"}],
+        }
+        service._client.get_collection.side_effect = [stored, RuntimeError("missing")]
+
+        class FakeChroma:
+            def __init__(self, client=None, collection_name=None, embedding_function=None):
+                pass
+
+        with patch("careersim_agent.services.retrieval_service.Chroma", FakeChroma):
+            assert service._ensure_collection_indexed(
+                "sim--x", tmp_path, doc_type="simulation"
+            ) is not None
+            assert service._ensure_collection_indexed("persona--y", tmp_path) is not None
+
+        assert service._indexed_hashes["sim--x"] == {content_hash, ""}
+        assert service._indexed_hashes["persona--y"] == set()
+
+    def test_format_context_numbers_sources(self):
+        service, _settings = _make_service(rerank_enabled=False)
+        assert service.format_context([]) == ""
+        text = service.format_context([
+            Document(page_content="  hi  ", metadata={"source": "shared/a.md"}),
+            Document(page_content="yo", metadata={}),
+        ])
+        assert text == (
+            "[1] (source: shared/a.md)\nhi\n\n---\n\n[2] (source: unknown)\nyo"
+        )
+
+    def test_reset_clears_the_singleton(self):
+        previous = rs._retrieval_service
+        rs._retrieval_service = object()
+        try:
+            rs.reset_retrieval_service()
+            assert rs._retrieval_service is None
+        finally:
+            rs._retrieval_service = previous

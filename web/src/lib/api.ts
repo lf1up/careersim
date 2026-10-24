@@ -89,10 +89,11 @@ interface RequestOptions {
   body?: unknown;
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  cache?: RequestCache;
 }
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, signal, headers = {} } = opts;
+  const { method = 'GET', body, signal, headers = {}, cache } = opts;
 
   const finalHeaders: Record<string, string> = {
     Accept: 'application/json',
@@ -109,6 +110,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     credentials: 'include',
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
+    cache,
   });
 
   if (response.status === 204) {
@@ -312,7 +314,9 @@ export const apiClient = {
   },
 
   async getSession(id: string, signal?: AbortSignal): Promise<SessionDetail> {
-    return request<SessionDetail>(`/sessions/${id}`, { signal });
+    // The transcript grows after a voice call ends. A cached GET would
+    // keep showing the pre-hangup session until a full page reload.
+    return request<SessionDetail>(`/sessions/${id}`, { signal, cache: 'no-store' });
   },
 
   async postMessage(id: string, content: string): Promise<SessionDetail> {

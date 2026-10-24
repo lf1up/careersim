@@ -5,6 +5,8 @@ Supports auto-reload when files change (based on modification time).
 
 import json
 import logging
+import re
+from copy import deepcopy
 from pathlib import Path
 from typing import TypedDict, Optional
 
@@ -101,14 +103,23 @@ class SuccessCriteria(TypedDict, total=False):
     emotional: list[str]
 
 
+class Participant(TypedDict, total=False):
+    actorId: str
+    personaSlug: str
+    objective: str
+    privateKnowledge: str
+
+
 class Simulation(TypedDict, total=False):
     """Simulation definition."""
     slug: str
+    hidden: bool  # Omit from the public catalogue list. Direct slug access still works.
     title: str
     description: str
     scenario: str
     objectives: list[str]
     personaSlug: str
+    participants: list[Participant]
     estimatedDurationMinutes: int
     difficulty: int
     conversationGoals: list[ConversationGoal]
@@ -123,6 +134,7 @@ class SimulationSummary(TypedDict, total=False):
     slug: str
     title: str
     description: str
+    participants: list[dict[str, str]]
     personaName: str
     personaSlug: str
     difficulty: int
@@ -293,6 +305,50 @@ def load_persona(slug: str) -> Persona:
     raise ValueError(f"Persona '{slug}' not found. Available: {available}")
 
 
+def load_participants(simulation: dict) -> dict:
+    """Resolve private character instances; old personaSlug simulations stay unchanged."""
+    if "participants" not in simulation:
+        return {}
+    participants = simulation["participants"]
+    if not isinstance(participants, list) or not 2 <= len(participants) <= 8:
+        raise ValueError("participants must contain 2 to 8 characters")
+    characters = {}
+    for participant in participants:
+        if not isinstance(participant, dict):
+            raise ValueError("Invalid participant")
+        actor = participant.get("actorId")
+        if (not isinstance(actor, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", actor)
+                or actor in {"user", "director", "__proto__", "constructor", "prototype"} or actor in characters):
+            raise ValueError("participant actorId must be unique and non-reserved")
+        slug = participant.get("personaSlug")
+        if not isinstance(slug, str) or not slug:
+            raise ValueError("participant personaSlug is required")
+        for key in ("objective", "privateKnowledge"):
+            if key in participant and not isinstance(participant[key], str):
+                raise ValueError(f"participant {key} must be text")
+        characters[actor] = {
+            "persona": deepcopy(load_persona(slug)),
+            "objective": participant.get("objective", ""),
+            "privateKnowledge": participant.get("privateKnowledge", ""),
+            "last_message": None,
+        }
+    return characters
+
+
+def public_participants(characters: dict) -> list[dict[str, str]]:
+    """Only identity and portrait metadata may leave the private cast state."""
+    return [{"actor_id": actor, "name": c["persona"]["name"],
+             "persona_slug": c["persona"]["slug"], "role": c["persona"].get("role", "")}
+            for actor, c in characters.items()]
+
+
+def primary_persona_slug(simulation: dict) -> str:
+    if "participants" in simulation:
+        characters = load_participants(simulation)
+        return next(iter(characters.values()))["persona"]["slug"]
+    return simulation["personaSlug"]
+
+
 def load_simulation(slug: str) -> tuple[Simulation, Persona]:
     """Load a simulation by slug with its associated persona.
     
@@ -308,7 +364,7 @@ def load_simulation(slug: str) -> tuple[Simulation, Persona]:
     simulations = _load_simulations()
     for sim in simulations:
         if sim["slug"] == slug:
-            persona = load_persona(sim["personaSlug"])
+            persona = load_persona(primary_persona_slug(sim))
             return sim, persona
     
     available = [s["slug"] for s in simulations]
@@ -326,15 +382,20 @@ def list_simulations() -> list[SimulationSummary]:
     
     summaries = []
     for sim in simulations:
-        persona = personas.get(sim["personaSlug"])
-        persona_name = persona["name"] if persona else "Unknown"
+        if sim.get("hidden") is True:
+            continue
+        persona_slug = primary_persona_slug(sim)
+        persona = personas.get(persona_slug)
+        cast = load_participants(sim)
+        persona_name = " & ".join(c["persona"]["name"] for c in cast.values()) if cast else persona["name"] if persona else "Unknown"
         
         summary: SimulationSummary = {
             "slug": sim["slug"],
             "title": sim["title"],
             "description": sim["description"],
+            "participants": public_participants(cast),
             "personaName": persona_name,
-            "personaSlug": sim["personaSlug"],
+            "personaSlug": persona_slug,
             "difficulty": sim["difficulty"],
             "goalCount": len(sim.get("conversationGoals", [])),
         }

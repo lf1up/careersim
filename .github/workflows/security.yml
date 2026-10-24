@@ -91,6 +91,8 @@ jobs:
       # app, so Pillow 13 cannot be taken yet. The app does not accept image
       # uploads. Revisit when a Gradio release allows pillow>=13.
       # - CVE-2026-112390 through CVE-2026-112406, CVE-2026-112891 through CVE-2026-112901
+      # - CVE-2026-96636 through CVE-2026-96644, CVE-2026-96778, GHSA-78g4-xqwv-q3g8
+      # - CVE-2026-112398 (FlashPix JPEG heap overflow), CVE-2026-114501 (Arrow export leak)
       - name: Audit dependencies
         run: |
           uvx pip-audit --requirement /tmp/agent-requirements.txt \
@@ -121,7 +123,20 @@ jobs:
             --ignore-vuln CVE-2026-112897 \
             --ignore-vuln CVE-2026-112899 \
             --ignore-vuln CVE-2026-112900 \
-            --ignore-vuln CVE-2026-112901
+            --ignore-vuln CVE-2026-112901 \
+            --ignore-vuln CVE-2026-96636 \
+            --ignore-vuln CVE-2026-96637 \
+            --ignore-vuln CVE-2026-96638 \
+            --ignore-vuln CVE-2026-96639 \
+            --ignore-vuln CVE-2026-96640 \
+            --ignore-vuln CVE-2026-96641 \
+            --ignore-vuln CVE-2026-96642 \
+            --ignore-vuln CVE-2026-96643 \
+            --ignore-vuln CVE-2026-96644 \
+            --ignore-vuln CVE-2026-96778 \
+            --ignore-vuln GHSA-78g4-xqwv-q3g8 \
+            --ignore-vuln CVE-2026-112398 \
+            --ignore-vuln CVE-2026-114501
 
   secrets:
     name: Secret scan (gitleaks)

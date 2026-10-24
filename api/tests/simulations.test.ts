@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildTestApp,
@@ -121,5 +121,34 @@ describe('GET /simulations/:slug', () => {
       error: 'simulation_not_found',
       message: expect.stringContaining('does-not-exist'),
     });
+  });
+});
+
+
+describe('public group portraits', () => {
+  it('preserves public participants through both catalogue endpoints', async () => {
+    const h = await buildTestApp();
+    try {
+      const participants = [
+        { actor_id: 'lead', name: 'Alex', persona_slug: 'alex', role: 'Lead' },
+        { actor_id: 'hr', name: 'Brenda', persona_slug: 'brenda', role: 'HR' },
+      ];
+      const listing = await h.agent.listSimulations();
+      const detail = await h.agent.getSimulation(listing.simulations[0]!.slug);
+      const upstream = participants.map(p => ({ ...p, privateKnowledge: 'SECRET' }));
+      vi.spyOn(h.agent, 'listSimulations').mockResolvedValue({
+        simulations: [{ ...listing.simulations[0]!, participants: upstream }],
+      });
+      vi.spyOn(h.agent, 'getSimulation').mockResolvedValue({ ...detail, participants: upstream });
+      const listResponse = await h.app.inject({ url: '/v1/simulations' });
+      const detailResponse = await h.app.inject({ url: `/v1/simulations/${detail.slug}` });
+      expect(listResponse.statusCode).toBe(200);
+      expect(detailResponse.statusCode).toBe(200);
+      expect(listResponse.json().simulations[0].participants).toEqual(participants);
+      expect(detailResponse.json().participants).toEqual(participants);
+      expect(listResponse.body + detailResponse.body).not.toContain('SECRET');
+    } finally {
+      await h.close();
+    }
   });
 });

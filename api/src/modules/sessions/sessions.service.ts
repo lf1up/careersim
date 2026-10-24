@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, lt, sql } from 'drizzle-orm';
 
+import { isGroupScene, type AgentParticipant } from '../../agent/types.js';
 import type { AgentClient } from '../../agent/client.js';
 import type {
   AgentAnalysis,
@@ -53,6 +54,8 @@ export interface SessionConfig {
 }
 
 export interface SessionDetail {
+  evaluation_pending: boolean;
+  participants: AgentParticipant[];
   id: string;
   simulation_slug: string;
   /** Title stored on the session snapshot. Null when the snapshot has none. */
@@ -62,6 +65,9 @@ export interface SessionDetail {
   messages: Array<{
     id: string;
     role: 'human' | 'ai';
+    event_id: string | null;
+    actor_id: string | null;
+    actor_name: string | null;
     content: string;
     order_index: number;
     /** Origin of the message: text chat vs a voice call. */
@@ -209,7 +215,7 @@ function readRange(value: unknown): Range | null {
 }
 
 export function extractSessionConfig(snapshot: AgentWireState): SessionConfig {
-  const style = readConversationStyle(snapshot);
+  const style = isGroupScene(snapshot) ? { startsConversation: false, inactivityNudges: { max: 0 }, burstiness: { min: 0, max: 0 } } : readConversationStyle(snapshot);
   const startsRaw = style.startsConversation;
   // Personas declare `true`, `false`, or `"sometimes"`. Anything else
   // (undefined, nulls, typos) collapses to `null` so clients can treat
@@ -312,10 +318,18 @@ export function createSessionsService(
       simulation_title: readSimulationTitle(snapshot),
       created_at: session.createdAt.toISOString(),
       updated_at: session.updatedAt.toISOString(),
+      evaluation_pending: isGroupScene(snapshot) && snapshot.needs_evaluation === true,
+      participants: Object.entries(snapshot.characters ?? {}).map(([actor_id, character]) => ({
+        actor_id, name: String(character.persona.name ?? actor_id),
+        persona_slug: String(character.persona.slug ?? ""), role: String(character.persona.role ?? ""),
+      })),
       messages: rows.map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
+        event_id: m.eventId,
+        actor_id: m.actorId,
+        actor_name: m.actorName,
         order_index: m.orderIndex,
         source: m.source,
         typing_delay_ms: m.typingDelayMs,
@@ -355,6 +369,9 @@ export function createSessionsService(
       sessionId,
       role: m.role,
       content: m.content,
+      eventId: m.event_id,
+      actorId: m.actor_id,
+      actorName: m.actor_name,
       orderIndex: existingCount + i,
       source,
       typingDelayMs: null as number | null,
@@ -542,6 +559,7 @@ export function createSessionsService(
 
     async triggerFollowup(userId, sessionId) {
       const session = await loadSessionOrThrow(userId, sessionId);
+      if (isGroupScene(session.stateSnapshot)) throw badRequest("Group scenes advance when you send a message", "GROUP_FOLLOWUP_DISABLED");
       const response = await agent.proactive({
         state: session.stateSnapshot,
         triggerType: 'followup',
@@ -745,6 +763,7 @@ export function createSessionsService(
     source: MessageSource,
     expectedMessageCount?: number,
   ) {
+    if (source === "voice" && isGroupScene(session.stateSnapshot)) throw badRequest("Group scenes currently support text chat only", "GROUP_VOICE_UNSUPPORTED");
     if (expectedMessageCount !== undefined) {
       const actual = (session.stateSnapshot.messages ?? []).length;
       if (actual !== expectedMessageCount) {

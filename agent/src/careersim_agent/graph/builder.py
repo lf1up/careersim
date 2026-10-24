@@ -17,6 +17,8 @@ from .nodes import (
     retrieve_context,
 )
 
+from .nodes.scene import generate_scene_reply, evaluate_scene
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,13 +34,16 @@ GENERATE_PROACTIVE = "generate_proactive"
 
 
 def _route_after_input(state: ConversationState) -> Literal[
-    "analyze_input", "check_proactive"
+    "analyze_input", "check_proactive", "scene_reply", "__end__"
 ]:
     """Route after processing input.
     
     - If user sent a message -> analyze_input
     - If proactive trigger -> check_proactive
     """
+    if state.get("characters"):
+        return "scene_reply" if state.get("needs_evaluation") else END
+
     if state.get("last_user_message") and state.get("needs_evaluation"):
         logger.debug("Routing to analyze_input (user message)")
         return ANALYZE_INPUT
@@ -119,6 +124,10 @@ def build_graph() -> StateGraph:
     graph = StateGraph(ConversationState)
     
     # Add nodes
+    graph.add_node("scene_reply", generate_scene_reply)
+    graph.add_node("scene_evaluate", evaluate_scene)
+    graph.add_conditional_edges("scene_reply", lambda state: "scene_reply" if state.get("scene_replies_remaining", 0) > 0 else "scene_evaluate")
+    graph.add_edge("scene_evaluate", END)
     graph.add_node(PROCESS_INPUT, process_user_input)
     graph.add_node(ANALYZE_INPUT, analyze_user_input)
     graph.add_node(RETRIEVE_CONTEXT, retrieve_context)
@@ -137,6 +146,8 @@ def build_graph() -> StateGraph:
         PROCESS_INPUT,
         _route_after_input,
         {
+            "scene_reply": "scene_reply",
+            END: END,
             ANALYZE_INPUT: ANALYZE_INPUT,
             CHECK_PROACTIVE: CHECK_PROACTIVE,
         }

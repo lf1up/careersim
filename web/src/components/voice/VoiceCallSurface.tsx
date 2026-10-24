@@ -107,9 +107,8 @@ export function VoiceCallSurface({
   // (persisted server-side) — the next finalised utterance then starts a
   // fresh turn (clearing both caption stacks) instead of extending the
   // answered one. Driven by the worker's `turn_committed` control event,
-  // NOT by AI captions arriving: with abandon-and-rerun, spoken bubbles
-  // can belong to a reply that is later abandoned, in which case the
-  // user's next utterance still extends the SAME turn.
+  // AI captions are already saved, but generation may still be running;
+  // keep that context visible until the turn finishes.
   const turnCommittedRef = useRef<boolean>(false);
 
   const personaLabel = useMemo(() => personaName ?? 'persona', [personaName]);
@@ -186,13 +185,9 @@ export function VoiceCallSurface({
             // next user utterance starts a fresh caption group.
             turnCommittedRef.current = true;
           } else if (event.type === 'turn_superseded') {
-            // The in-flight reply was abandoned because the user kept
-            // talking. Its already-spoken bubbles will never persist —
-            // drop them and show "cooking" for the re-run. The user
-            // caption stack stays: those utterances still belong to the
-            // (continuing) current turn.
+            // Generation stopped, but every displayed reply is already
+            // saved. Keep it visible while the next reply is generated.
             lastCaptionSideRef.current = 'user';
-            setAiCaptions([]);
             setIsThinking(true);
           } else if (event.type === 'quota_warning') {
             toast('About a minute of daily voice time left.', { icon: '\u23F3' });

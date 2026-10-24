@@ -10,7 +10,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Iterable, Literal, Optional, TypedDict
+from typing import NotRequired, Any, Iterable, Literal, Optional, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -29,6 +29,7 @@ class TextAnalysisResult(TypedDict):
 
 
 class GoalEvalResult(TypedDict):
+    failed: NotRequired[bool]
     behavior_score: float
     behavior_label: str
     success_score: float
@@ -198,7 +199,7 @@ def _format_transcript_lines(
     lines: list[str] = []
     for idx, msg in enumerate(messages):
         role = msg.get("role", "unknown")
-        speaker = "USER" if role == "human" else persona_name.upper()
+        speaker = "USER" if role == "human" else str(msg.get("actor_name") or persona_name).upper()
         content = str(msg.get("content", ""))
         if len(content) > _DEBRIEF_MAX_MESSAGE_CHARS:
             content = content[:_DEBRIEF_MAX_MESSAGE_CHARS] + " […]"
@@ -470,6 +471,7 @@ class EvalService:
                 "success_score": 0.0,
                 "success_label": "",
                 "reasoning": f"evaluation error: {e}",
+                "failed": True,
             }
 
     def generate_debrief(self, state: dict[str, Any]) -> dict[str, Any]:

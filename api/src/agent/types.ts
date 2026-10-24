@@ -8,7 +8,21 @@
 
 export type AgentRole = 'human' | 'ai';
 
+export interface AgentParticipant {
+  actor_id: string;
+  name: string;
+  persona_slug: string;
+  role: string;
+}
+
+export function isGroupScene(state: AgentWireState): boolean {
+  return Object.keys(state.characters ?? {}).length > 1;
+}
+
 export interface AgentMessage {
+  event_id?: string;
+  actor_id?: string;
+  actor_name?: string;
   role: AgentRole;
   content: string;
 }
@@ -34,6 +48,7 @@ export interface AgentAnalysis {
 }
 
 export interface AgentWireState {
+  characters?: Record<string, { persona: Record<string, unknown>; [key: string]: unknown }>;
   session_id?: string;
   simulation?: { slug?: string } & Record<string, unknown>;
   persona?: Record<string, unknown>;
@@ -132,6 +147,7 @@ export interface AgentDebriefResponse {
 export interface AgentSimulation {
   slug: string;
   title: string;
+  participants?: AgentParticipant[];
   persona_name: string;
   persona_slug?: string | null;
   avatar_url?: string | null;
@@ -168,6 +184,7 @@ export interface AgentSimulationDetail {
   description: string;
   scenario: string;
   objectives: string[];
+  participants?: AgentParticipant[];
   persona_name: string;
   persona_slug?: string | null;
   avatar_url?: string | null;
@@ -204,6 +221,9 @@ export type ProactiveTrigger = 'start' | 'inactivity' | 'followup';
 
 /** SSE `event: message` payload emitted by the agent's streaming endpoints. */
 export interface AgentStreamMessageEvent {
+  event_id?: string | null;
+  actor_id?: string | null;
+  actor_name?: string | null;
   content: string;
   node?: string;
   typing_delay_sec: number;

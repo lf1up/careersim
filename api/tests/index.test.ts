@@ -19,7 +19,7 @@ describe('GET /v1', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       name: 'careersim-api',
-      version: '1.0.0',
+      version: '1.1.0',
       status: 'ok',
       agent: 'ok',
       health: '/v1/health',

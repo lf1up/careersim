@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 
-import type { Message } from '@/lib/types';
+import type { Message, AssistantMessage, SessionParticipant } from '@/lib/types';
 import { MarkdownMessage } from '@/components/ui/MarkdownMessage';
 import { PersonaAvatar } from '@/components/ui/PersonaAvatar';
 
@@ -37,16 +37,17 @@ interface ChatTranscriptProps {
    * matching the real chronology — until a refetch/`done` lands them in
    * `messages`.
    */
-  keptBurst?: string[];
+  keptBurst?: (string | AssistantMessage)[];
   /**
    * AI messages already delivered within the current burst but not yet
    * persisted via `done`. Each renders as its own "pending" bubble so the
    * typing indicator can appear between them while the persona "types"
    * the next follow-up.
    */
-  burstedAssistant?: string[];
+  burstedAssistant?: (string | AssistantMessage)[];
   /** Currently-streaming AI message content (the in-flight bubble). */
-  pendingAssistant?: string | null;
+  pendingAssistant?: string | AssistantMessage | null;
+  participants?: SessionParticipant[];
   /**
    * True while the turn stream is open and the persona may still be
    * "typing": before the first message of a turn, during follow-up
@@ -69,6 +70,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   keptBurst,
   burstedAssistant,
   pendingAssistant,
+  participants,
   isWaiting,
   persona,
 }) => {
@@ -101,12 +103,12 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   for (const m of messages) {
     // Older messages persisted before voice tagging have no `source`;
     // treat them as text so they render outside any voice-call block.
-    items.push({ key: m.id, role: m.role, content: m.content, source: m.source ?? 'text' });
+    items.push({ ...m, key: m.event_id ?? m.id, source: m.source ?? 'text' });
   }
   // Pending bubbles only ever appear in live text chat (voice mode swaps the
   // composer/transcript for the call surface), so they are always text.
   keptBurst?.forEach((content, i) => {
-    items.push({ key: `kept-${i}`, role: 'ai', content, source: 'text' });
+    items.push(assistantItem(content, `kept-${i}`));
   });
   pendingHumans?.forEach((content, i) => {
     items.push({
@@ -117,15 +119,10 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
     });
   });
   burstedAssistant?.forEach((content, i) => {
-    items.push({ key: `burst-${i}`, role: 'ai', content, source: 'text' });
+    items.push(assistantItem(content, `burst-${i}`));
   });
   if (pendingAssistant) {
-    items.push({
-      key: 'pending-ai',
-      role: 'ai',
-      content: pendingAssistant,
-      source: 'text',
-    });
+    items.push(assistantItem(pendingAssistant, 'pending-ai'));
   }
 
   // Interleave the bubbles with "voice call" dividers: a run of one or more
@@ -148,13 +145,17 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
     // Avatar on the *first* AI bubble of a consecutive AI streak, and again
     // whenever a voice-call divider breaks the streak — so the persona is
     // re-identified at the top of each call segment.
-    const showAvatar = item.role === 'ai' && (prev?.role !== 'ai' || sourceChanged);
+    const showAvatar = item.role === 'ai' && (prev?.role !== 'ai' || sourceChanged || prev?.actor_id !== item.actor_id);
+    const participant = participants?.find((p) => p.actor_id === item.actor_id);
+    const speaker = participant
+      ? { name: participant.name, slug: participant.persona_slug, role: participant.role }
+      : item.actor_name ? { ...persona, name: item.actor_name } : persona;
     rendered.push(
       <Bubble
         key={item.key}
         role={item.role}
         content={item.content}
-        persona={persona}
+        persona={speaker}
         showAvatar={showAvatar}
       />,
     );
@@ -187,7 +188,12 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   );
 };
 
-interface BubbleItem {
+function assistantItem(message: string | AssistantMessage, key: string): BubbleItem {
+  const data = typeof message === "string" ? { content: message } : message;
+  return { ...data, key: data.event_id ?? key, role: "ai", source: "text" };
+}
+
+interface BubbleItem extends AssistantMessage {
   key: string;
   role: 'human' | 'ai';
   content: string;
@@ -234,7 +240,7 @@ const Bubble: React.FC<BubbleProps> = ({
   // with the avatar) — repeating it on every burst follow-up would be noisy.
   const showLabel = Boolean(persona && showAvatar);
   return (
-    <div className="flex items-start gap-2 justify-start">
+    <div role="group" aria-label={`${persona?.name ?? "Assistant"} message`} className="flex items-start gap-2 justify-start">
       {persona && showAvatar ? (
         <PersonaAvatar
           name={persona.name}

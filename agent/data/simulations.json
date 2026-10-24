@@ -1190,5 +1190,79 @@
         }
       }
     ]
+  },
+  {
+    "slug": "release-planning-panel",
+    "hidden": true,
+    "title": "The Release Planning Meeting",
+    "description": "Balance delivery pressure and staffing concerns with Alex Chen and Brenda Vance in a group discussion.",
+    "scenario": "You own a product release scheduled for Friday. Alex Chen, the tech lead, wants a smaller release shipped on time. Brenda Vance, the HR manager, is concerned about workload and sustainable staffing. Open the meeting, explore both perspectives, and propose an actionable plan.",
+    "objectives": [
+      "Clarify each participant’s concerns without taking sides too early",
+      "Propose a concrete tradeoff with owners and a follow-up checkpoint"
+    ],
+    "personaSlug": "alex-chen-tech-lead",
+    "participants": [
+      {
+        "actorId": "alex",
+        "personaSlug": "alex-chen-tech-lead",
+        "objective": "Advocate a safe, small release while protecting the team’s credibility.",
+        "privateKnowledge": "You think two nonessential features can be postponed, but nobody has asked you about scope yet."
+      },
+      {
+        "actorId": "brenda",
+        "personaSlug": "brenda-vance-hr-manager",
+        "objective": "Prevent repeated overtime and ask for explicit staffing commitments.",
+        "privateKnowledge": "Two engineers have privately raised workload concerns. Discuss the staffing risk without identifying them."
+      }
+    ],
+    "estimatedDurationMinutes": 15,
+    "difficulty": 3,
+    "skillsToLearn": [
+      "Facilitation",
+      "Conflict resolution",
+      "Tradeoff negotiation"
+    ],
+    "tags": [
+      "group",
+      "leadership",
+      "planning"
+    ],
+    "successCriteria": {
+      "communication": [
+        "Acknowledge both viewpoints",
+        "Ask clarifying questions"
+      ],
+      "problemSolving": [
+        "Offer a feasible scope and staffing tradeoff"
+      ],
+      "emotional": [
+        "Remain composed during disagreement"
+      ]
+    },
+    "conversationGoals": [
+      {
+        "goalNumber": 1,
+        "title": "Understand both perspectives",
+        "description": "Invite and accurately summarize the delivery and staffing concerns.",
+        "keyBehaviors": [
+          "Ask both participants about their constraints",
+          "Summarize the competing concerns without dismissing either"
+        ],
+        "successIndicators": [],
+        "isOptional": false
+      },
+      {
+        "goalNumber": 2,
+        "title": "Propose a workable next step",
+        "description": "Offer a concrete tradeoff with owners and a checkpoint; agreement from every character is not required.",
+        "keyBehaviors": [
+          "Propose a scope or timing tradeoff",
+          "Name an owner and a follow-up checkpoint"
+        ],
+        "successIndicators": [],
+        "isOptional": false
+      }
+    ]
   }
 ]

@@ -176,9 +176,9 @@ export default function SessionReportPage() {
   }, [sessionId]);
 
   const messagesByIndex = useMemo(() => {
-    const map = new Map<number, { role: string; content: string }>();
+    const map = new Map<number, { role: string; content: string; actor_name?: string | null }>();
     for (const m of session?.messages ?? []) {
-      map.set(m.order_index, { role: m.role, content: m.content });
+      map.set(m.order_index, m);
     }
     return map;
   }, [session?.messages]);
@@ -388,7 +388,7 @@ export default function SessionReportPage() {
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <RetroBadge color={isUser ? 'yellow' : 'cyan'}>
-                      {isUser ? 'You' : simulation?.persona_name ?? 'Persona'}
+                      {isUser ? 'You' : message?.actor_name ?? simulation?.persona_name ?? 'Persona'}
                     </RetroBadge>
                     <span className="text-sm font-semibold text-retro-ink dark:text-retro-ink-dark">
                       {moment.label}

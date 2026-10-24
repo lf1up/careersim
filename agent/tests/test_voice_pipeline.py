@@ -89,8 +89,8 @@ async def test_user_turn_serialises_state_through_wire_format() -> None:
 
     msgs = result.new_state["messages"]
     assert len(msgs) == 2
-    assert msgs[0] == {"role": "human", "content": "hello"}
-    assert msgs[1] == {"role": "ai", "content": "Reply!"}
+    assert {k: msgs[0][k] for k in ("role", "content")} == {"role": "human", "content": "hello"}
+    assert {k: msgs[1][k] for k in ("role", "content")} == {"role": "ai", "content": "Reply!"}
 
 
 # -----------------------------------------------------------------

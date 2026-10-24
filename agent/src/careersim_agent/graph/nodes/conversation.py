@@ -74,9 +74,11 @@ def process_user_input(state: ConversationState) -> dict[str, Any]:
         
         # Add each message as its own bubble
         messages = list(state.get("messages", []))
-        messages.extend(HumanMessage(content=m) for m in batch)
+        messages.extend(HumanMessage(content=m, name="user") for m in batch)
         
         updates["messages"] = messages
+        if state.get("characters"):
+            updates["scene_replies_remaining"] = 2
         updates["last_user_message"] = combined
         updates["user_message"] = None  # Clear the input fields
         updates["user_messages"] = None

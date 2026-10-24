@@ -22,6 +22,7 @@ export interface PendingRegistration {
 export interface Simulation {
   slug: string;
   title: string;
+  participants?: SessionParticipant[];
   persona_name: string;
   persona_slug?: string | null;
   avatar_url?: string | null;
@@ -54,6 +55,7 @@ export interface SimulationDetail {
   description: string;
   scenario: string;
   objectives: string[];
+  participants?: SessionParticipant[];
   persona_name: string;
   persona_slug?: string | null;
   avatar_url?: string | null;
@@ -82,7 +84,21 @@ export type MessageRole = 'human' | 'ai';
 /** Where a message originated: web text chat vs a LiveKit voice call. */
 export type MessageSource = 'text' | 'voice';
 
-export interface Message {
+export interface AssistantMessage {
+  content: string;
+  event_id?: string | null;
+  actor_id?: string | null;
+  actor_name?: string | null;
+}
+
+export interface SessionParticipant {
+  actor_id: string;
+  name: string;
+  persona_slug: string;
+  role: string;
+}
+
+export interface Message extends AssistantMessage {
   id: string;
   role: MessageRole;
   content: string;
@@ -141,6 +157,8 @@ export interface GoalProgress {
 }
 
 export interface SessionDetail {
+  evaluation_pending?: boolean;
+  participants?: SessionParticipant[];
   id: string;
   simulation_slug: string;
   /** Title from the session snapshot. Null when the snapshot has none. */
@@ -357,7 +375,7 @@ export type StreamMessageEvent = {
 
 export type StreamDoneEvent = {
   type: 'done';
-  data: { session: SessionDetail; state?: unknown };
+  data: { session: SessionDetail };
 };
 
 export type StreamErrorEvent = {
@@ -409,8 +427,7 @@ export interface VoiceCaption {
  * captions into turns: `turn_committed` means the current turn was
  * persisted (the next user utterance starts a fresh caption group);
  * `turn_superseded` means the in-flight reply was abandoned because the
- * user kept talking (its already-shown bubbles will never persist and
- * should be dropped). `tts_error` means speech synthesis failed for a
+ * user kept talking (already-shown bubbles are saved and stay visible). `tts_error` means speech synthesis failed for a
  * reply bubble — the conversation continues (captions + transcript stay
  * correct) but the persona's audio is unavailable.
  */
