@@ -1,20 +1,21 @@
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const apiRoot = join(repoRoot, 'api');
-const webRoot = join(repoRoot, 'web');
-const fixtureDir = join(apiRoot, 'tests/fixtures/plugin-src');
+let apiRoot = '';
+let webRoot = '';
+let testRoot = '';
+const fixtureDir = join(repoRoot, 'api/tests/fixtures/plugin-src');
 
-const overlays = [
+const overlays = () => [
   join(apiRoot, 'src/extensions/installed'),
   join(apiRoot, 'dist/extensions/installed'),
   join(webRoot, 'src/extensions/installed'),
@@ -40,8 +41,18 @@ async function run(
 }
 
 describe('plugins.mjs', () => {
+  beforeEach(async () => {
+    testRoot = await realpath(await mkdtemp(join(tmpdir(), 'careersim-plugin-host-')));
+    apiRoot = join(testRoot, 'api');
+    webRoot = join(testRoot, 'web');
+    for (const name of ['api', 'web']) {
+      await mkdir(join(testRoot, name, 'scripts'), { recursive: true });
+      await cp(join(repoRoot, name, 'scripts/plugins.mjs'), join(testRoot, name, 'scripts/plugins.mjs'));
+    }
+    await writeFile(join(webRoot, 'next.config.mjs'), 'export default {};');
+  });
   afterEach(async () => {
-    await Promise.all(overlays.map((dir) => rm(dir, { recursive: true, force: true })));
+    await rm(testRoot, { recursive: true, force: true });
   });
 
   it('keeps the api and web copies of plugins.mjs identical', async () => {
@@ -53,7 +64,7 @@ describe('plugins.mjs', () => {
   it('does nothing when CAREERSIM_PLUGINS is unset', async () => {
     await run(join(apiRoot, 'scripts/plugins.mjs'), { CAREERSIM_PLUGINS: undefined });
     await run(join(webRoot, 'scripts/plugins.mjs'), { CAREERSIM_PLUGINS: '' });
-    for (const dir of overlays) expect(existsSync(dir)).toBe(false);
+    for (const dir of overlays()) expect(existsSync(dir)).toBe(false);
   });
 
   it('copies a local plugin into the api and web overlays', async () => {
@@ -68,7 +79,7 @@ describe('plugins.mjs', () => {
 
     await run(join(webRoot, 'scripts/plugins.mjs'), env);
     expect(existsSync(join(webRoot, 'src/extensions/installed/demo/web/index.ts'))).toBe(true);
-    expect(existsSync(join(webRoot, 'src/extensions/installed/demo/shared/note.ts'))).toBe(false);
+    expect(existsSync(join(webRoot, 'src/extensions/installed/demo/shared/note.ts'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/extensions/installed/index.ts'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/app/(app)/(plugins)/demo/page.tsx'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/app/(public)/(plugins)/p/[token]/page.tsx'))).toBe(true);
@@ -164,8 +175,11 @@ describe('plugins.mjs', () => {
       await writeFile(source, `${original}\n// touched\n`);
       await waitFor(async () => (await readFile(installed, 'utf8').catch(() => '')).includes('// touched'));
     } finally {
-      child.kill('SIGTERM');
-      await new Promise((resolve) => child.once('exit', resolve));
+      if (child.exitCode === null) {
+        const exited = new Promise((resolve) => child.once('exit', resolve));
+        child.kill('SIGTERM');
+        await exited;
+      }
       await rm(tmp, { recursive: true, force: true });
     }
   });

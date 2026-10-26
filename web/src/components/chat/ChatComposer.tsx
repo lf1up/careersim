@@ -7,16 +7,21 @@ import { RetroTextArea } from '@/components/ui/RetroInput';
 
 interface ChatComposerProps {
   onSend: (content: string) => Promise<void> | void;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  disabled?: boolean;
 }
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
-  onSend,
+  onSend, value: controlledValue, onValueChange, disabled = false,
 }) => {
-  const [value, setValue] = useState('');
+  const [localValue, setLocalValue] = useState('');
+  const value = controlledValue ?? localValue;
+  const setValue = onValueChange ?? setLocalValue;
 
   const submit = async () => {
     const trimmed = value.trim();
-    if (!trimmed) return;
+    if (disabled || !trimmed) return;
     setValue('');
     try {
       await onSend(trimmed);
@@ -37,6 +42,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       <div className="flex-1">
         <RetroTextArea
           name="message"
+          disabled={disabled}
           rows={2}
           placeholder="Type your message..."
           className="min-h-16 resize-y text-sm sm:min-h-24"
@@ -54,7 +60,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         type="submit"
         size="sm"
         className="sm:px-4 sm:py-2 sm:text-sm"
-        disabled={!value.trim()}
+        disabled={disabled || !value.trim()}
       >
         Send
       </Button>

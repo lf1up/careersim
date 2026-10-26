@@ -360,3 +360,12 @@ describe('parseAgentSSE', () => {
     expect(await collect(chunks())).toEqual([]);
   });
 });
+
+it('resolves private definitions only through the authenticated agent connection', async () => {
+  requestMock.mockResolvedValueOnce(jsonResponse(200, { slug: 'a b', personality: 'private' }));
+  const client = new HttpAgentClient('http://agent:8000', { internalKey: 'secret' });
+  await expect(client.getPersonaDefinition('a b')).resolves.toMatchObject({ personality: 'private' });
+  const [url, opts] = lastCall();
+  expect(url).toBe('http://agent:8000/personas/a%20b/definition');
+  expect(opts.headers['X-Internal-Key']).toBe('secret');
+});

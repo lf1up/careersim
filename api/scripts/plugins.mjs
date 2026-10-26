@@ -216,6 +216,7 @@ async function installPlugins(ids) {
   for (const { id, source } of sources) {
     const dest = join(root, 'src/extensions/installed', id);
     await mkdir(join(dest, 'web'), { recursive: true });
+    await copyIfExists(join(source, 'shared'), join(dest, 'shared'));
     await copyChildren(join(source, 'web'), join(dest, 'web'), (name) => name !== 'app');
     await copyPages(join(source, 'web/app/(app)'), join(root, 'src/app/(app)/(plugins)'), written);
     await copyPages(join(source, 'web/app/(public)'), join(root, 'src/app/(public)/(plugins)'), written);

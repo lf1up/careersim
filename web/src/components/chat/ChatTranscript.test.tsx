@@ -141,3 +141,11 @@ describe('multi-character speakers', () => {
     expect(screen.getByText('Third')).toBeInTheDocument();
   });
 });
+
+it('offers actions for persisted messages with their original stable IDs', () => {
+  const message = msg('human', 'try again');
+  const { rerender } = render(<ChatTranscript messages={[message]} renderMessageActions={(m) => <button>Retry {m.id}</button>} />);
+  expect(screen.getByRole('button', { name: `Retry ${message.id}` })).toBeInTheDocument();
+  rerender(<ChatTranscript messages={[message]} />);
+  expect(screen.queryByRole('button')).toBeNull();
+});
