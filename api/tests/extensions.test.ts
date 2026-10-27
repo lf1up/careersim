@@ -1,13 +1,23 @@
-import { dirname, resolve } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { sql } from 'drizzle-orm';
+import Fastify from 'fastify';
 import { migrate } from 'drizzle-orm/pglite/migrator';
+import {
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyPluginMigrations } from '../src/extensions/migrate.js';
 import { EXTENSION_API_VERSION, type ApiPlugin } from '../src/extensions/sdk.js';
 import { loadInstalledPlugins } from '../src/extensions/loader.js';
+import { sessionsRoutes } from '../src/modules/sessions/sessions.route.js';
+import { simulationsRoutes } from '../src/modules/simulations/simulations.route.js';
 import fixturePlugin, { createdSessions } from './fixtures/installed/fixture/index.js';
 import { buildTestApp, registerAndAuth, type TestHarness } from './helpers/build-test-app.js';
 
@@ -38,6 +48,34 @@ describe('extensions', () => {
     expect(plugins.map((plugin) => plugin.id)).toEqual(['fixture']);
     expect(plugins[0]?.apiVersion).toBe(EXTENSION_API_VERSION);
     await expect(loadInstalledPlugins(badDir)).rejects.toThrow(/ApiPlugin/);
+  });
+
+  it('skips loose files and rejects a plugin directory with no entry', async () => {
+    const filesOnly = await mkdtemp(join(tmpdir(), 'plugins-'));
+    const noEntry = await mkdtemp(join(tmpdir(), 'plugins-'));
+    try {
+      await writeFile(join(filesOnly, 'readme.txt'), 'skip');
+      await expect(loadInstalledPlugins(filesOnly)).resolves.toEqual([]);
+
+      await mkdir(join(noEntry, 'orphan'));
+      await expect(loadInstalledPlugins(noEntry)).rejects.toThrow(
+        /no index\.ts or api\/index\.ts/,
+      );
+    } finally {
+      await rm(filesOnly, { recursive: true, force: true });
+      await rm(noEntry, { recursive: true, force: true });
+    }
+  });
+
+  it('accepts a named plugin export and rejects null or primitive exports', async () => {
+    const named = await loadInstalledPlugins(resolve(__dirname, 'fixtures/loader/named-root'));
+    expect(named.map((plugin) => plugin.id)).toEqual(['named']);
+    await expect(
+      loadInstalledPlugins(resolve(__dirname, 'fixtures/loader/nullish-root')),
+    ).rejects.toThrow(/ApiPlugin/);
+    await expect(
+      loadInstalledPlugins(resolve(__dirname, 'fixtures/loader/primitive-root')),
+    ).rejects.toThrow(/ApiPlugin/);
   });
 
   it('boots with no plugins and keeps catalog session creation on the agent', async () => {
@@ -122,6 +160,96 @@ describe('extensions', () => {
     await applyPluginMigrations(h.db.db, [fixturePlugin], migrate);
     const rows = await h.db.db.execute(sql`select id from extfix.markers`);
     expect(rows.rows).toEqual([{ id: 'applied' }]);
+  });
+
+  it('skips plugins that do not ship migrations', async () => {
+    const seen: string[] = [];
+    await applyPluginMigrations(
+      null as never,
+      [{ id: 'bare', apiVersion: 1 }, fixturePlugin],
+      async (_db, config) => {
+        seen.push(config.migrationsSchema ?? '');
+      },
+    );
+    expect(seen).toEqual(['extfix']);
+  });
+
+  it('stores a provider session that does not ask for a proactive start', async () => {
+    const quiet: ApiPlugin = {
+      id: 'quiet',
+      apiVersion: EXTENSION_API_VERSION,
+      simulations: {
+        namespace: 'quiet',
+        async getDetail() {
+          return null;
+        },
+        async prepareSession({ slug }) {
+          if (slug === 'quiet:seeded') {
+            return {
+              state: {
+                simulation: { slug, title: 'Quiet' },
+                messages: [{ role: 'ai', content: 'seeded' }],
+                goal_progress: [{ goalNumber: 1, status: 'not_started' }],
+              },
+            };
+          }
+          return { state: { simulation: { slug, title: 'Quiet' } } };
+        },
+      },
+    };
+    h = await buildTestApp({ plugins: [quiet] });
+    const { authHeader } = await registerAndAuth(h.app);
+
+    const seeded = await h.app.inject({
+      method: 'POST',
+      url: '/v1/sessions',
+      payload: { simulation_slug: 'quiet:seeded' },
+      headers: authHeader,
+    });
+    expect(seeded.statusCode, seeded.body).toBe(201);
+    expect(seeded.json().messages.map((message: { content: string }) => message.content)).toEqual([
+      'seeded',
+    ]);
+    expect(seeded.json().goal_progress).toEqual([{ goalNumber: 1, status: 'not_started' }]);
+
+    const bare = await h.app.inject({
+      method: 'POST',
+      url: '/v1/sessions',
+      payload: { simulation_slug: 'quiet:bare' },
+      headers: authHeader,
+    });
+    expect(bare.statusCode, bare.body).toBe(201);
+    expect(bare.json().messages).toEqual([]);
+    expect(bare.json().goal_progress).toEqual([]);
+    expect(
+      h.agent.callLog.some((entry) => entry.startsWith('proactive:') || entry.startsWith('init:')),
+    ).toBe(false);
+  });
+
+  it('defaults simulation providers to none when the option is omitted', async () => {
+    const app = Fastify().withTypeProvider<ZodTypeProvider>();
+    app.setValidatorCompiler(validatorCompiler);
+    app.setSerializerCompiler(serializerCompiler);
+    app.decorate('authenticate', async () => {});
+    await app.register(simulationsRoutes, {
+      agent: {
+        listSimulations: async () => ({ simulations: [] }),
+        getSimulation: async () => {
+          throw new Error('catalog lookup should not run');
+        },
+      } as never,
+    });
+    await app.register(sessionsRoutes, { db: {} as never, agent: {} as never });
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/simulations/fixture:missing',
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toEqual({
+      error: 'simulation_not_found',
+      message: 'Simulation "fixture:missing" was not found.',
+    });
+    await app.close();
   });
 
   it('refuses a plugin that collides with a host route or targets another api version', async () => {

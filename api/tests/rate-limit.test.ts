@@ -1,5 +1,7 @@
+import type { FastifyRequest } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { perUserLimit } from '../src/plugins/rate-limit.js';
 import { buildTestApp, registerAndAuth, TEST_ALTCHA, type TestHarness } from './helpers/build-test-app.js';
 
 /**
@@ -173,5 +175,15 @@ describe('rate limiting', () => {
     });
     expect(limited.statusCode).toBe(429);
     expect(limited.headers['retry-after']).toBeDefined();
+  });
+});
+
+describe('perUserLimit', () => {
+  it('keys a plugin bucket by user id, then by IP', () => {
+    const policy = perUserLimit(4, '1 minute');
+    expect(policy).toMatchObject({ max: 4, timeWindow: '1 minute' });
+    expect(policy.keyGenerator({ user: { sub: 'user-1' } } as FastifyRequest)).toBe('user:user-1');
+    expect(policy.keyGenerator({ ip: '203.0.113.5' } as FastifyRequest)).toBe('ip:203.0.113.5');
+    expect(policy.keyGenerator({} as FastifyRequest)).toBe('ip:anon');
   });
 });

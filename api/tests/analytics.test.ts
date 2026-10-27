@@ -70,6 +70,23 @@ describe('GET /analytics/overview', () => {
       .where(eq(sessions.id, sessionId));
   }
 
+  /** Force snapshot title and createdAt so per-simulation order is stable. */
+  async function setTitle(sessionId: string, title: unknown, createdAt: Date) {
+    const [row] = await h.db.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .limit(1);
+    if (!row) throw new Error(`session not found: ${sessionId}`);
+    const simulation = { ...row.stateSnapshot.simulation };
+    if (title === undefined) delete simulation.title;
+    else simulation.title = title;
+    await h.db.db
+      .update(sessions)
+      .set({ createdAt, stateSnapshot: { ...row.stateSnapshot, simulation } })
+      .where(eq(sessions.id, sessionId));
+  }
+
   it('requires authentication', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/analytics/overview' });
     expect(res.statusCode).toBe(401);
@@ -198,6 +215,28 @@ describe('GET /analytics/overview', () => {
       completed_sessions: 1,
       best_goals_achieved: 1,
       goals_required: 1,
+    });
+  });
+
+  it('backfills a blank simulation title from a later session of the same slug', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const blank = await createSession(authHeader, SLUG);
+    const untitled = await createSession(authHeader, SLUG);
+    const titled = await createSession(authHeader, SLUG);
+    await setTitle(blank.id, '   ', new Date('2020-01-01T00:00:00Z'));
+    await setTitle(untitled.id, undefined, new Date('2020-01-02T00:00:00Z'));
+    await h.db.db
+      .update(sessions)
+      .set({ createdAt: new Date('2020-01-03T00:00:00Z') })
+      .where(eq(sessions.id, titled.id));
+
+    const body = await getOverview(authHeader);
+    const row = body.per_simulation.find(
+      (entry: { simulation_slug: string }) => entry.simulation_slug === SLUG,
+    );
+    expect(row).toMatchObject({
+      sessions: 3,
+      simulation_title: 'Behavioral Interview',
     });
   });
 

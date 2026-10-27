@@ -66,6 +66,58 @@ describe('GET /sessions/:id/report', () => {
     expect(h.agent.callLog.filter(c=>c.startsWith('debrief'))).toHaveLength(0);
   });
 
+  it('returns no title or goals when the snapshot has no simulation block', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+    const [row] = await h.db.db.select().from(sessions).where(eq(sessions.id, session.id));
+    const snapshot = { ...row!.stateSnapshot };
+    delete snapshot.simulation;
+    delete snapshot.goal_progress;
+    await h.db.db
+      .update(sessions)
+      .set({ stateSnapshot: snapshot })
+      .where(eq(sessions.id, session.id));
+
+    const detail = await h.app.inject({
+      method: 'GET',
+      url: `/v1/sessions/${session.id}`,
+      headers: authHeader,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().simulation_title).toBeNull();
+    expect(detail.json().goal_progress).toEqual([]);
+  });
+
+  it('hides stored goals and a blank title on an open conversation', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+    const [row] = await h.db.db.select().from(sessions).where(eq(sessions.id, session.id));
+    await h.db.db
+      .update(sessions)
+      .set({
+        stateSnapshot: {
+          ...row!.stateSnapshot,
+          simulation: {
+            ...row!.stateSnapshot.simulation,
+            evaluationMode: 'open',
+            title: '   ',
+          },
+          goal_progress: [{ goalNumber: 1, status: 'achieved' }],
+        },
+      })
+      .where(eq(sessions.id, session.id));
+
+    const detail = await h.app.inject({
+      method: 'GET',
+      url: `/v1/sessions/${session.id}`,
+      headers: authHeader,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().assessment_mode).toBe('open');
+    expect(detail.json().simulation_title).toBeNull();
+    expect(detail.json().goal_progress).toEqual([]);
+  });
+
   it('returns 400 NO_USER_MESSAGES before the user has chatted', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const session = await createSession(authHeader);
