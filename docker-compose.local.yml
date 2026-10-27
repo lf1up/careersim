@@ -119,9 +119,14 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    # Copy the bind-mounted plugin before migrating. `pnpm dev` copies it
+    # too, but a stale src/extensions/installed/<id> makes this migrate
+    # fail and the server never starts. `sync` is a no-op when
+    # CAREERSIM_PLUGINS is empty.
     command: >
       sh -c "
         pnpm install --frozen-lockfile=false &&
+        node scripts/plugins.mjs sync &&
         echo 'Running database migrations...' &&
         pnpm run db:migrate &&
         echo 'Starting development server...' &&
