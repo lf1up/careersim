@@ -140,6 +140,7 @@ export const sessionConfigSchema = z.object({
 });
 
 export const sessionDetailSchema = z.object({
+  assessment_mode: z.enum(['open','practice']).optional(),
   evaluation_pending: z.boolean(),
   id: z.uuid(),
   simulation_slug: z.string(),

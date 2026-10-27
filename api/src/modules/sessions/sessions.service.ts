@@ -54,6 +54,7 @@ export interface SessionConfig {
 }
 
 export interface SessionDetail {
+  assessment_mode?: 'open' | 'practice';
   evaluation_pending: boolean;
   participants: AgentParticipant[];
   id: string;
@@ -318,7 +319,8 @@ export function createSessionsService(
       simulation_title: readSimulationTitle(snapshot),
       created_at: session.createdAt.toISOString(),
       updated_at: session.updatedAt.toISOString(),
-      evaluation_pending: isGroupScene(snapshot) && snapshot.needs_evaluation === true,
+      ...(snapshot.simulation?.evaluationMode === 'open' || snapshot.simulation?.evaluationMode === 'practice' ? {assessment_mode: snapshot.simulation.evaluationMode} : {}),
+      evaluation_pending: snapshot.simulation?.evaluationMode !== 'open' && isGroupScene(snapshot) && snapshot.needs_evaluation === true,
       participants: Object.entries(snapshot.characters ?? {}).map(([actor_id, character]) => ({
         actor_id, name: String(character.persona.name ?? actor_id),
         persona_slug: String(character.persona.slug ?? ""), role: String(character.persona.role ?? ""),
@@ -335,7 +337,7 @@ export function createSessionsService(
         typing_delay_ms: m.typingDelayMs,
         created_at: m.createdAt.toISOString(),
       })),
-      goal_progress: snapshot.goal_progress ?? [],
+      goal_progress: snapshot.simulation?.evaluationMode === 'open' ? [] : snapshot.goal_progress ?? [],
       analysis: {
         user_sentiment: snapshot.last_user_sentiment ?? null,
         user_emotion: snapshot.last_user_emotion ?? null,
@@ -676,6 +678,7 @@ export function createSessionsService(
     async getReport(userId, sessionId) {
       const session = await loadSessionOrThrow(userId, sessionId);
       const snapshot = session.stateSnapshot;
+      if (snapshot.simulation?.evaluationMode === 'open') throw badRequest('Open conversations have no scored report.', 'OPEN_CONVERSATION');
       const transcript = snapshot.messages ?? [];
       const currentCount = transcript.length;
 

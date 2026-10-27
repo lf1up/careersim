@@ -123,6 +123,7 @@ export default function SessionReportPage() {
   const params = useParams<{ id: string }>();
   const sessionId = params.id;
 
+  const [openConversation,setOpenConversation]=useState(false);
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [simulation, setSimulation] = useState<SimulationDetail | null>(null);
   const [reportRes, setReportRes] = useState<SessionReportResponse | null>(null);
@@ -139,15 +140,12 @@ export default function SessionReportPage() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        // The report call can take several seconds on a cache miss (LLM
-        // generation) — fire both in parallel so the transcript is ready
-        // to resolve key-moment quotes the moment the report lands.
-        const [detail, report] = await Promise.all([
-          apiClient.getSession(sessionId, controller.signal),
-          apiClient.getSessionReport(sessionId, controller.signal),
-        ]);
+        const detail = await apiClient.getSession(sessionId, controller.signal);
         if (cancelled) return;
         setSession(detail);
+        if (detail.assessment_mode === 'open') { setOpenConversation(true); return; }
+        const report = await apiClient.getSessionReport(sessionId, controller.signal);
+        if (cancelled) return;
         setReportRes(report);
         // Simulation metadata is cosmetic (title, persona pills) — load in
         // the background and degrade to the slug if it fails.
@@ -193,6 +191,8 @@ export default function SessionReportPage() {
       </div>
     );
   }
+
+  if (openConversation) return <div className="space-y-4"><RetroAlert tone="info" title="Open conversation">This conversation has no scoring or debrief.</RetroAlert><Link href={`/sessions/${sessionId}`}><Button>Back to conversation</Button></Link></div>;
 
   if (needsMessages) {
     return (

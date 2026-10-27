@@ -52,6 +52,7 @@ const simulationSuccessCriteriaSchema = z.object({
 });
 
 const simulationDetailSchema = z.object({
+  assessment_mode: z.enum(['open','practice']).optional(),
   slug: z.string(),
   title: z.string(),
   description: z.string(),

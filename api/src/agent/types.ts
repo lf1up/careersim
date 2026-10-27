@@ -179,6 +179,7 @@ export interface AgentSimulationSuccessCriteria {
 }
 
 export interface AgentSimulationDetail {
+  assessment_mode?: 'open' | 'practice';
   slug: string;
   title: string;
   description: string;

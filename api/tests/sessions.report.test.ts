@@ -1,3 +1,5 @@
+import { eq } from 'drizzle-orm';
+import { sessions } from '../src/db/schema.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -50,6 +52,19 @@ describe('GET /sessions/:id/report', () => {
       headers: authHeader,
     });
   }
+
+  it('rejects explicitly open conversations before calling the report model', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const session = await createSession(authHeader);
+    const [row] = await h.db.db.select().from(sessions).where(eq(sessions.id, session.id));
+    await h.db.db.update(sessions).set({stateSnapshot:{...row!.stateSnapshot,simulation:{...row!.stateSnapshot.simulation,evaluationMode:'open'}}}).where(eq(sessions.id,session.id));
+    const res=await getReport(authHeader,session.id);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('OPEN_CONVERSATION');
+    const detail=await h.app.inject({method:'GET',url:`/v1/sessions/${session.id}`,headers:authHeader});
+    expect(detail.json().assessment_mode).toBe('open');
+    expect(h.agent.callLog.filter(c=>c.startsWith('debrief'))).toHaveLength(0);
+  });
 
   it('returns 400 NO_USER_MESSAGES before the user has chatted', async () => {
     const { authHeader } = await registerAndAuth(h.app);

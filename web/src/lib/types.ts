@@ -50,6 +50,7 @@ export interface SimulationSuccessCriteria {
 }
 
 export interface SimulationDetail {
+  assessment_mode?: 'open' | 'practice';
   slug: string;
   title: string;
   description: string;
@@ -157,6 +158,7 @@ export interface GoalProgress {
 }
 
 export interface SessionDetail {
+  assessment_mode?: 'open' | 'practice';
   evaluation_pending?: boolean;
   participants?: SessionParticipant[];
   id: string;
