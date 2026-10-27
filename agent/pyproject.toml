@@ -59,6 +59,10 @@ voice-cloud = [
 ]
 
 [tool.uv]
+override-dependencies = [
+    # Gradio 6.30.0 still requires pillow<13. 13.0.0 fixes the parser CVEs (PYSEC-2026-4327).
+    "pillow>=13.0.0",
+]
 constraint-dependencies = [
     # CVE-2026-97687 / CVE-2026-97689, disclosed 2026-09-29. Transitive via requests.
     "urllib3>=2.8.0",
