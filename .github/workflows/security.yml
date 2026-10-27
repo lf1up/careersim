@@ -86,9 +86,11 @@ jobs:
       # - CVE-2026-45833 (post-auth RCE via update_collection)
       # - CVE-2026-45830 (cross-tenant IDOR)
       # - CVE-2026-45831 (RBAC ignores resource context)
+      # The export is already a hashed lock. pip would re-resolve it and reject
+      # pillow==13.0.0 because Gradio still requires pillow<13.
       - name: Audit dependencies
         run: |
-          uvx pip-audit --requirement /tmp/agent-requirements.txt \
+          uvx pip-audit --requirement /tmp/agent-requirements.txt --disable-pip \
             --ignore-vuln PYSEC-2026-311 \
             --ignore-vuln CVE-2026-45830 \
             --ignore-vuln CVE-2026-45831 \
