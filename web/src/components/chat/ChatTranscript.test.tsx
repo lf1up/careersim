@@ -149,3 +149,7 @@ it('offers actions for persisted messages with their original stable IDs', () =>
   rerender(<ChatTranscript messages={[message]} />);
   expect(screen.queryByRole('button')).toBeNull();
 });
+it('keeps historical names after the current cast is renamed', () => {
+ render(<ChatTranscript messages={[{...msg('ai','old reply'),actor_id:'lead',actor_name:'Original Alex'}]} participants={[{actor_id:'lead',name:'New Alex',persona_slug:'alex',role:'Lead'}]}/>);
+ expect(screen.getByRole('group',{name:'Original Alex message'})).toBeInTheDocument();
+});

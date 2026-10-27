@@ -217,6 +217,7 @@ async function installPlugins(ids) {
     const dest = join(root, 'src/extensions/installed', id);
     await mkdir(join(dest, 'web'), { recursive: true });
     await copyIfExists(join(source, 'shared'), join(dest, 'shared'));
+    await resolveSharedWebImports(join(dest, 'shared'));
     await copyChildren(join(source, 'web'), join(dest, 'web'), (name) => name !== 'app');
     await copyPages(join(source, 'web/app/(app)'), join(root, 'src/app/(app)/(plugins)'), written);
     await copyPages(join(source, 'web/app/(public)'), join(root, 'src/app/(public)/(plugins)'), written);
@@ -282,6 +283,22 @@ async function readPluginJson(source, id) {
     fail(`plugin "${id}" is missing api/index.ts`);
   }
   return meta;
+}
+
+// NodeNext source uses .js specifiers; browser bundlers need the actual TS modules.
+async function resolveSharedWebImports(folder) {
+  if (!existsSync(folder)) return;
+  for (const entry of await readdir(folder, { withFileTypes: true })) {
+    const path = join(folder, entry.name);
+    if (entry.isDirectory()) await resolveSharedWebImports(path);
+    else if (/\.tsx?$/.test(entry.name)) {
+      const source = await readFile(path, 'utf8');
+      const rewritten = source.replace(/(from\s*|import\s*\(\s*|import\s*)(['"])(\.{1,2}\/[^'"\n]+)\.js\2/g,
+        (match, prefix, quote, specifier) => existsSync(resolve(folder, `${specifier}.ts`)) || existsSync(resolve(folder, `${specifier}.tsx`))
+          ? `${prefix}${quote}${specifier}${quote}` : match);
+      if (rewritten !== source) await writeFile(path, rewritten);
+    }
+  }
 }
 
 async function copyIfExists(from, to) {

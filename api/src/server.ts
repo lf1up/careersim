@@ -177,9 +177,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const corsAllowAllWhenEmpty = opts.cors?.allowAllWhenEmpty ?? false;
   await app.register(cors, {
     credentials: true,
-    // @fastify/cors defaults to the safelist (GET, HEAD, POST). DELETE is
+    // @fastify/cors defaults to the safelist (GET, HEAD, POST). PUT and DELETE are
     // required for creator simulation removal; PUT/PATCH stay off the list.
-    methods: ['GET', 'HEAD', 'POST', 'DELETE'],
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
     origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
       // No Origin header = same-origin or non-browser client; CORS doesn't apply.
       if (!origin) return cb(null, true);

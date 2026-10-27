@@ -80,6 +80,8 @@ describe('plugins.mjs', () => {
     await run(join(webRoot, 'scripts/plugins.mjs'), env);
     expect(existsSync(join(webRoot, 'src/extensions/installed/demo/web/index.ts'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/extensions/installed/demo/shared/note.ts'))).toBe(true);
+    expect(await readFile(join(webRoot, 'src/extensions/installed/demo/shared/imports.ts'), 'utf8')).toContain("from './note'");
+    expect(await readFile(join(apiRoot, 'src/extensions/installed/demo/shared/imports.ts'), 'utf8')).toContain("from './note.js'");
     expect(existsSync(join(webRoot, 'src/extensions/installed/index.ts'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/app/(app)/(plugins)/demo/page.tsx'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/app/(public)/(plugins)/p/[token]/page.tsx'))).toBe(true);

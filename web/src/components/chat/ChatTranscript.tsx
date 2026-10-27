@@ -151,7 +151,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
     const showAvatar = item.role === 'ai' && (prev?.role !== 'ai' || sourceChanged || prev?.actor_id !== item.actor_id);
     const participant = participants?.find((p) => p.actor_id === item.actor_id);
     const speaker = participant
-      ? { name: participant.name, slug: participant.persona_slug, role: participant.role }
+      ? { name: item.actor_name || participant.name, slug: participant.persona_slug, role: participant.role }
       : item.actor_name ? { ...persona, name: item.actor_name } : persona;
     rendered.push(
       <Bubble

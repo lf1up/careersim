@@ -52,7 +52,7 @@ describe('CORS', () => {
     expect(blocked.headers['access-control-allow-origin']).toBeUndefined();
   });
 
-  it('allows DELETE on preflight in addition to the safelisted methods', async () => {
+  it.each(['DELETE', 'PUT'])('allows %s on preflight in addition to the safelisted methods', async (method) => {
     harness = await buildTestApp({ corsAllowedOrigins: ['https://app.example.com'] });
 
     const response = await harness.app.inject({
@@ -60,11 +60,11 @@ describe('CORS', () => {
       url: '/v1/creator/simulations/d7bda752-c0f6-4405-b765-3b975848f950',
       headers: {
         origin: 'https://app.example.com',
-        'access-control-request-method': 'DELETE',
+        'access-control-request-method': method,
       },
     });
 
     expect(response.statusCode).toBe(204);
-    expect(response.headers['access-control-allow-methods']).toContain('DELETE');
+    expect(response.headers['access-control-allow-methods']).toContain(method);
   });
 });
