@@ -117,6 +117,8 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <>
+                  <GitHubLink />
+                  <ThemeToggle />
                   <Link
                     href="/profile"
                     aria-label="Profile"
@@ -125,8 +127,6 @@ export const Navbar: React.FC = () => {
                   >
                     <UserIcon className="h-5 w-5 text-retro-ink dark:text-retro-ink-dark" aria-hidden="true" />
                   </Link>
-                  <GitHubLink />
-                  <ThemeToggle />
                   <button
                     onClick={handleLogout}
                     className={clsx(
