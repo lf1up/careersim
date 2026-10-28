@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
+import { UserIcon } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { signedInNavItems } from '@/extensions';
@@ -97,7 +98,7 @@ export const Navbar: React.FC = () => {
               </Link>
             </div>
             {/* Full nav only from `xl` up: at `lg` widths the four nav
-                items + email + controls overflow the 1024px row and crop
+                items + icon controls overflow the 1024px row and crop
                 the brand, so 1024-1279px stays on the burger menu. */}
             <div className="hidden xl:ml-6 xl:flex xl:space-x-8 xl:items-center">
               {navItems.map((item) => (
@@ -118,10 +119,11 @@ export const Navbar: React.FC = () => {
                 <>
                   <Link
                     href="/profile"
-                    className="text-sm font-monoRetro underline underline-offset-2 text-retro-ink dark:text-retro-ink-dark hover:text-primary-600 dark:hover:text-primary-400"
-                    title="Profile settings"
+                    aria-label="Profile"
+                    title={user?.email ? `Profile (${user.email})` : 'Profile'}
+                    className="inline-flex h-10 w-10 items-center justify-center border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
                   >
-                    {user?.email}
+                    <UserIcon className="h-5 w-5 text-retro-ink dark:text-retro-ink-dark" aria-hidden="true" />
                   </Link>
                   <GitHubLink />
                   <ThemeToggle />
