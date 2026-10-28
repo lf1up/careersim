@@ -12,6 +12,7 @@
 export interface WebNavItem {
   href: string;
   label: string;
+  badge?: string;
 }
 
 export interface WebPlugin {

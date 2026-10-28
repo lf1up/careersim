@@ -68,9 +68,12 @@ export function SimulationsClient({
             <Link
               key={action.href}
               href={action.href}
-              className="inline-flex shrink-0 items-center justify-center self-stretch px-3 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark shadow-retro-3 dark:shadow-retro-dark-3 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-2 dark:hover:shadow-retro-dark-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1"
+              className="inline-flex shrink-0 items-center justify-center gap-2 self-stretch px-3 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark shadow-retro-3 dark:shadow-retro-dark-3 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-2 dark:hover:shadow-retro-dark-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1"
             >
               {action.label}
+              {action.badge ? (
+                <RetroBadge color="yellow">{action.badge}</RetroBadge>
+              ) : null}
             </Link>
           ))}
         </div>
