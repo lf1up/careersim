@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  catalogueActions,
   mergeNavItems,
   pluginRobotsDisallow,
   simulationHrefFor,
@@ -17,16 +16,14 @@ const plugin: WebPlugin = {
 };
 
 describe('web extensions', () => {
-  it('appends plugin nav items after the host items', () => {
-    expect(mergeNavItems([{ href: '/dashboard', label: 'Dashboard' }], [plugin])).toEqual([
-      { href: '/dashboard', label: 'Dashboard' },
+  it('appends plugin nav items after the host items, and adds nothing when none are installed', () => {
+    expect(mergeNavItems([{ href: '/analytics', label: 'Analytics' }], [plugin])).toEqual([
+      { href: '/analytics', label: 'Analytics' },
       { href: '/create', label: 'Create' },
     ]);
-  });
-
-  it('keeps Create beside the catalogue search instead of in the navbar', () => {
-    expect(catalogueActions([plugin])).toEqual([{ href: '/create', label: 'Create' }]);
-    expect(catalogueActions([])).toEqual([]);
+    expect(mergeNavItems([{ href: '/analytics', label: 'Analytics' }], [])).toEqual([
+      { href: '/analytics', label: 'Analytics' },
+    ]);
   });
 
   it('keeps catalogue links and lets a plugin override namespaced slugs', () => {

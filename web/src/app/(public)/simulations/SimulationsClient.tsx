@@ -3,8 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 
-import { catalogueActions, simulationHref } from '@/extensions';
-import { useAuth } from '@/contexts/AuthContext';
+import { simulationHref } from '@/extensions';
 import type { Simulation } from '@/lib/types';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { RetroCard } from '@/components/ui/RetroCard';
@@ -17,8 +16,6 @@ export function SimulationsClient({
   initialSimulations: Simulation[];
 }) {
   const [query, setQuery] = useState('');
-  const { isAuthenticated } = useAuth();
-  const actions = isAuthenticated ? catalogueActions() : [];
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,32 +47,18 @@ export function SimulationsClient({
             set of conversation goals.
           </p>
         </div>
-        <div className="flex w-full min-w-0 items-stretch gap-3 sm:w-auto sm:max-w-full">
-          <div className="min-w-0 flex-1 sm:w-72">
-            <label className="sr-only" htmlFor="simulation-search">
-              Search simulations
-            </label>
-            <input
-              id="simulation-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by title, skill, or tag..."
-              className="retro-input w-full"
-            />
-          </div>
-          {actions.map((action) => (
-            <Link
-              key={action.href}
-              href={action.href}
-              className="inline-flex shrink-0 items-center justify-center gap-2 self-stretch px-3 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark shadow-retro-3 dark:shadow-retro-dark-3 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-2 dark:hover:shadow-retro-dark-2 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1"
-            >
-              {action.label}
-              {action.badge ? (
-                <RetroBadge color="yellow">{action.badge}</RetroBadge>
-              ) : null}
-            </Link>
-          ))}
+        <div className="w-full min-w-0 sm:w-72">
+          <label className="sr-only" htmlFor="simulation-search">
+            Search simulations
+          </label>
+          <input
+            id="simulation-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by title, skill, or tag..."
+            className="retro-input w-full"
+          />
         </div>
       </div>
 

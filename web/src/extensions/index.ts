@@ -11,24 +11,9 @@ export function mergeNavItems(base: readonly WebNavItem[], extra: readonly WebPl
   return [...base, ...extra.flatMap((plugin) => plugin.navItems)];
 }
 
-/**
- * The creator "Create" action belongs beside the simulations search, not in
- * the global navbar. Match the plugin href so other plugin links stay in nav.
- */
-const CATALOGUE_ACTION_HREFS = new Set(['/create']);
-
-export function isCatalogueAction(item: WebNavItem): boolean {
-  return CATALOGUE_ACTION_HREFS.has(item.href);
-}
-
-/** Plugin links rendered next to the simulations search. */
-export function catalogueActions(extra: readonly WebPlugin[] = plugins): WebNavItem[] {
-  return extra.flatMap((plugin) => plugin.navItems).filter(isCatalogueAction);
-}
-
-/** Signed-in navbar: host items, then plugin items that are not catalogue actions. */
+/** Signed-in navbar: host items, then items from plugins that are actually installed. */
 export function signedInNavItems(base: readonly WebNavItem[]): WebNavItem[] {
-  return mergeNavItems(base, plugins).filter((item) => !isCatalogueAction(item));
+  return mergeNavItems(base, plugins);
 }
 
 export function simulationHrefFor(slug: string, list: readonly WebPlugin[]): string {

@@ -7,13 +7,14 @@ import clsx from 'clsx';
 import { UserIcon } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { signedInNavItems } from '@/extensions';
+import { signedInNavItems, type WebNavItem } from '@/extensions';
 import { SITE_NAME } from '@/lib/seo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
+import { RetroBadge } from '@/components/ui/RetroBadge';
 
 // Nav items shown when the user is signed in.
-const AUTH_NAV_ITEMS = [
+const AUTH_NAV_ITEMS: WebNavItem[] = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/simulations', label: 'Simulations' },
   { href: '/sessions', label: 'Sessions' },
@@ -22,7 +23,7 @@ const AUTH_NAV_ITEMS = [
 
 // Nav items shown to guests. Keep this to public catalogue routes — Blog
 // lives in the landing-site header/footer, not the app chrome.
-const GUEST_NAV_ITEMS = [{ href: '/simulations', label: 'Simulations' }];
+const GUEST_NAV_ITEMS: WebNavItem[] = [{ href: '/simulations', label: 'Simulations' }];
 const HAS_LANDING_ORIGIN =
   process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
 
@@ -49,7 +50,7 @@ export const Navbar: React.FC = () => {
 
   const desktopNavLinkClass = (active: boolean) =>
     clsx(
-      'px-3 py-2 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark transition-transform',
+      'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark transition-transform',
       active
         ? 'bg-primary-300 dark:bg-primary-600 text-black dark:text-white translate-x-[1px] translate-y-[1px] shadow-retro-1 dark:shadow-retro-dark-1'
         : 'bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1',
@@ -97,10 +98,10 @@ export const Navbar: React.FC = () => {
                 {SITE_NAME}
               </Link>
             </div>
-            {/* Full nav only from `xl` up: at `lg` widths the four nav
+            {/* Full nav only from `xl` up: at `lg` widths the nav
                 items + icon controls overflow the 1024px row and crop
                 the brand, so 1024-1279px stays on the burger menu. */}
-            <div className="hidden xl:ml-6 xl:flex xl:space-x-8 xl:items-center">
+            <div className="hidden xl:ml-6 xl:flex xl:gap-5 xl:items-center">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -108,6 +109,11 @@ export const Navbar: React.FC = () => {
                   className={desktopNavLinkClass(isActive(pathname, item.href))}
                 >
                   {item.label}
+                  {item.badge ? (
+                    <RetroBadge color="yellow" className="px-1.5 py-0 text-[10px] leading-4 shadow-none">
+                      {item.badge}
+                    </RetroBadge>
+                  ) : null}
                 </Link>
               ))}
             </div>
@@ -214,6 +220,11 @@ export const Navbar: React.FC = () => {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.label}
+                  {item.badge ? (
+                    <RetroBadge color="yellow" className="px-1.5 py-0 text-[10px] leading-4 shadow-none">
+                      {item.badge}
+                    </RetroBadge>
+                  ) : null}
                 </Link>
               ))}
               <div className="border-t-2 border-black dark:border-retro-ink-dark mt-3 pt-3 space-y-2">
