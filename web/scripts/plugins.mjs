@@ -210,8 +210,7 @@ async function installPlugins(ids) {
   }
 
   await rm(join(root, 'src/extensions/installed'), { recursive: true, force: true });
-  await rm(join(root, 'src/app/(app)/(plugins)'), { recursive: true, force: true });
-  await rm(join(root, 'src/app/(public)/(plugins)'), { recursive: true, force: true });
+  // Preserve route directories so Next's dev watcher does not lose active routes.
   const written = new Set();
   for (const { id, source } of sources) {
     const dest = join(root, 'src/extensions/installed', id);
@@ -222,6 +221,8 @@ async function installPlugins(ids) {
     await copyPages(join(source, 'web/app/(app)'), join(root, 'src/app/(app)/(plugins)'), written);
     await copyPages(join(source, 'web/app/(public)'), join(root, 'src/app/(public)/(plugins)'), written);
   }
+  await prunePages(join(root, 'src/app/(app)/(plugins)'), written);
+  await prunePages(join(root, 'src/app/(public)/(plugins)'), written);
   await writeWebRegistry(ids);
 }
 
@@ -334,6 +335,19 @@ async function copyTreeChecked(from, to, written) {
     if (written.has(key)) fail(`plugin pages collide at ${key}`);
     written.add(key);
     await cp(src, dest);
+  }
+}
+
+async function prunePages(directory, written) {
+  if (!existsSync(directory)) return;
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await prunePages(path, written);
+      if ((await readdir(path)).length === 0) await rm(path, { recursive: true });
+    } else if (!written.has(relative(root, path))) {
+      await rm(path);
+    }
   }
 }
 

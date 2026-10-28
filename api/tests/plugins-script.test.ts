@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -86,6 +86,28 @@ describe('plugins.mjs', () => {
     expect(existsSync(join(webRoot, 'src/app/(app)/(plugins)/demo/page.tsx'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/app/(public)/(plugins)/p/[token]/page.tsx'))).toBe(true);
     expect(existsSync(join(webRoot, 'src/extensions/installed/demo/web/app'))).toBe(false);
+  });
+
+  it('updates plugin pages in place and removes only obsolete routes', async () => {
+    const sourceRoot = join(testRoot, 'plugin-source');
+    await cp(fixtureDir, sourceRoot, { recursive: true });
+    const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: sourceRoot };
+    const script = join(webRoot, 'scripts/plugins.mjs');
+    const routeRoot = join(webRoot, 'src/app/(app)/(plugins)/demo');
+    const publicRoot = join(webRoot, 'src/app/(public)/(plugins)/p/[token]');
+    await run(script, env);
+    const appInode = (await stat(routeRoot)).ino;
+    const publicInode = (await stat(publicRoot)).ino;
+    const pageSource = join(sourceRoot, 'demo/web/app/(app)/demo/page.tsx');
+    await writeFile(pageSource, 'export default function Page() { return "Updated"; }');
+    await run(script, env);
+    expect((await stat(routeRoot)).ino).toBe(appInode);
+    expect((await stat(publicRoot)).ino).toBe(publicInode);
+    expect(await readFile(join(routeRoot, 'page.tsx'), 'utf8')).toContain('Updated');
+    await rm(join(sourceRoot, 'demo/web/app/(public)/p'), { recursive: true });
+    await run(script, env);
+    expect(existsSync(join(webRoot, 'src/app/(public)/(plugins)/p'))).toBe(false);
+    expect(existsSync(join(routeRoot, 'page.tsx'))).toBe(true);
   });
 
   it('fails closed on a bad apiVersion, a reserved id, or a missing token', async () => {
