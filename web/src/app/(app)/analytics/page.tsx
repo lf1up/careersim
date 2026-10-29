@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import type { AnalyticsOverview, Simulation } from '@/lib/types';
-import { SITE_NAME } from '@/lib/seo';
 import { indexSimulations } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
@@ -98,10 +97,6 @@ export default function AnalyticsPage() {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    document.title = `Analytics | ${SITE_NAME}`;
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
