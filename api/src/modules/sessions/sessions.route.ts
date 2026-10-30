@@ -132,6 +132,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     {
       onRequest: [app.authenticate],
       config: { rateLimit: rateLimitPolicy.sendMessage() },
+      preHandler: app.checkTextMessageQuota,
       schema: {
         tags: ['sessions'],
         summary: 'Send a user message (batch, returns full updated session)',
@@ -234,6 +235,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     {
       onRequest: [app.authenticate],
       config: { rateLimit: rateLimitPolicy.sendMessage() },
+      preHandler: app.checkTextMessageQuota,
       schema: {
         tags: ['sessions'],
         summary: 'Send a user message and stream AI responses (SSE)',

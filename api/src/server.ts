@@ -114,6 +114,9 @@ export interface BuildAppOptions {
      */
     createSessionMax?: number;
     createSessionTimeWindow?: string;
+    /** Shared text-message allowance; excludes internal voice turns. */
+    chatMessagesMax?: number;
+    chatMessagesTimeWindow?: string;
   };
   /**
    * Optional cache ping used by the versioned health probe. Tests inject
@@ -199,6 +202,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     globalTimeWindow: opts.rateLimit?.globalTimeWindow,
     createSessionMax: opts.rateLimit?.createSessionMax,
     createSessionTimeWindow: opts.rateLimit?.createSessionTimeWindow,
+    chatMessagesMax: opts.rateLimit?.chatMessagesMax,
+    chatMessagesTimeWindow: opts.rateLimit?.chatMessagesTimeWindow,
   });
 
   await app.register(swagger, {

@@ -63,6 +63,8 @@ async function main(): Promise<void> {
       redisUrl: env.REDIS_URL || undefined,
       createSessionMax: env.SESSIONS_CREATE_MAX,
       createSessionTimeWindow: env.SESSIONS_CREATE_WINDOW,
+      chatMessagesMax: env.CHAT_MESSAGES_MAX,
+      chatMessagesTimeWindow: env.CHAT_MESSAGES_WINDOW,
     },
     plugins,
     voice: {

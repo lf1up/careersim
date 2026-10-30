@@ -115,6 +115,10 @@ const EnvSchema = z
     SESSIONS_CREATE_MAX: z.coerce.number().int().positive().default(2),
     SESSIONS_CREATE_WINDOW: z.string().default('6 hours'),
 
+    // Shared text-message allowance across simulations and creator playgrounds.
+    CHAT_MESSAGES_MAX: z.coerce.number().int().positive().default(500),
+    CHAT_MESSAGES_WINDOW: z.string().trim().min(1).default('6 hours'),
+
     // ------------------------------------------------------------------
     // Voice mode (browser-native LiveKit + chained pipeline)
     //

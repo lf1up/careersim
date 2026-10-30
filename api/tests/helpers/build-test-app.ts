@@ -57,6 +57,8 @@ export interface BuildTestAppOptions {
   /** Optional override for the global ceiling used by rate-limit tests. */
   rateLimitGlobalMax?: number;
   rateLimitGlobalTimeWindow?: string;
+  chatMessagesMax?: number;
+  chatMessagesTimeWindow?: string;
   corsAllowedOrigins?: string[];
   /**
    * Empty-allowlist CORS policy passed through to `buildApp`. Defaults
@@ -130,6 +132,8 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
       enabled: options?.rateLimitEnabled ?? false,
       globalMax: options?.rateLimitGlobalMax,
       globalTimeWindow: options?.rateLimitGlobalTimeWindow,
+      chatMessagesMax: options?.chatMessagesMax,
+      chatMessagesTimeWindow: options?.chatMessagesTimeWindow,
     },
     cache: options?.cache,
     voiceHealth: options?.voiceHealth,

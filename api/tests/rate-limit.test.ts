@@ -33,6 +33,86 @@ describe('rate limiting', () => {
     }
   });
 
+  it('shares a message allowance across sessions and batch/stream endpoints, excluding internal voice', async () => {
+    h = await buildTestApp({
+      rateLimitEnabled: true, chatMessagesMax: 3, chatMessagesTimeWindow: '6 hours',
+      voice: { enabled: false, internalKey: 'test-voice-key' },
+    });
+    const alice = await registerAndAuth(h.app, 'alice@example.com');
+    const bob = await registerAndAuth(h.app, 'bob@example.com');
+    const create = async (headers: Record<string, string>) => {
+      const res = await h!.app.inject({ method: 'POST', url: '/v1/sessions', headers,
+        payload: { simulation_slug: 'behavioral-interview-brenda' } });
+      expect(res.statusCode, res.body).toBe(201);
+      return res.json().id as string;
+    };
+    const first = await create(alice.authHeader);
+    const second = await create(alice.authHeader);
+    const batch = await h.app.inject({ method: 'POST', url: `/v1/sessions/${first}/messages`,
+      headers: alice.authHeader, payload: { content: ['one', 'two'] } });
+    expect(batch.statusCode, batch.body).toBe(200);
+    const streamed = await h.app.inject({ method: 'POST', url: `/v1/sessions/${second}/messages/stream`,
+      headers: alice.authHeader, payload: { content: 'three' } });
+    expect(streamed.statusCode).toBe(200);
+    expect(streamed.body).toContain('event: done');
+    const calls = h.agent.callLog.length;
+    for (const suffix of ['messages', 'messages/stream']) {
+      const blocked = await h.app.inject({ method: 'POST', url: `/v1/sessions/${first}/${suffix}`,
+        headers: alice.authHeader, payload: { content: 'four', source: 'voice' } });
+      expect(blocked.statusCode).toBe(429);
+      expect(blocked.json()).toMatchObject({ error: 'RATE_LIMITED', retryAfter: expect.any(Number) });
+      expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+    }
+    expect(h.agent.callLog).toHaveLength(calls);
+    const voice = await h.app.inject({ method: 'POST', url: `/v1/internal/sessions/${first}/messages/stream`,
+      headers: { 'x-internal-key': 'test-voice-key' }, payload: { content: 'spoken turn' } });
+    expect(voice.statusCode, voice.body).toBe(200);
+    expect(voice.body).toContain('event: done');
+    const bobSession = await create(bob.authHeader);
+    const other = await h.app.inject({ method: 'POST', url: `/v1/sessions/${bobSession}/messages`,
+      headers: bob.authHeader, payload: { content: 'independent allowance' } });
+    expect(other.statusCode).toBe(200);
+  });
+
+  it('renews the shared allowance when the configured window expires', async () => {
+    h = await buildTestApp({ rateLimitEnabled: true, chatMessagesMax: 1, chatMessagesTimeWindow: '1 second' });
+    const { authHeader } = await registerAndAuth(h.app);
+    const created = await h.app.inject({ method: 'POST', url: '/v1/sessions', headers: authHeader,
+      payload: { simulation_slug: 'behavioral-interview-brenda' } });
+    const send = () => h!.app.inject({ method: 'POST', url: `/v1/sessions/${created.json().id}/messages`,
+      headers: authHeader, payload: { content: 'hello' } });
+    expect((await send()).statusCode).toBe(200);
+    expect((await send()).statusCode).toBe(429);
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect((await send()).statusCode).toBe(200);
+  });
+
+  it('disables the text allowance with RATE_LIMIT_ENABLED=false', async () => {
+    h = await buildTestApp({ rateLimitEnabled: false, chatMessagesMax: 1 });
+    const { authHeader } = await registerAndAuth(h.app);
+    const created = await h.app.inject({ method: 'POST', url: '/v1/sessions', headers: authHeader,
+      payload: { simulation_slug: 'behavioral-interview-brenda' } });
+    for (let i = 0; i < 2; i++) {
+      const sent = await h.app.inject({ method: 'POST', url: `/v1/sessions/${created.json().id}/messages`,
+        headers: authHeader, payload: { content: 'hello' } });
+      expect(sent.statusCode).toBe(200);
+    }
+  });
+
+  it('rejects a batch larger than the allowance before calling the agent', async () => {
+    h = await buildTestApp({ rateLimitEnabled: true, chatMessagesMax: 2 });
+    const { authHeader } = await registerAndAuth(h.app);
+    const created = await h.app.inject({ method: 'POST', url: '/v1/sessions', headers: authHeader,
+      payload: { simulation_slug: 'behavioral-interview-brenda' } });
+    const calls = h.agent.callLog.length;
+    const rejected = await h.app.inject({ method: 'POST', url: `/v1/sessions/${created.json().id}/messages`,
+      headers: authHeader, payload: { content: ['one', 'two', 'three'] } });
+    expect(rejected.statusCode).toBe(429);
+    expect(h.agent.callLog).toHaveLength(calls);
+    const detail = await h.app.inject({ method: 'GET', url: `/v1/sessions/${created.json().id}`, headers: authHeader });
+    expect(detail.json().messages).toHaveLength(created.json().messages.length);
+  });
+
   it('enforces the global default and returns a RATE_LIMITED envelope', async () => {
     h = await buildTestApp({
       rateLimitEnabled: true,
