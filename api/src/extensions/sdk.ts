@@ -42,7 +42,13 @@ export interface SimulationProvider {
   namespace: string;
   getDetail(args: { slug: string; userId: string | null }): Promise<AgentSimulationDetail | null>;
   prepareSession(args: { slug: string; userId: string }): Promise<{ state: AgentWireState }>;
-  onSessionCreated?(args: { slug: string; userId: string; sessionId: string }): Promise<void>;
+  /** Runs before commit. Use `db` for all hook queries so failures roll back together. */
+  onSessionCreated?(args: {
+    slug: string;
+    userId: string;
+    sessionId: string;
+    db: AppDatabase;
+  }): Promise<void>;
 }
 
 export interface ApiPlugin {

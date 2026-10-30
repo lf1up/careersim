@@ -50,7 +50,7 @@ export const Navbar: React.FC = () => {
 
   const desktopNavLinkClass = (active: boolean) =>
     clsx(
-      'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark transition-transform',
+      'inline-flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-2 text-sm font-semibold border-2 border-black dark:border-retro-ink-dark transition-transform',
       active
         ? 'bg-primary-300 dark:bg-primary-600 text-black dark:text-white translate-x-[1px] translate-y-[1px] shadow-retro-1 dark:shadow-retro-dark-1'
         : 'bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1',
@@ -90,7 +90,7 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto pl-4 pr-6 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 gap-2">
           <div className="flex min-w-0 flex-1 items-center">
-            <div className="min-w-0 flex-shrink">
+            <div className="min-w-0 flex-shrink xl:shrink-0">
               <Link
                 href={homeHref}
                 className="block truncate text-base max-[400px]:text-sm max-[350px]:text-xs max-[350px]:tracking-wide sm:text-xl font-bold tracking-wider2 font-retro text-retro-ink dark:text-retro-ink-dark"
@@ -101,7 +101,7 @@ export const Navbar: React.FC = () => {
             {/* Full nav only from `xl` up: at `lg` widths the nav
                 items + icon controls overflow the 1024px row and crop
                 the brand, so 1024-1279px stays on the burger menu. */}
-            <div className="hidden xl:ml-6 xl:flex xl:gap-5 xl:items-center">
+            <div className="hidden xl:ml-6 xl:flex xl:min-w-0 xl:gap-5 xl:items-center xl:overflow-x-auto xl:p-1">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -119,7 +119,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
 
-          <div className="hidden xl:flex xl:items-center">
+          <div className="hidden xl:flex xl:shrink-0 xl:items-center">
             <div className="flex items-center space-x-4">
               {isAuthenticated ? (
                 <>

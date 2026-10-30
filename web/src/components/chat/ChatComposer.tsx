@@ -17,7 +17,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 }) => {
   const [localValue, setLocalValue] = useState('');
   const value = controlledValue ?? localValue;
-  const setValue = onValueChange ?? setLocalValue;
+  const setValue = (next: string) => {
+    if (controlledValue === undefined) setLocalValue(next);
+    onValueChange?.(next);
+  };
 
   const submit = async () => {
     const trimmed = value.trim();

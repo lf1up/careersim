@@ -14,6 +14,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { applyPluginMigrations } from '../src/extensions/migrate.js';
+import { messages, sessions } from '../src/db/schema.js';
 import { EXTENSION_API_VERSION, type ApiPlugin } from '../src/extensions/sdk.js';
 import { loadInstalledPlugins } from '../src/extensions/loader.js';
 import { sessionsRoutes } from '../src/modules/sessions/sessions.route.js';
@@ -160,6 +161,40 @@ describe('extensions', () => {
     await applyPluginMigrations(h.db.db, [fixturePlugin], migrate);
     const rows = await h.db.db.execute(sql`select id from extfix.markers`);
     expect(rows.rows).toEqual([{ id: 'applied' }]);
+  });
+
+  it('rolls back session, transcript, and provider writes when the creation hook fails', async () => {
+    let failHook = true;
+    const plugin: ApiPlugin = {
+      ...fixturePlugin,
+      simulations: {
+        ...fixturePlugin.simulations!,
+        async onSessionCreated({ sessionId, db }) {
+          const [session] = await db.select().from(sessions);
+          expect(session?.id).toBe(sessionId);
+          expect(await db.select().from(messages)).toHaveLength(1);
+          await db.execute(sql`insert into extfix.markers (id) values ('hook')`);
+          if (failHook) throw new Error('Provider unavailable');
+        },
+      },
+    };
+    h = await buildTestApp({ plugins: [plugin] });
+    await applyPluginMigrations(h.db.db, [plugin], migrate);
+    const { authHeader } = await registerAndAuth(h.app);
+    const create = () => h!.app.inject({
+      method: 'POST', url: '/v1/sessions', headers: authHeader,
+      payload: { simulation_slug: 'fixture:open' },
+    });
+    expect((await create()).statusCode).toBe(500);
+    expect(await h.db.db.select().from(sessions)).toEqual([]);
+    expect(await h.db.db.select().from(messages)).toEqual([]);
+    expect((await h.db.db.execute(sql`select id from extfix.markers`)).rows).toEqual([{ id: 'applied' }]);
+    failHook = false;
+    const retry = await create();
+    expect(retry.statusCode, retry.body).toBe(201);
+    expect(await h.db.db.select().from(sessions)).toHaveLength(1);
+    expect(await h.db.db.select().from(messages)).toHaveLength(1);
+    expect((await h.db.db.execute(sql`select id from extfix.markers where id = 'hook'`)).rows).toHaveLength(1);
   });
 
   it('skips plugins that do not ship migrations', async () => {

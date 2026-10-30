@@ -53,7 +53,10 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
 }
 
 /** Vertical bar strip for the score-over-time trend — pure CSS, no chart lib. */
-function ScoreTrendStrip({ overview }: { overview: AnalyticsOverview }) {
+function ScoreTrendStrip({ overview, simulationBySlug }: {
+  overview: AnalyticsOverview;
+  simulationBySlug: Record<string, Simulation>;
+}) {
   const trend = overview.reports.trend;
   if (trend.length < 2) return null;
   return (
@@ -70,7 +73,7 @@ function ScoreTrendStrip({ overview }: { overview: AnalyticsOverview }) {
               key={point.session_id}
               href={`/sessions/${point.session_id}/report`}
               className="group flex-1 flex flex-col items-center justify-end h-full min-w-0"
-              title={`${simulationLabel(point.simulation_slug, { title: point.simulation_title })} · ${formatDate(point.created_at)} · ${point.overall_score}/100`}
+              title={`${simulationLabel(point.simulation_slug, { catalogTitle: simulationBySlug[point.simulation_slug]?.title, title: point.simulation_title })} · ${formatDate(point.created_at)} · ${point.overall_score}/100`}
             >
               <span className="text-[10px] font-monoRetro text-secondary-600 dark:text-secondary-400 opacity-0 group-hover:opacity-100 transition-opacity">
                 {point.overall_score}
@@ -275,7 +278,7 @@ export default function AnalyticsPage() {
           </RetroPanel>
 
           {/* Trend */}
-          <ScoreTrendStrip overview={overview} />
+          <ScoreTrendStrip overview={overview} simulationBySlug={simulationBySlug} />
 
           {/* Tone + recurring feedback */}
           {reports.analyzed_sessions > 0 && (

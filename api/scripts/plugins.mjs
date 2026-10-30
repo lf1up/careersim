@@ -1,7 +1,8 @@
 /**
  * Copy build-time plugins into this package.
  *
- * CAREERSIM_PLUGINS unset: every command exits 0 and writes nothing.
+ * CAREERSIM_PLUGINS empty/unset: fetch and sync remove installed overlays;
+ * other commands exit 0 without writing.
  * CAREERSIM_PLUGIN_DIR:    copy plugins/<id> from that directory (local dev, CI).
  * Otherwise:               download the careersim-studio tarball at
  *                          CAREERSIM_PLUGIN_REF with CAREERSIM_PLUGIN_TOKEN
@@ -81,7 +82,10 @@ function debounceMs() {
 }
 
 export async function syncPlugins(ids = pluginIds()) {
-  if (ids.length === 0) return;
+  if (ids.length === 0) {
+    await removeInstalled();
+    return;
+  }
   await installPlugins(ids);
   if (host === 'api') await copySqlAssets();
 }
@@ -161,7 +165,10 @@ async function main() {
     fail('usage: plugins.mjs <fetch|sync|assets|watch>');
   }
   const ids = pluginIds();
-  if (ids.length === 0) return;
+  if (ids.length === 0) {
+    if (command === 'fetch' || command === 'sync') await removeInstalled();
+    return;
+  }
 
   if (command === 'assets') {
     await copySqlAssets();
@@ -175,6 +182,18 @@ async function main() {
     return;
   }
   await syncPlugins(ids);
+}
+
+async function removeInstalled() {
+  const targets = [
+    'src/extensions/installed',
+    ...(host === 'api'
+      ? ['dist/extensions/installed']
+      : ['src/app/(app)/(plugins)', 'src/app/(public)/(plugins)']),
+  ];
+  for (const target of targets) {
+    await rm(join(root, target), { recursive: true, force: true });
+  }
 }
 
 async function installPlugins(ids) {

@@ -493,27 +493,25 @@ export function createSessionsService(
         response = await agent.initConversation({ simulationSlug });
       }
 
-      const [row] = await db
-        .insert(sessions)
-        .values({
-          userId,
-          simulationSlug,
-          stateSnapshot: response.state,
-        })
-        .returning();
-      if (!row) throw new Error('Failed to create session');
+      const row = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(sessions)
+          .values({ userId, simulationSlug, stateSnapshot: response.state })
+          .returning();
+        if (!created) throw new Error('Failed to create session');
 
-      const agentMessages = response.state.messages ?? [];
-      if (agentMessages.length > 0) {
-        await persistMessageDelta(db, row.id, 0, agentMessages);
-      }
-      if (provider?.onSessionCreated) {
-        await provider.onSessionCreated({
+        const agentMessages = response.state.messages ?? [];
+        if (agentMessages.length > 0) {
+          await persistMessageDelta(tx, created.id, 0, agentMessages);
+        }
+        await provider?.onSessionCreated?.({
           slug: simulationSlug,
           userId,
-          sessionId: row.id,
+          sessionId: created.id,
+          db: tx,
         });
-      }
+        return created;
+      });
       return buildDetail(row);
     },
 

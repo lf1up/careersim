@@ -67,6 +67,19 @@ describe('plugins.mjs', () => {
     for (const dir of overlays()) expect(existsSync(dir)).toBe(false);
   });
 
+  it.each(['fetch', 'sync'])('removes stale overlays when plugins are disabled with %s', async (command) => {
+    const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: fixtureDir };
+    for (const root of [apiRoot, webRoot]) {
+      await run(join(root, 'scripts/plugins.mjs'), env);
+    }
+    // Compiled JS must not keep loading a plugin after its source is removed.
+    await writeFile(join(apiRoot, 'dist/extensions/installed/demo/api/index.js'), 'export default {};');
+    for (const root of [apiRoot, webRoot]) {
+      await run(join(root, 'scripts/plugins.mjs'), { CAREERSIM_PLUGINS: '' }, command);
+    }
+    for (const dir of overlays()) expect(existsSync(dir)).toBe(false);
+  });
+
   it('copies a local plugin into the api and web overlays', async () => {
     const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: fixtureDir };
     await run(join(apiRoot, 'scripts/plugins.mjs'), env);

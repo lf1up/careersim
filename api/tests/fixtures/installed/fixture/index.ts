@@ -52,8 +52,8 @@ const plugin: ApiPlugin = {
       };
       return { state };
     },
-    async onSessionCreated(args) {
-      createdSessions.push(args);
+    async onSessionCreated({ slug, userId, sessionId }) {
+      createdSessions.push({ slug, userId, sessionId });
     },
   },
 };

@@ -92,6 +92,29 @@ describe('GET /analytics/overview', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it('keeps open conversations in usage totals but excludes their stale goals from scoring', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const practice = await createSession(authHeader);
+    const open = await createSession(authHeader);
+    const openOnly = await createSession(authHeader, SLUG_2);
+    await setGoalProgress(practice.id, [{ goalNumber: 1, status: 'achieved' }]);
+    for (const session of [open, openOnly]) {
+      await h.db.db.update(sessions).set({ stateSnapshot: {
+        simulation: { evaluationMode: 'open' },
+        goal_progress: [
+          { goalNumber: 1, status: 'achieved' },
+          { goalNumber: 2, status: 'not_started' },
+          { goalNumber: 3, status: 'not_started' },
+        ],
+      } }).where(eq(sessions.id, session.id));
+    }
+    const body = await getOverview(authHeader);
+    expect(body.totals.sessions).toBe(3);
+    expect(body.goals).toEqual({ achieved: 1, total: 1, completed_sessions: 1, completable_sessions: 1, completion_rate: 1 });
+    expect(body.per_simulation.find((row: { simulation_slug: string }) => row.simulation_slug === SLUG)).toMatchObject({ sessions: 2, completed_sessions: 1, best_goals_achieved: 1, goals_required: 1 });
+    expect(body.per_simulation.find((row: { simulation_slug: string }) => row.simulation_slug === SLUG_2)).toMatchObject({ sessions: 1, completed_sessions: 0, best_goals_achieved: 0, goals_required: 0 });
+  });
+
   it('returns zeroed stats for a fresh user', async () => {
     const { authHeader } = await registerAndAuth(h.app);
     const body = await getOverview(authHeader);

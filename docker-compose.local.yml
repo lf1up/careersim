@@ -98,9 +98,10 @@ services:
       # the `AGENT_INTERNAL_KEY` in `./agent/.env`. Leave both unset in
       # local dev (the agent falls back to unauthenticated mode with a
       # warning); set to a matching random value in staging/prod.
-      # Local plugin checkout (careersim-studio/plugins). Unset
-      # CAREERSIM_PLUGINS in the shell or a repo-root `.env` to boot
-      # without plugins. CAREERSIM_PLUGIN_HOST_DIR overrides the host path.
+      # Local plugin checkout (careersim-studio/plugins). Set
+      # CAREERSIM_PLUGINS= (empty) in the shell or a repo-root `.env` to boot
+      # without plugins. Unset selects creator and requires the checkout.
+      # CAREERSIM_PLUGIN_HOST_DIR overrides the host path.
       CAREERSIM_PLUGINS: ${CAREERSIM_PLUGINS-creator}
       CAREERSIM_PLUGIN_DIR: /plugins
     depends_on:

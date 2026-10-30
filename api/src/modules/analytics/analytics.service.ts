@@ -203,6 +203,7 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
       let completableSessions = 0;
       const completedBySession = new Map<string, boolean>();
       for (const row of sessionRows) {
+        if (row.stateSnapshot.simulation?.evaluationMode === 'open') continue;
         const scored = scoredGoals(row.stateSnapshot.goal_progress ?? []);
         if (scored.length === 0) continue;
         completableSessions += 1;
@@ -259,7 +260,9 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
       const bySimulation = new Map<string, SimulationBreakdown>();
       for (const row of sessionRows) {
         const slug = row.simulationSlug;
-        const scored = scoredGoals(row.stateSnapshot.goal_progress ?? []);
+        const scored = row.stateSnapshot.simulation?.evaluationMode === 'open'
+          ? []
+          : scoredGoals(row.stateSnapshot.goal_progress ?? []);
         const achieved = countAchieved(scored);
         const overall = row.report?.overall_score ?? null;
         const lastPlayed = row.updatedAt.toISOString();

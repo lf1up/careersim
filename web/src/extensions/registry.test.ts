@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+  signedInNavItems,
   mergeNavItems,
   pluginRobotsDisallow,
   simulationHrefFor,
   simulationLabel,
 } from './index';
 import type { WebPlugin } from './types';
+
+const installedPlugins = vi.hoisted((): WebPlugin[] => []);
+vi.mock('@careersim/plugins', () => ({ plugins: installedPlugins }));
 
 const plugin: WebPlugin = {
   id: 'fixture',
@@ -16,6 +20,16 @@ const plugin: WebPlugin = {
 };
 
 describe('web extensions', () => {
+  it('forwards installed plugin navigation after host items', () => {
+    const host = [{ href: '/analytics', label: 'Analytics' }];
+    expect(signedInNavItems(host)).toEqual(host);
+    installedPlugins.push(plugin);
+    try {
+      expect(signedInNavItems(host)).toEqual([...host, ...plugin.navItems!]);
+    } finally {
+      installedPlugins.length = 0;
+    }
+  });
   it('appends plugin nav items after the host items, and adds nothing when none are installed', () => {
     expect(mergeNavItems([{ href: '/analytics', label: 'Analytics' }], [plugin])).toEqual([
       { href: '/analytics', label: 'Analytics' },
