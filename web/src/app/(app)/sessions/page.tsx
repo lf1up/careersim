@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
-import { simulationLabel } from '@/extensions';
+import { simulationHref, simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import type { SessionSummary, Simulation } from '@/lib/types';
 import {
@@ -122,6 +122,7 @@ export default function SessionsPage() {
                 tabIndex={0}
                 onClick={openSession}
                 onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     openSession();
@@ -158,36 +159,50 @@ export default function SessionsPage() {
                         {formatDate(s.updated_at)}
                       </p>
                     </div>
-                    <div className="flex w-full items-end justify-between gap-4 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:w-auto sm:shrink-0 sm:items-center sm:justify-end sm:border-t-0 sm:pt-0">
+                    <div className="flex w-full flex-wrap items-end justify-between gap-4 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:w-auto sm:shrink-0 sm:items-center sm:justify-end sm:border-t-0 sm:pt-0">
                       {hasGoalProgress && (
                         <GoalProgressSummary
                           align="start"
                           progress={s.goal_progress}
                         />
                       )}
-                      {/* Sibling control (not nested in an anchor). Only shown
-                          once the conversation plausibly has a user turn; the
-                          report page handles the empty case gracefully. */}
-                      {s.message_count >= 2 && (
+                      <div className="ml-auto flex items-center gap-3">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/sessions/${s.id}/report`);
+                            router.push(simulationHref(s.simulation_slug));
                           }}
-                          title="View the debrief report for this session"
+                          title="About this simulation"
                         >
-                          Report
+                          About
                         </Button>
-                      )}
-                      <span
-                        aria-hidden
-                        className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
-                      >
-                        →
-                      </span>
+                        {/* Sibling control (not nested in an anchor). Only shown
+                            once the conversation plausibly has a user turn; the
+                            report page handles the empty case gracefully. */}
+                        {s.message_count >= 2 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/sessions/${s.id}/report`);
+                            }}
+                            title="View the debrief report for this session"
+                          >
+                            Report
+                          </Button>
+                        )}
+                        <span
+                          aria-hidden
+                          className="text-retro-ink dark:text-retro-ink-dark text-xl font-semibold select-none"
+                        >
+                          →
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </RetroCard>

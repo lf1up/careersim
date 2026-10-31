@@ -12,10 +12,14 @@ import {
   truncateDescription,
 } from '@/lib/seo';
 
-import { SimulationDetailClient } from './SimulationDetailClient';
+import { PrivateSimulationDetailClient, SimulationDetailClient } from './SimulationDetailClient';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+function decodeSlug(value: string): string {
+  try { return decodeURIComponent(value); } catch { return value; }
 }
 
 export async function generateStaticParams() {
@@ -26,7 +30,16 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: routeParam } = await params;
+  const slug = decodeSlug(routeParam);
+  if (slug.includes(':')) {
+    return metadataFor({
+      title: 'Simulation details',
+      description: 'Details for a private simulation you have access to.',
+      path: `/simulations/${encodeURIComponent(slug)}`,
+      robots: { index: false, follow: false },
+    });
+  }
   const simulation = await getPublicSimulation(slug).catch(() => null);
 
   if (!simulation) {
@@ -57,7 +70,9 @@ export async function generateMetadata({
 }
 
 export default async function SimulationDetailPage({ params }: PageProps) {
-  const { slug } = await params;
+  const { slug: routeParam } = await params;
+  const slug = decodeSlug(routeParam);
+  if (slug.includes(':')) return <PrivateSimulationDetailClient slug={slug} />;
   const simulation = await getPublicSimulation(slug).catch(() => null);
 
   if (!simulation) notFound();

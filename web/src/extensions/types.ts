@@ -13,11 +13,13 @@ export interface WebNavItem {
   href: string;
   label: string;
   badge?: string;
+  /** Also show this link to signed-out visitors. The route can still require sign-in. */
+  showToGuests?: boolean;
 }
 
 export interface WebPlugin {
   id: string;
-  /** Appended to the signed-in navbar. Guests do not see these. */
+  /** Appended to the navbar; guest visibility is opt-in on each item. */
   navItems: WebNavItem[];
   /**
    * Override the link for a simulation slug. Return null to keep the host

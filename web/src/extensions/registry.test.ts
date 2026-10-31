@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   signedInNavItems,
+  guestNavItems,
   mergeNavItems,
   pluginRobotsDisallow,
   simulationHrefFor,
@@ -20,6 +21,18 @@ const plugin: WebPlugin = {
 };
 
 describe('web extensions', () => {
+  it('shows only opted-in installed plugin links to guests, preserving their badges', () => {
+    const host = [{ href: '/simulations', label: 'Simulations' }];
+    const create = { href: '/create', label: 'Create', badge: 'BETA', showToGuests: true };
+    expect(guestNavItems(host)).toEqual(host);
+    installedPlugins.push({ ...plugin, navItems: [create, { href: '/private', label: 'Private' }] });
+    try {
+      expect(guestNavItems(host)).toEqual([...host, create]);
+      expect(signedInNavItems(host)).toEqual([...host, ...installedPlugins[0].navItems]);
+    } finally {
+      installedPlugins.length = 0;
+    }
+  });
   it('forwards installed plugin navigation after host items', () => {
     const host = [{ href: '/analytics', label: 'Analytics' }];
     expect(signedInNavItems(host)).toEqual(host);

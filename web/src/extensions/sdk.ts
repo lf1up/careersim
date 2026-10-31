@@ -13,7 +13,7 @@ export {
   rateLimitRetryAfterSeconds,
 } from '@/lib/api';
 export { readSse } from '@/lib/sse';
-export type { GoalProgress, Message } from '@/lib/types';
+export type { DebriefReport, GoalProgress, Message } from '@/lib/types';
 export { useAuth } from '@/contexts/AuthContext';
 export { RequireAuth } from '@/components/auth/RequireAuth';
 
@@ -42,3 +42,5 @@ export {
   GoalProgressTracker,
 } from '@/components/chat/GoalProgressTracker';
 export { TypingIndicator } from '@/components/chat/TypingIndicator';
+
+export { SessionReportView } from '@/components/reports/SessionReportView';

@@ -144,6 +144,7 @@ export { users, sessions, messages } from '../db/schema.js';
 export type { AppDatabase } from '../db/client.js';
 export type { AgentClient } from '../agent/client.js';
 export type {
+  AgentDebriefReport as DebriefReport,
   AgentConversationResponse,
   AgentSimulationDetail,
   AgentWireState,

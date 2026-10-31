@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { UserIcon } from '@heroicons/react/24/outline';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { signedInNavItems, type WebNavItem } from '@/extensions';
+import { guestNavItems, signedInNavItems, type WebNavItem } from '@/extensions';
 import { SITE_NAME } from '@/lib/seo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
@@ -21,8 +21,8 @@ const AUTH_NAV_ITEMS: WebNavItem[] = [
   { href: '/analytics', label: 'Analytics' },
 ];
 
-// Nav items shown to guests. Keep this to public catalogue routes — Blog
-// lives in the landing-site header/footer, not the app chrome.
+// Host nav items shown to guests. Plugins can add their own guest-visible links.
+// Blog lives in the landing-site header/footer, not the app chrome.
 const GUEST_NAV_ITEMS: WebNavItem[] = [{ href: '/simulations', label: 'Simulations' }];
 const HAS_LANDING_ORIGIN =
   process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
@@ -46,7 +46,7 @@ export const Navbar: React.FC = () => {
   // While the auth bootstrap is running we can't know yet which variant of
   // the bar to show; render a minimal neutral header so the page doesn't
   // flash "guest → auth" or vice-versa.
-  const navItems = isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : GUEST_NAV_ITEMS;
+  const navItems = isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : guestNavItems(GUEST_NAV_ITEMS);
 
   const desktopNavLinkClass = (active: boolean) =>
     clsx(

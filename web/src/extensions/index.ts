@@ -16,6 +16,11 @@ export function signedInNavItems(base: readonly WebNavItem[]): WebNavItem[] {
   return mergeNavItems(base, plugins);
 }
 
+/** Guest navbar: host items, then plugin links explicitly visible to guests. */
+export function guestNavItems(base: readonly WebNavItem[]): WebNavItem[] {
+  return [...base, ...mergeNavItems([], plugins).filter((item) => item.showToGuests)];
+}
+
 export function simulationHrefFor(slug: string, list: readonly WebPlugin[]): string {
   for (const plugin of list) {
     const href = plugin.simulationHref?.(slug);
