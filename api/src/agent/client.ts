@@ -22,6 +22,7 @@ export interface AgentClient {
   listSimulations(): Promise<AgentSimulationsResponse>;
   getSimulation(slug: string): Promise<AgentSimulationDetail>;
   listPersonas(): Promise<AgentPersonasResponse>;
+  getPersonaDefinition(slug: string): Promise<Record<string, unknown>>;
   getPersonaAvatar(args: { slug: string; signal?: AbortSignal }): Promise<AgentAvatarResponse>;
   initConversation(args: {
     simulationSlug: string;
@@ -162,6 +163,10 @@ export class HttpAgentClient implements AgentClient {
 
   listPersonas(): Promise<AgentPersonasResponse> {
     return this.getJson('/personas');
+  }
+
+  getPersonaDefinition(slug: string): Promise<Record<string, unknown>> {
+    return this.getJson(`/personas/${encodeURIComponent(slug)}/definition`);
   }
 
   async getPersonaAvatar(args: {

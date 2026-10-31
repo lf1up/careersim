@@ -9,6 +9,7 @@ export const skillAverageSchema = z.object({
 export const scoreTrendPointSchema = z.object({
   session_id: z.uuid(),
   simulation_slug: z.string(),
+  simulation_title: z.string().nullable(),
   created_at: z.string(),
   overall_score: z.number(),
   skills: z.record(z.string(), z.number()),
@@ -26,6 +27,7 @@ export const toneCountSchema = z.object({
 
 export const simulationBreakdownSchema = z.object({
   simulation_slug: z.string(),
+  simulation_title: z.string().nullable(),
   sessions: z.number().int(),
   completed_sessions: z.number().int(),
   best_overall_score: z.number().nullable(),

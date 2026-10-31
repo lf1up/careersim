@@ -5,9 +5,9 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
+import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import type { AnalyticsOverview, Simulation } from '@/lib/types';
-import { SITE_NAME } from '@/lib/seo';
 import { indexSimulations } from '@/lib/simulation-meta';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
@@ -53,7 +53,10 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
 }
 
 /** Vertical bar strip for the score-over-time trend — pure CSS, no chart lib. */
-function ScoreTrendStrip({ overview }: { overview: AnalyticsOverview }) {
+function ScoreTrendStrip({ overview, simulationBySlug }: {
+  overview: AnalyticsOverview;
+  simulationBySlug: Record<string, Simulation>;
+}) {
   const trend = overview.reports.trend;
   if (trend.length < 2) return null;
   return (
@@ -70,7 +73,7 @@ function ScoreTrendStrip({ overview }: { overview: AnalyticsOverview }) {
               key={point.session_id}
               href={`/sessions/${point.session_id}/report`}
               className="group flex-1 flex flex-col items-center justify-end h-full min-w-0"
-              title={`${point.simulation_slug} · ${formatDate(point.created_at)} · ${point.overall_score}/100`}
+              title={`${simulationLabel(point.simulation_slug, { catalogTitle: simulationBySlug[point.simulation_slug]?.title, title: point.simulation_title })} · ${formatDate(point.created_at)} · ${point.overall_score}/100`}
             >
               <span className="text-[10px] font-monoRetro text-secondary-600 dark:text-secondary-400 opacity-0 group-hover:opacity-100 transition-opacity">
                 {point.overall_score}
@@ -97,10 +100,6 @@ export default function AnalyticsPage() {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    document.title = `Analytics | ${SITE_NAME}`;
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -279,7 +278,7 @@ export default function AnalyticsPage() {
           </RetroPanel>
 
           {/* Trend */}
-          <ScoreTrendStrip overview={overview} />
+          <ScoreTrendStrip overview={overview} simulationBySlug={simulationBySlug} />
 
           {/* Tone + recurring feedback */}
           {reports.analyzed_sessions > 0 && (
@@ -372,8 +371,10 @@ export default function AnalyticsPage() {
                   header: 'Simulation',
                   render: (row) => (
                     <span className="font-semibold">
-                      {simulationBySlug[row.simulation_slug]?.title ??
-                        row.simulation_slug}
+                      {simulationLabel(row.simulation_slug, {
+                        catalogTitle: simulationBySlug[row.simulation_slug]?.title,
+                        title: row.simulation_title,
+                      })}
                     </span>
                   ),
                 },

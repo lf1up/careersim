@@ -36,15 +36,10 @@ a browser-native voice worker — all from one binary.
 ```bash
 # From agent/
 
-# Create venv and install with uv (recommended)
+# Install the locked environment with uv (including security overrides)
 uv venv
 source .venv/bin/activate
-uv sync
-
-# Or plain pip
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+uv sync --locked
 
 # Configure
 cp .env.example .env

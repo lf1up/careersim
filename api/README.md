@@ -77,8 +77,8 @@ carries the matching `/v1` path. The tables below show that local `v1` surface.
 | GET  | `/v1/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
 | GET  | `/v1/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
 | GET  | `/v1/sessions/:id/report` | jwt (owner) | — | 10 / 5 min per user | LLM debrief report (skill scores, tone journey, advice, key moments). Cached per transcript length; regenerated via agent `POST /conversation/debrief` when the conversation advances. `400 NO_USER_MESSAGES` before the first user message |
-| POST | `/v1/sessions/:id/messages` | jwt (owner) | — | 60/min per user | `POST /conversation/turn` → persist delta |
-| POST | `/v1/sessions/:id/messages/stream` | jwt (owner) | — | 60/min per user | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
+| POST | `/v1/sessions/:id/messages` | jwt (owner) | — | 60 requests/min + shared text allowance | `POST /conversation/turn` → persist delta |
+| POST | `/v1/sessions/:id/messages/stream` | jwt (owner) | — | 60 requests/min + shared text allowance | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
 | POST | `/v1/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
 | POST | `/v1/sessions/:id/proactive/stream` | jwt (owner) | — | 30/min per user | SSE followup (`trigger_type: "followup"` only) |
 | POST | `/v1/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
@@ -322,6 +322,8 @@ See `.env.example` for the authoritative list. Required in production:
 | `REDIS_URL` | — | Optional Redis connection string (e.g. `redis://localhost:6379`). When set, rate-limit buckets are shared across API instances; otherwise the plugin uses a per-process LRU store |
 | `SESSIONS_CREATE_MAX` | `2` | Per-user cap on `POST /v1/sessions` within `SESSIONS_CREATE_WINDOW`. Each new session spins up an agent thread + burns LLM tokens, so this is kept aggressive by default |
 | `SESSIONS_CREATE_WINDOW` | `6 hours` | Window for `SESSIONS_CREATE_MAX`. Accepts any duration `@fastify/rate-limit` understands (`'30 minutes'`, `'1 hour'`, `'6 hours'`, or a raw ms number) |
+| `CHAT_MESSAGES_MAX` | `500` | Shared per-user text-message allowance across ordinary sessions and creator persona/simulation playgrounds. Batches count each message. Submission attempts count even if the handler subsequently fails; a batch exceeding the remaining allowance is rejected before generation. Internal voice turns are excluded. |
+| `CHAT_MESSAGES_WINDOW` | `6 hours` | Duration of the text-message allowance, starting with the first send. Returns HTTP 429 with `retryAfter` (milliseconds) and `Retry-After` (seconds) when exhausted. Redis shares the allowance across API instances; without Redis it is local to each process. |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
 | `LOG_LEVEL` | `info` | pino level |

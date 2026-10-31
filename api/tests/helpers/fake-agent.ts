@@ -164,6 +164,13 @@ export class FakeAgent implements AgentClient {
     return { personas: this.personas };
   }
 
+  async getPersonaDefinition(slug: string): Promise<Record<string, unknown>> {
+    this.callLog.push(`getPersonaDefinition:${slug}`);
+    const persona = this.personas.find((p) => p.slug === slug);
+    if (!persona) throw new AgentRequestError('Persona not found', 404, '{}');
+    return { ...persona, personality: 'Private catalog behavior', hiddenMotivation: 'Private catalog motivation' };
+  }
+
   async getPersonaAvatar(args: {
     slug: string;
     signal?: AbortSignal;

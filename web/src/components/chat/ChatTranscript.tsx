@@ -23,6 +23,7 @@ export interface ChatPersona {
 
 interface ChatTranscriptProps {
   messages: Message[];
+  renderMessageActions?: (message: Message) => React.ReactNode;
   /**
    * Optimistic user messages (shown immediately after send, before `done`).
    * More than one when the user fires several messages before the persona
@@ -66,6 +67,7 @@ interface ChatTranscriptProps {
 
 export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   messages,
+  renderMessageActions,
   pendingHumans,
   keptBurst,
   burstedAssistant,
@@ -131,6 +133,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
   // produce multiple paired blocks; a call whose messages are the tail of
   // the transcript gets a trailing END block.
   const rendered: React.ReactNode[] = [];
+  const savedMessages = new Map(messages.map((m) => [m.event_id ?? m.id, m]));
   let inVoiceBlock = false;
   items.forEach((item, idx) => {
     const prev = items[idx - 1];
@@ -148,7 +151,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
     const showAvatar = item.role === 'ai' && (prev?.role !== 'ai' || sourceChanged || prev?.actor_id !== item.actor_id);
     const participant = participants?.find((p) => p.actor_id === item.actor_id);
     const speaker = participant
-      ? { name: participant.name, slug: participant.persona_slug, role: participant.role }
+      ? { name: item.actor_name || participant.name, slug: participant.persona_slug, role: participant.role }
       : item.actor_name ? { ...persona, name: item.actor_name } : persona;
     rendered.push(
       <Bubble
@@ -159,6 +162,10 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
         showAvatar={showAvatar}
       />,
     );
+    const saved = savedMessages.get(item.key);
+    if (saved && renderMessageActions) {
+      rendered.push(<div key={`actions-${item.key}`}>{renderMessageActions(saved)}</div>);
+    }
   });
   if (inVoiceBlock) {
     rendered.push(<CallDivider key="call-end-final" variant="end" />);

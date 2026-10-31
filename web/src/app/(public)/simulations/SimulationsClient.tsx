@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 
+import { simulationHref } from '@/extensions';
 import type { Simulation } from '@/lib/types';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { RetroCard } from '@/components/ui/RetroCard';
@@ -36,8 +37,8 @@ export function SimulationsClient({
 
   return (
     <div className="space-y-6 pb-3 sm:mr-[-5px] sm:pb-4 retro-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 sm:flex-1">
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
             AI career simulations
           </h1>
@@ -46,7 +47,7 @@ export function SimulationsClient({
             set of conversation goals.
           </p>
         </div>
-        <div className="w-full sm:w-72">
+        <div className="w-full min-w-0 sm:w-72">
           <label className="sr-only" htmlFor="simulation-search">
             Search simulations
           </label>
@@ -74,7 +75,7 @@ export function SimulationsClient({
           {filtered.map((sim) => (
             <Link
               key={sim.slug}
-              href={`/simulations/${encodeURIComponent(sim.slug)}`}
+              href={simulationHref(sim.slug)}
               className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
             >
               <RetroCard

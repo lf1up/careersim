@@ -10,6 +10,13 @@ const baseEnv = {
 };
 
 describe('loadEnv', () => {
+  it('defaults the text message allowance to 500 per six hours and accepts overrides', () => {
+    expect(loadEnv(baseEnv)).toMatchObject({ CHAT_MESSAGES_MAX: 500, CHAT_MESSAGES_WINDOW: '6 hours' });
+    expect(loadEnv({ ...baseEnv, CHAT_MESSAGES_MAX: '25', CHAT_MESSAGES_WINDOW: '30 minutes' }))
+      .toMatchObject({ CHAT_MESSAGES_MAX: 25, CHAT_MESSAGES_WINDOW: '30 minutes' });
+    expect(() => loadEnv({ ...baseEnv, CHAT_MESSAGES_MAX: '0' })).toThrow(/CHAT_MESSAGES_MAX/);
+    expect(() => loadEnv({ ...baseEnv, CHAT_MESSAGES_WINDOW: '' })).toThrow(/CHAT_MESSAGES_WINDOW/);
+  });
   it('allows local sender domains when SMTP is disabled', () => {
     const env = loadEnv({
       ...baseEnv,

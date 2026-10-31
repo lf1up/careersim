@@ -111,6 +111,19 @@ describe('GET /simulations/:slug', () => {
     );
   });
 
+  it('returns 404 for a namespaced slug no plugin owns', async () => {
+    const res = await h.app.inject({
+      method: 'GET',
+      url: '/v1/simulations/fixture:missing',
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toEqual({
+      error: 'simulation_not_found',
+      message: 'Simulation "fixture:missing" was not found.',
+    });
+    expect(h.agent.callLog.some((entry) => entry.startsWith('getSimulation:'))).toBe(false);
+  });
+
   it('returns 404 when the agent reports the simulation is missing', async () => {
     const res = await h.app.inject({
       method: 'GET',

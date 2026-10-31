@@ -1,6 +1,6 @@
 {
   "name": "careersim-api",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "CareerSIM Fastify + Drizzle API gateway in front of the LangGraph agent service.",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
   "packageManager": "pnpm@10.29.3",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/plugins.mjs fetch && tsc -p tsconfig.build.json && node scripts/plugins.mjs assets",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",

@@ -17,6 +17,7 @@ const pkg = require('../package.json') as { name: string; version: string };
 
 import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
+import { type ApiPlugin, assertPluginRegistry, simulationProviders } from './extensions/sdk.js';
 import altchaPlugin, { altchaChallengeRoutes } from './plugins/altcha.js';
 import { registerAuth } from './plugins/auth.js';
 import { registerErrorHandler } from './plugins/errors.js';
@@ -113,6 +114,9 @@ export interface BuildAppOptions {
      */
     createSessionMax?: number;
     createSessionTimeWindow?: string;
+    /** Shared text-message allowance; excludes internal voice turns. */
+    chatMessagesMax?: number;
+    chatMessagesTimeWindow?: string;
   };
   /**
    * Optional cache ping used by the versioned health probe. Tests inject
@@ -138,6 +142,12 @@ export interface BuildAppOptions {
    * on `/internal/sessions/:id/state-for-voice`; we reuse
    * `AGENT_INTERNAL_KEY` so there's only one secret to rotate.
    */
+  /**
+   * Build-time plugins. Empty (the default) leaves every route and the
+   * session-creation path unchanged. Each plugin's routes mount at
+   * `{versionPrefix}/{plugin.id}`.
+   */
+  plugins?: ApiPlugin[];
   voice?: {
     enabled: boolean;
     livekitUrl: string;
@@ -150,6 +160,9 @@ export interface BuildAppOptions {
 }
 
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
+  const plugins = opts.plugins ?? [];
+  assertPluginRegistry(plugins);
+  const providers = simulationProviders(plugins);
   const app = Fastify({
     logger: opts.logger ?? false,
   }).withTypeProvider<ZodTypeProvider>();
@@ -167,6 +180,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const corsAllowAllWhenEmpty = opts.cors?.allowAllWhenEmpty ?? false;
   await app.register(cors, {
     credentials: true,
+    // @fastify/cors defaults to the safelist (GET, HEAD, POST). PUT and DELETE are
+    // required for creator simulation removal; PUT/PATCH stay off the list.
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
     origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
       // No Origin header = same-origin or non-browser client; CORS doesn't apply.
       if (!origin) return cb(null, true);
@@ -186,6 +202,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     globalTimeWindow: opts.rateLimit?.globalTimeWindow,
     createSessionMax: opts.rateLimit?.createSessionMax,
     createSessionTimeWindow: opts.rateLimit?.createSessionTimeWindow,
+    chatMessagesMax: opts.rateLimit?.chatMessagesMax,
+    chatMessagesTimeWindow: opts.rateLimit?.chatMessagesTimeWindow,
   });
 
   await app.register(swagger, {
@@ -385,15 +403,30 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         nodeEnv: opts.nodeEnv,
         jwtExpiresIn: opts.jwtExpiresIn ?? '7d',
       });
-      await scope.register(simulationsRoutes, { agent: opts.agent });
+      await scope.register(simulationsRoutes, { agent: opts.agent, simulationProviders: providers });
       await scope.register(personasRoutes, { agent: opts.agent });
       await scope.register(sessionsRoutes, {
         db: opts.db,
         agent: opts.agent,
+        simulationProviders: providers,
         corsAllowedOrigins,
         corsAllowAllWhenEmpty,
         internalKey,
       });
+      for (const plugin of plugins) {
+        if (!plugin.routes) continue;
+        await scope.register(
+          async (pluginScope) => {
+            await plugin.routes!(pluginScope, {
+              db: opts.db,
+              agent: opts.agent,
+              authenticate: pluginScope.authenticate,
+              logger: pluginScope.log,
+            });
+          },
+          { prefix: `/${plugin.id}` },
+        );
+      }
       await scope.register(analyticsRoutes, { db: opts.db });
       await scope.register(voiceRoutes, {
         db: opts.db,

@@ -64,7 +64,9 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
-      target: base
+      # `dev` does not fetch plugins with the GitHub token. The checkout
+      # below is bind-mounted and hot-reloaded instead.
+      target: dev
     ports:
       - "8000:8000"
     env_file:
@@ -96,6 +98,12 @@ services:
       # the `AGENT_INTERNAL_KEY` in `./agent/.env`. Leave both unset in
       # local dev (the agent falls back to unauthenticated mode with a
       # warning); set to a matching random value in staging/prod.
+      # Local plugin checkout (careersim-studio/plugins). Set
+      # CAREERSIM_PLUGINS= (empty) in the shell or a repo-root `.env` to boot
+      # without plugins. Unset selects creator and requires the checkout.
+      # CAREERSIM_PLUGIN_HOST_DIR overrides the host path.
+      CAREERSIM_PLUGINS: ${CAREERSIM_PLUGINS-creator}
+      CAREERSIM_PLUGIN_DIR: /plugins
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,14 +114,20 @@ services:
     volumes:
       - ./api:/app
       - /app/node_modules
+      - ${CAREERSIM_PLUGIN_HOST_DIR:-../careersim-studio/plugins}:/plugins:ro
     networks:
       - careersim-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    # Copy the bind-mounted plugin before migrating. `pnpm dev` copies it
+    # too, but a stale src/extensions/installed/<id> makes this migrate
+    # fail and the server never starts. `sync` is a no-op when
+    # CAREERSIM_PLUGINS is empty.
     command: >
       sh -c "
         pnpm install --frozen-lockfile=false &&
+        node scripts/plugins.mjs sync &&
         echo 'Running database migrations...' &&
         pnpm run db:migrate &&
         echo 'Starting development server...' &&
@@ -148,6 +162,10 @@ services:
       # Ghost Content API — compose-internal hostname. The Content API key and
       # webhook secret still come from `./web/.env` (see web/.env.example).
       GHOST_API_URL: http://ghost:2368
+      # Same local plugin checkout as the `api` service. Next reloads when
+      # the watcher recopies files into the bind-mounted app directory.
+      CAREERSIM_PLUGINS: ${CAREERSIM_PLUGINS-creator}
+      CAREERSIM_PLUGIN_DIR: /plugins
     depends_on:
       api:
         condition: service_started
@@ -160,6 +178,7 @@ services:
       # container.
       - /app/node_modules
       - /app/.next
+      - ${CAREERSIM_PLUGIN_HOST_DIR:-../careersim-studio/plugins}:/plugins:ro
     networks:
       - careersim-network
     restart: unless-stopped

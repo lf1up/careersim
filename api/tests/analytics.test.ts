@@ -70,9 +70,49 @@ describe('GET /analytics/overview', () => {
       .where(eq(sessions.id, sessionId));
   }
 
+  /** Force snapshot title and createdAt so per-simulation order is stable. */
+  async function setTitle(sessionId: string, title: unknown, createdAt: Date) {
+    const [row] = await h.db.db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .limit(1);
+    if (!row) throw new Error(`session not found: ${sessionId}`);
+    const simulation = { ...row.stateSnapshot.simulation };
+    if (title === undefined) delete simulation.title;
+    else simulation.title = title;
+    await h.db.db
+      .update(sessions)
+      .set({ createdAt, stateSnapshot: { ...row.stateSnapshot, simulation } })
+      .where(eq(sessions.id, sessionId));
+  }
+
   it('requires authentication', async () => {
     const res = await h.app.inject({ method: 'GET', url: '/v1/analytics/overview' });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('keeps open conversations in usage totals but excludes their stale goals from scoring', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const practice = await createSession(authHeader);
+    const open = await createSession(authHeader);
+    const openOnly = await createSession(authHeader, SLUG_2);
+    await setGoalProgress(practice.id, [{ goalNumber: 1, status: 'achieved' }]);
+    for (const session of [open, openOnly]) {
+      await h.db.db.update(sessions).set({ stateSnapshot: {
+        simulation: { evaluationMode: 'open' },
+        goal_progress: [
+          { goalNumber: 1, status: 'achieved' },
+          { goalNumber: 2, status: 'not_started' },
+          { goalNumber: 3, status: 'not_started' },
+        ],
+      } }).where(eq(sessions.id, session.id));
+    }
+    const body = await getOverview(authHeader);
+    expect(body.totals.sessions).toBe(3);
+    expect(body.goals).toEqual({ achieved: 1, total: 1, completed_sessions: 1, completable_sessions: 1, completion_rate: 1 });
+    expect(body.per_simulation.find((row: { simulation_slug: string }) => row.simulation_slug === SLUG)).toMatchObject({ sessions: 2, completed_sessions: 1, best_goals_achieved: 1, goals_required: 1 });
+    expect(body.per_simulation.find((row: { simulation_slug: string }) => row.simulation_slug === SLUG_2)).toMatchObject({ sessions: 1, completed_sessions: 0, best_goals_achieved: 0, goals_required: 0 });
   });
 
   it('returns zeroed stats for a fresh user', async () => {
@@ -198,6 +238,28 @@ describe('GET /analytics/overview', () => {
       completed_sessions: 1,
       best_goals_achieved: 1,
       goals_required: 1,
+    });
+  });
+
+  it('backfills a blank simulation title from a later session of the same slug', async () => {
+    const { authHeader } = await registerAndAuth(h.app);
+    const blank = await createSession(authHeader, SLUG);
+    const untitled = await createSession(authHeader, SLUG);
+    const titled = await createSession(authHeader, SLUG);
+    await setTitle(blank.id, '   ', new Date('2020-01-01T00:00:00Z'));
+    await setTitle(untitled.id, undefined, new Date('2020-01-02T00:00:00Z'));
+    await h.db.db
+      .update(sessions)
+      .set({ createdAt: new Date('2020-01-03T00:00:00Z') })
+      .where(eq(sessions.id, titled.id));
+
+    const body = await getOverview(authHeader);
+    const row = body.per_simulation.find(
+      (entry: { simulation_slug: string }) => entry.simulation_slug === SLUG,
+    );
+    expect(row).toMatchObject({
+      sessions: 3,
+      simulation_title: 'Behavioral Interview',
     });
   });
 

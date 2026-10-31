@@ -1,4 +1,4 @@
-import type { FastifyRequest } from 'fastify';
+import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { Redis } from 'ioredis';
 import fp from 'fastify-plugin';
@@ -84,6 +84,15 @@ function limit(
   keyGenerator: RateLimitKeyGenerator,
 ): RouteRateLimit {
   return { max, timeWindow, keyGenerator };
+}
+
+/**
+ * Per-user bucket that shares this process's rate-limit store (Redis when
+ * configured, otherwise the in-memory LRU) and the host 429 envelope.
+ * Plugins attach the result to a route's `config.rateLimit`.
+ */
+export function perUserLimit(max: number, timeWindow: string): RouteRateLimit {
+  return limit(max, timeWindow, byUser);
 }
 
 /**
@@ -199,10 +208,15 @@ export interface RateLimitOptions {
    */
   createSessionMax?: number;
   createSessionTimeWindow?: string;
+  /** One allowance per user shared by all text-message routes. */
+  chatMessagesMax?: number;
+  chatMessagesTimeWindow?: string;
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
+    /** Attach after authentication and body validation on text-message routes only. */
+    checkTextMessageQuota: preHandlerAsyncHookHandler;
     /**
      * Marker decorator so tests (and future route authors) can quickly
      * verify the plugin is active. The policies themselves are imported
@@ -235,6 +249,7 @@ export default fp<RateLimitOptions>(
     }
 
     if (!enabled) {
+      app.decorate('checkTextMessageQuota', async () => {});
       app.decorate('redis', null);
       app.log.info('rate-limit plugin disabled (RATE_LIMIT_ENABLED=false)');
       return;
@@ -312,6 +327,29 @@ export default fp<RateLimitOptions>(
           'RATE_LIMITED',
           { retryAfter: context.ttl },
         ),
+    });
+
+    // Create once, rather than per route: both Redis and the local store must
+    // share this bucket across batch/stream endpoints and plugin playgrounds.
+    const consumeMessage = app.createRateLimit({
+      max: opts.chatMessagesMax ?? 500,
+      timeWindow: opts.chatMessagesTimeWindow ?? '6 hours',
+      keyGenerator: (request) => `text-messages:${byUser(request)}`,
+    });
+    app.decorate('checkTextMessageQuota', async (request, reply) => {
+      const { content } = request.body as { content: string | string[] };
+      const count = Array.isArray(content) ? content.length : 1;
+      for (let i = 0; i < count; i++) {
+        const result = await consumeMessage(request);
+        if (!result.isAllowed && result.isExceeded) {
+          reply.header('retry-after', result.ttlInSeconds);
+          reply.header('x-ratelimit-limit', result.max);
+          reply.header('x-ratelimit-remaining', 0);
+          reply.header('x-ratelimit-reset', result.ttlInSeconds);
+          throw new HttpError(429, 'Text message limit reached. Please try again later.',
+            'RATE_LIMITED', { retryAfter: result.ttl });
+        }
+      }
     });
   },
   { name: 'rate-limit' },

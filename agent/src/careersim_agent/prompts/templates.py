@@ -54,7 +54,9 @@ def _format_conversation_style(style: Optional[dict]) -> str:
             parts.append(f"Pace: {style['pace']}")
         if style.get("emotionalRange"):
             parts.append(f"Emotional range: {', '.join(style['emotionalRange'])}")
-        
+        if style.get("commonPhrases"):
+            parts.append(f"Common phrases: {', '.join(style['commonPhrases'])}")
+
         return "\n".join(parts) if parts else json.dumps(style, indent=2)
     except Exception:
         return str(style)
