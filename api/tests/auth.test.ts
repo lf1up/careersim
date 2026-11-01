@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import argon2 from 'argon2';
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { authTokens } from '../src/db/schema.js';
+import { authTokens, users } from '../src/db/schema.js';
 import {
   buildTestApp,
   registerAndAuth,
@@ -34,6 +35,7 @@ describe('auth', () => {
     h = await buildTestApp();
   });
   afterEach(async () => {
+    vi.restoreAllMocks();
     await h.close();
   });
 
@@ -56,7 +58,7 @@ describe('auth', () => {
     const verify = await h.app.inject({
       method: 'POST',
       url: '/v1/auth/verify-email',
-      payload: { email, code },
+      payload: { email, code, password: 'super-secret-123' },
     });
     expect(verify.statusCode).toBe(200);
     const body = verify.json() as {
@@ -265,6 +267,78 @@ describe('auth', () => {
     });
     expect(second.statusCode).toBe(400);
     expect(second.json().error).toBe('INVALID_TOKEN');
+  });
+
+  it('accepts a verification code only once when two requests arrive together', async () => {
+    const email = 'concurrent-code@example.com';
+    await h.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { email } });
+    const code = extractCode(lastMailTo(h.outbox, email).text);
+    const results = await Promise.all([0, 1].map(() => h.app.inject({
+      method: 'POST', url: '/v1/auth/verify-email', payload: { email, code },
+    })));
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 400]);
+  });
+
+  it('accepts a magic link only once when two requests arrive together', async () => {
+    const email = 'concurrent-link@example.com';
+    await h.app.inject({ method: 'POST', url: '/v1/auth/login/email-link', payload: { email } });
+    const token = extractLinkToken(lastMailTo(h.outbox, email).text);
+    const results = await Promise.all([0, 1].map(() => h.app.inject({
+      method: 'POST', url: '/v1/auth/magic-link/consume', payload: { token },
+    })));
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 400]);
+  });
+
+  it('sets the password chosen by the email owner at confirmation, not a pre-registration password', async () => {
+    const email = 'code-preregistration@example.com';
+    const attackerPassword = 'attacker-preregistration-password';
+    const ownerPassword = 'email-owner-chosen-password';
+    await h.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { email, password: attackerPassword } });
+    const code = extractCode(lastMailTo(h.outbox, email).text);
+    const verified = await h.app.inject({ method: 'POST', url: '/v1/auth/verify-email', payload: { email, code, password: ownerPassword } });
+    expect(verified.statusCode).toBe(200);
+    const owner = await h.app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email, password: ownerPassword } });
+    expect(owner.statusCode).toBe(200);
+    const attacker = await h.app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email, password: attackerPassword } });
+    expect(attacker.statusCode).toBe(400);
+  });
+
+  it('does not activate an unverified password when the email owner confirms without one', async () => {
+    const email = 'code-passwordless-claim@example.com';
+    await h.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { email, password: 'unproven-password' } });
+    const code = extractCode(lastMailTo(h.outbox, email).text);
+    const verified = await h.app.inject({ method: 'POST', url: '/v1/auth/verify-email', payload: { email, code } });
+    expect(verified.statusCode).toBe(200);
+    expect(verified.json().user.has_password).toBe(false);
+  });
+
+  it('clears an unverified registration password when its owner signs in by email link', async () => {
+    const email = 'pre-registered@example.com';
+    const password = 'attacker-chosen-password';
+    await h.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { email, password } });
+    await h.app.inject({ method: 'POST', url: '/v1/auth/login/email-link', payload: { email } });
+    const token = extractLinkToken(lastMailTo(h.outbox, email).text);
+    const consumed = await h.app.inject({ method: 'POST', url: '/v1/auth/magic-link/consume', payload: { token } });
+    expect(consumed.statusCode).toBe(200);
+    expect(consumed.json().user.has_password).toBe(false);
+    const login = await h.app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email, password } });
+    expect(login.statusCode).toBe(403);
+    expect(login.json().error).toBe('PASSWORDLESS_ACCOUNT');
+  });
+
+  it('does not replace a password if the account is verified while a registration restart hashes it', async () => {
+    const email = 'registration-race@example.com';
+    const password = 'original-owner-password';
+    await h.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { email, password } });
+    const hash = argon2.hash.bind(argon2);
+    vi.spyOn(argon2, 'hash').mockImplementationOnce(async (value, options) => {
+      await h.db.db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.email, email));
+      return hash(value, options);
+    });
+    const restarted = await h.app.inject({ method: 'POST', url: '/v1/auth/register', payload: { email, password: 'replacement-attacker-password' } });
+    expect(restarted.statusCode).toBe(409);
+    const login = await h.app.inject({ method: 'POST', url: '/v1/auth/login', payload: { email, password } });
+    expect(login.statusCode).toBe(200);
   });
 
   // -- forgot + reset password --------------------------------------------
@@ -838,7 +912,7 @@ describe('auth', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('register: rejects registering the same email while the first account is still unverified', async () => {
+  it('register: restarts an unverified signup and activates the password confirmed by its owner', async () => {
     // Per the service, re-registering an unverified account refreshes its
     // password and re-issues a code rather than erroring — this avoids
     // locking users out if the first email got lost. Verify that path.
@@ -862,7 +936,7 @@ describe('auth', () => {
     const verify = await h.app.inject({
       method: 'POST',
       url: '/v1/auth/verify-email',
-      payload: { email, code: latest },
+      payload: { email, code: latest, password: 'super-secret-222' },
     });
     expect(verify.statusCode).toBe(200);
 

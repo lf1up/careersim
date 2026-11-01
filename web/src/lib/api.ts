@@ -186,10 +186,10 @@ export const apiClient = {
   },
 
   /** Confirm a 6-digit email code and sign in (sets the session cookie). */
-  async verifyEmail(email: string, code: string): Promise<AuthResponse> {
+  async verifyEmail(email: string, code: string, password?: string): Promise<AuthResponse> {
     return request<AuthResponse>('/auth/verify-email', {
       method: 'POST',
-      body: { email, code },
+      body: { email, code, password },
     });
   },
 

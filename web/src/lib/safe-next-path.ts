@@ -13,7 +13,11 @@ export function safeNextPath(
 ): string {
   if (typeof value !== 'string') return fallback;
   if (!value.startsWith('/')) return fallback;
-  // Reject protocol-relative URLs (`//example.com`) and path-traversal.
+  // Browsers normalize backslashes and strip URL controls before navigation.
   if (value.startsWith('//')) return fallback;
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (char === '\\' || code < 32 || code === 127) return fallback;
+  }
   return value;
 }

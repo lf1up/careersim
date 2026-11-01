@@ -87,7 +87,7 @@ export const RegisterForm: React.FC = () => {
 
   const handleVerify = async (code: string) => {
     if (step.kind !== 'verify') return;
-    await verifyEmail(step.email, code);
+    await verifyEmail(step.email, code, mode === 'password' ? password : undefined);
     router.push(nextPath);
   };
 

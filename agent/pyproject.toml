@@ -64,6 +64,8 @@ override-dependencies = [
     "pillow>=13.0.0",
 ]
 constraint-dependencies = [
+    # GHSA-xmj3-9gf7-h52w: Windows path escape during legacy wheel installation.
+    "setuptools>=84.1.0",
     # CVE-2026-97687 / CVE-2026-97689, disclosed 2026-09-29. Transitive via requests.
     "urllib3>=2.8.0",
     # CVE-2026-49265, disclosed 2026-09-29. Transitive via kubernetes/requests-oauthlib.

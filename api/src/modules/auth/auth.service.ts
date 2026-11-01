@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 import argon2 from 'argon2';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 
 import type { AppDatabase } from '../../db/client.js';
 import {
@@ -42,7 +42,7 @@ export interface AuthService {
   // Registration / verification
   startRegistration(email: string, password?: string): Promise<IssuedCode>;
   resendVerification(email: string): Promise<IssuedCode | null>;
-  verifyEmail(email: string, code: string): Promise<UserRow>;
+  verifyEmail(email: string, code: string, password?: string): Promise<UserRow>;
 
   // Password login
   verifyCredentials(email: string, password: string): Promise<UserRow>;
@@ -247,11 +247,17 @@ export function createAuthService(db: AppDatabase): AuthService {
     return row;
   }
 
-  async function consumeToken(id: string): Promise<void> {
-    await db
+  async function consumeToken(id: string, kind: 'code' | 'link'): Promise<void> {
+    const consumed = await db
       .update(authTokens)
       .set({ consumedAt: new Date() })
-      .where(eq(authTokens.id, id));
+      .where(and(eq(authTokens.id, id), isNull(authTokens.consumedAt), gt(authTokens.expiresAt, new Date())))
+      .returning();
+    if (!consumed.length) {
+      throw kind === 'code'
+        ? badRequest('Invalid or expired code', 'INVALID_CODE')
+        : badRequest('Invalid or expired link', 'INVALID_TOKEN');
+    }
   }
 
   async function markEmailVerified(userId: string): Promise<UserRow> {
@@ -288,9 +294,10 @@ export function createAuthService(db: AppDatabase): AuthService {
         const [updated] = await db
           .update(users)
           .set({ passwordHash, updatedAt: new Date() })
-          .where(eq(users.id, existing.id))
+          .where(and(eq(users.id, existing.id), isNull(users.emailVerifiedAt)))
           .returning();
-        user = updated ?? existing;
+        if (!updated) throw conflict('Email already registered', 'EMAIL_TAKEN');
+        user = updated;
       } else {
         const passwordHash = password
           ? await argon2.hash(password, { type: argon2.argon2id })
@@ -315,10 +322,10 @@ export function createAuthService(db: AppDatabase): AuthService {
       return { user: existing, code, purpose: 'verify_email' };
     },
 
-    async verifyEmail(emailInput, code) {
+    async verifyEmail(emailInput, code, password) {
       const email = normaliseEmail(emailInput);
       const user = await findByEmail(email);
-      if (!user) throw badRequest('Invalid or expired code', 'INVALID_CODE');
+      if (!user || user.emailVerifiedAt) throw badRequest('Invalid or expired code', 'INVALID_CODE');
 
       const token = await findPendingCodeToken(user.id, 'verify_email');
       if (!token || !token.codeHash) {
@@ -327,8 +334,15 @@ export function createAuthService(db: AppDatabase): AuthService {
       const ok = await verifyHashedCode(token.codeHash, code);
       if (!ok) throw badRequest('Invalid or expired code', 'INVALID_CODE');
 
-      await consumeToken(token.id);
-      return markEmailVerified(user.id);
+      // Only trust a password submitted together with proof of email ownership.
+      const passwordHash = password ? await argon2.hash(password, { type: argon2.argon2id }) : null;
+      await consumeToken(token.id, 'code');
+      const [verified] = await db.update(users)
+        .set({ passwordHash, emailVerifiedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
+        .returning();
+      if (!verified) throw badRequest('Invalid or expired code', 'INVALID_CODE');
+      return verified;
     },
 
     async verifyCredentials(emailInput, password) {
@@ -373,13 +387,19 @@ export function createAuthService(db: AppDatabase): AuthService {
     async consumeMagicLink(rawToken) {
       const row = await findPendingLinkToken('login_link', rawToken);
       if (!row) throw badRequest('Invalid or expired link', 'INVALID_TOKEN');
-      await consumeToken(row.id);
+      await consumeToken(row.id, 'link');
       const user = await findById(row.userId);
       if (!user) throw badRequest('Invalid or expired link', 'INVALID_TOKEN');
       // Clicking the link proves the user controls the address; mark them
       // verified if they weren't already.
       if (!user.emailVerifiedAt) {
-        return markEmailVerified(user.id);
+        // An attacker may have registered this address with a password first.
+        // Do not preserve that unproven password when its owner claims the account.
+        const [verified] = await db.update(users)
+          .set({ passwordHash: null, emailVerifiedAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(users.id, user.id), isNull(users.emailVerifiedAt)))
+          .returning();
+        return verified ?? markEmailVerified(user.id);
       }
       return user;
     },
@@ -395,7 +415,7 @@ export function createAuthService(db: AppDatabase): AuthService {
     async resetPassword(rawToken, newPassword) {
       const row = await findPendingLinkToken('reset_password', rawToken);
       if (!row) throw badRequest('Invalid or expired link', 'INVALID_TOKEN');
-      await consumeToken(row.id);
+      await consumeToken(row.id, 'link');
 
       const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
       const [updated] = await db
@@ -478,7 +498,7 @@ export function createAuthService(db: AppDatabase): AuthService {
         throw conflict('Email already in use', 'EMAIL_TAKEN');
       }
 
-      await consumeToken(token.id);
+      await consumeToken(token.id, 'code');
       const [updated] = await db
         .update(users)
         .set({

@@ -31,6 +31,7 @@ export const credentialsSchema = z.object({
 export const verifyEmailRequestSchema = z.object({
   email: emailField,
   code: codeField,
+  password: passwordField.optional(),
 });
 
 // Note: this endpoint is intentionally *not* gated by ALTCHA. The

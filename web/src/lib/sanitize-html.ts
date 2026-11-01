@@ -37,17 +37,18 @@ function ensureSanitizeHooks(): void {
 
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
     if (data.tagName !== 'iframe') return;
-    if (!(node instanceof Element)) return;
+    if (node.nodeType !== 1) return;
+    const element = node as Element;
 
-    const src = node.getAttribute('src');
+    const src = element.getAttribute('src');
     if (!isAllowedIframeSrc(src)) {
-      node.parentNode?.removeChild(node);
+      element.parentNode?.removeChild(element);
       return;
     }
 
-    node.setAttribute('sandbox', IFRAME_SANDBOX);
-    node.setAttribute('referrerpolicy', IFRAME_REFERRER_POLICY);
-    node.setAttribute('allow', IFRAME_ALLOW);
+    element.setAttribute('sandbox', IFRAME_SANDBOX);
+    element.setAttribute('referrerpolicy', IFRAME_REFERRER_POLICY);
+    element.setAttribute('allow', IFRAME_ALLOW);
   });
 }
 

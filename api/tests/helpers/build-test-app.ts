@@ -201,7 +201,7 @@ export async function registerAndAuth(
   const verify = await app.inject({
     method: 'POST',
     url: '/v1/auth/verify-email',
-    payload: { email, code },
+    payload: { email, code, password },
   });
   if (verify.statusCode !== 200) {
     throw new Error(`registerAndAuth verify failed: ${verify.statusCode} ${verify.body}`);

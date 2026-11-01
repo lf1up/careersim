@@ -62,7 +62,7 @@ carries the matching `/v1` path. The tables below show that local `v1` surface.
 | GET  | `/v1/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
 | POST | `/v1/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
 | POST | `/v1/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/v1/auth/register`, which *is* gated |
-| POST | `/v1/auth/verify-email` | public | — | 10/5min per email+IP | Consume the 6-digit code; returns `{ user, token }` |
+| POST | `/v1/auth/verify-email` | public | — | 10/5min per email | Consume the 6-digit code; returns `{ user, token }` |
 | POST | `/v1/auth/login` | public | ✓ | 10/min per IP | Exchange credentials for a JWT |
 | POST | `/v1/auth/login/email-link` | public | ✓ | 5/hour per email | Email a magic sign-in link (passwordless) |
 | POST | `/v1/auth/magic-link/consume` | public | — | 10/5min per IP | Consume a magic-link token; returns `{ user, token }` |
@@ -85,6 +85,15 @@ carries the matching `/v1` path. The tables below show that local `v1` surface.
 | POST | `/v1/sessions/:id/voice/start` | jwt (owner) | — | 10/min per user | Mint a LiveKit join token. `503 voice_disabled`, `429 voice_quota_exhausted`, `409 voice_call_in_progress` |
 | POST | `/v1/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | Mark the call ended (clears the active-call guard). Quota debit is worker-authoritative, not here |
 | GET  | `/v1/analytics/overview` | jwt | — | 200/min per IP (global) | Aggregate practice stats across all the caller's sessions: deterministic totals (sessions, goals, completion rate, practice time, voice usage) plus skill averages / score trend / tone distribution derived from cached debrief reports |
+
+Email confirmation accepts an optional `password` alongside `email` and `code`.
+Password-based clients must submit the password chosen by the user at this step;
+the web registration and unverified-login forms do so from their in-memory state.
+Confirmation without a password, or a magic-link sign-in that first verifies an
+account, leaves it passwordless rather than activating a password supplied before
+email ownership was proven. Existing verified accounts keep their passwords. All verification codes
+and sign-in/reset links are redeemed with an atomic, single-use database update.
+Passwordless users can set a password later through `PATCH /auth/me/password`.
 
 ### Internal voice routes (worker ⇄ API)
 
