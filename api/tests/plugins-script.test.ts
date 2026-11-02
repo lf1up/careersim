@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -78,6 +78,48 @@ describe('plugins.mjs', () => {
       await run(join(root, 'scripts/plugins.mjs'), { CAREERSIM_PLUGINS: '' }, command);
     }
     for (const dir of overlays()) expect(existsSync(dir)).toBe(false);
+  });
+
+  it.each(['fetch', 'sync'])('removes compiled plugins when changing a nonempty selection with %s', async (command) => {
+    const sourceRoot = join(testRoot, 'plugin-source');
+    await cp(fixtureDir, sourceRoot, { recursive: true });
+    await cp(join(sourceRoot, 'demo'), join(sourceRoot, 'other'), { recursive: true });
+    await writeFile(join(sourceRoot, 'other/plugin.json'), JSON.stringify({ id: 'other', apiVersion: 1 }));
+    const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: sourceRoot };
+    const script = join(apiRoot, 'scripts/plugins.mjs');
+    await run(script, env);
+    await writeFile(join(apiRoot, 'dist/extensions/installed/demo/api/index.js'), 'export default {};');
+    await writeFile(join(apiRoot, 'dist/index.js'), '// host output');
+
+    await run(script, { ...env, CAREERSIM_PLUGINS: 'other' }, command);
+
+    expect(existsSync(join(apiRoot, 'src/extensions/installed/demo'))).toBe(false);
+    expect(existsSync(join(apiRoot, 'dist/extensions/installed/demo'))).toBe(false);
+    expect(existsSync(join(apiRoot, 'src/extensions/installed/other/api/index.ts'))).toBe(true);
+    expect(existsSync(join(apiRoot, 'dist/extensions/installed/other/api/migrations/0000_init.sql'))).toBe(true);
+    expect(await readFile(join(apiRoot, 'dist/index.js'), 'utf8')).toBe('// host output');
+  });
+
+  it('preserves JavaScript plugin entries and shared modules in production assets', async () => {
+    const sourceRoot = join(testRoot, 'plugin-source');
+    await cp(fixtureDir, sourceRoot, { recursive: true });
+    await rm(join(sourceRoot, 'demo/api/index.ts'));
+    await writeFile(join(sourceRoot, 'demo/api/index.js'),
+      "import { id } from '../shared/id.js';\nexport default { id, apiVersion: 1 };\n");
+    await writeFile(join(sourceRoot, 'demo/shared/id.js'), "export const id = 'demo';\n");
+    const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: sourceRoot };
+    const script = join(apiRoot, 'scripts/plugins.mjs');
+    await run(script, env);
+    await rm(join(apiRoot, 'dist'), { recursive: true, force: true });
+    await run(script, env, 'assets');
+
+    const entry = join(apiRoot, 'dist/extensions/installed/demo/api/index.js');
+    expect(existsSync(entry)).toBe(true);
+    await writeFile(join(apiRoot, 'package.json'), JSON.stringify({ type: 'module' }));
+    const { stdout } = await execFileAsync(process.execPath, ['--input-type=module', '--eval',
+      `import plugin from ${JSON.stringify(pathToFileURL(entry).href)}; console.log(JSON.stringify(plugin));`,
+    ]);
+    expect(JSON.parse(stdout)).toEqual({ id: 'demo', apiVersion: 1 });
   });
 
   it('copies a local plugin into the api and web overlays', async () => {

@@ -87,7 +87,7 @@ export async function syncPlugins(ids = pluginIds()) {
     return;
   }
   await installPlugins(ids);
-  if (host === 'api') await copySqlAssets();
+  if (host === 'api') await copyApiAssets();
 }
 
 /** Fingerprint of the local plugin source. Empty when a path is missing. */
@@ -171,7 +171,7 @@ async function main() {
   }
 
   if (command === 'assets') {
-    await copySqlAssets();
+    await copyApiAssets();
     return;
   }
   if ((command === 'sync' || command === 'watch') && !process.env.CAREERSIM_PLUGIN_DIR) {
@@ -217,7 +217,7 @@ async function installPlugins(ids) {
   }
 
   if (host === 'api') {
-    await rm(join(root, 'src/extensions/installed'), { recursive: true, force: true });
+    await removeInstalled();
     for (const { id, source } of sources) {
       const dest = join(root, 'src/extensions/installed', id);
       await mkdir(dest, { recursive: true });
@@ -387,7 +387,7 @@ function ident(id) {
   return /^[a-z]/.test(name) ? name : `plugin${name}`;
 }
 
-async function copySqlAssets() {
+async function copyApiAssets() {
   const installed = join(root, 'src/extensions/installed');
   if (!existsSync(installed)) return;
   await copyMatching(installed, join(root, 'dist/extensions/installed'));
@@ -401,7 +401,7 @@ async function copyMatching(from, to) {
       await copyMatching(src, dest);
       continue;
     }
-    if (!entry.name.endsWith('.sql') && entry.name !== '_journal.json') continue;
+    if (!entry.name.endsWith('.sql') && !entry.name.endsWith('.js') && entry.name !== '_journal.json') continue;
     await mkdir(dirname(dest), { recursive: true });
     await cp(src, dest);
   }
