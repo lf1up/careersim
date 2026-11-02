@@ -332,7 +332,7 @@ export default fp<RateLimitOptions>(
     // Create once, rather than per route: both Redis and the local store must
     // share this bucket across batch/stream endpoints and plugin playgrounds.
     const consumeMessage = app.createRateLimit({
-      max: opts.chatMessagesMax ?? 500,
+      max: opts.chatMessagesMax ?? 350,
       timeWindow: opts.chatMessagesTimeWindow ?? '6 hours',
       keyGenerator: (request) => `text-messages:${byUser(request)}`,
     });

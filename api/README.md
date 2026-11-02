@@ -331,7 +331,7 @@ See `.env.example` for the authoritative list. Required in production:
 | `REDIS_URL` | — | Optional Redis connection string (e.g. `redis://localhost:6379`). When set, rate-limit buckets are shared across API instances; otherwise the plugin uses a per-process LRU store |
 | `SESSIONS_CREATE_MAX` | `2` | Per-user cap on `POST /v1/sessions` within `SESSIONS_CREATE_WINDOW`. Each new session spins up an agent thread + burns LLM tokens, so this is kept aggressive by default |
 | `SESSIONS_CREATE_WINDOW` | `6 hours` | Window for `SESSIONS_CREATE_MAX`. Accepts any duration `@fastify/rate-limit` understands (`'30 minutes'`, `'1 hour'`, `'6 hours'`, or a raw ms number) |
-| `CHAT_MESSAGES_MAX` | `500` | Shared per-user text-message allowance across ordinary sessions and creator persona/simulation playgrounds. Batches count each message. Submission attempts count even if the handler subsequently fails; a batch exceeding the remaining allowance is rejected before generation. Internal voice turns are excluded. |
+| `CHAT_MESSAGES_MAX` | `350` | Shared per-user text-message allowance across ordinary sessions and creator persona/simulation playgrounds. Batches count each message. Submission attempts count even if the handler subsequently fails; a batch exceeding the remaining allowance is rejected before generation. Internal voice turns are excluded. |
 | `CHAT_MESSAGES_WINDOW` | `6 hours` | Duration of the text-message allowance, starting with the first send. Returns HTTP 429 with `retryAfter` (milliseconds) and `Retry-After` (seconds) when exhausted. Redis shares the allowance across API instances; without Redis it is local to each process. |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
