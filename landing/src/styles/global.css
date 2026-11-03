@@ -357,7 +357,6 @@ ul {
 /* Paper-net ornament: paper sections only (not white / dark bands). */
 .hero.section-paper::before,
 .use-cases.section-paper::before,
-.creator-beta.section-paper::before,
 .how-it-works.section-paper::before,
 .for-business.section-paper::before {
   background-image: var(--paper-net);
@@ -428,6 +427,10 @@ ul {
 }
 
 .badge-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1.6;
   min-width: 0;
 }
 
@@ -2287,7 +2290,11 @@ img.persona-avatar {
   background: var(--accent-2);
 }
 
-.creator-beta .tone-lime .creator-beta-emoji {
+.creator-beta .tone-violet {
+  background: #e9d5ff;
+}
+
+.creator-beta .tone-violet .creator-beta-emoji {
   background: var(--accent-4);
 }
 

@@ -32,6 +32,7 @@ const b2bOfferings = [
   {
     number: 'B1',
     tag: 'Training',
+    emoji: '🎯',
     title: 'Custom simulations',
     body: 'Scenarios built around your real workflows — your product, your scripts, your edge cases.',
     tone: 'yellow',
@@ -41,6 +42,7 @@ const b2bOfferings = [
   {
     number: 'B2',
     tag: 'Personas',
+    emoji: '🎭',
     title: 'Bespoke AI personas',
     body: 'Counterparts modeled on your actual customers and stakeholders — tone, objections, and all.',
     tone: 'pink',
@@ -50,6 +52,7 @@ const b2bOfferings = [
   {
     number: 'B3',
     tag: 'Support',
+    emoji: '🎧',
     title: 'Customer support practice',
     body: 'Escalations, angry tickets, and tricky refunds — reps rehearse the hard conversations safely.',
     tone: 'blue',
@@ -59,6 +62,7 @@ const b2bOfferings = [
   {
     number: 'B4',
     tag: 'Content',
+    emoji: '✍️',
     title: 'Automated content creation',
     body: 'Persona-driven content pipelines: posts, scripts, and campaigns written in-character, at scale.',
     tone: 'lime',
@@ -68,6 +72,7 @@ const b2bOfferings = [
   {
     number: 'B5',
     tag: 'Assessment',
+    emoji: '🏆',
     title: 'Assessment & certification',
     body: 'Score candidates and teams against your own rubric — consistent, auditable, bias-checked.',
     tone: 'accent',
@@ -77,6 +82,7 @@ const b2bOfferings = [
   {
     number: 'B6',
     tag: 'Platform',
+    emoji: '🧩',
     title: 'White-label & API',
     body: 'Embed the simulation engine in your own LMS, academy, or product — your brand, our cast.',
     tone: 'yellow',
@@ -309,7 +315,7 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
                 <p class="case-number">{item.number}</p>
                 <span class="case-tag">{item.tag}</span>
               </div>
-              <h3>{item.title}</h3>
+              <h3><span aria-hidden="true">{item.emoji}</span> {item.title}</h3>
               <p>{item.body}</p>
               <ul class="case-list">
                 {item.bullets.map((b) => <li>{b}</li>)}
