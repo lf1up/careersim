@@ -2,6 +2,7 @@
 import Analytics from '@vercel/analytics/astro';
 import { landingAnalyticsProps } from '../lib/analytics';
 import '../styles/global.css';
+import ScrollStacks from '../components/ScrollStacks.astro';
 
 const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
 const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.local';
@@ -301,16 +302,16 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
       </section>
 
       <!-- 3 · Offerings -->
-      <section id="offerings" class="for-business section-white" aria-labelledby="offerings-title">
-        <div class="section-heading centered" data-reveal>
+      <section id="offerings" class="for-business section-white scroll-stack" aria-labelledby="offerings-title">
+        <div class="section-heading centered stack-heading">
           <p class="eyebrow">What we build</p>
           <h2 id="offerings-title">Bring AI personas to your team.</h2>
           <p>The same engine that powers the public simulations — custom-built for your workflows, your customers, and your brand voice.</p>
         </div>
 
-        <div class="card-grid b2b-grid" data-reveal-stagger>
-          {b2bOfferings.map((item) => (
-            <article class={`use-case-card tone-${item.tone}`}>
+        <div class="card-grid b2b-grid stack-cards" data-reveal-stagger>
+          {b2bOfferings.map((item, index) => (
+            <article class={`use-case-card tone-${item.tone}`} style={`--card-index: ${index}`}>
               <div class="case-head">
                 <p class="case-number">{item.number}</p>
                 <span class="case-tag">{item.tag}</span>
@@ -661,6 +662,8 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
       </section>
     </main>
+
+    <ScrollStacks />
 
     <script>
       import 'altcha';

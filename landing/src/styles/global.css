@@ -354,11 +354,13 @@ ul {
   position: relative;
 }
 
-/* Paper-net ornament: paper sections only (not white / dark bands). */
+/* Subtle net ornament behind selected landing sections. */
 .hero.section-paper::before,
 .use-cases.section-paper::before,
+.creator-beta.section-paper::before,
 .how-it-works.section-paper::before,
-.for-business.section-paper::before {
+.personas.section-white::before,
+.for-business::before {
   background-image: var(--paper-net);
   background-size: var(--paper-net-size);
   content: '';
@@ -372,6 +374,7 @@ ul {
 
 .hero > *,
 .use-cases > *,
+.personas > *,
 .creator-beta > *,
 .how-it-works > *,
 .for-business > * {
@@ -1821,6 +1824,9 @@ img.persona-avatar {
     grid-template-columns: minmax(0, 1fr);
     max-width: 480px;
   }
+  .flow-viz-b2b .window-bar {
+    margin-bottom: 0;
+  }
   .flow-review-arc {
     display: none;
   }
@@ -2100,6 +2106,7 @@ img.persona-avatar {
 .personas {
   padding-bottom: 96px;
   padding-top: 96px;
+  position: relative;
 }
 
 .persona-grid {
@@ -2233,6 +2240,103 @@ img.persona-avatar {
 }
 .persona-trait.is-yellow {
   background: var(--soft-yellow);
+}
+
+@media (max-width: 760px) and (min-height: 640px) and (prefers-reduced-motion: no-preference) {
+  .scroll-stack {
+    --stack-heading-height: 248px;
+    --stack-gap: 12px;
+  }
+
+  .scroll-stack .stack-heading {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    height: var(--stack-heading-height);
+    justify-content: center;
+    padding-block: 8px;
+    position: sticky;
+    top: 72px;
+    transform: translateY(var(--stack-exit, 0px));
+    z-index: 2;
+  }
+
+  .scroll-stack .stack-heading .eyebrow {
+    font-size: 0.65rem;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .use-cases .stack-heading h2 {
+    font-size: 1.5rem;
+  }
+
+  .stack-cards {
+    grid-auto-rows: 1fr;
+    padding-bottom: 60px;
+  }
+
+  .for-business .stack-cards {
+    padding-bottom: 0;
+  }
+
+  .for-business .b2b-cta {
+    margin-top: 64px;
+  }
+
+  .scroll-stack .stack-cards[data-reveal-stagger] > * {
+    opacity: 1;
+    position: sticky;
+    top: calc(88px + var(--stack-heading-height) + var(--card-index) * var(--stack-gap));
+    transform: translateY(var(--stack-exit, 0px));
+    transition: none;
+  }
+
+  @media (max-width: 360px), (max-height: 740px) {
+    .scroll-stack {
+      --stack-heading-height: 168px;
+      --stack-gap: 6px;
+    }
+
+    .scroll-stack .stack-heading h2 {
+      font-size: 1.3rem;
+    }
+
+    .scroll-stack .stack-heading > p:not(.eyebrow) {
+      font-size: 0.8rem;
+      line-height: 1.4;
+      margin-top: 10px;
+    }
+
+    .stack-cards > .use-case-card {
+      gap: 8px;
+      padding: 18px;
+    }
+
+    .stack-cards .case-meta {
+      font-size: 0.66rem;
+    }
+
+    .for-business .stack-cards > .use-case-card > p:not(.case-meta) {
+      font-size: 0.9rem;
+    }
+
+    .for-business .stack-cards > .use-case-card {
+      padding: 14px;
+    }
+
+    .for-business .stack-cards h3 {
+      font-size: 1.3rem;
+    }
+
+    .use-cases .stack-heading h2 {
+      font-size: 1.1rem;
+    }
+
+    .use-cases .stack-heading > p:not(.eyebrow) {
+      font-size: 0.75rem;
+    }
+  }
 }
 
 /* ============ CREATOR BETA ============ */

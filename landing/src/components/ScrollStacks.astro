@@ -1,0 +1,37 @@
+<script is:inline>
+  (() => {
+    const stacks = Array.from(document.querySelectorAll('.scroll-stack'), (section) =>
+      Array.from(section.querySelectorAll('.stack-heading, .stack-cards > *'), (element) => ({
+        element,
+        offset: 0,
+      })),
+    );
+    let stackFrame = 0;
+    const syncStacks = () => {
+      stackFrame = 0;
+      for (const stack of stacks) {
+        const lastCard = stack[stack.length - 1];
+        const cardStyle = getComputedStyle(lastCard.element);
+        const exit = cardStyle.position === 'sticky'
+          ? Math.min(0, lastCard.element.getBoundingClientRect().top - lastCard.offset - parseFloat(cardStyle.top))
+          : 0;
+
+        // Keep the heading and every card's layered edge together during the exit.
+        const offsets = stack.map(({ element, offset }) => exit === 0 ? 0 : Math.min(0,
+          parseFloat(getComputedStyle(element).top) + exit
+          - (element.getBoundingClientRect().top - offset),
+        ));
+        stack.forEach((item, index) => {
+          item.offset = offsets[index];
+          item.element.style.setProperty('--stack-exit', `${item.offset}px`);
+        });
+      }
+    };
+    const scheduleStackUpdate = () => {
+      if (!stackFrame) stackFrame = requestAnimationFrame(syncStacks);
+    };
+    window.addEventListener('scroll', scheduleStackUpdate, { passive: true });
+    window.addEventListener('resize', scheduleStackUpdate);
+    scheduleStackUpdate();
+  })();
+</script>

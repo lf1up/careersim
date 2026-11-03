@@ -2,6 +2,7 @@
 import Analytics from '@vercel/analytics/astro';
 import { landingAnalyticsProps } from '../lib/analytics';
 import '../styles/global.css';
+import ScrollStacks from '../components/ScrollStacks.astro';
 
 const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
 const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.local';
@@ -184,6 +185,7 @@ const useCases = [
   {
     number: '01',
     tag: 'Interview',
+    emoji: '🎤',
     title: 'Behavioral interviews',
     body: 'Answer with structure, evidence, and calm under follow-up pressure.',
     tone: 'yellow',
@@ -194,6 +196,7 @@ const useCases = [
   {
     number: '02',
     tag: 'Compensation',
+    emoji: '💰',
     title: 'Salary negotiation',
     body: 'Make a clear ask without sounding defensive, vague, or apologetic.',
     tone: 'accent',
@@ -204,6 +207,7 @@ const useCases = [
   {
     number: '03',
     tag: '1:1',
+    emoji: '💬',
     title: 'Difficult feedback',
     body: 'Stay grounded while receiving criticism — or giving it directly.',
     tone: 'pink',
@@ -214,6 +218,7 @@ const useCases = [
   {
     number: '04',
     tag: 'Leadership',
+    emoji: '💡',
     title: 'Pitching ideas',
     body: 'Sharpen exec-ready narratives and handle pushback live.',
     tone: 'blue',
@@ -224,6 +229,7 @@ const useCases = [
   {
     number: '05',
     tag: 'Network',
+    emoji: '🤝',
     title: 'LinkedIn networking',
     body: 'Triage recruiter DMs and earn a second touchpoint with senior strangers.',
     tone: 'lime',
@@ -234,6 +240,7 @@ const useCases = [
   {
     number: '06',
     tag: 'Conflict',
+    emoji: '✋',
     title: 'Saying no at work',
     body: 'Push back on scope creep without burning capital with stakeholders.',
     tone: 'yellow',
@@ -766,21 +773,21 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         ))}
       </section>
 
-      <section id="use-cases" class="use-cases section-paper" aria-labelledby="use-cases-title">
-        <div class="section-heading centered" data-reveal>
+      <section id="use-cases" class="use-cases section-paper scroll-stack" aria-labelledby="use-cases-title">
+        <div class="section-heading centered stack-heading">
           <p class="eyebrow">Practice the hard moments</p>
           <h2 id="use-cases-title">The career conversations that actually move the needle.</h2>
           <p>Interviews, negotiations, feedback, pitches, and pushback — rehearsed with adaptive personas so the words feel familiar before the room ever gets tense.</p>
         </div>
 
-        <div class="card-grid" data-reveal-stagger>
-          {useCases.map((item) => (
-            <article class={`use-case-card tone-${item.tone}`}>
+        <div class="card-grid stack-cards" data-reveal-stagger>
+          {useCases.map((item, index) => (
+            <article class={`use-case-card tone-${item.tone}`} style={`--card-index: ${index}`}>
               <div class="case-head">
                 <p class="case-number">{item.number}</p>
                 <span class="case-tag">{item.tag}</span>
               </div>
-              <h3>{item.title}</h3>
+              <h3><span aria-hidden="true">{item.emoji}</span> {item.title}</h3>
               <p>{item.body}</p>
               <ul class="case-list">
                 {item.bullets.map((b) => <li>{b}</li>)}
@@ -794,16 +801,16 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
       </section>
 
-      <section id="personas" class="personas section-white" aria-labelledby="personas-title">
-        <div class="section-heading centered" data-reveal>
+      <section id="personas" class="personas section-white scroll-stack" aria-labelledby="personas-title">
+        <div class="section-heading centered stack-heading">
           <p class="eyebrow">Meet the cast</p>
           <h2 id="personas-title">AI personas that push back like real humans.</h2>
           <p>Eight adaptive characters from cautious to combative — each with their own questioning style, attention budget, and tolerance for vagueness.</p>
         </div>
 
-        <div class="persona-grid" data-reveal-stagger>
-          {personas.map((p) => (
-            <article class="persona-card">
+        <div class="persona-grid stack-cards" data-reveal-stagger>
+          {personas.map((p, index) => (
+            <article class="persona-card" style={`--card-index: ${index}`}>
               <div class="repo-bar">
                 <span class="folder-icon" aria-hidden="true">◆</span>
                 <span class="handle">{p.handle}</span>
@@ -986,16 +993,16 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
       </section>
 
-      <section id="for-business" class="for-business section-white" aria-labelledby="b2b-title">
-        <div class="section-heading centered" data-reveal>
+      <section id="for-business" class="for-business section-white scroll-stack" aria-labelledby="b2b-title">
+        <div class="section-heading centered stack-heading">
           <p class="eyebrow">For business</p>
           <h2 id="b2b-title">Bring AI personas to your team.</h2>
           <p>The same engine that powers the public simulations — custom-built for your workflows, your customers, and your brand voice.</p>
         </div>
 
-        <div class="card-grid b2b-grid" data-reveal-stagger>
-          {b2bOfferings.map((item) => (
-            <article class={`use-case-card tone-${item.tone}`}>
+        <div class="card-grid b2b-grid stack-cards" data-reveal-stagger>
+          {b2bOfferings.map((item, index) => (
+            <article class={`use-case-card tone-${item.tone}`} style={`--card-index: ${index}`}>
               <div class="case-head">
                 <p class="case-number">{item.number}</p>
                 <span class="case-tag">{item.tag}</span>
@@ -1211,6 +1218,8 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
         </div>
       </section>
     </main>
+
+    <ScrollStacks />
 
     <script is:inline>
       (() => {
