@@ -23,6 +23,12 @@ Copy `.env.example` to `.env` and adjust as needed. Blog nav/footer links stay
 hidden unless you set `LANDING_BLOG_URL` (leave it unset by default to match
 `web` when `NEXT_PUBLIC_BLOG_ENABLED` is omitted or false).
 
+The creator beta section is hidden by default. Set `LANDING_CREATOR_ENABLED=true`
+(or `1`) in the landing project's build environment to show it after the personas
+section. Its button links to `/create` on the `LANDING_APP_URL` origin. Enable it
+only when the creator plugin is live in the app. This page is static, so rebuild
+and redeploy after changing the flag.
+
 The `/business` contact form on `careersim.ai` is handled by the `web`
 package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
 `CONTACT_*`, and `ALTCHA_*` in `web/.env.example` / the web Vercel project —
