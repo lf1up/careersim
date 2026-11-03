@@ -7,8 +7,7 @@ vi.mock('resend', () => ({ Resend: class { emails = { send }; } }));
 
 import { POST } from './route';
 import { GET } from '../altcha-challenge/route';
-import { POST as landingPost } from '../../../../../landing/src/pages/api/contact';
-import { GET as landingGet } from '../../../../../landing/src/pages/api/altcha-challenge';
+import { proxyContactRequest } from '../../../../../landing/src/lib/contact-proxy';
 
 describe('contact CAPTCHA boundary', () => {
   beforeEach(() => {
@@ -26,10 +25,10 @@ describe('contact CAPTCHA boundary', () => {
     return Buffer.from(JSON.stringify({ ...challenge, number: solved!.number })).toString('base64');
   }
 
-  function request(altcha: string) {
+  function request(altcha: string, url = 'https://careersim.ai/api/contact') {
     const body = new FormData();
     for (const [name, value] of Object.entries({ name: 'Test', email: 'contact-security@example.com', company: 'Example', useCase: 'training', message: 'A sufficiently detailed test inquiry.', altcha })) body.set(name, value);
-    return new Request('https://careersim.ai/api/contact', { method: 'POST', body });
+    return new Request(url, { method: 'POST', body });
   }
 
   it('does not deliver email when the shared verifier rejects a replay', async () => {
@@ -64,9 +63,9 @@ describe('contact CAPTCHA boundary', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
-  it('does not bypass the shared verifier through the standalone landing contact endpoint', async () => {
+  it('passes upstream verification failures through the standalone landing proxy', async () => {
     vi.stubGlobal('fetch', async () => new Response('Unavailable', { status: 503 }));
-    const response = await landingPost({ request: request(await payload()) } as Parameters<typeof landingPost>[0]);
+    const response = await proxyContactRequest(request(await payload(), 'https://landing.example/api/contact'), '/api/contact');
     expect(response.status).toBe(503);
     expect(send).not.toHaveBeenCalled();
   });
@@ -76,7 +75,7 @@ describe('contact CAPTCHA boundary', () => {
       if (String(url) !== 'https://careersim.ai/api/altcha-challenge') throw new Error('Unexpected challenge destination');
       return Response.json({ challenge: 'canonical-challenge' });
     });
-    const response = await landingGet({ request: new Request('https://landing.example/api/altcha-challenge') } as Parameters<typeof landingGet>[0]);
+    const response = await proxyContactRequest(new Request('https://landing.example/api/altcha-challenge'), '/api/altcha-challenge');
     expect(await response.json()).toEqual({ challenge: 'canonical-challenge' });
     expect(response.headers.get('cache-control')).toBe('no-store');
   });

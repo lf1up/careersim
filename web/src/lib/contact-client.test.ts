@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { clientIp } from './contact-rate-limit';
 import { GET } from '../app/api/altcha-challenge/route';
-import { GET as landingGet } from '../../../landing/src/pages/api/altcha-challenge';
+import { proxyContactRequest } from '../../../landing/src/lib/contact-proxy';
 
 const secret = 'test-contact-proxy-key-with-enough-entropy';
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
@@ -48,6 +48,6 @@ describe('authenticated contact visitor forwarding', () => {
       return Response.json({ challenge: 'test' });
     });
     const request = new Request('https://landing.example/api/altcha-challenge', { headers: { 'x-forwarded-for': '198.51.100.30', 'x-careersim-client': 'forged', 'x-careersim-client-signature': 'forged' } });
-    expect((await landingGet({ request } as Parameters<typeof landingGet>[0])).status).toBe(200);
+    expect((await proxyContactRequest(request, '/api/altcha-challenge')).status).toBe(200);
   });
 });

@@ -96,6 +96,9 @@ const ghostCdnRemotePatterns = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  typescript: {
+    tsconfigPath: 'tsconfig.build.json',
+  },
   turbopack: {
     resolveAlias: {
       '@careersim/plugins': pluginsEntry,
