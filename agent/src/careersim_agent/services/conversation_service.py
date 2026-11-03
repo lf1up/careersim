@@ -41,7 +41,7 @@ def serialize_message(message: BaseMessage, state: ConversationState, index: int
             state.get("session_id", ""), index, message.type, str(message.content)])))
     persona = state.get("persona", {})
     if not message.name:
-        message.name = "user" if message.type == "human" else persona.get("slug", "persona")
+        message.name = "user" if message.type == "human" else (persona.get("actorId") or persona.get("slug", "persona"))
     name = message.additional_kwargs.get("actor_name") or (
         "You" if message.type == "human" else persona.get("name", message.name))
     return {"role": message.type, "content": str(message.content), "event_id": message.id,

@@ -612,3 +612,26 @@ class TestInternalApiKey:
             assert resp.status_code == 200
         finally:
             config_module.get_settings.cache_clear()
+
+class TestInternalPersonaDefinition:
+    def test_definition_is_internal_and_public_list_remains_redacted(self, client, monkeypatch):
+        from careersim_agent.config import get_settings
+        monkeypatch.setenv('AGENT_INTERNAL_KEY', 'definition-test-key')
+        get_settings.cache_clear()
+        try:
+            slug = 'brenda-vance-hr-manager'
+            assert client.get(f'/personas/{slug}/definition').status_code == 401
+            headers = {'X-Internal-Key': 'definition-test-key'}
+            response = client.get(f'/personas/{slug}/definition', headers=headers)
+            assert response.status_code == 200
+            assert response.json()['name']
+            assert response.json()['personality']
+            assert client.get('/personas/missing/definition', headers=headers).status_code == 404
+            summaries = client.get('/personas', headers=headers).json()['personas']
+            assert all('personality' not in p and 'hiddenMotivation' not in p for p in summaries)
+        finally:
+            get_settings.cache_clear()
+
+
+def test_private_definition_fails_closed_without_configured_key(client):
+    assert client.get('/personas/brenda-vance-hr-manager/definition').status_code == 503

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import { dropPersistedPrefix } from '@/lib/chat-batch';
 import type {
@@ -781,9 +782,10 @@ export default function SessionDetailPage() {
     );
   }
 
-  const hasTrackedGoals =
+  const isOpenConversation = session?.assessment_mode === 'open';
+  const hasTrackedGoals = !isOpenConversation && (
     session.goal_progress.length > 0 ||
-    (simulation?.conversation_goals.length ?? 0) > 0;
+    (simulation?.conversation_goals.length ?? 0) > 0);
 
   return (
     <div className="h-full min-h-0 flex flex-col gap-4 pr-[10px] sm:pr-0 retro-fade-in">
@@ -810,7 +812,10 @@ export default function SessionDetailPage() {
             {/* Below 400px (e.g. iPhone SE) put the title on its own line so
                 it isn't clipped beside the persona/difficulty pills. */}
             <span className="min-w-0 break-words max-[400px]:basis-full">
-              {simulation?.title ?? session.simulation_slug}
+              {simulationLabel(session.simulation_slug, {
+                catalogTitle: simulation?.title,
+                title: session.simulation_title,
+              })}
             </span>
           </span>
         }
@@ -829,6 +834,7 @@ export default function SessionDetailPage() {
             {/* Hidden while a call is live: the call surface owns the
                 controls then, and phone-height is better spent on the
                 live captions than on a duplicate goals row. */}
+            {isOpenConversation && <span className="text-xs">Open conversation · no scoring</span>}
             {!inCall && (
               <span className="flex items-end gap-3 max-[400px]:gap-1.5 border-t-2 border-black/10 pt-3 dark:border-retro-ink-dark/20 sm:hidden">
                 <VoiceCallButton
@@ -837,17 +843,17 @@ export default function SessionDetailPage() {
                   starting={startingCall}
                   onStart={handleStartCall}
                 />
-                <Link href={`/sessions/${sessionId}/report`}>
+                {!isOpenConversation && (<Link href={`/sessions/${sessionId}/report`}>
                   <Button variant="outline" size="sm" title="View the debrief report for this session">
                     Report
                   </Button>
-                </Link>
+                </Link>)}
                 <span className="ml-auto flex items-end gap-3 max-[400px]:gap-1.5">
-                  <GoalProgressSummary
+                  {!isOpenConversation && (<GoalProgressSummary
                     align="end"
                     progress={session.goal_progress}
                     goals={simulation?.conversation_goals}
-                  />
+                  />)}
                   {hasTrackedGoals && (
                     <button
                       type="button"
@@ -869,22 +875,22 @@ export default function SessionDetailPage() {
           // header. Hidden on phone widths so the title/subtitle can use
           // the full card width.
           <div className="hidden sm:flex items-center gap-2">
-            <Link href={`/sessions/${sessionId}/report`}>
+            {!isOpenConversation && (<Link href={`/sessions/${sessionId}/report`}>
               <Button variant="outline" size="sm" title="View the debrief report for this session">
                 Report
               </Button>
-            </Link>
+            </Link>)}
             <VoiceCallButton
               available={voiceAvailable}
               isCalling={inCall}
               starting={startingCall}
               onStart={handleStartCall}
             />
-            <GoalProgressSummary
+            {!isOpenConversation && (<GoalProgressSummary
               className="self-center"
               progress={session.goal_progress}
               goals={simulation?.conversation_goals}
-            />
+            />)}
             {hasTrackedGoals && (
               <button
                 type="button"
@@ -899,12 +905,12 @@ export default function SessionDetailPage() {
           </div>
         }
       >
-        <div id="session-goals">
+        {!isOpenConversation && <div id="session-goals">
           <GoalProgressChips
             progress={session.goal_progress}
             goals={simulation?.conversation_goals}
           />
-        </div>
+        </div>}
       </RetroCard>
 
       {inCall ? (
@@ -952,7 +958,7 @@ export default function SessionDetailPage() {
       )}
 
       <RetroDialog
-        open={completionDialogOpen}
+        open={!isOpenConversation && completionDialogOpen}
         onClose={() => setCompletionDialogOpen(false)}
         title="Simulation passed successfully"
       >
@@ -960,7 +966,10 @@ export default function SessionDetailPage() {
           <p className="text-sm text-retro-ink dark:text-retro-ink-dark">
             Every conversation goal for{' '}
             <span className="font-semibold">
-              {simulation?.title ?? session.simulation_slug}
+              {simulationLabel(session.simulation_slug, {
+                catalogTitle: simulation?.title,
+                title: session.simulation_title,
+              })}
             </span>{' '}
             has been achieved. View your debrief report to see how you did, keep
             practicing in this conversation, or return to the simulations list.
@@ -977,11 +986,11 @@ export default function SessionDetailPage() {
                 Back to simulations
               </Button>
             </Link>
-            <Link href={`/sessions/${sessionId}/report`}>
+            {!isOpenConversation && (<Link href={`/sessions/${sessionId}/report`}>
               <Button variant="primary" className="w-full sm:w-auto">
                 View report
               </Button>
-            </Link>
+            </Link>)}
           </div>
         </div>
       </RetroDialog>

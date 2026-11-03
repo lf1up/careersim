@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ import { apiClient, ApiError, isRateLimitError } from '@/lib/api';
 import type { SessionSummary, SimulationDetail } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroBadge } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
@@ -74,8 +75,10 @@ const SectionList: React.FC<SectionListProps> = ({ title, items, empty }) => {
 
 export function SimulationDetailClient({
   simulation,
+  allowStart = true,
 }: {
   simulation: SimulationDetail;
+  allowStart?: boolean;
 }) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -243,20 +246,19 @@ export function SimulationDetailClient({
           )}
 
           <div className="flex flex-wrap gap-3 pt-2">
-            <Button
-              variant="primary"
-              isLoading={starting}
-              onClick={handleStart}
-            >
-              {!authLoading && !isAuthenticated
-                ? 'Sign up to start'
-                : 'Start session'}
-            </Button>
-            <Link href="/simulations">
-              <Button variant="outline" disabled={starting}>
-                Cancel
-              </Button>
-            </Link>
+            {allowStart ? (
+              <>
+                <Button variant="primary" isLoading={starting} onClick={handleStart}>
+                  {!authLoading && !isAuthenticated ? 'Sign up to start' : 'Start session'}
+                </Button>
+                <Link href="/simulations"><Button variant="outline" disabled={starting}>Cancel</Button></Link>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <Link href="/sessions"><Button variant="outline">Back to sessions</Button></Link>
+                <p className="text-sm text-secondary-600 dark:text-secondary-400">Start new attempts using this simulation’s private link.</p>
+              </div>
+            )}
           </div>
 
           <FormErrorAlert
@@ -401,4 +403,21 @@ export function SimulationDetailClient({
       </RetroDialog>
     </div>
   );
+}
+
+/** Private provider details use the authenticated browser API, never the public cache. */
+export function PrivateSimulationDetailClient({ slug }: { slug: string }) {
+  const [loaded, setLoaded] = useState<{ slug: string; simulation?: SimulationDetail; error?: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.getSimulation(slug).then((simulation) => {
+      if (!cancelled) setLoaded({ slug, simulation });
+    }).catch((error: unknown) => {
+      if (!cancelled) setLoaded({ slug, error: error instanceof Error ? error.message : 'This simulation is not available.' });
+    });
+    return () => { cancelled = true; };
+  }, [slug]);
+  if (loaded?.slug !== slug) return <div className="flex min-h-[50vh] items-center justify-center"><LoadingSpinner size="lg" /></div>;
+  if (!loaded.simulation) return <RetroCard title="Simulation unavailable"><p role="alert" className="mb-4 text-sm">{loaded.error}</p><Link href="/sessions" className="underline">Back to sessions</Link></RetroCard>;
+  return <SimulationDetailClient simulation={loaded.simulation} allowStart={false} />;
 }

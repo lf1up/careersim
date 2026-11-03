@@ -29,7 +29,7 @@ interface AuthContextType extends AuthState {
     altcha?: string,
   ) => Promise<PendingRegistration>;
   resendVerification: (email: string) => Promise<void>;
-  verifyEmail: (email: string, code: string) => Promise<void>;
+  verifyEmail: (email: string, code: string, password?: string) => Promise<void>;
   requestEmailLink: (email: string, altcha?: string) => Promise<void>;
   consumeMagicLink: (token: string) => Promise<void>;
   forgotPassword: (email: string, altcha?: string) => Promise<void>;
@@ -155,10 +155,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     [],
   );
 
-  const verifyEmail = useCallback(async (email: string, code: string) => {
+  const verifyEmail = useCallback(async (email: string, code: string, password?: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const res = await apiClient.verifyEmail(email, code);
+      const res = await apiClient.verifyEmail(email, code, password);
       dispatch({ type: 'SET_USER', payload: res.user });
       toast.success(`Welcome to ${SITE_NAME}!`);
     } catch (err) {

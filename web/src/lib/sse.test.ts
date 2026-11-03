@@ -111,3 +111,23 @@ describe('readSse', () => {
     }
   });
 });
+
+it('preserves structured validation errors from a failed streaming request', async () => {
+  const payload = {
+    error: 'VALIDATION_ERROR',
+    message: 'Check the highlighted settings.',
+    fields: { 'cast.1.persona.role': 'Role is required' },
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify(payload), { status: 400 }),
+      ),
+  );
+  await expect(readSse('/x', {}).next()).rejects.toMatchObject({
+    status: 400,
+    payload,
+  });
+});

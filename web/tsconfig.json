@@ -28,6 +28,10 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@careersim/plugins": [
+        "./src/extensions/installed/index.ts",
+        "./src/extensions/empty.ts"
       ]
     }
   },

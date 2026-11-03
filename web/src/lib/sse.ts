@@ -21,9 +21,23 @@ export async function* readSse(
 
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    throw new Error(
-      `SSE request failed (${response.status}): ${text || response.statusText}`,
-    );
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = null;
+    }
+    const message =
+      payload &&
+      typeof payload === 'object' &&
+      'message' in payload &&
+      typeof payload.message === 'string'
+        ? payload.message
+        : `SSE request failed (${response.status}): ${text || response.statusText}`;
+    throw Object.assign(new Error(message), {
+      status: response.status,
+      payload,
+    });
   }
 
   if (!response.body) {

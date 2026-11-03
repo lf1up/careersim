@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 
+import { pluginRobotsDisallow } from '@/extensions';
 import { isBlogEnabled } from '@/lib/blog';
 import { SITE_URL } from '@/lib/seo';
 
@@ -32,6 +33,7 @@ export default function robots(): MetadataRoute.Robots {
           '/reset-password',
           '/auth/',
           ...(isBlogEnabled() ? [] : ['/blog', '/blog/']),
+          ...pluginRobotsDisallow(),
         ],
       },
     ],

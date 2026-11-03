@@ -152,8 +152,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request, reply) => {
-      const { email, code } = request.body;
-      const user = await service.verifyEmail(email, code);
+      const { email, code, password } = request.body;
+      const user = await service.verifyEmail(email, code, password);
       const token = await signUser(user);
       setSessionCookie(reply, token);
       return { token, user: service.toDto(user) };

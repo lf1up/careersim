@@ -3,6 +3,7 @@ import { asc, eq, sql } from 'drizzle-orm';
 import type { AgentDebriefReport, AgentGoalProgress } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
 import { messages, sessions, voiceMinuteUsage } from '../../db/schema.js';
+import { readSimulationTitle } from '../sessions/sessions.service.js';
 
 // ---------------------------------------------------------------------------
 // Aggregate, per-user analytics assembled from three sources:
@@ -27,6 +28,7 @@ export interface SkillAverage {
 export interface ScoreTrendPoint {
   session_id: string;
   simulation_slug: string;
+  simulation_title: string | null;
   /** Session creation time — the trend is ordered by this. */
   created_at: string;
   overall_score: number;
@@ -46,6 +48,7 @@ export interface PhraseCount {
 
 export interface SimulationBreakdown {
   simulation_slug: string;
+  simulation_title: string | null;
   sessions: number;
   completed_sessions: number;
   /** Best cached-report overall score, when any session was analyzed. */
@@ -200,6 +203,7 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
       let completableSessions = 0;
       const completedBySession = new Map<string, boolean>();
       for (const row of sessionRows) {
+        if (row.stateSnapshot.simulation?.evaluationMode === 'open') continue;
         const scored = scoredGoals(row.stateSnapshot.goal_progress ?? []);
         if (scored.length === 0) continue;
         completableSessions += 1;
@@ -242,6 +246,7 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
       const trend: ScoreTrendPoint[] = analyzed.slice(-TREND_LIMIT).map((row) => ({
         session_id: row.id,
         simulation_slug: row.simulationSlug,
+        simulation_title: readSimulationTitle(row.stateSnapshot),
         created_at: row.createdAt.toISOString(),
         overall_score: row.report.overall_score,
         skills: Object.fromEntries(
@@ -255,15 +260,19 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
       const bySimulation = new Map<string, SimulationBreakdown>();
       for (const row of sessionRows) {
         const slug = row.simulationSlug;
-        const scored = scoredGoals(row.stateSnapshot.goal_progress ?? []);
+        const scored = row.stateSnapshot.simulation?.evaluationMode === 'open'
+          ? []
+          : scoredGoals(row.stateSnapshot.goal_progress ?? []);
         const achieved = countAchieved(scored);
         const overall = row.report?.overall_score ?? null;
         const lastPlayed = row.updatedAt.toISOString();
 
+        const title = readSimulationTitle(row.stateSnapshot);
         const entry = bySimulation.get(slug);
         if (!entry) {
           bySimulation.set(slug, {
             simulation_slug: slug,
+            simulation_title: title,
             sessions: 1,
             completed_sessions: completedBySession.get(row.id) ? 1 : 0,
             best_overall_score: overall,
@@ -274,6 +283,7 @@ export function createAnalyticsService(db: AppDatabase): AnalyticsService {
           continue;
         }
         entry.sessions += 1;
+        if (!entry.simulation_title && title) entry.simulation_title = title;
         if (completedBySession.get(row.id)) entry.completed_sessions += 1;
         if (overall !== null) {
           entry.best_overall_score =

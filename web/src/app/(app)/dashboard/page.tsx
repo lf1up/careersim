@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
+import { simulationLabel } from '@/extensions';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
 import type { AnalyticsOverview, SessionSummary, Simulation } from '@/lib/types';
@@ -202,7 +203,10 @@ export default function DashboardPage() {
           <ul className="divide-y-2 divide-black/10 dark:divide-retro-ink-dark/20 retro-stagger">
             {recentSessions.map((s) => {
               const sim = simulationBySlug[s.simulation_slug];
-              const title = sim?.title ?? s.simulation_slug;
+              const title = simulationLabel(s.simulation_slug, {
+                catalogTitle: sim?.title,
+                title: s.simulation_title,
+              });
               return (
                 <li key={s.id}>
                   <Link

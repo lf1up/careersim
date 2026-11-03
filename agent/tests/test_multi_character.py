@@ -251,3 +251,11 @@ def test_single_persona_input_keeps_legacy_routing(inputs, expected_route):
     assert state['characters'] == {}
     assert _route_after_input(state) == expected_route
     assert state['scene_replies_remaining'] == 0
+
+
+def test_single_persona_retains_editor_actor_identity():
+    state = {'session_id': 'editor', 'persona': {**PERSONAS['alex'], 'actorId': 'cast-instance'},
+             'messages': [AIMessage(content='Hello')]}
+    message = serialize_state(state)['messages'][0]
+    assert message['actor_id'] == 'cast-instance'
+    assert message['actor_name'] == 'Alex'

@@ -10,6 +10,7 @@ import type {
   AgentMessage,
   AgentWireState,
 } from '../../agent/types.js';
+import { providerForSlug, type SimulationProvider } from '../../extensions/sdk.js';
 import type { AppDatabase } from '../../db/client.js';
 import {
   messages,
@@ -53,10 +54,13 @@ export interface SessionConfig {
 }
 
 export interface SessionDetail {
+  assessment_mode?: 'open' | 'practice';
   evaluation_pending: boolean;
   participants: AgentParticipant[];
   id: string;
   simulation_slug: string;
+  /** Title stored on the session snapshot. Null when the snapshot has none. */
+  simulation_title: string | null;
   created_at: string;
   updated_at: string;
   messages: Array<{
@@ -80,6 +84,8 @@ export interface SessionDetail {
 export interface SessionSummary {
   id: string;
   simulation_slug: string;
+  /** Title stored on the session snapshot. Null when the snapshot has none. */
+  simulation_title: string | null;
   created_at: string;
   updated_at: string;
   message_count: number;
@@ -271,7 +277,17 @@ export function pickNudgeDelaySec(seed: string, min: number, max: number): numbe
   return min + (hash % span);
 }
 
-export function createSessionsService(db: AppDatabase, agent: AgentClient): SessionsService {
+/** Title the agent (or a plugin) stored on the snapshot, if it is a non-empty string. */
+export function readSimulationTitle(snapshot: AgentWireState): string | null {
+  const title = snapshot.simulation?.title;
+  return typeof title === 'string' && title.trim().length > 0 ? title : null;
+}
+
+export function createSessionsService(
+  db: AppDatabase,
+  agent: AgentClient,
+  providers: readonly SimulationProvider[] = [],
+): SessionsService {
   async function loadSessionOrThrow(userId: string, sessionId: string): Promise<SessionRow> {
     const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
     if (!row) throw notFound('Session not found');
@@ -300,9 +316,11 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     return {
       id: session.id,
       simulation_slug: session.simulationSlug,
+      simulation_title: readSimulationTitle(snapshot),
       created_at: session.createdAt.toISOString(),
       updated_at: session.updatedAt.toISOString(),
-      evaluation_pending: isGroupScene(snapshot) && snapshot.needs_evaluation === true,
+      ...(snapshot.simulation?.evaluationMode === 'open' || snapshot.simulation?.evaluationMode === 'practice' ? {assessment_mode: snapshot.simulation.evaluationMode} : {}),
+      evaluation_pending: snapshot.simulation?.evaluationMode !== 'open' && isGroupScene(snapshot) && snapshot.needs_evaluation === true,
       participants: Object.entries(snapshot.characters ?? {}).map(([actor_id, character]) => ({
         actor_id, name: String(character.persona.name ?? actor_id),
         persona_slug: String(character.persona.slug ?? ""), role: String(character.persona.role ?? ""),
@@ -319,7 +337,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
         typing_delay_ms: m.typingDelayMs,
         created_at: m.createdAt.toISOString(),
       })),
-      goal_progress: snapshot.goal_progress ?? [],
+      goal_progress: snapshot.simulation?.evaluationMode === 'open' ? [] : snapshot.goal_progress ?? [],
       analysis: {
         user_sentiment: snapshot.last_user_sentiment ?? null,
         user_emotion: snapshot.last_user_emotion ?? null,
@@ -451,21 +469,49 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
 
   return {
     async create(userId, simulationSlug) {
-      const response = await agent.initConversation({ simulationSlug });
-      const [row] = await db
-        .insert(sessions)
-        .values({
-          userId,
-          simulationSlug,
-          stateSnapshot: response.state,
-        })
-        .returning();
-      if (!row) throw new Error('Failed to create session');
-
-      const agentMessages = response.state.messages ?? [];
-      if (agentMessages.length > 0) {
-        await persistMessageDelta(db, row.id, 0, agentMessages);
+      const provider = simulationSlug.includes(':')
+        ? providerForSlug(providers, simulationSlug)
+        : null;
+      if (simulationSlug.includes(':') && !provider) {
+        throw notFound(`Simulation "${simulationSlug}" was not found`);
       }
+
+      let response: AgentConversationResponse;
+      if (provider) {
+        const prepared = await provider.prepareSession({ slug: simulationSlug, userId });
+        if (prepared.state.proactive_trigger === 'start') {
+          response = await agent.proactive({ state: prepared.state, triggerType: 'start' });
+        } else {
+          response = {
+            state: prepared.state,
+            messages: prepared.state.messages ?? [],
+            goal_progress: prepared.state.goal_progress ?? [],
+            analysis: {},
+          };
+        }
+      } else {
+        response = await agent.initConversation({ simulationSlug });
+      }
+
+      const row = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(sessions)
+          .values({ userId, simulationSlug, stateSnapshot: response.state })
+          .returning();
+        if (!created) throw new Error('Failed to create session');
+
+        const agentMessages = response.state.messages ?? [];
+        if (agentMessages.length > 0) {
+          await persistMessageDelta(tx, created.id, 0, agentMessages);
+        }
+        await provider?.onSessionCreated?.({
+          slug: simulationSlug,
+          userId,
+          sessionId: created.id,
+          db: tx,
+        });
+        return created;
+      });
       return buildDetail(row);
     },
 
@@ -494,6 +540,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
       return sessionRows.map((r) => ({
         id: r.id,
         simulation_slug: r.simulationSlug,
+        simulation_title: readSimulationTitle(r.stateSnapshot),
         created_at: r.createdAt.toISOString(),
         updated_at: r.updatedAt.toISOString(),
         message_count: byId.get(r.id) ?? 0,
@@ -629,6 +676,7 @@ export function createSessionsService(db: AppDatabase, agent: AgentClient): Sess
     async getReport(userId, sessionId) {
       const session = await loadSessionOrThrow(userId, sessionId);
       const snapshot = session.stateSnapshot;
+      if (snapshot.simulation?.evaluationMode === 'open') throw badRequest('Open conversations have no scored report.', 'OPEN_CONVERSATION');
       const transcript = snapshot.messages ?? [];
       const currentCount = transcript.length;
 

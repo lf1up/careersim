@@ -124,7 +124,7 @@ export const LoginForm: React.FC = () => {
 
   const handleVerify = async (code: string) => {
     if (step.kind !== 'verify-after-unverified') return;
-    await verifyEmail(step.email, code);
+    await verifyEmail(step.email, code, password);
     router.push(nextPath);
   };
 

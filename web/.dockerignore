@@ -1,4 +1,7 @@
 node_modules
+src/extensions/installed
+src/app/(app)/(plugins)
+src/app/(public)/(plugins)
 .next
 .git
 .env

@@ -17,7 +17,8 @@ export const RetroInput: React.FC<RetroInputProps> = ({
   id,
   ...props
 }) => {
-  const inputId = id || props.name || undefined;
+  const generatedId = React.useId();
+  const inputId = id || props.name || generatedId;
   const describedById = hint && !error ? `${inputId}-hint` : error ? `${inputId}-error` : undefined;
   return (
     <div className={clsx('w-full', containerClassName)}>
@@ -70,7 +71,8 @@ export const RetroSelect: React.FC<RetroSelectProps> = ({
   children,
   ...props
 }) => {
-  const selectId = id || props.name || undefined;
+  const generatedId = React.useId();
+  const selectId = id || props.name || generatedId;
   return (
     <div className={clsx('w-full', containerClassName)}>
       {label && (
@@ -110,7 +112,8 @@ export const RetroTextArea: React.FC<RetroTextAreaProps> = ({
   id,
   ...props
 }) => {
-  const textAreaId = id || props.name || undefined;
+  const generatedId = React.useId();
+  const textAreaId = id || props.name || generatedId;
   return (
     <div className={clsx('w-full', containerClassName)}>
       {label && (

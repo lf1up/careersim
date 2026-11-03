@@ -29,7 +29,7 @@ from ..services.conversation_service import (
     get_conversation_service,
     serialize_state,
 )
-from ..services.data_loader import get_persona_avatar_path
+from ..services.data_loader import get_persona_avatar_path, load_persona
 from ..services.persona_sync import ensure_personas_synced
 
 logger = logging.getLogger(__name__)
@@ -366,6 +366,16 @@ def create_api_app() -> FastAPI:
         return PersonasResponse(
             personas=[PersonaItem(**p) for p in svc.list_personas()],
         )
+
+    @app.get("/personas/{slug}/definition", dependencies=[Depends(require_internal_key)])
+    async def get_persona_definition(slug: str):
+        """Private definition for trusted authoring services; never publicly proxied."""
+        if not get_settings().agent_internal_key:
+            raise HTTPException(status_code=503, detail="Internal key required for persona definitions")
+        try:
+            return load_persona(slug)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="Persona not found")
 
     @app.get("/personas/{slug}/avatar")
     async def get_persona_avatar(slug: str):

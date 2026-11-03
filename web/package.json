@@ -1,11 +1,11 @@
 {
   "name": "careersim-web",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
-    "build": "next build",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/plugins.mjs fetch && next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
@@ -33,7 +33,8 @@
     "react-hot-toast": "^2.6.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "resend": "^6.34.1"
+    "resend": "^6.34.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",

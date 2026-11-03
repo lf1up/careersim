@@ -24,8 +24,10 @@ import { readSse } from './sse';
 // version the frontend talks to. The fallback matches the local rule
 // (api/.env and docker-compose.local.yml run the API with
 // API_VERSION_PREFIX=v1).
-const apiBaseUrl = () =>
-  (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1').replace(/\/+$/, '');
+/** Full API base URL, version prefix included. Plugin code should use this rather than reading env itself. */
+export function apiBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1').replace(/\/+$/, '');
+}
 
 // Auth is cookie-based: the API sets an httpOnly session cookie at
 // login/verify time and every request below rides with
@@ -90,7 +92,7 @@ interface RequestOptions {
   cache?: RequestCache;
 }
 
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, signal, headers = {}, cache } = opts;
 
   const finalHeaders: Record<string, string> = {
@@ -145,6 +147,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return payload as T;
 }
 
+/** Same helper plugin code calls. Host modules keep using `request` directly. */
+export const apiRequest = request;
+
 export const apiClient = {
   // ---------- auth ----------
 
@@ -181,10 +186,10 @@ export const apiClient = {
   },
 
   /** Confirm a 6-digit email code and sign in (sets the session cookie). */
-  async verifyEmail(email: string, code: string): Promise<AuthResponse> {
+  async verifyEmail(email: string, code: string, password?: string): Promise<AuthResponse> {
     return request<AuthResponse>('/auth/verify-email', {
       method: 'POST',
-      body: { email, code },
+      body: { email, code, password },
     });
   },
 

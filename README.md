@@ -131,9 +131,12 @@ cp agent/.env.example agent/.env   # set OPENAI_API_KEY + model names
 cp api/.env.example   api/.env     # set JWT_SECRET (min 16 chars)
 cp web/.env.example   web/.env     # usually OK as-is; NEXT_PUBLIC_API_URL=http://localhost:8000/v1
 
-# 2. Bring the whole stack up (builds on first run, hot-reloads after)
-docker compose -f docker-compose.local.yml up --build
+# 2. Bring the stock stack up without optional plugins
+# Builds on first run, hot-reloads after
+CAREERSIM_PLUGINS= docker compose -f docker-compose.local.yml up --build
 ```
+
+The Compose file defaults to the optional creator plugin, which requires a separate checkout. The empty `CAREERSIM_PLUGINS=` override above lets this repository run on its own. See [Plugin support](#-plugin-support) to enable plugins.
 
 This starts:
 
@@ -186,6 +189,55 @@ cd agent && uv run python -m careersim_agent.main --serve voice
 ```
 
 When mixing Docker + host, point each service at the others via `host.docker.internal` / `localhost` as appropriate — see `docker-compose.local.yml` for the canonical wiring.
+
+## 🔌 Plugin support
+
+CareerSIM supports optional plugins in the API and web app. Plugins can add API routes, database migrations in their own schema, simulation providers, web pages, and navigation items. The host SDKs live in [api/src/extensions/sdk.ts](api/src/extensions/sdk.ts) and [web/src/extensions/sdk.ts](web/src/extensions/sdk.ts).
+
+**The creator plugin is not part of this repository.** Its source lives in the separate, private [careersim-studio repository](https://github.com/lf1up/careersim-studio), under `plugins/creator`, and requires access to that repository. It adds persona and simulation authoring, reusable personas, multi-persona casts, and a live conversation playground. This repository contains the plugin support code; the stock application works without the creator plugin.
+
+Plugins are copied into generated, Git-ignored directories before the API or web app is built. Plugin source and generated routes are not committed to this repository. Configure the same plugin selection for both services, using compatible host and plugin revisions.
+
+### Local development with plugins
+
+With `careersim-studio` checked out beside `careersim`, the Compose file mounts `../careersim-studio/plugins` and enables `creator` by default:
+
+```bash
+# From the careersim repository root; requires the separate plugin checkout
+docker compose -f docker-compose.local.yml up --build
+```
+
+Set `CAREERSIM_PLUGIN_HOST_DIR` in the shell or a repo-root `.env` to use a different plugin directory. To disable plugins, set `CAREERSIM_PLUGINS=` explicitly; leaving it unset uses Compose's `creator` default.
+
+When switching an existing checkout back to the stock application, stop the API and web development servers and clear the generated overlays first:
+
+```bash
+# From the careersim repository root
+CAREERSIM_PLUGINS= node api/scripts/plugins.mjs fetch
+CAREERSIM_PLUGINS= node web/scripts/plugins.mjs fetch
+```
+
+For services running outside Docker, pass the plugin settings to each development command:
+
+```bash
+# From api/ or web/; the path points to the directory containing creator/
+CAREERSIM_PLUGINS=creator CAREERSIM_PLUGIN_DIR=../../careersim-studio/plugins pnpm dev
+```
+
+Both development servers watch the local plugin source for changes. The API restarts and applies migrations; the web app recopies plugin pages for hot reload.
+
+### Build configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `CAREERSIM_PLUGINS` | Comma-separated plugin IDs. Empty or unset builds the stock application and removes previously generated plugin overlays during fetch/sync. |
+| `CAREERSIM_PLUGIN_DIR` | Local directory containing `<id>/plugin.json` and the plugin source. When set, plugins are copied from disk. |
+| `CAREERSIM_PLUGIN_REF` | Revision of `careersim-studio` to download when no local plugin directory is supplied. Pin a commit for repeatable builds. |
+| `CAREERSIM_PLUGIN_TOKEN` | GitHub token with read-only Contents access to `careersim-studio`, used for the build-time download. Keep it server-side; never prefix it with `NEXT_PUBLIC_`. |
+
+Set these in the build environment for both API and web builds. With no plugins selected, no plugin checkout or token is required. For the API Docker build, pass the token as the BuildKit secret `careersim_plugin_token`.
+
+See [api/.env.example](api/.env.example) and [web/.env.example](web/.env.example) for the configuration reference. The API's `pnpm db:migrate` command applies plugin migrations after the core migrations; Docker startup and plugin-enabled API development run this command automatically.
 
 ## ✨ Core Features
 
@@ -308,7 +360,7 @@ Self-hosted deployment with dev and prod overlays, StatefulSets for databases, a
 
 ```bash
 # From the repo root
-docker compose -f docker-compose.local.yml up --build         # full stack
+CAREERSIM_PLUGINS= docker compose -f docker-compose.local.yml up --build # stock stack
 docker compose -f docker-compose.local.yml logs -f api web    # tail two services
 docker compose -f docker-compose.local.yml restart api        # after a .env change
 
@@ -343,7 +395,7 @@ cd agent && uv run python test_simulation.py \
 - **Real phone-call practice with AI personas** — building on the shipped [browser-native voice mode](VOICE_MODE.md), extend to outbound (the persona calls the user at a scheduled time) and inbound (the user dials a number) calls via Twilio Voice / LiveKit SIP, with the same LangGraph engine driving the conversation.
 - **Community features** — public leaderboards and discussion forums.
 - **Certification paths** — structured learning programs with shareable certificates.
-- **AI persona builder** — user-created custom personas for specialized practice.
+- **AI persona builder** — available through the optional creator plugin in the separate [careersim-studio repository](https://github.com/lf1up/careersim-studio); see [Plugin support](#-plugin-support).
 - **Team / B2B version** — enterprise offering with team analytics and management.
 
 ---
