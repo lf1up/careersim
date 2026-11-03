@@ -1,6 +1,6 @@
-import { verifySolution } from 'altcha-lib/v1';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { captchaRequest } from '@/lib/captcha';
 
 import {
   CONTACT_RATE_LIMIT_MESSAGE,
@@ -88,19 +88,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const hmacKey = process.env.ALTCHA_HMAC_KEY?.trim();
-  if (!hmacKey) return json({ error: 'Verification service unavailable.' }, 503);
-
-  let verified = false;
-  try {
-    verified = await verifySolution(altchaPayload, hmacKey, true);
-  } catch {
-    verified = false;
-  }
-  if (!verified) {
+  const verification = await captchaRequest('/verify', request, altchaPayload);
+  if (verification.status !== 200) {
     return json(
       { error: 'Verification failed — refresh the page and try again.' },
-      400,
+      verification.status === 400 ? 400 : verification.status === 429 ? 429 : 503,
     );
   }
 

@@ -31,8 +31,9 @@ and redeploy after changing the flag.
 
 The `/business` contact form on `careersim.ai` is handled by the `web`
 package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
-`CONTACT_*`, and `ALTCHA_*` in `web/.env.example` / the web Vercel project —
-not here.
+`CONTACT_*`, and `ALTCHA_HMAC_KEY` in the web Vercel project. The HMAC key must
+match the API's key. Standalone landing API routes proxy to `LANDING_SITE_URL`;
+configure that origin and the same `ALTCHA_HMAC_KEY` here when using them.
 
 Web Analytics on proxied pages (`/`, `/business`, legal) also goes through
 the apex: landing injects `/_vercel/insights/*`, which is served by the

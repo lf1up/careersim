@@ -31,6 +31,8 @@ async function main(): Promise<void> {
     db: dbHandle.db,
     agent,
     jwtSecret: env.JWT_SECRET,
+    trustedProxies: env.TRUSTED_PROXIES,
+    clientIpSource: env.CLIENT_IP_SOURCE,
     jwtExpiresIn: env.JWT_EXPIRES_IN,
     nodeEnv: env.NODE_ENV,
     versionPrefix: env.API_VERSION_PREFIX,

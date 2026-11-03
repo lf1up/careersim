@@ -57,6 +57,13 @@
       "when": 1792777251794,
       "tag": "0007_message_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793728928828,
+      "tag": "0008_auth_security",
+      "breakpoints": true
     }
   ]
 }

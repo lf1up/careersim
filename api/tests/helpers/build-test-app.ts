@@ -32,6 +32,8 @@ export interface TestHarness {
 }
 
 export interface BuildTestAppOptions {
+  trustedProxies?: string[];
+  clientIpSource?: 'socket' | 'digitalocean';
   agent?: FakeAgent;
   nodeEnv?: 'development' | 'test' | 'production';
   /**
@@ -107,6 +109,8 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     app = await buildApp({
     db: handle.db,
     agent,
+    trustedProxies: options?.trustedProxies,
+    clientIpSource: options?.clientIpSource,
     jwtSecret: 'test-secret-test-secret-test-secret',
     jwtExpiresIn: '1h',
     nodeEnv: options?.nodeEnv ?? 'test',

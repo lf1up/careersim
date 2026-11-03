@@ -253,8 +253,7 @@ pnpm typecheck  # tsc --noEmit
 | `RESEND_API_KEY` | unset | Resend API key for `/business` contact-form delivery |
 | `CONTACT_FROM_EMAIL` | `onboarding@resend.dev` | Verified Resend sender for inquiry emails |
 | `CONTACT_TO_EMAIL` | falls back to `NEXT_PUBLIC_CONTACT_EMAIL` | Inbox that receives `/business` inquiries |
-| `ALTCHA_HMAC_KEY` | unset | Server-only secret for signing/verifying the `/business` ALTCHA widget (independent from `api`'s key) |
-| `ALTCHA_MAX_NUMBER` | `50000` | PoW difficulty for the `/business` ALTCHA challenge |
+| `ALTCHA_HMAC_KEY` | unset | Must match the API and standalone landing projects. Authenticates visitor-IP metadata sent to the shared CAPTCHA verifier; never expose it to the browser |
 | `NEXT_PUBLIC_BLOG_ENABLED` | unset / `false` | Opt-in for the blog (**off by default**). Omit the var, or set `false`/`0`, to keep it off. `true`/`1` plus `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` enables `/blog`; otherwise routes 404 and sitemap / robots / `llms.txt` omit blog URLs. Landing links use `LANDING_BLOG_URL` (separate, also unset by default) |
 | `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`). Required with the Content API key for the blog to enable |
 | `GHOST_PUBLIC_URL` | unset | Optional browser-facing Ghost origin for `next/image` when it differs from `GHOST_API_URL` |
@@ -271,10 +270,10 @@ deployment origin, for example `https://careersim-landing.vercel.app`.
 
 No ALTCHA configuration lives on the client — the widget only sees the
 signed challenge payload. Auth forms use `api/.env` (`ALTCHA_HMAC_KEY`,
-`ALTCHA_MAX_NUMBER`). The `/business` contact form uses a **separate**
-pair on this app (`web/.env` / the web Vercel project): `RESEND_API_KEY`,
-`CONTACT_FROM_EMAIL`, `CONTACT_TO_EMAIL`, `ALTCHA_HMAC_KEY`,
-`ALTCHA_MAX_NUMBER`.
+`ALTCHA_MAX_NUMBER`). The `/business` contact form proxies challenge issuance
+and single-use verification to that API. Set the same `ALTCHA_HMAC_KEY` here,
+and configure `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, and `CONTACT_TO_EMAIL`
+on the web project. Only the API configures proof-of-work difficulty.
 
 ## 🎨 Design notes
 

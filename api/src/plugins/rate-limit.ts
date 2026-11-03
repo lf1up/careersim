@@ -26,8 +26,8 @@ import { HttpError } from './errors.js';
 
 type RateLimitKeyGenerator = (req: FastifyRequest) => string;
 
-/** Best-effort client IP. Honours `X-Forwarded-For` when `trustProxy` is on. */
-const byIp: RateLimitKeyGenerator = (req) => req.ip ?? 'anon';
+/** Verified contact/provider identity first; otherwise use the configured socket/proxy IP. */
+const byIp: RateLimitKeyGenerator = (req) => req.rateLimitClientIp ?? req.ip ?? 'anon';
 
 /**
  * Key by the (lowercased) `email` field in the JSON body, falling back to

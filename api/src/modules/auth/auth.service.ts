@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 import argon2 from 'argon2';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 
 import type { AppDatabase } from '../../db/client.js';
 import {
@@ -11,7 +11,7 @@ import {
   type AuthTokenRow,
   type UserRow,
 } from '../../db/schema.js';
-import { badRequest, conflict, forbidden } from '../../plugins/errors.js';
+import { badRequest, conflict, forbidden, HttpError } from '../../plugins/errors.js';
 
 // -- Public types -------------------------------------------------------
 
@@ -60,6 +60,7 @@ export interface AuthService {
   changePassword(
     userId: string,
     newPassword: string,
+    authVersion: number,
     currentPassword?: string,
   ): Promise<UserRow>;
   startEmailChange(
@@ -67,7 +68,7 @@ export interface AuthService {
     newEmail: string,
     currentPassword?: string,
   ): Promise<IssuedCode>;
-  confirmEmailChange(userId: string, code: string): Promise<UserRow>;
+  confirmEmailChange(userId: string, code: string, authVersion: number): Promise<UserRow>;
 }
 
 // -- Helpers ------------------------------------------------------------
@@ -423,6 +424,7 @@ export function createAuthService(db: AppDatabase): AuthService {
         .set({
           passwordHash,
           // Password reset also proves control of the email: verify it.
+          authVersion: sql`${users.authVersion} + 1`,
           emailVerifiedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -434,7 +436,7 @@ export function createAuthService(db: AppDatabase): AuthService {
 
     findById,
 
-    async changePassword(userId, newPassword, currentPassword) {
+    async changePassword(userId, newPassword, authVersion, currentPassword) {
       const user = await findById(userId);
       if (!user) throw badRequest('User not found', 'USER_NOT_FOUND');
       if (user.passwordHash) {
@@ -449,10 +451,10 @@ export function createAuthService(db: AppDatabase): AuthService {
       const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
       const [updated] = await db
         .update(users)
-        .set({ passwordHash, updatedAt: new Date() })
-        .where(eq(users.id, userId))
+        .set({ passwordHash, authVersion: sql`${users.authVersion} + 1`, updatedAt: new Date() })
+        .where(and(eq(users.id, userId), eq(users.authVersion, authVersion)))
         .returning();
-      if (!updated) throw badRequest('User not found', 'USER_NOT_FOUND');
+      if (!updated) throw new HttpError(401, 'Credentials changed. Sign in again.', 'SESSION_REVOKED');
       return updated;
     },
 
@@ -484,7 +486,7 @@ export function createAuthService(db: AppDatabase): AuthService {
       return { user, code, purpose: 'change_email', newEmail };
     },
 
-    async confirmEmailChange(userId, code) {
+    async confirmEmailChange(userId, code, authVersion) {
       const token = await findPendingCodeToken(userId, 'change_email');
       if (!token || !token.codeHash || !token.newEmail) {
         throw badRequest('Invalid or expired code', 'INVALID_CODE');
@@ -503,13 +505,14 @@ export function createAuthService(db: AppDatabase): AuthService {
         .update(users)
         .set({
           email: token.newEmail,
+          authVersion: sql`${users.authVersion} + 1`,
           // New address is proven by the code; keep verified state.
           emailVerifiedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(users.id, userId))
+        .where(and(eq(users.id, userId), eq(users.authVersion, authVersion)))
         .returning();
-      if (!updated) throw badRequest('User not found', 'USER_NOT_FOUND');
+      if (!updated) throw new HttpError(401, 'Credentials changed. Sign in again.', 'SESSION_REVOKED');
       return updated;
     },
   };

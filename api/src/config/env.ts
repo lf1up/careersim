@@ -34,6 +34,10 @@ const EnvSchema = z
     HOST: z.string().default('0.0.0.0'),
     PORT: z.coerce.number().int().positive().default(8000),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+    CLIENT_IP_SOURCE: z.enum(['socket', 'digitalocean']).default('socket'),
+    TRUSTED_PROXIES: z.string().default('')
+      .transform((value) => value.split(',').map((part) => part.trim()).filter(Boolean))
+      .pipe(z.array(z.union([z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()]))),
 
     // Version segment prefixed to versioned routes (service index,
     // readiness health, docs, auth, sessions, analytics, voice —

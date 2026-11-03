@@ -38,6 +38,7 @@ export const users = pgTable(
     // Nullable so passwordless accounts (magic-link signup) can exist until
     // the user chooses to set a password from /profile.
     passwordHash: text('password_hash'),
+    authVersion: integer('auth_version').notNull().default(0),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -70,6 +71,18 @@ export const authTokens = pgTable(
     index('auth_tokens_token_hash_idx').on(t.tokenHash),
   ],
 );
+
+export const authSessions = pgTable('auth_sessions', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  authVersion: integer('auth_version').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (t) => [index('auth_sessions_expiry_idx').on(t.expiresAt)]);
+
+export const usedCaptchaChallenges = pgTable('used_captcha_challenges', {
+  challenge: text('challenge').primaryKey(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (t) => [index('used_captcha_challenges_expiry_idx').on(t.expiresAt)]);
 
 export const sessions = pgTable(
   'sessions',

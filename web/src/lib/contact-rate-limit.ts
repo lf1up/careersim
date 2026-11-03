@@ -1,3 +1,5 @@
+import { verifiedContactClientIp } from './contact-client';
+
 /**
  * Best-effort sliding-window limiter for the /business contact form.
  *
@@ -42,6 +44,8 @@ export function consumeContactQuotas(keys: string[]): boolean {
 }
 
 export function clientIp(request: Request): string {
+  const signed = verifiedContactClientIp(request.headers, process.env.ALTCHA_HMAC_KEY?.trim() || '');
+  if (signed) return signed;
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
     const first = forwarded.split(',')[0]?.trim();

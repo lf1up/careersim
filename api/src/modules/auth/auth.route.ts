@@ -1,8 +1,10 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { and, eq } from 'drizzle-orm';
 
 import type { AppDatabase } from '../../db/client.js';
+import { authSessions, type UserRow } from '../../db/schema.js';
 import { SESSION_COOKIE } from '../../plugins/auth.js';
 import { badRequest } from '../../plugins/errors.js';
 import { rateLimitPolicy } from '../../plugins/rate-limit.js';
@@ -65,8 +67,8 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
   const service = createAuthService(opts.db);
   const cookieMaxAge = expiresInToSeconds(opts.jwtExpiresIn);
 
-  async function signUser(user: { id: string; email: string }): Promise<string> {
-    return app.jwt.sign({ sub: user.id, email: user.email });
+  async function signUser(user: UserRow): Promise<string> {
+    return app.issueSessionToken(user);
   }
 
   /**
@@ -282,13 +284,24 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         tags: ['auth'],
         summary: 'Clear the httpOnly session cookie',
         description:
-          'Stateless: the JWT is not revoked server-side, the browser simply ' +
-          'drops the cookie. Unauthenticated calls are allowed so an expired ' +
+          'Revokes the current login session and clears its cookie. ' +
+          'Unauthenticated calls are allowed so an expired ' +
           'session can still log out cleanly.',
         response: { 200: noContentResponseSchema },
       },
     },
-    async (_request, reply) => {
+    async (request, reply) => {
+      let session: { sub: string; jti: string } | undefined;
+      try {
+        session = await request.jwtVerify();
+      } catch (error) {
+        // Missing or expired credentials must still allow cookie clearing.
+        // A store outage must not pretend the session was successfully revoked.
+        if ((error as { statusCode?: number }).statusCode !== 401) throw error;
+      }
+      if (session?.jti) {
+        await opts.db.delete(authSessions).where(and(eq(authSessions.id, session.jti), eq(authSessions.userId, session.sub)));
+      }
       reply.clearCookie(SESSION_COOKIE, { path: '/' });
       return { ok: true as const };
     },
@@ -333,19 +346,23 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
         response: {
           200: z.object({
             ok: z.literal(true),
+            token: z.string(),
             user: userSchema,
           }),
         },
       },
     },
-    async (request) => {
+    async (request, reply) => {
       const { currentPassword, newPassword } = request.body;
       const user = await service.changePassword(
         request.user.sub,
         newPassword,
+        request.user.authVersion,
         currentPassword,
       );
-      return { ok: true as const, user: service.toDto(user) };
+      const token = await signUser(user);
+      setSessionCookie(reply, token);
+      return { ok: true as const, token, user: service.toDto(user) };
     },
   );
 
@@ -395,7 +412,7 @@ export const authRoutes: FastifyPluginAsyncZod<AuthRouteOptions> = async (app, o
       },
     },
     async (request, reply) => {
-      const user = await service.confirmEmailChange(request.user.sub, request.body.code);
+      const user = await service.confirmEmailChange(request.user.sub, request.body.code, request.user.authVersion);
       // Re-issue a JWT because the `email` claim changed.
       const token = await signUser(user);
       setSessionCookie(reply, token);

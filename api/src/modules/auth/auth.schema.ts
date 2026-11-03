@@ -99,6 +99,7 @@ export const noContentResponseSchema = z.object({
 
 export const changePasswordResponseSchema = z.object({
   ok: z.literal(true),
+  token: z.string(),
   user: userSchema,
 });
 

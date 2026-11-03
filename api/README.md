@@ -323,6 +323,8 @@ See `.env.example` for the authoritative list. Required in production:
 | `AGENT_INTERNAL_KEY` | — | Shared secret sent as `X-Internal-Key` on every API ⇒ agent call. Must match the agent's `AGENT_INTERNAL_KEY`. Leave empty for single-service dev (agent accepts unauthenticated calls with a warning); set to a long random string in production |
 | `JWT_SECRET` | — | Min 16 chars; rotate via deploy |
 | `JWT_EXPIRES_IN` | `7d` | Passed to `@fastify/jwt` |
+| `TRUSTED_PROXIES` | empty | Comma-separated ingress IP addresses/CIDRs whose forwarding headers are trusted. Configure the actual production proxy network; empty trusts no proxies. Wildcards and unrestricted `true` are rejected. |
+| `CLIENT_IP_SOURCE` | `socket` | On DigitalOcean App Platform set `digitalocean` and leave `TRUSTED_PROXIES` empty. Uses the platform's validated `do-connecting-ip` header for rate limits; other hosts ignore that header by default. Signed contact visitor identity takes precedence. |
 | `WEB_APP_URL` | `http://localhost:3000` | Public origin of the Next.js app. Embedded in outbound emails (magic links, password reset) |
 | `CORS_ALLOWED_ORIGINS` | — | Optional comma-separated browser origins allowed to call the API. Leave empty to keep CORS wide open |
 | `ALTCHA_HMAC_KEY` | — | Server-only secret (≥16 chars) used to sign + verify ALTCHA challenges. Rotating invalidates in-flight challenges |
@@ -399,9 +401,20 @@ port (`http://localhost:8001`).
   raw values only ever exist in memory long enough to be emailed and are
   never logged. Magic-link / reset tokens are single-use (`consumed_at`
   flipped atomically) and expire on the server.
-- **ALTCHA is our only bot-defence layer.** The widget solves a signed
+- **Login sessions are revocable.** JWTs carry a random session ID backed by
+  `auth_sessions`. Logout revokes that session; password reset, password change,
+  and email change advance the user's authentication version, invalidating all
+  previous sessions, including concurrent logins verified against old credentials.
+  Credential changes issue a fresh token and browser cookie. Legacy JWTs without
+  a stored session are rejected.
+- **ALTCHA is single-use across instances.** The widget solves a signed
   proof-of-work challenge client-side; the server re-verifies the HMAC
-  and the solution with the shared `ALTCHA_HMAC_KEY`. There is no
+  and the solution with the shared `ALTCHA_HMAC_KEY`, then atomically inserts
+  the challenge into PostgreSQL's `used_captcha_challenges` registry. Replays
+  fail even on another API instance. Storage failures fail closed. Expired
+  registry entries are pruned on successful verification. Contact forms issue
+  challenges through the API and consume them through `POST /auth/challenge/verify`.
+  There is no
   third-party CAPTCHA and no IP reputation service — rate-tuning is a
   matter of bumping `ALTCHA_MAX_NUMBER`. Tests set `altcha.bypass = true`
   at app build time so the existing suites don't need to solve a PoW on
@@ -417,6 +430,7 @@ port (`http://localhost:8001`).
   retryAfter }` is uniform. Buckets live in Redis when `REDIS_URL` is
   set and in an in-memory LRU otherwise — swapping stores doesn't
   change behaviour, only the sharing radius.
+
 - **Dev email goes to stdout.** When `SMTP_HOST` is empty the mailer
   plugin falls back to a logger transport that prints the full rendered
   email, so registration / reset flows are usable locally without SMTP

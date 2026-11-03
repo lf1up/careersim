@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { isIP } from 'node:net';
 
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
@@ -32,11 +33,14 @@ import { simulationsRoutes } from './modules/simulations/simulations.route.js';
 import { voiceRoutes } from './modules/voice/voice.route.js';
 import type { VoiceServiceConfig } from './modules/voice/voice.service.js';
 import { isCorsOriginAllowed } from './utils/cors.js';
+import { contactClientIp } from './utils/contact-client.js';
 
 export interface BuildAppOptions {
   db: AppDatabase;
   agent: AgentClient;
   jwtSecret: string;
+  trustedProxies?: string[];
+  clientIpSource?: 'socket' | 'digitalocean';
   jwtExpiresIn?: string;
   nodeEnv?: 'development' | 'test' | 'production';
   logger?: boolean | Record<string, unknown>;
@@ -165,6 +169,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const providers = simulationProviders(plugins);
   const app = Fastify({
     logger: opts.logger ?? false,
+    trustProxy: opts.trustedProxies ?? false,
   }).withTypeProvider<ZodTypeProvider>();
   const docsEnabled = (opts.nodeEnv ?? process.env.NODE_ENV ?? 'development') === 'development';
   // '' when unset — versioned routes then live at the root (/auth/...).
@@ -174,15 +179,29 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
+  app.decorateRequest('rateLimitClientIp', null);
+  app.addHook('onRequest', async (request, reply) => {
+    // Only enable on App Platform, whose ingress sets this provider header.
+    const providerIp = request.headers['do-connecting-ip'];
+    if (opts.clientIpSource === 'digitalocean' && typeof providerIp === 'string' && isIP(providerIp)) {
+      request.rateLimitClientIp = providerIp;
+    }
+    const value = request.headers['x-careersim-client'];
+    const signature = request.headers['x-careersim-client-signature'];
+    if (value === undefined && signature === undefined) return;
+    request.rateLimitClientIp = contactClientIp(value, signature, opts.altcha.hmacKey);
+    if (!request.rateLimitClientIp) {
+      return reply.code(400).send({ error: 'INVALID_PROXY_IDENTITY', message: 'Invalid contact proxy identity' });
+    }
+  });
+
   registerErrorHandler(app);
 
   const corsAllowedOrigins = opts.cors?.allowedOrigins ?? [];
   const corsAllowAllWhenEmpty = opts.cors?.allowAllWhenEmpty ?? false;
   await app.register(cors, {
     credentials: true,
-    // @fastify/cors defaults to the safelist (GET, HEAD, POST). PUT and DELETE are
-    // required for creator simulation removal; PUT/PATCH stay off the list.
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
     origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
       // No Origin header = same-origin or non-browser client; CORS doesn't apply.
       if (!origin) return cb(null, true);
@@ -226,6 +245,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     transform: jsonSchemaTransform,
   });
   await registerAuth(app, {
+    db: opts.db,
     secret: opts.jwtSecret,
     expiresIn: opts.jwtExpiresIn ?? '7d',
   });
@@ -239,6 +259,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
   await app.register(altchaPlugin, {
+    db: opts.db,
     hmacKey: opts.altcha.hmacKey,
     maxNumber: opts.altcha.maxNumber,
     bypass: opts.altcha.bypass,

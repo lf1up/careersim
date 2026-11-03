@@ -52,7 +52,7 @@ describe('CORS', () => {
     expect(blocked.headers['access-control-allow-origin']).toBeUndefined();
   });
 
-  it.each(['DELETE', 'PUT'])('allows %s on preflight in addition to the safelisted methods', async (method) => {
+  it.each(['DELETE', 'PUT', 'PATCH'])('allows %s on preflight in addition to the safelisted methods', async (method) => {
     harness = await buildTestApp({ corsAllowedOrigins: ['https://app.example.com'] });
 
     const response = await harness.app.inject({

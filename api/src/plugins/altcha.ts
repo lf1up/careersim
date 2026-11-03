@@ -2,6 +2,10 @@ import { createChallenge, verifySolution } from 'altcha-lib/v1';
 import fp from 'fastify-plugin';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { lte } from 'drizzle-orm';
+
+import type { AppDatabase } from '../db/client.js';
+import { usedCaptchaChallenges } from '../db/schema.js';
 
 import { badRequest } from './errors.js';
 import { rateLimitPolicy } from './rate-limit.js';
@@ -25,6 +29,7 @@ const challengeResponseSchema = z.object({
 export const ALTCHA_TEST_BYPASS_TOKEN = 'test-bypass';
 
 export interface AltchaOptions {
+  db: AppDatabase;
   /** HMAC secret used to sign + verify challenges. */
   hmacKey: string;
   /**
@@ -88,12 +93,23 @@ export default fp<AltchaOptions>(
         let ok = false;
         try {
           ok = await verifySolution(payload, opts.hmacKey, true);
-        } catch (_err) {
+        } catch {
           ok = false;
         }
         if (!ok) {
           throw badRequest('CAPTCHA verification failed', 'CAPTCHA_INVALID');
         }
+        const solved = JSON.parse(Buffer.from(payload, 'base64').toString('utf8')) as { challenge: string; salt: string };
+        const expires = Number(new URLSearchParams(solved.salt.split('?')[1]).get('expires'));
+        if (!Number.isFinite(expires) || expires * 1000 <= Date.now()) {
+          throw badRequest('CAPTCHA verification failed', 'CAPTCHA_INVALID');
+        }
+        await opts.db.delete(usedCaptchaChallenges).where(lte(usedCaptchaChallenges.expiresAt, new Date()));
+        // The unique key arbitrates concurrent attempts across all API instances.
+        const claimed = await opts.db.insert(usedCaptchaChallenges)
+          .values({ challenge: solved.challenge, expiresAt: new Date(expires * 1000) })
+          .onConflictDoNothing().returning();
+        if (!claimed.length) throw badRequest('CAPTCHA verification failed', 'CAPTCHA_INVALID');
       },
       async issueChallenge() {
         const challenge = await createChallenge({
@@ -116,6 +132,18 @@ export default fp<AltchaOptions>(
  * registered after the altcha fp plugin above (it uses `app.altcha`).
  */
 export const altchaChallengeRoutes: FastifyPluginAsyncZod = async (app) => {
+  app.post('/auth/challenge/verify', {
+    config: { rateLimit: rateLimitPolicy.authChallenge() },
+    schema: {
+      tags: ['auth'],
+      summary: 'Consume a single-use CAPTCHA solution for server-side contact forms',
+      body: z.object({ altcha: z.string().min(1).max(4096) }),
+      response: { 200: z.object({ ok: z.literal(true) }) },
+    },
+  }, async (request) => {
+    await app.altcha.verify(request.body.altcha);
+    return { ok: true as const };
+  });
   app.get(
     '/auth/challenge',
     {
@@ -131,6 +159,9 @@ export const altchaChallengeRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: challengeResponseSchema },
       },
     },
-    async () => app.altcha.issueChallenge(),
+    async (_request, reply) => {
+      reply.header('cache-control', 'no-store');
+      return app.altcha.issueChallenge();
+    },
   );
 };

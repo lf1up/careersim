@@ -10,6 +10,19 @@ const baseEnv = {
 };
 
 describe('loadEnv', () => {
+  it('requires an explicit supported provider to use its client-IP header', () => {
+    expect(loadEnv(baseEnv).CLIENT_IP_SOURCE).toBe('socket');
+    expect(loadEnv({ ...baseEnv, CLIENT_IP_SOURCE: 'digitalocean' }).CLIENT_IP_SOURCE).toBe('digitalocean');
+    expect(() => loadEnv({ ...baseEnv, CLIENT_IP_SOURCE: 'x-forwarded-for' })).toThrow(/CLIENT_IP_SOURCE/);
+  });
+  it('accepts only explicit IP addresses and CIDRs as trusted proxies', () => {
+    expect(loadEnv(baseEnv).TRUSTED_PROXIES).toEqual([]);
+    expect(loadEnv({ ...baseEnv, TRUSTED_PROXIES: ' 10.20.0.0/24, 2001:db8::/64,127.0.0.1 ' }).TRUSTED_PROXIES)
+      .toEqual(['10.20.0.0/24', '2001:db8::/64', '127.0.0.1']);
+    for (const value of ['true', '*', 'https://proxy.example', '10.0.0.0/999']) {
+      expect(() => loadEnv({ ...baseEnv, TRUSTED_PROXIES: value })).toThrow(/TRUSTED_PROXIES/);
+    }
+  });
   it('defaults the text message allowance to 350 per six hours and accepts overrides', () => {
     expect(loadEnv(baseEnv)).toMatchObject({ CHAT_MESSAGES_MAX: 350, CHAT_MESSAGES_WINDOW: '6 hours' });
     expect(loadEnv({ ...baseEnv, CHAT_MESSAGES_MAX: '25', CHAT_MESSAGES_WINDOW: '30 minutes' }))
