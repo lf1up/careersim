@@ -79,6 +79,14 @@ through one engine, not a second copy.
 
 Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top of its README. They are also commented out in `docker-compose.local.yml` under a deprecation block and will be removed in a future clean-up pass.
 
+## Subscriptions
+
+CareerSIM has Free, Plus and Supporter tiers. Plus is $9/month or $90/year upfront; Supporter is $100/month or $1,000/year upfront. Yearly subscriptions renew yearly and offer "2 months free" compared with twelve monthly payments. Listed prices are before applicable checkout taxes.
+
+Both paid tiers share 100 new sessions per configured window, 3,000 text messages per configured window, 250 owned custom simulations, 250 owned custom personas and 720 voice minutes per UTC day. Session and message windows default to six hours. Saved-item limits count inventory, not monthly credits. Upgrades and interval changes preserve counters; downgrade preserves saved work.
+
+Billing purchases start disabled. Supporter also requires written Polar acceptance of its actual benefits and a configured private channel before either interval can be enabled. The [billing runbook](docs/BILLING.md) covers the four product mappings, read-only `pnpm -C api billing:check`, sandbox evidence, eligibility gates, migration order and recovery. No live products or payment operations are established by this implementation.
+
 ## 📁 Project Structure
 
 ```text
