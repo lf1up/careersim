@@ -267,3 +267,7 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 - https://polar.sh/docs/api-reference/subscriptions/update
 - https://polar.sh/legal/acceptable-use-policy
 - https://docs.livekit.io/frontends/reference/tokens-grants/
+
+## Delivery record
+
+Implementation completed on `feat/subscriptions`; see `docs/subscriptions-handoff.md` for exact compatible repository revisions, final verification evidence, local branch import instructions, and remaining external launch gates.
