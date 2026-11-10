@@ -33,9 +33,10 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 
-const EXTENSION_API_VERSION = 1;
+const EXTENSION_API_VERSION = 2;
 const REPO = 'lf1up/careersim-studio';
 const RESERVED_IDS = new Set([
+  'billing',
   'auth',
   'simulations',
   'personas',

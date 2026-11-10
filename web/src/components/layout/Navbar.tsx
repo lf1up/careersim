@@ -19,11 +19,12 @@ const AUTH_NAV_ITEMS: WebNavItem[] = [
   { href: '/simulations', label: 'Simulations' },
   { href: '/sessions', label: 'Sessions' },
   { href: '/analytics', label: 'Analytics' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 // Host nav items shown to guests. Plugins can add their own guest-visible links.
 // Blog lives in the landing-site header/footer, not the app chrome.
-const GUEST_NAV_ITEMS: WebNavItem[] = [{ href: '/simulations', label: 'Simulations' }];
+const GUEST_NAV_ITEMS: WebNavItem[] = [{ href: '/simulations', label: 'Simulations' }, { href: '/pricing', label: 'Pricing' }];
 const HAS_LANDING_ORIGIN =
   process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
 

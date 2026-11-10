@@ -10,6 +10,8 @@ import { createVoiceService, type VoiceServiceConfig } from './voice.service.js'
 import {
   stateForVoiceResponseSchema,
   voiceBudgetResponseSchema,
+  voiceCheckpointSchema,
+  voiceCheckpointResponseSchema,
   voiceEndResponseSchema,
   voiceEndSchema,
   voiceStartResponseSchema,
@@ -33,11 +35,6 @@ export interface VoiceRouteOptions {
 export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app, opts) => {
   const service = createVoiceService(opts.db, opts.config);
 
-  // ---------------------------------------------------------------------------
-  // POST /sessions/:id/voice/start  — user-bearer-authenticated.
-  //
-  // Returns a short-lived LiveKit join token + the client-facing SFU URL.
-  // ---------------------------------------------------------------------------
   app.post(
     '/sessions/:id/voice/start',
     {
@@ -63,21 +60,13 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
         token: result.token,
         livekit_url: result.livekitUrl,
         room: result.room,
+        call_id: result.callId,
         expires_at: result.expiresAt.toISOString(),
         quota_remaining_seconds: result.quotaRemainingSeconds,
       };
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // POST /sessions/:id/voice/end  — user-bearer-authenticated.
-  //
-  // Marks the session call-ended (clearing the single-active-call guard) and
-  // returns the remaining budget so the UI can surface it. Does NOT debit the
-  // quota — that is the agent-voice worker's job via the internal end route,
-  // using a server-side authoritative clock the client can't influence. The
-  // body is still accepted for backward compatibility but ignored for debit.
-  // ---------------------------------------------------------------------------
   app.post(
     '/sessions/:id/voice/end',
     {
@@ -96,6 +85,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
       const result = await service.endCall({
         userId: request.user.sub,
         sessionId: request.params.id,
+        callId: request.body.call_id,
       });
       return {
         seconds_recorded: result.secondsRecorded,
@@ -104,14 +94,6 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // GET /internal/sessions/:id/state-for-voice  — internal-key-authenticated.
-  //
-  // The agent-voice worker pulls the freshest wire-format state right before
-  // joining a LiveKit room. This route deliberately bypasses the user JWT
-  // chain — it's part of the API <-> worker trust boundary, not a public
-  // endpoint.
-  // ---------------------------------------------------------------------------
   app.get(
     '/internal/sessions/:id/state-for-voice',
     {
@@ -131,13 +113,6 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // GET /internal/sessions/:id/voice-budget  — internal-key-authenticated.
-  //
-  // The agent-voice worker reads the session owner's remaining daily voice
-  // budget at call start so it can arm a mid-call cutoff watchdog. Keyed by
-  // session (the worker only knows the session id, not the user).
-  // ---------------------------------------------------------------------------
   app.get(
     '/internal/sessions/:id/voice-budget',
     {
@@ -156,25 +131,19 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
       return {
         remaining_seconds: budget.remainingSeconds,
         cap_seconds: budget.capSeconds,
+        usage_date: budget.usageDate,
+        reset_at: budget.resetAt.toISOString(),
       };
     },
   );
 
-  // ---------------------------------------------------------------------------
-  // POST /internal/sessions/:id/voice/end  — internal-key-authenticated.
-  //
-  // Authoritative call-end from the agent-voice worker. Debits the session
-  // owner's daily quota by the worker-measured seconds (server-side clock the
-  // client can't influence) and merges aggregate voice analytics. This is the
-  // single source of truth for quota debits.
-  // ---------------------------------------------------------------------------
   app.post(
     '/internal/sessions/:id/voice/end',
     {
       config: { rateLimit: rateLimitPolicy.voiceInternal() },
       schema: {
         tags: ['voice'],
-        summary: 'Internal: authoritative voice-call end + quota debit',
+        summary: 'Internal: finalize call analysis (no duration debit)',
         params: z.object({ id: z.uuid() }),
         body: voiceEndSchema,
         response: { 200: voiceEndResponseSchema },
@@ -185,7 +154,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
       assertInternalCaller(request.headers['x-internal-key']);
       const result = await service.endCallInternal({
         sessionId: request.params.id,
-        secondsUsed: request.body.seconds_used,
+        callId: request.body.call_id,
         voiceAnalysis: request.body.voice_analysis,
       });
       return {
@@ -194,6 +163,29 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
       };
     },
   );
+
+  app.post('/internal/voice/calls/:callId/checkpoint', {
+    config: { rateLimit: { ...rateLimitPolicy.voiceInternal(), keyGenerator(request) {
+      const params = request.params;
+      const id = params && typeof params === 'object' && 'callId' in params ? params.callId : undefined;
+      return typeof id === 'string' ? `vcall:${id}` : `ip:${request.ip}`;
+    } } },
+    schema: {
+      tags: ['voice'], hide: true,
+      params: z.object({ callId: z.uuid() }), body: voiceCheckpointSchema,
+      response: { 200: voiceCheckpointResponseSchema },
+    },
+  }, async (request) => {
+    assertInternalCaller(request.headers['x-internal-key']);
+    const result = await service.checkpointCall({
+      callId: request.params.callId, sequence: request.body.sequence,
+      cumulativeSeconds: request.body.cumulative_seconds, ended: request.body.ended,
+    });
+    return {
+      remaining_seconds: result.remainingSeconds, cap_seconds: result.capSeconds,
+      usage_date: result.usageDate, reset_at: result.resetAt.toISOString(), continue_call: result.continueCall,
+    };
+  });
 
   // Shared guard for the internal worker<->API routes. Honours the kill
   // switch BEFORE the internal-key check so the worker gets a clear

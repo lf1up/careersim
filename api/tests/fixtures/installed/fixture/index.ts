@@ -26,7 +26,7 @@ function detail(slug: string): AgentSimulationDetail {
 
 const plugin: ApiPlugin = {
   id: 'fixture',
-  apiVersion: 1,
+  apiVersion: 2,
   migrations: {
     folder: fileURLToPath(new URL('./migrations/', import.meta.url)),
     schema: 'extfix',

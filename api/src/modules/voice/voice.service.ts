@@ -1,11 +1,13 @@
-import { randomUUID } from 'node:crypto';
-
-import { and, eq, gt, isNotNull, isNull, ne, sql } from 'drizzle-orm';
-import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
+import { and, eq, gt, sql } from 'drizzle-orm';
+import { AccessToken, RoomServiceClient, type VideoGrant } from 'livekit-server-sdk';
 
 import { isGroupScene, type AgentWireState } from '../../agent/types.js';
 import type { AppDatabase } from '../../db/client.js';
-import { sessions, voiceMinuteUsage } from '../../db/schema.js';
+import { sessions, users } from '../../db/schema.js';
+import { voiceCalls } from './voice-usage.schema.js';
+import { createVoiceUsage, type VoiceCheckpoint, type VoiceUsageConfig, type VoiceBudget } from './voice-usage.js';
+export { formatUsageDate } from './voice-usage.js';
+export type { VoiceBudget } from './voice-usage.js';
 import { forbidden, notFound } from '../../plugins/errors.js';
 import { HttpError } from '../../plugins/errors.js';
 
@@ -25,21 +27,13 @@ export interface VoiceServiceConfig {
   livekitApiSecret: string;
   /** Per-user-per-day quota in minutes (0 = quota disabled). */
   dailyMinutesPerUser: number;
-  /**
-   * TTL for minted tokens. Defaults to the daily cap plus a 10-minute
-   * buffer (so the join token always outlives the longest possible
-   * call and the agent-side watchdog stays the sole call-ender), or
-   * 1 hour when the quota is disabled.
-   */
+  /** Initial-join credential TTL; independent of the usage allowance. */
   tokenTtlSeconds?: number;
-  /**
-   * How long (seconds) an un-ended call row is considered "active" for
-   * the single-active-call guard. Past this window we assume the
-   * worker crashed without reporting end and allow a new call rather
-   * than locking the user out. Defaults to `tokenTtlSeconds`; `0`
-   * disables the guard (nothing is ever considered active).
-   */
+  /** Checkpoints are also the active-call lease; defaults to 60 seconds. */
   activeCallStaleSeconds?: number;
+  resolveEntitlements?: VoiceUsageConfig['resolveEntitlements'];
+  /** Injectable room control; production defaults to LiveKit RoomService.deleteRoom. */
+  terminateRoom?: (room: string) => Promise<void>;
   /**
    * Date provider — defaults to `() => new Date()`. Tests pass a fixed
    * clock so the rolling per-day bucket is deterministic.
@@ -48,6 +42,7 @@ export interface VoiceServiceConfig {
 }
 
 export interface VoiceStartResult {
+  callId: string;
   token: string;
   livekitUrl: string;
   room: string;
@@ -60,77 +55,13 @@ export interface VoiceEndResult {
   quotaRemainingSeconds: number | null;
 }
 
-export interface VoiceBudget {
-  /** Remaining daily voice seconds; `null` when quota is disabled. */
-  remainingSeconds: number | null;
-  /** The configured daily cap in seconds; `null` when quota is disabled. */
-  capSeconds: number | null;
-}
-
 export interface VoiceService {
-  /**
-   * Start a voice call for `sessionId`. Verifies ownership, checks the
-   * daily quota, marks the session as call-in-progress, and mints a
-   * LiveKit join token whose participant metadata carries only the
-   * `session_id` — the agent-voice worker re-enters the API via the
-   * internal-key routes, so no user credential ever rides the metadata
-   * (participant metadata is visible to every room participant).
-   */
-  startCall(args: {
-    userId: string;
-    sessionId: string;
-  }): Promise<VoiceStartResult>;
-
-  /**
-   * User-facing call end. Does NOT debit the quota — that is the
-   * agent-voice worker's job via {@link endCallInternal}, which uses a
-   * server-side authoritative clock the client can't influence. This
-   * only stamps `voiceCallEndedAt` (so the single-active-call guard
-   * clears the moment the user hangs up) and echoes the remaining
-   * budget back for the UI.
-   */
-  endCall(args: { userId: string; sessionId: string }): Promise<VoiceEndResult>;
-
-  /**
-   * Authoritative call end, invoked only by the agent-voice worker
-   * (internal-key authenticated). Debits the session owner's daily
-   * quota by the worker-measured `secondsUsed`, merges any aggregate
-   * `voiceAnalysis`, and stamps `voiceCallEndedAt`.
-   */
-  endCallInternal(args: {
-    sessionId: string;
-    secondsUsed: number;
-    /**
-     * Optional aggregate voice analytics produced by the worker. When
-     * present, merged into `state_snapshot.analysis.voice` so the
-     * feedback view can surface pacing / filler / latency signals
-     * without re-deriving them.
-     */
-    voiceAnalysis?: Record<string, unknown>;
-  }): Promise<VoiceEndResult>;
-
-  /**
-   * Internal-only budget lookup keyed by session (the worker only
-   * knows the session id, not the user). Resolves the owner and
-   * returns the remaining daily seconds + configured cap so the
-   * worker can arm its mid-call cutoff watchdog.
-   */
+  startCall(args: { userId: string; sessionId: string }): Promise<VoiceStartResult>;
+  endCall(args: { userId: string; sessionId: string; callId: string }): Promise<VoiceEndResult>;
+  endCallInternal(args: { sessionId: string; callId: string; voiceAnalysis?: Record<string, unknown> }): Promise<VoiceEndResult>;
   getBudgetForSession(sessionId: string): Promise<VoiceBudget>;
-
-  /**
-   * Internal-only state-for-voice fetch.
-   *
-   * Returns the session's stateSnapshot. Caller is the agent-voice
-   * worker, authenticated via the existing `X-Internal-Key` shared
-   * secret rather than a user JWT — see `voice.route.ts`.
-   */
+  checkpointCall(args: { callId: string; sequence: number; cumulativeSeconds: number; ended: boolean }): Promise<VoiceCheckpoint>;
   fetchStateForVoice(sessionId: string): Promise<AgentWireState>;
-
-  /**
-   * Read the user's remaining voice budget for the current UTC day.
-   * Returns `null` if quota tracking is disabled (`dailyMinutesPerUser
-   * <= 0`).
-   */
   getQuotaRemainingSeconds(userId: string): Promise<number | null>;
 }
 
@@ -161,12 +92,6 @@ export function roomNameForSession(sessionId: string, nonce?: string): string {
   return nonce ? `${base}__${nonce}` : base;
 }
 
-/** Format a JS `Date` as a UTC `YYYY-MM-DD` string for the quota bucket. */
-export function formatUsageDate(d: Date): string {
-  // toISOString -> 2026-05-17T..., split off the date component.
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * Merge a worker-supplied `voice_analysis` payload into the session's
  * wire-format snapshot under `analysis.voice`. Pure / immutable: the
@@ -189,333 +114,85 @@ export function mergeVoiceAnalysis(
   };
 }
 
-export function createVoiceService(
-  db: AppDatabase,
-  config: VoiceServiceConfig,
-): VoiceService {
+export function createVoiceService(db: AppDatabase, config: VoiceServiceConfig): VoiceService {
   const now = config.now ?? (() => new Date());
-  const dailySecondsCap =
-    config.dailyMinutesPerUser > 0 ? config.dailyMinutesPerUser * 60 : 0;
-  // Token must outlive the longest possible call. With a configured
-  // cap that's `cap + 10 min`; with quota disabled we fall back to 1h.
-  const tokenTtl =
-    config.tokenTtlSeconds ?? (dailySecondsCap > 0 ? dailySecondsCap + 10 * 60 : 60 * 60);
-  const activeCallStaleSeconds = config.activeCallStaleSeconds ?? tokenTtl;
-  // Upper bound on a single authoritative debit — guards against a
-  // bogus/replayed value blowing the bucket. A real call can't exceed
-  // the token TTL, so clamp to that.
-  const maxDebitSeconds = tokenTtl;
-
-  function ensureEnabled(): void {
-    if (!config.enabled) {
-      throw new HttpError(503, 'Voice mode is disabled', 'voice_disabled');
-    }
-    if (!config.livekitUrl || !config.livekitApiKey || !config.livekitApiSecret) {
-      throw new HttpError(
-        503,
-        'Voice mode is enabled but LiveKit credentials are not configured',
-        'voice_misconfigured',
-      );
-    }
+  const tokenTtl = config.tokenTtlSeconds ?? 600;
+  const usage = createVoiceUsage(db, {
+    ...config,
+    terminateRoom: config.terminateRoom ?? (async (room) => {
+      const control = new RoomServiceClient(config.livekitUrl.replace(/^ws/, 'http'), config.livekitApiKey, config.livekitApiSecret);
+      try { await control.deleteRoom(room); }
+      catch (error) {
+        // An already empty/deleted room is successfully terminated.
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'not_found') throw error;
+      }
+    }),
+  });
+  function ensureEnabled() {
+    if (!config.enabled) throw new HttpError(503, 'Voice mode is disabled', 'voice_disabled');
+    if (!config.livekitUrl || !config.livekitApiKey || !config.livekitApiSecret) throw new HttpError(503, 'LiveKit credentials are not configured', 'voice_misconfigured');
   }
-
-  async function readUsage(userId: string, day: string): Promise<number> {
-    const [row] = await db
-      .select()
-      .from(voiceMinuteUsage)
-      .where(
-        and(eq(voiceMinuteUsage.userId, userId), eq(voiceMinuteUsage.usageDate, day)),
-      )
-      .limit(1);
-    return row?.secondsUsed ?? 0;
+  async function sessionFor(sessionId: string) {
+    const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+    if (!session) throw notFound('Session not found');
+    return session;
   }
-
-  async function quotaRemaining(userId: string): Promise<number | null> {
-    if (dailySecondsCap === 0) return null;
-    const used = await readUsage(userId, formatUsageDate(now()));
-    return Math.max(0, dailySecondsCap - used);
-  }
-
-  async function debitUsage(userId: string, seconds: number): Promise<number> {
-    const day = formatUsageDate(now());
-    // Atomic upsert: insert a fresh bucket or, on conflict with the
-    // existing (user_id, usage_date) row, increment in-place at the DB
-    // level. This keeps concurrent debits from clobbering each other
-    // (read-modify-write would lose increments under contention). The
-    // updated total is returned in the same statement.
-    const [row] = await db
-      .insert(voiceMinuteUsage)
-      .values({
-        userId,
-        usageDate: day,
-        secondsUsed: seconds,
-      })
-      .onConflictDoUpdate({
-        target: [voiceMinuteUsage.userId, voiceMinuteUsage.usageDate],
-        set: {
-          secondsUsed: sql`${voiceMinuteUsage.secondsUsed} + ${seconds}`,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return row?.secondsUsed ?? seconds;
-  }
-
   return {
     async startCall({ userId, sessionId }) {
       ensureEnabled();
-
-      // 1. Ownership + existence check.
-      const [session] = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.id, sessionId))
-        .limit(1);
-      if (!session) throw notFound('Session not found');
+      const session = await sessionFor(sessionId);
       if (session.userId !== userId) throw forbidden('You do not own this session');
-
-      if (isGroupScene(session.stateSnapshot)) {
-        throw new HttpError(400, 'Group scenes currently support text chat only', 'GROUP_VOICE_UNSUPPORTED');
-      }
-
-      // 2. Quota check (only if the cap is configured).
-      if (dailySecondsCap > 0) {
-        const used = await readUsage(userId, formatUsageDate(now()));
-        if (used >= dailySecondsCap) {
-          throw new HttpError(
-            429,
-            'Daily voice minutes exhausted; resets at midnight UTC.',
-            'voice_quota_exhausted',
-          );
-        }
-      }
-
-      // 2b. Single-active-call guard. Each concurrent call passes the
-      //     start-time quota check independently (the debit only lands
-      //     when the call ends), so without this a user could open N
-      //     tabs and run N simultaneous calls to bypass the daily cap.
-      //     We treat a call whose row was started within
-      //     `activeCallStaleSeconds` and never ended as "in progress".
-      //     The staleness window means a worker that crashed without
-      //     reporting end can't lock the user out forever.
-      //
-      //     The guard deliberately EXCLUDES the session being started:
-      //     re-starting the same session supersedes its own prior row
-      //     (we overwrite `voiceCallStartedAt` below), so a duplicate
-      //     start — e.g. React Strict Mode double-invoking the mount
-      //     effect, a double-click, or reconnecting the same tab — is
-      //     idempotent rather than a 409. Only an active call on a
-      //     *different* session (the real multi-tab abuse vector) blocks.
-      const staleCutoff = new Date(now().getTime() - activeCallStaleSeconds * 1000);
-      const [activeCall] = await db
-        .select({ id: sessions.id })
-        .from(sessions)
-        .where(
-          and(
-            eq(sessions.userId, userId),
-            ne(sessions.id, sessionId),
-            isNotNull(sessions.voiceCallStartedAt),
-            isNull(sessions.voiceCallEndedAt),
-            gt(sessions.voiceCallStartedAt, staleCutoff),
-          ),
-        )
-        .limit(1);
-      if (activeCall) {
-        throw new HttpError(
-          409,
-          'A voice call is already in progress. End it before starting another.',
-          'voice_call_in_progress',
-        );
-      }
-
-      // 3. Mark the session as voice-active for the eval node + UI.
-      const startedAt = now();
-      await db
-        .update(sessions)
-        .set({
-          voiceCallStartedAt: startedAt,
-          voiceCallEndedAt: null,
-          updatedAt: startedAt,
-        })
-        .where(eq(sessions.id, sessionId));
-
-      // 4. Mint the LiveKit join token. The user joins as
-      //    `participant_<userId-prefix>` so SFU logs are scrubbable
-      //    without correlating IDs.
-      // Per-call nonce — see `roomNameForSession`. Without it, an
-      // immediate end+restart of the same session collides on the room
-      // name and the new call never gets an agent dispatched.
-      const room = roomNameForSession(sessionId, randomUUID().slice(0, 8));
-      const expiresAt = new Date(startedAt.getTime() + tokenTtl * 1000);
+      if (isGroupScene(session.stateSnapshot)) throw new HttpError(400, 'Voice mode is not available for group scenes', 'voice_group_unsupported');
+      const { call, budget } = await usage.reserve(userId, sessionId);
       const at = new AccessToken(config.livekitApiKey, config.livekitApiSecret, {
-        identity: `user_${userId.slice(0, 8)}`,
-        ttl: tokenTtl,
-        // LiveKit accepts arbitrary JSON in `metadata`. NOTE: this is
-        // *participant*-scoped metadata (it rides on the user's
-        // participant, not `room.metadata`) and is visible to every
-        // room participant — so it carries ONLY the session id. The
-        // agent-voice worker reads it off the remote participant to
-        // discover which session to load, then persists turns through
-        // the internal-key route (no user JWT anywhere in the room).
-        metadata: JSON.stringify({
-          session_id: sessionId,
-        }),
+        identity: `user_${userId.slice(0, 8)}`, ttl: tokenTtl,
+        metadata: JSON.stringify({ session_id: sessionId, call_id: call.id }),
       });
-      const grant: VideoGrant = {
-        room,
-        roomJoin: true,
-        canPublish: true,
-        canSubscribe: true,
-        canPublishData: true,
-      };
+      const grant: VideoGrant = { room: call.room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true };
       at.addGrant(grant);
-      const token = await at.toJwt();
-
-      const remaining = dailySecondsCap > 0 ? await quotaRemaining(userId) : null;
-      return {
-        token,
-        livekitUrl: config.livekitUrl,
-        room,
-        expiresAt,
-        quotaRemainingSeconds: remaining,
-      };
+      return { token: await at.toJwt(), livekitUrl: config.livekitUrl, room: call.room, callId: call.id,
+        expiresAt: new Date(now().getTime() + tokenTtl * 1000), quotaRemainingSeconds: budget.remainingSeconds };
     },
-
-    async endCall({ userId, sessionId }) {
+    async endCall({ userId, sessionId, callId }) {
       ensureEnabled();
-
-      const [session] = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.id, sessionId))
-        .limit(1);
-      if (!session) throw notFound('Session not found');
-      if (session.userId !== userId) throw forbidden('You do not own this session');
-
-      // No debit here — the worker is authoritative (see
-      // `endCallInternal`). We only stamp the end time so the
-      // single-active-call guard clears immediately when the user
-      // hangs up, rather than waiting for the worker's `finally`.
-      const endedAt = now();
-      await db
-        .update(sessions)
-        .set({ voiceCallEndedAt: endedAt, updatedAt: endedAt })
-        .where(eq(sessions.id, sessionId));
-
-      const remaining = await quotaRemaining(userId);
-      return { secondsRecorded: 0, quotaRemainingSeconds: remaining };
+      const budget = await usage.close(userId, sessionId, callId);
+      return { secondsRecorded: 0, quotaRemainingSeconds: budget.remainingSeconds };
     },
-
-    async endCallInternal({ sessionId, secondsUsed, voiceAnalysis }) {
+    async endCallInternal({ sessionId, callId, voiceAnalysis }) {
       ensureEnabled();
-
-      const [session] = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.id, sessionId))
-        .limit(1);
-      if (!session) throw notFound('Session not found');
-
-      const endedAt = now();
-      const clamped = Math.max(0, Math.min(secondsUsed, maxDebitSeconds));
-      let recorded = 0;
-      if (clamped > 0) {
-        // We debit regardless of whether the user is over quota *now* —
-        // the mid-call watchdog already cut the call at the budget, so
-        // a small overshoot from teardown is expected and fine.
-        await debitUsage(session.userId, clamped);
-        recorded = clamped;
-      }
-
-      // Merge the worker-supplied voice analytics into the existing
-      // wire-state snapshot. We do this in-process (not via a JSONB
-      // path update) because the analysis envelope already round-trips
-      // through `state_snapshot` on every text turn — keeping the
-      // merge here means there's exactly one place that mutates the
-      // snapshot from the API side.
-      //
-      // The snapshot write is version-guarded (same optimistic check as
-      // turn persistence) so it can never clobber a turn that committed
-      // after we loaded `session`. On a version miss we reload and
-      // re-merge once; if it races again we keep the turn data and drop
-      // only the analytics merge (analysis is best-effort).
-      let merged = false;
-      if (voiceAnalysis && Object.keys(voiceAnalysis).length > 0) {
-        let current = session;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          const [updated] = await db
-            .update(sessions)
-            .set({
-              voiceCallEndedAt: endedAt,
-              updatedAt: endedAt,
-              stateSnapshot: mergeVoiceAnalysis(current.stateSnapshot, voiceAnalysis),
-              version: sql`${sessions.version} + 1`,
-            })
-            .where(and(eq(sessions.id, sessionId), eq(sessions.version, current.version)))
-            .returning();
-          if (updated) {
-            merged = true;
-            break;
+      const [call] = await db.select().from(voiceCalls).where(eq(voiceCalls.id, callId));
+      if (!call || call.sessionId !== sessionId) throw notFound('Voice call not found');
+      const budget = await usage.close(call.userId, sessionId, callId);
+      // Final analysis never debits duration. A delayed previous-call callback
+      // must not overwrite this session's replacement call or its analysis.
+      if (voiceAnalysis && Object.keys(voiceAnalysis).length) {
+        await db.transaction(async (tx) => {
+          // Match the same owner lock used by reservation and checkpoints.
+          await tx.select({ id: users.id }).from(users).where(eq(users.id, call.userId)).for('update');
+          const [newer] = await tx.select({ id: voiceCalls.id }).from(voiceCalls).where(and(
+            eq(voiceCalls.sessionId, sessionId), gt(voiceCalls.ordinal, call.ordinal),
+          )).limit(1);
+          if (newer) return;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const [session] = await tx.select().from(sessions).where(eq(sessions.id, sessionId));
+            if (!session) throw notFound('Session not found');
+            const [updated] = await tx.update(sessions).set({
+              stateSnapshot: mergeVoiceAnalysis(session.stateSnapshot, voiceAnalysis), version: sql`${sessions.version} + 1`,
+            }).where(and(eq(sessions.id, sessionId), eq(sessions.version, session.version))).returning();
+            if (updated) return;
           }
-          const [reloaded] = await db
-            .select()
-            .from(sessions)
-            .where(eq(sessions.id, sessionId))
-            .limit(1);
-          if (!reloaded) throw notFound('Session not found');
-          current = reloaded;
-        }
+          throw new HttpError(409, 'Voice analysis raced a transcript update; retry', 'voice_analysis_conflict');
+        });
       }
-
-      if (!merged) {
-        await db
-          .update(sessions)
-          .set({
-            voiceCallEndedAt: endedAt,
-            updatedAt: endedAt,
-          })
-          .where(eq(sessions.id, sessionId));
-      }
-
-      const remaining = await quotaRemaining(session.userId);
-      return {
-        secondsRecorded: recorded,
-        quotaRemainingSeconds: remaining,
-      };
+      return { secondsRecorded: 0, quotaRemainingSeconds: budget.remainingSeconds };
     },
-
+    async checkpointCall(args) { ensureEnabled(); return usage.checkpoint(args); },
     async getBudgetForSession(sessionId) {
       ensureEnabled();
-      const [session] = await db
-        .select({ userId: sessions.userId })
-        .from(sessions)
-        .where(eq(sessions.id, sessionId))
-        .limit(1);
-      if (!session) throw notFound('Session not found');
-      if (dailySecondsCap === 0) {
-        return { remainingSeconds: null, capSeconds: null };
-      }
-      const remaining = await quotaRemaining(session.userId);
-      return { remainingSeconds: remaining, capSeconds: dailySecondsCap };
+      const session = await sessionFor(sessionId);
+      return usage.getBudget(session.userId);
     },
-
-    async fetchStateForVoice(sessionId) {
-      // Internal-key auth happens at the route layer; by the time we
-      // reach here the caller is fully trusted (it's our own
-      // agent-voice worker). We deliberately do NOT enforce ownership
-      // — the worker is talking on behalf of a session, not a user.
-      ensureEnabled();
-      const [session] = await db
-        .select()
-        .from(sessions)
-        .where(eq(sessions.id, sessionId))
-        .limit(1);
-      if (!session) throw notFound('Session not found');
-      return session.stateSnapshot;
-    },
-
-    getQuotaRemainingSeconds(userId) {
-      return quotaRemaining(userId);
-    },
+    async fetchStateForVoice(sessionId) { ensureEnabled(); return (await sessionFor(sessionId)).stateSnapshot; },
+    async getQuotaRemainingSeconds(userId) { return (await usage.getBudget(userId)).remainingSeconds; },
   };
 }

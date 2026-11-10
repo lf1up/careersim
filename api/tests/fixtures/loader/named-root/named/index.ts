@@ -1,1 +1,1 @@
-export const plugin = { id: 'named', apiVersion: 1 };
+export const plugin = { id: 'named', apiVersion: 2 };

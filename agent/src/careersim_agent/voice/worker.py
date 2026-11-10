@@ -16,6 +16,10 @@ exercise the kill-switch and config-validation paths.
 from __future__ import annotations
 
 import logging
+import asyncio
+import contextlib
+import time
+from datetime import datetime, timezone
 import sys
 from typing import Any, AsyncIterator
 
@@ -111,7 +115,7 @@ def run_worker() -> int:
     return 0
 
 
-async def _resolve_session_metadata(room: Any) -> str | None:
+async def _resolve_session_metadata(room: Any, key: str = "session_id") -> str | None:
     """Pull the ``session_id`` out of room/participant metadata.
 
     The API encodes it as JSON when minting the LiveKit join token.
@@ -138,7 +142,9 @@ async def _resolve_session_metadata(room: Any) -> str | None:
             obj = json.loads(raw)
         except json.JSONDecodeError:
             return None
-        sid = str(obj.get("session_id") or "")
+        if not isinstance(obj, dict):
+            return None
+        sid = str(obj.get(key) or "")
         return sid or None
 
     def _scan() -> str | None:
@@ -160,6 +166,90 @@ async def _resolve_session_metadata(room: Any) -> str | None:
             return found
         await asyncio.sleep(0.2)
     return None
+
+
+class _CallAccounting:
+    """Duration checkpoints also renew authorization and the worker lease."""
+
+    def __init__(self, api: Any, call_id: str) -> None:
+        self.api, self.call_id = api, call_id
+        self.started = time.monotonic()
+        self.last_confirmed = self.started
+        self.sequence = 0
+        self.budget: dict[str, Any] = {}
+        self.retry_at = self.started
+        self.warned_date: str | None = None
+
+    async def checkpoint(self, ended: bool = False) -> dict[str, Any]:
+        sequence = self.sequence
+        self.sequence += 1
+        # Bound a hung request by the fail-closed deadline, including network time.
+        timeout = max(0.01, min(5.0, 25.0 - (time.monotonic() - self.last_confirmed)))
+        result = await asyncio.wait_for(self.api.checkpoint_call(
+            self.call_id, sequence, max(0, int(time.monotonic() - self.started)), ended,
+        ), timeout=timeout)
+        self.budget = result
+        self.last_confirmed = time.monotonic()
+        self.retry_at = self.last_confirmed
+        return result
+
+    async def supervise(self, room_task: asyncio.Task[Any], captions: Any, stop_room: Any = None) -> None:
+        """Stop audio work on exhausted/replaced calls or 30s of API failure."""
+        try:
+            while not room_task.done():
+                at = time.monotonic()
+                age = at - self.last_confirmed
+                if age >= 25:
+                    logger.error("call %s: budget unavailable; stopping within 30 seconds", self.call_id)
+                    return
+                remaining = self.budget.get("remaining_seconds")
+                if remaining is not None and remaining <= 60 and self.warned_date != self.budget["usage_date"]:
+                    self.warned_date = self.budget["usage_date"]
+                    with contextlib.suppress(Exception):
+                        await asyncio.wait_for(captions.publish_control({
+                            "type": "quota_warning", "call_id": self.call_id,
+                            "remaining_seconds": remaining, "cap_seconds": self.budget["cap_seconds"],
+                        }), timeout=max(0.01, min(5.0, 25.0 - age)))
+                    at = time.monotonic()
+                    age = at - self.last_confirmed
+                    if age >= 25:
+                        return
+                reset = datetime.fromisoformat(self.budget["reset_at"].replace("Z", "+00:00"))
+                reset_in = (reset - datetime.now(timezone.utc)).total_seconds()
+                due = min(15.0 - age, reset_in)
+                if remaining is not None:
+                    due = min(due, float(remaining) - age)
+                delay = min(25.0 - age, max(0.01, due, self.retry_at - at))
+                done, _ = await asyncio.wait([room_task], timeout=delay)
+                if done:
+                    await room_task
+                    return
+                if time.monotonic() - self.last_confirmed >= 25:
+                    return
+                try:
+                    budget = await self.checkpoint()
+                except Exception:
+                    logger.exception("call %s: budget checkpoint failed", self.call_id)
+                    self.retry_at = time.monotonic() + 5.0
+                    continue
+                remaining = budget.get("remaining_seconds")
+                if not budget["continue_call"]:
+                    with contextlib.suppress(Exception):
+                        await asyncio.wait_for(captions.publish_control({
+                            "type": "quota_exhausted", "call_id": self.call_id, "cap_seconds": budget["cap_seconds"],
+                        }), timeout=0.5)
+                    return
+        finally:
+            if not room_task.done():
+                room_task.cancel()
+                if stop_room is not None:
+                    with contextlib.suppress(Exception):
+                        await asyncio.wait_for(stop_room(), timeout=5.0)
+            # The room coroutine drains pending transcripts in its finally block.
+            from .turns import _release_job_cancellation
+            _release_job_cancellation()
+            with contextlib.suppress(asyncio.CancelledError):
+                await room_task
 
 
 async def _voice_entrypoint(ctx: Any) -> None:
@@ -212,30 +302,23 @@ async def _voice_entrypoint(ctx: Any) -> None:
         await api.aclose()
         return
 
-    # Authoritative remaining budget for the mid-call cutoff. Best-effort:
-    # if the lookup fails (or quota is disabled) we proceed without a cap
-    # rather than blocking the call — the API start gate already vetted it.
-    max_duration_sec: float | None = None
-    cap_seconds: float | None = None
+    call_id = await _resolve_session_metadata(room, "call_id")
+    if call_id is None:
+        logger.error("room %s: no call identity; refusing unaccounted voice work", room.name)
+        await api.aclose()
+        return
+    accounting = _CallAccounting(api, call_id)
     try:
-        budget = await api.fetch_voice_budget(session_id)
-        remaining = budget.get("remaining_seconds")
-        cap = budget.get("cap_seconds")
-        if isinstance(remaining, (int, float)):
-            max_duration_sec = max(0.0, float(remaining))
-        if isinstance(cap, (int, float)):
-            cap_seconds = float(cap)
-        logger.info(
-            "session %s: voice budget remaining=%ss cap=%ss",
-            session_id,
-            max_duration_sec,
-            cap_seconds,
-        )
+        budget = await accounting.checkpoint()
+        if not budget["continue_call"]:
+            await api.aclose()
+            return
     except Exception:
-        logger.exception(
-            "failed to fetch voice budget for %s; no mid-call cutoff armed",
-            session_id,
-        )
+        logger.exception("failed to fetch voice budget for %s; aborting room", session_id)
+        await api.aclose()
+        return
+    max_duration_sec = budget["remaining_seconds"]
+    cap_seconds = budget["cap_seconds"]
 
     adapter = LangGraphAdapter(wire_state)
     persona = adapter.persona
@@ -268,6 +351,8 @@ async def _voice_entrypoint(ctx: Any) -> None:
                 await stt.aclose()
             except Exception:
                 logger.exception("stt cleanup failed after provider init error")
+        with contextlib.suppress(Exception):
+            await accounting.checkpoint(ended=True)
         await api.aclose()
         return
 
@@ -277,9 +362,8 @@ async def _voice_entrypoint(ctx: Any) -> None:
     # entrypoint stays focused on bootstrap + teardown.
     import time
 
-    call_started_monotonic = time.monotonic()
     try:
-        await _run_room_session(
+        room_task = asyncio.create_task(_run_room_session(
             ctx=ctx,
             adapter=adapter,
             stt=stt,
@@ -290,7 +374,12 @@ async def _voice_entrypoint(ctx: Any) -> None:
             tuning=tuning,
             max_duration_sec=max_duration_sec,
             cap_seconds=cap_seconds,
-        )
+            budget_managed=True,
+        ))
+        async def stop_room() -> None:
+            from livekit.api import DeleteRoomRequest
+            await ctx.api.room.delete_room(DeleteRoomRequest(room=room.name))
+        await accounting.supervise(room_task, captions, stop_room)
     finally:
         # Compute aggregate voice signals and let the API persist
         # them alongside the quota debit. We finalize *before*
@@ -305,11 +394,16 @@ async def _voice_entrypoint(ctx: Any) -> None:
                 session_id,
             )
 
-        elapsed = max(0, int(time.monotonic() - call_started_monotonic))
+        from .turns import _release_job_cancellation
+        _release_job_cancellation()
+        try:
+            await accounting.checkpoint(ended=True)
+        except Exception:
+            logger.exception("final voice checkpoint failed for %s", call_id)
         try:
             await api.report_call_end(
                 session_id,
-                elapsed,
+                call_id,
                 voice_analysis=voice_analysis,
             )
         except Exception:
@@ -336,6 +430,7 @@ async def _run_room_session(
     tuning: object,
     max_duration_sec: float | None = None,
     cap_seconds: float | None = None,
+    budget_managed: bool = False,
 ) -> None:
     """Glue between the LiveKit room and our adapter / providers.
 
@@ -808,7 +903,7 @@ async def _run_room_session(
     stt_task = loop.create_task(_stt_worker())
     watchdog_task = (
         loop.create_task(_budget_watchdog(max_duration_sec))
-        if max_duration_sec is not None
+        if max_duration_sec is not None and not budget_managed
         else None
     )
     try:

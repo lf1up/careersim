@@ -58,6 +58,7 @@ export const sessionsRoutes: FastifyPluginAsyncZod<SessionsRouteOptions> = async
     {
       onRequest: [app.authenticate],
       config: { rateLimit: rateLimitPolicy.createSession() },
+      preHandler: app.checkSessionQuota,
       schema: {
         tags: ['sessions'],
         summary: 'Create a new conversation session',

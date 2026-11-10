@@ -413,15 +413,15 @@ export const apiClient = {
   },
 
   /**
-   * End a voice call and debit the daily quota. Idempotent — safe to
+   * End the identified voice call. Idempotent — safe to
    * call from disconnect / unload paths even if the user already
-   * pressed "End call" once. `seconds_used` is server-clamped at 1
-   * hour.
+   * pressed "End call" once. The worker owns duration accounting;
+   * the browser only identifies the call.
    */
-  async endVoiceCall(id: string, seconds_used: number): Promise<VoiceEndResponse> {
+  async endVoiceCall(id: string, call_id: string): Promise<VoiceEndResponse> {
     return request<VoiceEndResponse>(`/sessions/${id}/voice/end`, {
       method: 'POST',
-      body: { seconds_used },
+      body: { call_id },
     });
   },
 };

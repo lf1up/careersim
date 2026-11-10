@@ -90,7 +90,7 @@ async def test_report_call_end_posts_internal_route_without_bearer() -> None:
     _install_mock(api, handler)
     try:
         await api.report_call_end(
-            "sess-9", 30, voice_analysis={"user_avg_wpm": 130}
+            "sess-9", "call-9", voice_analysis={"user_avg_wpm": 130}
         )
     finally:
         await api.aclose()
@@ -104,7 +104,7 @@ async def test_report_call_end_posts_internal_route_without_bearer() -> None:
     assert "authorization" not in {k.lower() for k in req.headers.keys()}
     assert req.headers["X-Internal-Key"] == "secret-key"
     body = json.loads(req.content.decode())
-    assert body == {"seconds_used": 30, "voice_analysis": {"user_avg_wpm": 130}}
+    assert body == {"call_id": "call-9", "voice_analysis": {"user_avg_wpm": 130}}
 
 
 @pytest.mark.asyncio
@@ -118,12 +118,12 @@ async def test_report_call_end_omits_analysis_when_absent() -> None:
     api = APIClient(base_url="http://api:8000", internal_key="k")
     _install_mock(api, handler)
     try:
-        await api.report_call_end("sess-x", 5)
+        await api.report_call_end("sess-x", "call-x")
     finally:
         await api.aclose()
 
     body = json.loads(captured[0].content.decode())
-    assert body == {"seconds_used": 5}
+    assert body == {"call_id": "call-x"}
 
 
 @pytest.mark.asyncio
@@ -255,5 +255,33 @@ async def test_stream_user_message_raises_on_non_200() -> None:
         with pytest.raises(RuntimeError):
             async for _ in api.stream_user_message("sess-3", "hi"):
                 pass
+    finally:
+        await api.aclose()
+
+
+async def test_checkpoint_validates_budget_and_sends_call_identity() -> None:
+    seen = []
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"remaining_seconds": 43200, "cap_seconds": 43200, "usage_date": "2026-11-10", "reset_at": "2026-11-11T00:00:00Z", "continue_call": True})
+    api = APIClient("http://api.test", "key")
+    api._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        result = await api.checkpoint_call("call-1", 3, 45, False)
+    finally:
+        await api.aclose()
+    assert result["cap_seconds"] == 43200
+    assert seen[0].url.path == "/internal/voice/calls/call-1/checkpoint"
+    assert json.loads(seen[0].content) == {"sequence": 3, "cumulative_seconds": 45, "ended": False}
+
+
+@pytest.mark.parametrize("patch", [{"continue_call": "yes"}, {"remaining_seconds": -1}, {"cap_seconds": True}, {"reset_at": "tomorrow"}, {"usage_date": "yesterday"}])
+async def test_checkpoint_rejects_malformed_budget(patch: dict) -> None:
+    payload = {"remaining_seconds": 60, "cap_seconds": 60, "usage_date": "2026-11-10", "reset_at": "2026-11-11T00:00:00Z", "continue_call": True, **patch}
+    api = APIClient("http://api.test", "key")
+    api._client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    try:
+        with pytest.raises(ValueError):
+            await api.checkpoint_call("call-1", 1, 15, False)
     finally:
         await api.aclose()

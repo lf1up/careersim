@@ -1,0 +1,34 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+vi.mock('@/components/auth/AltchaWidget', () => ({ AltchaWidget: ({ onVerified }: { onVerified: (value: string) => void }) => <button type="button" onClick={() => onVerified('proof')}>Verify human</button> }));
+import { ContactForm } from './ContactForm';
+afterEach(() => vi.unstubAllGlobals());
+it('sends personal contact without company using shared CAPTCHA endpoint', async () => {
+  const fetcher = vi.fn().mockResolvedValue(Response.json({ ok: true }));
+  vi.stubGlobal('fetch', fetcher);
+  render(<ContactForm reason="higher-limits" />);
+  expect(screen.getByRole('textbox', { name: /Company/ })).not.toBeRequired();
+  expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sam' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sam@example.com' } });
+  fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'I would like to discuss higher practice limits.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Verify human' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByText('Your message has been sent.');
+  const [url, init] = fetcher.mock.calls[0];
+  expect(url).toBe('/api/contact');
+  expect(init.body.get('audience')).toBe('personal');
+  expect(init.body.get('reason')).toBe('higher-limits');
+  expect(init.body.get('altcha')).toBe('proof');
+});
+it('shows delivery failure and requires a new human check', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: 'Too many inquiries.' }, { status: 429 })));
+  render(<ContactForm reason="general" />);
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sam' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'sam@example.com' } });
+  fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'I have a detailed question about practice sessions.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Verify human' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  await screen.findByText('Too many inquiries.');
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled());
+});

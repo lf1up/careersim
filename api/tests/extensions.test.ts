@@ -201,7 +201,7 @@ describe('extensions', () => {
     const seen: string[] = [];
     await applyPluginMigrations(
       null as never,
-      [{ id: 'bare', apiVersion: 1 }, fixturePlugin],
+      [{ id: 'bare', apiVersion: 2 }, fixturePlugin],
       async (_db, config) => {
         seen.push(config.migrationsSchema ?? '');
       },
@@ -288,7 +288,7 @@ describe('extensions', () => {
   });
 
   it('refuses a plugin that collides with a host route or targets another api version', async () => {
-    const collision: ApiPlugin = { id: 'sessions', apiVersion: 1 };
+    const collision: ApiPlugin = { id: 'sessions', apiVersion: 2 };
     await expect(buildTestApp({ plugins: [collision] })).rejects.toThrow(/collides/);
     const stale: ApiPlugin = { id: 'fixture', apiVersion: 99 };
     await expect(buildTestApp({ plugins: [stale] })).rejects.toThrow(/apiVersion 99/);

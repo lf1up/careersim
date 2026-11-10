@@ -12,67 +12,86 @@ routes).
 
 ## 🏗️ Architecture in 30 seconds
 
-```
-┌────────┐   WebRTC   ┌──────────┐   PCM    ┌─────────────┐
-│  web   │ ─────────► │ LiveKit  │ ───────► │ agent-voice │
-│ (next) │            │   SFU    │ ◄─────── │   worker    │
-└────────┘            └──────────┘   PCM    └──────┬──────┘
-     ▲ HTTPS (start/end)                           │ HTTP (state-for-voice,
-     │                                             │       messages, voice/end)
-     ▼                                             ▼
-┌─────────────────┐                          ┌──────────┐
-│ api (Fastify)   │ ◄──────────────────────  │ api      │
-│ /voice/*        │                          │ internal │
-└─────────────────┘                          └──────────┘
+```mermaid
+flowchart TD
+  Web[Web client] -->|Start and end by call ID| API[Fastify API]
+  Web -->|Audio| SFU[LiveKit]
+  SFU -->|Audio| Worker[Voice worker]
+  Worker -->|Cumulative checkpoints and saved turns| API
+  API --> Database[Postgres]
 ```
 
 * **`web`** mints the LiveKit token via `POST /v1/sessions/:id/voice/start`
   and joins the SFU as a publisher/subscriber.
 * **`livekit`** (Docker container, dev mode) routes audio between the
   user and the agent worker.
-* **`agent-voice`** is a separate process (`python -m
-  careersim_agent.main --serve voice`) that joins the same room, runs
-  STT → LangGraph → TTS, and sends user messages back through the
-  public API on the user's bearer token. It uses the **streaming**
-  endpoint `POST /v1/sessions/:id/messages/stream` (SSE) and speaks each
-  reply bubble (the main reply plus each follow-up burst) as it is
-  generated, rather than waiting for the whole turn. The API persists
-  the full turn server-side on the stream's terminal `done` event, so
-  the spoken reply always equals the saved transcript even if the user
-  barges in mid-reply (the worker stops speaking but keeps draining the
-  stream so persistence still runs exactly once). The worker sends
-  `source: "voice"` on the stream body so the persisted human + AI delta
-  is tagged with its origin (`messages.source`); web text chat leaves it
-  unset and the API defaults to `text`. The chat log uses this to bracket
-  spoken turns with "Voice call started / ended" dividers.
-* **`api`** owns ownership checks and the daily quota. The quota debit
-  is authoritative from the worker via the internal end route
-  (`POST /v1/internal/sessions/:id/voice/end`), using a server-side clock
-  the browser can't influence; the user-facing `voice/end` only marks
-  the call ended (clearing the single-active-call guard). Voice
-  analytics are merged into `state_snapshot.analysis.voice` on that
-  internal end.
+* **`agent-voice`** joins the room and runs STT → LangGraph → TTS.
+  It loads state and persists turns through `/internal/sessions/:id/*`
+  using `X-Internal-Key`. No user credential appears in participant
+  metadata; metadata carries only `session_id` and `call_id`.
+  Streaming replies are saved before forwarding. Shutdown drains pending
+  utterances and saves an unspoken final turn, preserving transcripts.
+* **`api`** owns entitlement resolution, call reservations, and UTC daily
+  usage. `voice_calls` retains each UUID, room, owner, duration checkpoints,
+  processed sequence, charged seconds, reservation order, and start/end times. A user-row lock
+  and a partial unique index enforce one active call across sessions and
+  API instances. Rejoining the same active session returns the existing
+  call and room. Every end request includes the exact `call_id`.
 
-### 💰 Daily-budget enforcement (authoritative)
+### Daily budgets and runtime cutoff
 
-`VOICE_DAILY_MINUTES_PER_USER` (default **60**) is a true per-user
-per-day ceiling, not just a start gate:
+Free uses the configured `VOICE_DAILY_MINUTES_PER_USER` (default **60**).
+Plus and Supporter both use `PRO_VOICE_DAILY_MINUTES_PER_USER` (default
+**720**). Monthly and yearly plans share the same daily counters and
+limits. The API resolves current entitlements on every checkpoint; an
+upgrade raises the ceiling and a downgrade reuses the consumed seconds.
 
-* At call start the worker reads the owner's remaining budget from
-  `GET /v1/internal/sessions/:id/voice-budget` and arms a watchdog.
-* ~60s before the budget is spent it publishes a `quota_warning`
-  control event (web client shows a banner) and a brief spoken
-  heads-up; at zero it publishes `quota_exhausted` and disconnects the
-  room. The client renders "Daily N-minute voice limit reached" using
-  the `cap_seconds` carried in the event.
-* `VOICE_ACTIVE_CALL_STALE_SECONDS` backs a single-active-call guard at
-  start (`409 voice_call_in_progress`) so a user can't open N tabs and
-  run N concurrent calls past the cap. An un-ended call row older than
-  this window is treated as a crashed worker so the user isn't locked
-  out; `0` disables the guard.
-* The minted LiveKit token TTL defaults to `cap + 10 min`, so the
-  token always outlives the longest possible call and the watchdog
-  (not token expiry) is what ends a maxed-out call.
+The worker sends cumulative duration every **15 seconds** to
+`POST /internal/voice/calls/:callId/checkpoint`, authenticated with
+`X-Internal-Key`. The payload is `{sequence, cumulative_seconds, ended}`.
+The API resolves ownership from the call row, deduplicates sequences,
+rejects durations beyond observed wall time, and splits accepted duration
+at midnight UTC. Responses include `remaining_seconds`, `cap_seconds`,
+`usage_date`, `reset_at`, and `continue_call`. The worker refreshes again
+at midnight or when its remaining allowance expires.
+
+The first checkpoint must succeed before providers or audio work start.
+Subsequent failures stop audio by **25 seconds** after the last confirmed
+budget, leaving a bounded **5 seconds** for SFU room termination. The
+worker publishes `quota_warning` before a budget cutoff and
+`quota_exhausted` at cutoff; both include `call_id`. The web surface
+ignores events and cleanup callbacks belonging to older calls. Pending
+transcripts are flushed, a final checkpoint is attempted, and final
+analysis is reported separately without a second debit. Failed recovery
+requests are logged with call identity; durable checkpoints remain.
+
+`VOICE_ACTIVE_CALL_STALE_SECONDS` defaults to **60 seconds**, independent
+of the allowance. Checkpoints renew this lease. Reclaiming a stale call
+terminates its old SFU room before releasing the reservation; if room
+termination fails, starting a replacement fails closed. The old worker
+receives `continue_call: false` on its next checkpoint. Final checkpoints
+for closed calls may settle only their bounded, server-observed duration,
+and cannot end or overwrite a replacement call. Stale worker loss is
+bounded by the checkpoint interval in normal operation; API outages may
+leave up to the fail-closed window unreported.
+
+### Join credentials and reconnects
+
+Join JWTs expire after **10 minutes**, independently of daily voice time.
+[LiveKit's token documentation](https://docs.livekit.io/frontends/reference/tokens-grants/)
+explains that expiry affects initial joins, and that connected clients
+receive refreshed credentials for SDK reconnects. A token is therefore
+not a runtime usage timer. Fresh application joins resolve ownership and
+current budget again. Self-hosted LiveKit does not revoke old tokens on
+participant removal, so every worker must reauthorize the durable call
+identity before starting providers; a cached token for an ended or
+replaced call cannot restart paid voice work.
+
+Before launch, validate the deployed self-hosted reconnect behavior:
+keep a call connected past ten minutes, interrupt networking, confirm the
+SDK reconnects to the same call, then exhaust/revoke its allowance and
+confirm runtime cutoff and durable transcript recovery. This is a manual
+acceptance check; unit tests do not certify a running SFU deployment.
 
 ## 🛑 Kill switches (no rebuild required)
 
@@ -121,8 +140,8 @@ documented reason for skipping).
 ### 🎫 B. Token mint + ownership
 
 - [ ] `POST /v1/sessions/:id/voice/start` (with valid bearer) returns
-      `200` with a non-empty `token`, `livekit_url`, `room`, and a
-      `quota_remaining_seconds` consistent with `VOICE_DAILY_MINUTES_PER_USER`.
+      `200` with a non-empty `token`, `livekit_url`, `room`, `call_id`, and a
+      `quota_remaining_seconds` consistent with the account’s resolved daily allowance.
 - [ ] `POST /v1/sessions/:id/voice/start` from a *different* user's bearer
       returns `403`.
 - [ ] `POST /v1/sessions/:id/voice/start` for an unknown session returns
@@ -194,14 +213,15 @@ For each of the 9 personas, start a 30s call and confirm the voice
 
 - [ ] Set `VOICE_DAILY_MINUTES_PER_USER=1`, restart the api + agent-voice.
 - [ ] Start a call and just keep talking. Around ~60s in you should
-      hear/see the `quota_warning` (banner + spoken heads-up), and the
+      see the `quota_warning` banner, and the
       call should be **hard-disconnected** at the cap with a "Daily
       1-minute voice limit reached" alert — without pressing End call.
 - [ ] Try to start a second call → `429 voice_quota_exhausted`.
-- [ ] DB: `voice_minute_usage.seconds_used >= 60` for today (debited by
-      the worker's authoritative internal end report).
-- [ ] Concurrency: start a call, then (without ending it) `POST
-      /v1/sessions/:id/voice/start` again → `409 voice_call_in_progress`.
+- [ ] DB: `voice_minute_usage.seconds_used = 60` for today, debited by
+      the worker's cumulative checkpoints without a second end-report debit.
+- [ ] Rejoin the same active session and confirm its `call_id` and room
+      are reused. Try starting a different session while that call is
+      active and confirm `409 voice_call_in_progress`.
 
 ### 🧪 H. Regression sweep (text mode unchanged)
 
@@ -233,5 +253,5 @@ For each of the 9 personas, start a 30s call and confirm the voice
   models default to English. Non-English voices are wired up but
   unsmoked.
 * **No transcript redaction** — the worker forwards raw transcripts
-  to the API on the user's bearer; secrets the user speaks land in
+  to the API through its authenticated internal channel; secrets the user speaks land in
   the same place chat messages do. Document for security review.

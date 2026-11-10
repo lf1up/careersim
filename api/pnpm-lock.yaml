@@ -48,6 +48,9 @@ importers:
       '@fastify/swagger':
         specifier: ^9.9.2
         version: 9.9.2
+      '@polar-sh/sdk':
+        specifier: 1.0.2
+        version: 1.0.2
       altcha-lib:
         specifier: ^2.8.0
         version: 2.8.0(@fastify/cookie@11.1.3)(@fastify/cors@11.3.1)(fastify@5.12.7)
@@ -75,6 +78,9 @@ importers:
       livekit-server-sdk:
         specifier: ^2.19.2
         version: 2.19.2
+      ms:
+        specifier: 2.1.3
+        version: 2.1.3
       nodemailer:
         specifier: ^10.2.1
         version: 10.2.1
@@ -97,6 +103,9 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.4.5
         version: 0.4.5
+      '@types/ms':
+        specifier: 2.1.0
+        version: 2.1.0
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
@@ -629,6 +638,10 @@ packages:
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
+  '@polar-sh/sdk@1.0.2':
+    resolution: {integrity: sha512-c3jdqYloVfcejKsAqYfYcW4bG7KkXj5bXkgdsdx4GHlJPzHFV5tysfeZGf9V7dJReLBirAluchsuHWiAIBco8w==}
+    engines: {node: '>=22'}
+
   '@rolldown/binding-android-arm-eabi@1.2.15':
     resolution: {integrity: sha512-aLcgK9gIJ3YRvrrtfSBbRa27F5WrpiTaPulnFpsHPxpUHgFlSgnU4854MHwoRGEBhfRJDWCS2WQ7lIjskE9Olw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -748,6 +761,9 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/ms@2.1.0':
+    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
   '@types/node@25.6.0':
     resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
@@ -2392,6 +2408,8 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
+  '@polar-sh/sdk@1.0.2': {}
+
   '@rolldown/binding-android-arm-eabi@1.2.15':
     optional: true
 
@@ -2455,6 +2473,8 @@ snapshots:
   '@types/estree@1.0.9': {}
 
   '@types/json-schema@7.0.15': {}
+
+  '@types/ms@2.1.0': {}
 
   '@types/node@25.6.0':
     dependencies:

@@ -6,10 +6,12 @@ import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { FastifyInstance } from 'fastify';
 
 import { createPgliteClient, type PgliteClientHandle } from '../../src/db/client.js';
+import type { WindowQuota } from '../../src/modules/quotas/window-quota.js';
 import type { ApiPlugin } from '../../src/extensions/sdk.js';
 import { buildApp } from '../../src/server.js';
 import { ALTCHA_TEST_BYPASS_TOKEN } from '../../src/plugins/altcha.js';
 import type { MailMessage } from '../../src/plugins/mailer.js';
+import type { BuildAppOptions } from '../../src/server.js';
 import { FakeAgent } from './fake-agent.js';
 
 /**
@@ -32,6 +34,8 @@ export interface TestHarness {
 }
 
 export interface BuildTestAppOptions {
+  billing?: BuildAppOptions['billing'];
+  resolveEntitlements?: BuildAppOptions['resolveEntitlements'];
   trustedProxies?: string[];
   clientIpSource?: 'socket' | 'digitalocean';
   agent?: FakeAgent;
@@ -59,6 +63,10 @@ export interface BuildTestAppOptions {
   /** Optional override for the global ceiling used by rate-limit tests. */
   rateLimitGlobalMax?: number;
   rateLimitGlobalTimeWindow?: string;
+  quotaStore?: WindowQuota;
+  redisUrl?: string;
+  createSessionMax?: number;
+  createSessionTimeWindow?: string;
   chatMessagesMax?: number;
   chatMessagesTimeWindow?: string;
   corsAllowedOrigins?: string[];
@@ -75,6 +83,8 @@ export interface BuildTestAppOptions {
    */
   voice?: {
     enabled: boolean;
+    now?: () => Date;
+    terminateRoom?: (room: string) => Promise<void>;
     livekitUrl?: string;
     livekitApiKey?: string;
     livekitApiSecret?: string;
@@ -108,6 +118,8 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
   try {
     app = await buildApp({
     db: handle.db,
+    billing: options?.billing,
+    resolveEntitlements: options?.resolveEntitlements,
     agent,
     trustedProxies: options?.trustedProxies,
     clientIpSource: options?.clientIpSource,
@@ -136,6 +148,10 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
       enabled: options?.rateLimitEnabled ?? false,
       globalMax: options?.rateLimitGlobalMax,
       globalTimeWindow: options?.rateLimitGlobalTimeWindow,
+      quotaStore: options?.quotaStore,
+      redisUrl: options?.redisUrl,
+      createSessionMax: options?.createSessionMax,
+      createSessionTimeWindow: options?.createSessionTimeWindow,
       chatMessagesMax: options?.chatMessagesMax,
       chatMessagesTimeWindow: options?.chatMessagesTimeWindow,
     },
@@ -145,6 +161,8 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     voice: options?.voice
       ? {
           enabled: options.voice.enabled,
+          now: options.voice.now,
+          terminateRoom: options.voice.terminateRoom,
           livekitUrl: options.voice.livekitUrl ?? 'ws://livekit.test:7880',
           livekitApiKey: options.voice.livekitApiKey ?? 'test-livekit-key',
           livekitApiSecret:

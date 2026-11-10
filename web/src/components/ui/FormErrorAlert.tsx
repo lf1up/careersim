@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { QuotaNotice, isQuotaError } from '@/components/billing/QuotaNotice';
 import { RetroAlert } from './RetroBadge';
 import { ApiError, isRateLimitError, rateLimitRetryAfterSeconds } from '@/lib/api';
 
@@ -48,6 +49,7 @@ export const FormErrorAlert: React.FC<FormErrorAlertProps> = ({
   className,
 }) => {
   if (error == null) return null;
+  if (isQuotaError(error)) return <QuotaNotice error={error} />;
 
   if (isRateLimitError(error)) {
     const seconds = rateLimitRetryAfterSeconds(error);

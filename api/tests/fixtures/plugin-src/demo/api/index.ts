@@ -1,6 +1,6 @@
 const plugin = {
   id: 'demo',
-  apiVersion: 1,
+  apiVersion: 2,
 };
 
 export default plugin;

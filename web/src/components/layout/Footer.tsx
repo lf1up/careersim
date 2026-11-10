@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { CONTACT_EMAIL } from '@/lib/seo';
@@ -12,6 +13,8 @@ export function Footer() {
 
   return (
     <footer className="pb-10 pt-1 text-center text-xs leading-5 text-secondary-600 dark:text-secondary-400">
+      <Link href="/pricing" className="underline mr-4">Pricing</Link>
+      <Link href="/contact" className="underline mr-4">Contact</Link>
       Have questions? Send an email to{' '}
       <a
         href={`mailto:${CONTACT_EMAIL}`}

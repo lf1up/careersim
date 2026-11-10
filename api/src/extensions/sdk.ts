@@ -15,8 +15,10 @@ import type { FastifyBaseLogger, FastifyInstance, FastifyReply, FastifyRequest }
 import type { AgentClient } from '../agent/client.js';
 import type { AgentSimulationDetail, AgentWireState } from '../agent/types.js';
 import type { AppDatabase } from '../db/client.js';
+import type { Entitlement } from '../modules/billing/billing.schema.js';
+export type { Entitlement, PlanLimits, Tier } from '../modules/billing/billing.schema.js';
 
-export const EXTENSION_API_VERSION = 1;
+export const EXTENSION_API_VERSION = 2;
 
 /**
  * Services a plugin route handler may use. Plugins should import host
@@ -29,6 +31,7 @@ export interface ApiPluginContext {
   /** Rejects the request with 401 when the cookie or bearer token is missing. */
   authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   logger: FastifyBaseLogger;
+  resolveEntitlements: (userId: string) => Promise<Entitlement>;
 }
 
 /**
@@ -59,6 +62,8 @@ export interface ApiPlugin {
   routes?: (scope: FastifyInstance, ctx: ApiPluginContext) => Promise<void>;
   /** Owns slugs `<namespace>:<id>`. */
   simulations?: SimulationProvider;
+  /** Optional owned inventory counts for account usage; no plugin tables enter the host. */
+  usage?: (userId: string) => Promise<{ customSimulations: number; customPersonas: number }>;
   /**
    * SQL migrations applied after the core ones, in their own Postgres schema
    * (and therefore their own migrations table). `folder` is an absolute path
@@ -91,6 +96,7 @@ export function providerForSlug(
 }
 
 const RESERVED_PLUGIN_IDS = new Set([
+  'billing',
   'auth',
   'simulations',
   'personas',

@@ -84,7 +84,7 @@ describe('plugins.mjs', () => {
     const sourceRoot = join(testRoot, 'plugin-source');
     await cp(fixtureDir, sourceRoot, { recursive: true });
     await cp(join(sourceRoot, 'demo'), join(sourceRoot, 'other'), { recursive: true });
-    await writeFile(join(sourceRoot, 'other/plugin.json'), JSON.stringify({ id: 'other', apiVersion: 1 }));
+    await writeFile(join(sourceRoot, 'other/plugin.json'), JSON.stringify({ id: 'other', apiVersion: 2 }));
     const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: sourceRoot };
     const script = join(apiRoot, 'scripts/plugins.mjs');
     await run(script, env);
@@ -105,7 +105,7 @@ describe('plugins.mjs', () => {
     await cp(fixtureDir, sourceRoot, { recursive: true });
     await rm(join(sourceRoot, 'demo/api/index.ts'));
     await writeFile(join(sourceRoot, 'demo/api/index.js'),
-      "import { id } from '../shared/id.js';\nexport default { id, apiVersion: 1 };\n");
+      "import { id } from '../shared/id.js';\nexport default { id, apiVersion: 2 };\n");
     await writeFile(join(sourceRoot, 'demo/shared/id.js'), "export const id = 'demo';\n");
     const env = { CAREERSIM_PLUGINS: 'demo', CAREERSIM_PLUGIN_DIR: sourceRoot };
     const script = join(apiRoot, 'scripts/plugins.mjs');
@@ -119,7 +119,7 @@ describe('plugins.mjs', () => {
     const { stdout } = await execFileAsync(process.execPath, ['--input-type=module', '--eval',
       `import plugin from ${JSON.stringify(pathToFileURL(entry).href)}; console.log(JSON.stringify(plugin));`,
     ]);
-    expect(JSON.parse(stdout)).toEqual({ id: 'demo', apiVersion: 1 });
+    expect(JSON.parse(stdout)).toEqual({ id: 'demo', apiVersion: 2 });
   });
 
   it('copies a local plugin into the api and web overlays', async () => {

@@ -302,34 +302,46 @@ class APIClient:
             )
         return resp.json()
 
+    async def checkpoint_call(
+        self, call_id: str, sequence: int, cumulative_seconds: int, ended: bool,
+    ) -> dict[str, Any]:
+        """Cumulative, idempotent accounting and current authorization/UTC budget."""
+        from datetime import date, datetime
+        client = await self._ensure_client()
+        url = f"{self._base_url}{self._version_path}/internal/voice/calls/{call_id}/checkpoint"
+        response = await client.post(url, json={
+            "sequence": sequence, "cumulative_seconds": cumulative_seconds, "ended": ended,
+        }, timeout=5.0)
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Voice checkpoint must return an object")
+        remaining, cap = payload.get("remaining_seconds"), payload.get("cap_seconds")
+        if not ((remaining is None and cap is None) or
+                (type(remaining) is int and type(cap) is int and 0 <= remaining <= cap and cap > 0)):
+            raise ValueError("Invalid voice budget seconds")
+        if type(payload.get("continue_call")) is not bool:
+            raise ValueError("Invalid voice continuation flag")
+        try:
+            usage_date = date.fromisoformat(payload["usage_date"])
+            reset = datetime.fromisoformat(payload["reset_at"].replace("Z", "+00:00"))
+            if reset.tzinfo is None or reset.utcoffset().total_seconds() != 0:
+                raise ValueError("Voice reset must be UTC")
+            if reset.date() <= usage_date:
+                raise ValueError("Voice reset must follow usage date")
+        except (KeyError, TypeError, AttributeError, ValueError) as exc:
+            raise ValueError("Invalid voice budget UTC boundary") from exc
+        return payload
+
     async def report_call_end(
-        self,
-        session_id: str,
-        seconds_used: int,
-        *,
+        self, session_id: str, call_id: str, *,
         voice_analysis: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Authoritatively notify the API that a voice call ended.
-
-        Hits the *internal* end route (``X-Internal-Key`` auth) rather
-        than the user-facing one: the worker measures the call duration
-        with a server-side monotonic clock, so it — not the browser —
-        is the source of truth for the quota debit. The user-facing
-        ``/voice/end`` no longer debits at all.
-
-        ``voice_analysis`` is an optional aggregate payload (the
-        ``VoiceSignals`` produced by ``LangGraphAdapter.finalize_voice_analysis``).
-        When provided, the API merges it into the session's
-        ``state_snapshot.analysis.voice`` so the post-session feedback
-        view can render pacing / fillers / latency without re-running
-        any analytics on the worker.
-        """
+        """Persist final analytics for this call without a second duration debit."""
         client = await self._ensure_client()
         url = f"{self._base_url}{self._version_path}/internal/sessions/{session_id}/voice/end"
-        body: dict[str, Any] = {"seconds_used": seconds_used}
+        body: dict[str, Any] = {"call_id": call_id}
         if voice_analysis:
             body["voice_analysis"] = voice_analysis
-        try:
-            await client.post(url, json=body)
-        except httpx.HTTPError:  # best-effort; we logged the call
-            logger.exception("voice/end notification failed for %s", session_id)
+        response = await client.post(url, json=body, timeout=5.0)
+        response.raise_for_status()

@@ -4,6 +4,8 @@ import { Redis } from 'ioredis';
 import fp from 'fastify-plugin';
 
 import { HttpError } from './errors.js';
+import type { Entitlement } from '../modules/billing/billing.schema.js';
+import { createMemoryWindowQuota, createWindowQuota, quotaWindowMs, type WindowQuota, type QuotaBucket } from '../modules/quotas/window-quota.js';
 
 /**
  * Rate-limiting policy.
@@ -95,26 +97,6 @@ export function perUserLimit(max: number, timeWindow: string): RouteRateLimit {
   return limit(max, timeWindow, byUser);
 }
 
-/**
- * Mutable config for per-route policies that ops can tune without
- * touching code. Route factories below read from this object at
- * registration time, so the rate-limit plugin can override defaults
- * from env vars during `register()` before any route runs.
- *
- * Only the knobs we actually want configurable live here — the rest of
- * the policy table is intentionally hard-coded so the limits stay
- * reviewable in one place.
- */
-const policyConfig = {
-  createSession: {
-    // Each session spins up an agent thread and burns LLM tokens, so we
-    // keep new-session creation aggressively capped by default. Bumped
-    // to 2/6h from an earlier 30/1h once we moved to hosted inference.
-    max: 2,
-    timeWindow: '6 hours',
-  },
-};
-
 export const rateLimitPolicy = {
   // Public auth — brute-force and spam sensitive. The IP axis is also
   // covered by the plugin's global 200/min default, so per-route entries
@@ -136,12 +118,9 @@ export const rateLimitPolicy = {
   changePassword: () => limit(10, '1 hour', byUser),
   requestEmailChange: () => limit(5, '1 hour', byUser),
   confirmEmailChange: () => limit(10, '5 minutes', byUser),
-  /**
-   * Env-configurable via `SESSIONS_CREATE_MAX` / `SESSIONS_CREATE_WINDOW`.
-   * Defaults to 2 per 6 hours per user — see `policyConfig.createSession`.
-   */
+  /** Separate churn protection; never write the legacy six-hour allowance key. */
   createSession: () =>
-    limit(policyConfig.createSession.max, policyConfig.createSession.timeWindow, byUser),
+    limit(10, '1 minute', (req) => `session-burst:${byUser(req)}`),
   sendMessage: () => limit(60, '1 minute', byUser),
   proactive: () => limit(30, '1 minute', byUser),
   nudge: () => limit(120, '1 minute', byUser),
@@ -204,19 +183,23 @@ export interface RateLimitOptions {
   globalTimeWindow?: string;
   /**
    * Overrides for per-route policies that are exposed via env vars.
-   * See `policyConfig` in this file for the set of tunable limits.
+   * These defaults apply when no host entitlement resolver is supplied.
    */
   createSessionMax?: number;
   createSessionTimeWindow?: string;
   /** One allowance per user shared by all text-message routes. */
   chatMessagesMax?: number;
   chatMessagesTimeWindow?: string;
+  resolveEntitlements?: (userId: string) => Promise<Entitlement>;
+  quotaStore?: WindowQuota;
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
     /** Attach after authentication and body validation on text-message routes only. */
     checkTextMessageQuota: preHandlerAsyncHookHandler;
+    checkSessionQuota: preHandlerAsyncHookHandler;
+    windowQuota: WindowQuota;
     /**
      * Marker decorator so tests (and future route authors) can quickly
      * verify the plugin is active. The policies themselves are imported
@@ -237,19 +220,10 @@ export default fp<RateLimitOptions>(
     const enabled = opts.enabled !== false;
     app.decorate('rateLimitEnabled', enabled);
 
-    // Apply env-driven overrides to the policy table *before* routes
-    // register, so their `config.rateLimit` factories pick up the new
-    // values. This runs even when `enabled` is false so the policy table
-    // stays consistent for tests that toggle the flag on later.
-    if (typeof opts.createSessionMax === 'number') {
-      policyConfig.createSession.max = opts.createSessionMax;
-    }
-    if (typeof opts.createSessionTimeWindow === 'string' && opts.createSessionTimeWindow.length > 0) {
-      policyConfig.createSession.timeWindow = opts.createSessionTimeWindow;
-    }
-
     if (!enabled) {
       app.decorate('checkTextMessageQuota', async () => {});
+      app.decorate('checkSessionQuota', async () => {});
+      app.decorate('windowQuota', opts.quotaStore ?? createMemoryWindowQuota());
       app.decorate('redis', null);
       app.log.info('rate-limit plugin disabled (RATE_LIMIT_ENABLED=false)');
       return;
@@ -329,28 +303,41 @@ export default fp<RateLimitOptions>(
         ),
     });
 
-    // Create once, rather than per route: both Redis and the local store must
-    // share this bucket across batch/stream endpoints and plugin playgrounds.
-    const consumeMessage = app.createRateLimit({
-      max: opts.chatMessagesMax ?? 350,
-      timeWindow: opts.chatMessagesTimeWindow ?? '6 hours',
-      keyGenerator: (request) => `text-messages:${byUser(request)}`,
-    });
-    app.decorate('checkTextMessageQuota', async (request, reply) => {
-      const { content } = request.body as { content: string | string[] };
-      const count = Array.isArray(content) ? content.length : 1;
-      for (let i = 0; i < count; i++) {
-        const result = await consumeMessage(request);
-        if (!result.isAllowed && result.isExceeded) {
-          reply.header('retry-after', result.ttlInSeconds);
-          reply.header('x-ratelimit-limit', result.max);
-          reply.header('x-ratelimit-remaining', 0);
-          reply.header('x-ratelimit-reset', result.ttlInSeconds);
-          throw new HttpError(429, 'Text message limit reached. Please try again later.',
-            'RATE_LIMITED', { retryAfter: result.ttl });
+    const quota = opts.quotaStore ?? (redis ? createWindowQuota({ redis }) : createMemoryWindowQuota());
+    app.decorate('windowQuota', quota);
+    function checkQuota(bucket: QuotaBucket): preHandlerAsyncHookHandler {
+      return async (request, reply) => {
+        const userId = request.user.sub;
+        const entitlement = await opts.resolveEntitlements?.(userId);
+        const max = bucket === 'sessions'
+          ? entitlement?.limits.sessionsCreateMax ?? opts.createSessionMax ?? 2
+          : entitlement?.limits.chatMessagesMax ?? opts.chatMessagesMax ?? 350;
+        const windowMs = bucket === 'sessions'
+          ? entitlement?.limits.sessionsWindowMs ?? quotaWindowMs(opts.createSessionTimeWindow ?? '6 hours')
+          : entitlement?.limits.chatWindowMs ?? quotaWindowMs(opts.chatMessagesTimeWindow ?? '6 hours');
+        const content = bucket === 'messages' ? (request.body as { content: string | string[] }).content : '';
+        const count = bucket === 'messages' && Array.isArray(content) ? content.length : 1;
+        let decision;
+        try {
+          decision = await quota.consume({ userId, bucket, count, max, windowMs });
+        } catch (err) {
+          request.log.error({ err, bucket }, 'quota storage unavailable');
+          throw new HttpError(503, 'Usage limits are temporarily unavailable. Please retry.', 'QUOTA_UNAVAILABLE', { retryAfter: 1000 });
         }
-      }
-    });
+        if (!decision.allowed) {
+          const retryAfter = Math.max(1, decision.resetsAt.getTime() - Date.now());
+          reply.header('retry-after', Math.ceil(retryAfter / 1000));
+          reply.header('x-ratelimit-limit', max);
+          reply.header('x-ratelimit-remaining', decision.remaining);
+          reply.header('x-ratelimit-reset', Math.ceil(retryAfter / 1000));
+          throw new HttpError(429, bucket === 'sessions' ? 'Session limit reached. Please try again later.' : 'Text message limit reached. Please try again later.',
+            'RATE_LIMITED', { retryAfter, quotaKind: bucket, tier: entitlement?.tier ?? 'free', used: decision.used, max,
+              resetsAt: decision.resetsAt.toISOString(), contactUrl: '/contact' });
+        }
+      };
+    }
+    app.decorate('checkTextMessageQuota', checkQuota('messages'));
+    app.decorate('checkSessionQuota', checkQuota('sessions'));
   },
   { name: 'rate-limit' },
 );

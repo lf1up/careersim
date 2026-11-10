@@ -28,6 +28,8 @@ describe('isLandingProxyPath', () => {
     '/api/contact',
     '/api/altcha-challenge',
     '/dashboard',
+    '/pricing',
+    '/contact',
     '/login',
     '/blog',
   ])('does not proxy %s', (pathname) => {

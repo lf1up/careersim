@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 
+import { BillingPanel } from '@/components/billing/BillingPanel';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { FormErrorAlert } from '@/components/ui/FormErrorAlert';
@@ -18,6 +19,7 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="space-y-6 pb-3 sm:pb-4 max-w-2xl mx-auto w-full retro-fade-in">
       <AccountSummaryCard />
+      <BillingPanel />
       <ChangeEmailCard />
       <PasswordCard />
     </div>

@@ -12,9 +12,24 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { and, eq } from 'drizzle-orm';
+import { voiceMinuteUsage } from './db/schema.js';
+import { createPolarProvider } from './modules/billing/polar.js';
+import { createBillingSync } from './modules/billing/sync.js';
+import { createBillingReconciler } from './modules/billing/reconcile.js';
+import { createBillingService } from './modules/billing/billing.service.js';
+import { billingRoutes } from './modules/billing/billing.route.js';
+import { billingWebhookRoutes } from './modules/billing/webhook.route.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { name: string; version: string };
+
+import { loadEnv } from './config/env.js';
+import { buildPlanCatalog, type BillingConfig } from './modules/billing/catalog.js';
+import type { WindowQuota } from './modules/quotas/window-quota.js';
+import type { Entitlement, PlanLimits, BillingUsage } from './modules/billing/billing.schema.js';
+import { createEntitlementService } from './modules/billing/entitlements.js';
+import type { BillingProvider } from './modules/billing/polar.js';
 
 import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
@@ -37,6 +52,8 @@ import { contactClientIp } from './utils/contact-client.js';
 
 export interface BuildAppOptions {
   db: AppDatabase;
+  billing?: { config: BillingConfig; provider?: BillingProvider; now?: () => Date };
+  resolveEntitlements?: (userId: string) => Promise<Entitlement>;
   agent: AgentClient;
   jwtSecret: string;
   trustedProxies?: string[];
@@ -121,6 +138,7 @@ export interface BuildAppOptions {
     /** Shared text-message allowance; excludes internal voice turns. */
     chatMessagesMax?: number;
     chatMessagesTimeWindow?: string;
+    quotaStore?: WindowQuota;
   };
   /**
    * Optional cache ping used by the versioned health probe. Tests inject
@@ -159,6 +177,8 @@ export interface BuildAppOptions {
     livekitApiSecret: string;
     dailyMinutesPerUser: number;
     activeCallStaleSeconds?: number;
+    now?: () => Date;
+    terminateRoom?: (room: string) => Promise<void>;
     internalKey: string;
   };
 }
@@ -167,6 +187,21 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const plugins = opts.plugins ?? [];
   assertPluginRegistry(plugins);
   const providers = simulationProviders(plugins);
+  const billingConfig: BillingConfig = opts.billing?.config ?? loadEnv({
+    DATABASE_URL: 'postgres://unused/unused', AGENT_API_URL: 'http://localhost:8001',
+    JWT_SECRET: opts.jwtSecret, ALTCHA_HMAC_KEY: opts.altcha.hmacKey,
+    WEB_APP_URL: opts.webAppUrl,
+    SESSIONS_CREATE_MAX: String(opts.rateLimit?.createSessionMax ?? 2),
+    SESSIONS_CREATE_WINDOW: opts.rateLimit?.createSessionTimeWindow ?? '6 hours',
+    CHAT_MESSAGES_MAX: String(opts.rateLimit?.chatMessagesMax ?? 350),
+    CHAT_MESSAGES_WINDOW: opts.rateLimit?.chatMessagesTimeWindow ?? '6 hours',
+    VOICE_DAILY_MINUTES_PER_USER: String(opts.voice?.dailyMinutesPerUser ?? 60),
+  });
+  const billingNow = opts.billing?.now ?? (() => new Date());
+  const billingCatalog = buildPlanCatalog(billingConfig);
+  const entitlementService = createEntitlementService({ db: opts.db, catalog: billingCatalog, now: billingNow });
+  const resolveEntitlements = opts.resolveEntitlements ?? entitlementService.resolveEntitlements;
+
   const app = Fastify({
     logger: opts.logger ?? false,
     trustProxy: opts.trustedProxies ?? false,
@@ -223,7 +258,50 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     createSessionTimeWindow: opts.rateLimit?.createSessionTimeWindow,
     chatMessagesMax: opts.rateLimit?.chatMessagesMax,
     chatMessagesTimeWindow: opts.rateLimit?.chatMessagesTimeWindow,
+    resolveEntitlements,
+    quotaStore: opts.rateLimit?.quotaStore,
   });
+
+  const billingProvider = opts.billing?.provider ?? createPolarProvider(billingConfig);
+  const { syncCustomer } = createBillingSync({ db: opts.db, config: billingConfig, provider: billingProvider, now: billingNow });
+  const billingService = createBillingService({
+    db: opts.db, config: billingConfig, catalog: billingCatalog, provider: billingProvider,
+    syncCustomer, resolveEntitlements, now: billingNow,
+    async readUsage(userId: string, limits: PlanLimits): Promise<BillingUsage> {
+      const results = await Promise.allSettled([
+        app.windowQuota.read({ userId, bucket: 'sessions', windowMs: limits.sessionsWindowMs }),
+        app.windowQuota.read({ userId, bucket: 'messages', windowMs: limits.chatWindowMs }),
+        Promise.all(plugins.flatMap(plugin => plugin.usage ? [plugin.usage(userId)] : [])),
+        opts.db.select().from(voiceMinuteUsage).where(and(eq(voiceMinuteUsage.userId, userId),
+          eq(voiceMinuteUsage.usageDate, billingNow().toISOString().slice(0, 10)))),
+      ]);
+      for (const [index, result] of results.entries()) {
+        if (result.status === 'rejected') app.log.warn({ source: ['sessions', 'messages', 'inventory', 'voice'][index] }, 'billing usage unavailable');
+      }
+      const [sessionResult, messageResult, inventoryResult, voiceResult] = results;
+      const sessionUsage = sessionResult.status === 'fulfilled' ? sessionResult.value : null;
+      const messageUsage = messageResult.status === 'fulfilled' ? messageResult.value : null;
+      const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value[0] : null;
+      const voiceRows = voiceResult.status === 'fulfilled' ? voiceResult.value : null;
+      const resetAt = new Date(billingNow());
+      resetAt.setUTCHours(24, 0, 0, 0);
+      return {
+        sessions: sessionUsage ? { used: sessionUsage.used, limit: limits.sessionsCreateMax, resetAt: sessionUsage.resetsAt?.toISOString() ?? null } : null,
+        chatMessages: messageUsage ? { used: messageUsage.used, limit: limits.chatMessagesMax, resetAt: messageUsage.resetsAt?.toISOString() ?? null } : null,
+        customSimulations: inventory ? { used: inventory.customSimulations, limit: limits.customSimulationsMax, resetAt: null } : null,
+        customPersonas: inventory ? { used: inventory.customPersonas, limit: limits.customPersonasMax, resetAt: null } : null,
+        voice: voiceRows ? { used: (voiceRows[0]?.secondsUsed ?? 0) / 60, limit: limits.voiceDailyMinutes, resetAt: resetAt.toISOString() } : null,
+      };
+    },
+  });
+  // Continue processing existing billing state even when new checkout is disabled.
+  if (billingConfig.POLAR_ACCESS_TOKEN || opts.billing?.provider) {
+    const reconciler = createBillingReconciler({ db: opts.db, syncCustomer });
+    const stop = reconciler.start({ onResult: result => {
+      if (result.failed) app.log.warn(result, 'billing reconciliation failures');
+    } });
+    app.addHook('onClose', async () => { stop(); });
+  }
 
   await app.register(swagger, {
     openapi: {
@@ -295,6 +373,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         livekitApiKey: opts.voice.livekitApiKey,
         livekitApiSecret: opts.voice.livekitApiSecret,
         dailyMinutesPerUser: opts.voice.dailyMinutesPerUser,
+        resolveEntitlements,
+        now: opts.voice.now,
+        terminateRoom: opts.voice.terminateRoom,
         // Pass through as-is: `undefined` lets the service default to
         // the token TTL; `0` is an explicit "disable the guard" escape
         // hatch (nothing is ever considered an active call).
@@ -424,6 +505,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         nodeEnv: opts.nodeEnv,
         jwtExpiresIn: opts.jwtExpiresIn ?? '7d',
       });
+      await scope.register(billingRoutes, { service: billingService, catalog: billingCatalog });
+      await scope.register(billingWebhookRoutes, { db: opts.db, secret: billingConfig.POLAR_WEBHOOK_SECRET, syncCustomer });
       await scope.register(simulationsRoutes, { agent: opts.agent, simulationProviders: providers });
       await scope.register(personasRoutes, { agent: opts.agent });
       await scope.register(sessionsRoutes, {
@@ -443,6 +526,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
               agent: opts.agent,
               authenticate: pluginScope.authenticate,
               logger: pluginScope.log,
+              resolveEntitlements,
             });
           },
           { prefix: `/${plugin.id}` },

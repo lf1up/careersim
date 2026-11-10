@@ -44,3 +44,5 @@ export {
 export { TypingIndicator } from '@/components/chat/TypingIndicator';
 
 export { SessionReportView } from '@/components/reports/SessionReportView';
+
+export { QuotaNotice, isQuotaError } from '@/components/billing/QuotaNotice';

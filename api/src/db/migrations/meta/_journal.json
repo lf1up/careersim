@@ -64,6 +64,27 @@
       "when": 1793728928828,
       "tag": "0008_auth_security",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794285248871,
+      "tag": "0009_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794310378197,
+      "tag": "0010_billing_reconciliation_backoff",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794310614608,
+      "tag": "0011_voice_call_order",
+      "breakpoints": true
     }
   ]
 }

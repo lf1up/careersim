@@ -9,6 +9,7 @@ teardown.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import sys
@@ -331,6 +332,7 @@ class _API:
         self.state_error: BaseException | None = None
         self.report_error: BaseException | None = None
         self.reported: tuple[Any, ...] | None = None
+        self.checkpoints: list[tuple[Any, ...]] = []
 
     async def fetch_state_for_voice(self, session_id: str) -> dict[str, Any]:
         if self.state_error:
@@ -341,6 +343,11 @@ class _API:
         if self.budget_error:
             raise self.budget_error
         return self.budget
+
+    async def checkpoint_call(self, call_id, sequence, cumulative_seconds, ended):
+        self.checkpoints.append((call_id, sequence, cumulative_seconds, ended))
+        budget = await self.fetch_voice_budget(call_id)
+        return {"usage_date": "2026-11-10", "reset_at": "2026-11-11T00:00:00Z", "continue_call": True, **budget}
 
     async def stream_user_message(
         self,
@@ -652,7 +659,7 @@ async def test_entrypoint_closes_api_when_state_fetch_fails(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.state_error = RuntimeError("down")
     monkeypatch.setattr(
@@ -669,7 +676,7 @@ async def test_entrypoint_cleans_up_failed_provider_init(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     stt = _STT()
 
@@ -697,7 +704,7 @@ async def test_entrypoint_closes_api_when_stt_init_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     monkeypatch.setattr(
         "careersim_agent.voice.state_bridge.APIClient.from_env",
@@ -715,9 +722,9 @@ async def test_entrypoint_closes_api_when_stt_init_fails(
 @pytest.mark.parametrize(
     ("budget", "remaining", "cap"),
     [
-        ({"remaining_seconds": -3, "cap_seconds": 90}, 0.0, 90.0),
-        ({"remaining_seconds": "later", "cap_seconds": None}, None, None),
-        ({"remaining_seconds": 12.5, "cap_seconds": 30}, 12.5, 30.0),
+        ({"remaining_seconds": 3, "cap_seconds": 90}, 3, 90),
+        ({"remaining_seconds": None, "cap_seconds": None}, None, None),
+        ({"remaining_seconds": 12, "cap_seconds": 30}, 12, 30),
     ],
 )
 async def test_entrypoint_passes_budget_into_the_room(
@@ -727,7 +734,7 @@ async def test_entrypoint_passes_budget_into_the_room(
     cap: float | None,
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.budget = budget
     seen: dict[str, Any] = {}
@@ -749,17 +756,17 @@ async def test_entrypoint_passes_budget_into_the_room(
     assert api.reported[0] == "sess-1"
     assert api.reported[2] is not None
     assert api.closed is True
-    payload = json.loads(room.local_participant.data[0][0])
+    caption = next(data for data in room.local_participant.data if data[1] == "voice-captions")
+    payload = json.loads(caption[0])
     assert payload["role"] == "ai"
     assert payload["is_final"] is True
-    assert room.local_participant.data[0][1] == "voice-captions"
 
 
-async def test_entrypoint_continues_when_budget_lookup_fails(
+async def test_entrypoint_fails_closed_when_budget_lookup_fails(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.budget_error = RuntimeError("quota down")
     seen: dict[str, Any] = {}
@@ -775,7 +782,8 @@ async def test_entrypoint_continues_when_budget_lookup_fails(
     _patch_providers(monkeypatch, _STT(), _TTS())
     with caplog.at_level(logging.ERROR):
         await _voice_entrypoint(_Ctx(room))
-    assert seen["max"] is None
+    assert seen == {}
+    assert api.closed is True
     assert "failed to fetch voice budget" in caplog.text
 
 
@@ -783,7 +791,7 @@ async def test_entrypoint_swallows_finalize_and_report_failures(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.report_error = RuntimeError("end failed")
     monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", _async_ok)
@@ -1352,3 +1360,120 @@ async def test_disconnect_cancels_a_waiting_watchdog(
         ),
         timeout=5,
     )
+
+
+async def test_call_accounting_refreshes_midnight_and_preserves_cumulative_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    accounting = _CallAccounting(api, 'call-1')
+    await accounting.checkpoint()
+    clock[0] = 15
+    api.budget = {"remaining_seconds": 600, "cap_seconds": 600, "usage_date": "2026-11-11", "reset_at": "2026-11-12T00:00:00Z", "continue_call": True}
+    await accounting.checkpoint()
+    assert accounting.budget['usage_date'] == '2026-11-11'
+    assert api.checkpoints == [('call-1', 0, 0, False), ('call-1', 1, 15, False)]
+
+
+async def test_call_accounting_failure_cuts_off_within_thirty_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    accounting = _CallAccounting(api, 'call-1')
+    await accounting.checkpoint()
+    api.budget_error = TimeoutError('down')
+    task = asyncio.create_task(asyncio.Event().wait())
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, 'wait', advance_wait)
+    async def stop_room():
+        clock[0] += 5
+    await accounting.supervise(task, _Captions(), stop_room)
+    assert clock[0] <= 30
+    assert task.cancelled()
+
+
+async def test_entrypoint_cancellation_sends_final_checkpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    room = _Room(); room.metadata = '{"session_id":"sess-1","call_id":"call-1"}'
+    api = _API()
+    monkeypatch.setattr('careersim_agent.voice.state_bridge.APIClient.from_env', lambda: api)
+    async def cancelled(**kwargs):
+        raise asyncio.CancelledError()
+    monkeypatch.setattr('careersim_agent.voice.worker._run_room_session', cancelled)
+    _patch_providers(monkeypatch, _STT(), _TTS())
+    with pytest.raises(asyncio.CancelledError):
+        await _voice_entrypoint(_Ctx(room))
+    assert api.checkpoints[-1][3] is True
+    assert api.reported[1] == 'call-1'
+
+
+async def test_stalled_quota_warning_cannot_block_budget_failure_cutoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    api.budget['remaining_seconds'] = 60
+    accounting = _CallAccounting(api, 'call-warning')
+    await accounting.checkpoint()
+    api.budget_error = TimeoutError('down')
+    class StalledCaptions:
+        async def publish_control(self, payload):
+            await asyncio.Event().wait()
+    original_wait_for = asyncio.wait_for
+    async def fast_timeout(awaitable, timeout):
+        return await original_wait_for(awaitable, 0)
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, 'wait_for', fast_timeout)
+    monkeypatch.setattr(asyncio, 'wait', advance_wait)
+    task = asyncio.create_task(asyncio.Event().wait())
+    supervisor = asyncio.create_task(accounting.supervise(task, StalledCaptions()))
+    try:
+        for _ in range(30):
+            await asyncio.sleep(0)
+        assert supervisor.done(), 'a stalled warning must not hold the supervisor open'
+        await supervisor
+    finally:
+        supervisor.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await supervisor
+    assert task.cancelled()
+    assert clock[0] <= 30
+
+
+async def test_supervisor_refreshes_at_utc_midnight_before_spending_new_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime as RealDatetime, timezone, timedelta
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    class ClockDatetime(RealDatetime):
+        @classmethod
+        def now(cls, tz=None):
+            return RealDatetime(2026, 11, 10, 23, 59, 55, tzinfo=timezone.utc) + timedelta(seconds=clock[0])
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('careersim_agent.voice.worker.datetime', ClockDatetime)
+    api = _API()
+    async def checkpoint(call_id, sequence, cumulative_seconds, ended):
+        api.checkpoints.append((call_id, sequence, cumulative_seconds, ended))
+        return {"remaining_seconds": 600, "cap_seconds": 600,
+                "usage_date": '2026-11-11' if clock[0] >= 5 else '2026-11-10',
+                "reset_at": '2026-11-12T00:00:00Z' if clock[0] >= 5 else '2026-11-11T00:00:00Z',
+                "continue_call": sequence < 2}
+    api.checkpoint_call = checkpoint
+    accounting = _CallAccounting(api, 'call-midnight')
+    await accounting.checkpoint()
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, 'wait', advance_wait)
+    task = asyncio.create_task(asyncio.Event().wait())
+    await accounting.supervise(task, _Captions())
+    assert api.checkpoints[1][2] == 5
+    assert accounting.budget['usage_date'] == '2026-11-11'
+    assert api.checkpoints[2][2] == 20
