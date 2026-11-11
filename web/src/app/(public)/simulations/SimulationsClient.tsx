@@ -50,7 +50,7 @@ export function SimulationsClient({
             set of conversation goals.
           </p>
         </div>
-        <div className="flex w-full min-w-0 items-center gap-3 lg:w-auto lg:shrink-0" role="group" aria-label="Simulation tools">
+        <div className="ml-auto flex w-full min-w-0 items-center justify-end gap-3 lg:w-auto lg:shrink-0" role="group" aria-label="Simulation tools">
           <div className="w-72 min-w-0 shrink">
             <label className="sr-only" htmlFor="simulation-search">
               Search simulations
