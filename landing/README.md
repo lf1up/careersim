@@ -30,7 +30,7 @@ only when the creator plugin is live in the app. This page is static, so rebuild
 and redeploy after changing the flag.
 
 Pricing is disabled by default in both apps. Set `LANDING_PRICING_ENABLED=true`
-(or `1`) to show Pricing in the homepage header and footer, and set
+(or `1`) to show Pricing in the homepage footer, and set
 `NEXT_PUBLIC_PRICING_ENABLED=true` in web to enable its pricing links and
 `/pricing` page. Unset, empty, `false`, and `0` keep pricing hidden. Rebuild and redeploy both
 apps after changing these flags. Contact forms and links remain available.
