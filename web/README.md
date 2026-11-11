@@ -255,7 +255,7 @@ pnpm typecheck  # tsc --noEmit
 | `CONTACT_TO_EMAIL` | falls back to `NEXT_PUBLIC_CONTACT_EMAIL` | Inbox that receives `/business` inquiries |
 | `ALTCHA_HMAC_KEY` | unset | Must match the API and standalone landing projects. Authenticates visitor-IP metadata sent to the shared CAPTCHA verifier; never expose it to the browser |
 | `NEXT_PUBLIC_BLOG_ENABLED` | unset / `false` | Opt-in for the blog (**off by default**). Omit the var, or set `false`/`0`, to keep it off. `true`/`1` plus `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` enables `/blog`; otherwise routes 404 and sitemap / robots / `llms.txt` omit blog URLs. Landing links use `LANDING_BLOG_URL` (separate, also unset by default) |
-| `NEXT_PUBLIC_PRICING_ENABLED` | `true` | Pricing visibility. `false`/`0` hides pricing links in desktop/mobile navigation, billing, and quota notices; `/pricing` returns 404 before loading plans. Contact forms, payment management, and API entitlements remain available. Also set `LANDING_PRICING_ENABLED=false` in landing and rebuild both apps. Only `true`/`1` enables pricing when the flag is set. |
+| `NEXT_PUBLIC_PRICING_ENABLED` | unset / `false` | Pricing is disabled by default. Only `true`/`1` enables it. Otherwise pricing links in desktop/mobile navigation, billing, and quota notices are hidden, and `/pricing` returns 404 before loading plans. Contact forms, payment management, and API entitlements remain available. Match `LANDING_PRICING_ENABLED` in landing and rebuild both apps after changing flags. |
 | `GHOST_API_URL` | `http://localhost:2368` | Ghost Content API origin (compose overrides to `http://ghost:2368`). Required with the Content API key for the blog to enable |
 | `GHOST_PUBLIC_URL` | unset | Optional browser-facing Ghost origin for `next/image` when it differs from `GHOST_API_URL` |
 | `GHOST_CONTENT_API_KEY` | unset | Read-only Content API key from Ghost Admin → Integrations. Required with `GHOST_API_URL` for the blog to enable |
@@ -265,8 +265,9 @@ pnpm typecheck  # tsc --noEmit
 `NEXT_PUBLIC_` prefix), so changes require a rebuild in production. The same
 applies to other `NEXT_PUBLIC_*` values such as `NEXT_PUBLIC_CONTACT_EMAIL`,
 `NEXT_PUBLIC_VOICE_ENABLED`, `NEXT_PUBLIC_BLOG_ENABLED`, and `NEXT_PUBLIC_PRICING_ENABLED`.
-For the production Docker image, pass `--build-arg NEXT_PUBLIC_PRICING_ENABLED=false`
-when building to hide pricing in both the server and browser bundles.
+The production Docker image also hides pricing by default. Pass
+`--build-arg NEXT_PUBLIC_PRICING_ENABLED=true` when building to enable pricing
+in both the server and browser bundles.
 `LANDING_ORIGIN` is server-side (read by `src/proxy.ts` and used at build
 time for `NEXT_PUBLIC_HAS_LANDING_ORIGIN`); set it to the landing project's
 deployment origin, for example `https://careersim-landing.vercel.app`.
