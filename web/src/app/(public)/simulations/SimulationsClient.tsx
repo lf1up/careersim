@@ -51,6 +51,19 @@ export function SimulationsClient({
           </p>
         </div>
         <div className="flex w-full min-w-0 items-center gap-3 lg:w-auto lg:shrink-0" role="group" aria-label="Simulation tools">
+          <div className="w-72 min-w-0 shrink">
+            <label className="sr-only" htmlFor="simulation-search">
+              Search simulations
+            </label>
+            <input
+              id="simulation-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, skill, or tag..."
+              className="retro-input w-full"
+            />
+          </div>
           {createAction && (
             <Link
               href={createAction.href}
@@ -64,19 +77,6 @@ export function SimulationsClient({
               )}
             </Link>
           )}
-          <div className="min-w-0 flex-1 sm:w-72">
-            <label className="sr-only" htmlFor="simulation-search">
-              Search simulations
-            </label>
-            <input
-              id="simulation-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by title, skill, or tag..."
-              className="retro-input w-full"
-            />
-          </div>
         </div>
       </div>
 

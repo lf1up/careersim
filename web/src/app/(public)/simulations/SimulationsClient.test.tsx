@@ -11,7 +11,7 @@ beforeEach(() => {
   plugins.length = 0;
   plugins.push({ id: 'creator', navItems: [{ href: '/create', label: 'Create', badge: 'BETA', showToGuests: true }] });
 });
-it('places the installed Create action before search and preserves catalog filtering', () => {
+it('places the installed Create action after search and preserves catalog filtering', () => {
   render(<SimulationsClient initialSimulations={[
     { slug: 'interview', title: 'Interview practice', persona_name: 'Alex', tags: ['career'] },
     { slug: 'negotiation', title: 'Salary negotiation', persona_name: 'Sam' },
@@ -19,7 +19,7 @@ it('places the installed Create action before search and preserves catalog filte
   const create = screen.getByRole('link', { name: /Create BETA/ });
   const search = screen.getByRole('searchbox', { name: 'Search simulations' });
   expect(create).toHaveAttribute('href', '/create');
-  expect(create.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(search.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.change(search, { target: { value: 'career' } });
   expect(screen.getByText('Interview practice')).toBeVisible();
   expect(screen.queryByText('Salary negotiation')).not.toBeInTheDocument();
