@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getBillingAccount } from '@/lib/billing';
+import { isPricingEnabled } from '@/lib/pricing';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 
 type QuotaPayload = { message?: string; tier?: 'free' | 'plus' | 'supporter'; resetsAt?: string };
@@ -28,11 +29,13 @@ export function QuotaNotice({ error }: { error: unknown }) {
   }, [needsTier]);
   if (!payload) return null;
   const tier = payload.tier ?? verifiedTier;
+  const pricingEnabled = isPricingEnabled();
   return <RetroAlert tone="warning" title="Practice allowance reached">
     <div className="space-y-2 text-sm">
       <p>{payload.message ?? 'Your current practice allowance has been reached.'}</p>
       {payload.resetsAt && <p>Resets {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(payload.resetsAt))} UTC.</p>}
-      {tier === 'free' ? <p><Link href="/pricing?tier=plus" className="font-semibold underline">Explore Plus</Link> for higher allowances, or wait for timed usage to reset. Delete saved custom items to free inventory slots.</p> : <p><Link href="/contact?reason=higher-limits" className="font-semibold underline">Need higher limits? Contact us to discuss your needs.</Link></p>}
+      {tier === 'free' && <p>{pricingEnabled ? <><Link href="/pricing?tier=plus" className="font-semibold underline">Explore Plus</Link> for higher allowances, or wait for timed usage to reset.</> : 'Wait for timed usage to reset.'} Delete saved custom items to free inventory slots.</p>}
+      {(tier !== 'free' || !pricingEnabled) && <p><Link href="/contact?reason=higher-limits" className="font-semibold underline">Need higher limits? Contact us to discuss your needs.</Link></p>}
     </div>
   </RetroAlert>;
 }

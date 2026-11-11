@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ApiError } from '@/lib/api';
+import { isPricingEnabled } from '@/lib/pricing';
 import { getBillingAccount, refreshBillingAccount, createBillingPortal, scheduleBillingChange, getSupporterAccess, fetchPlanCatalog, money, windowLabel, type BillingAccount, type BillingChoice, type PlanCatalogResponse } from '@/lib/billing';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroAlert } from '@/components/ui/RetroBadge';
@@ -143,7 +144,7 @@ export function BillingPanel() {
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" disabled={busy} onClick={() => { attempts.current = 0; void refresh(); }}>Refresh billing</Button>
           {(account.interval || account.paidThrough) && <Button disabled={busy} onClick={portal}>Manage payments and cancellation</Button>}
-          <Link className="retro-btn-base inline-flex px-4 py-2 bg-retro-accent dark:bg-retro-accent-dark text-black" href="/pricing">{account.tier === 'free' ? 'Explore Plus' : 'Compare plans'}</Link>
+          {isPricingEnabled() && <Link className="retro-btn-base inline-flex px-4 py-2 bg-retro-accent dark:bg-retro-accent-dark text-black" href="/pricing">{account.tier === 'free' ? 'Explore Plus' : 'Compare plans'}</Link>}
         </div>
         {account.interval && (account.planChangesAvailable && catalog ? <section aria-label="Change plan" className="space-y-3">
           <h3 className="font-semibold">Next renewal</h3>

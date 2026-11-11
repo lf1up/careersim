@@ -6,8 +6,8 @@ import { ApiError } from '@/lib/api';
 import { catalog, freeAccount, paidLimits } from './fixtures';
 import { BillingPanel } from './BillingPanel';
 const plus = { ...freeAccount, tier: 'plus' as const, limits: paidLimits, reason: 'paid' as const, status: 'active', interval: 'year' as const, paidThrough: '2027-11-10T00:00:00.000Z', accessThrough: '2027-11-10T00:00:00.000Z', renews: true, usage: { ...freeAccount.usage, sessions: { used: 23, limit: 100, resetAt: '2026-11-10T18:00:00.000Z' } } };
-beforeEach(() => { vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); });
-afterEach(() => vi.useRealTimers());
+beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 it('keeps checkout pending until authoritative activation without re-login', async () => {
   const pending = { ...freeAccount, pendingCheckout: true, confirmationPending: true };
   account.mockResolvedValueOnce(pending).mockResolvedValue(plus);
@@ -100,4 +100,14 @@ it('does not claim future access when a paid period was revoked', async () => {
   render(<BillingPanel />);
   await screen.findByText(/Paid access revoked/);
   expect(screen.queryByText(/Paid access through/)).toBeNull();
+});
+
+it.each([freeAccount, plus])('hides pricing links for $tier while retaining Contact and payment management', async (value) => {
+  vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'false');
+  account.mockResolvedValue(value);
+  render(<BillingPanel />);
+  await screen.findByText(value.tier === 'free' ? 'Free practice access' : 'Subscription active');
+  expect(screen.queryByRole('link', { name: /Explore Plus|Compare plans/ })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Need higher limits? Contact us to discuss your needs.' })).toHaveAttribute('href', '/contact?reason=higher-limits');
+  if (value.tier === 'plus') expect(screen.getByRole('button', { name: 'Manage payments and cancellation' })).toBeVisible();
 });

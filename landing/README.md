@@ -29,6 +29,14 @@ section. Its button links to `/create` on the `LANDING_APP_URL` origin. Enable i
 only when the creator plugin is live in the app. This page is static, so rebuild
 and redeploy after changing the flag.
 
+Set `LANDING_PRICING_ENABLED=false` (or `0`) to hide Pricing in the homepage
+header and footer. Pricing links are enabled by default; when set, only
+`true`/`1` enables them. Also set `NEXT_PUBLIC_PRICING_ENABLED=false` in web to
+hide its pricing links and return 404 for `/pricing`. Rebuild and redeploy both
+apps after changing these flags. Contact forms and links remain available.
+The homepage and business-page Contact footer links open `/contact` on the
+`LANDING_APP_URL` origin.
+
 The `/business` contact form on `careersim.ai` is handled by the `web`
 package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
 `CONTACT_*`, and `ALTCHA_HMAC_KEY` in the web Vercel project. The HMAC key must
