@@ -13,12 +13,17 @@ export function mergeNavItems(base: readonly WebNavItem[], extra: readonly WebPl
 
 /** Signed-in navbar: host items, then items from plugins that are actually installed. */
 export function signedInNavItems(base: readonly WebNavItem[]): WebNavItem[] {
-  return mergeNavItems(base, plugins);
+  return mergeNavItems(base, plugins).filter(item => item.href !== '/create');
 }
 
 /** Guest navbar: host items, then plugin links explicitly visible to guests. */
 export function guestNavItems(base: readonly WebNavItem[]): WebNavItem[] {
-  return [...base, ...mergeNavItems([], plugins).filter((item) => item.showToGuests)];
+  return [...base, ...mergeNavItems([], plugins).filter((item) => item.showToGuests && item.href !== '/create')];
+}
+
+/** Creation is a catalog action, not a global header link. Preserve plugin availability and guest opt-in. */
+export function simulationCreateAction(isAuthenticated: boolean): WebNavItem | undefined {
+  return mergeNavItems([], plugins).find(item => item.href === '/create' && (isAuthenticated || item.showToGuests));
 }
 
 export function simulationHrefFor(slug: string, list: readonly WebPlugin[]): string {

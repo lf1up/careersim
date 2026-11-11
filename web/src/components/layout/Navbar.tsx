@@ -19,6 +19,7 @@ const AUTH_NAV_ITEMS: WebNavItem[] = [
   { href: '/simulations', label: 'Simulations' },
   { href: '/sessions', label: 'Sessions' },
   { href: '/analytics', label: 'Analytics' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 // Host nav items shown to guests. Plugins can add their own guest-visible links.

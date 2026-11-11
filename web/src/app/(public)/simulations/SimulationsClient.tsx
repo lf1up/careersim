@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 
-import { simulationHref } from '@/extensions';
+import { useAuth } from '@/contexts/AuthContext';
+import { simulationCreateAction, simulationHref } from '@/extensions';
 import type { Simulation } from '@/lib/types';
 import { difficultyColor, difficultyLabel } from '@/lib/simulation-meta';
 import { RetroCard } from '@/components/ui/RetroCard';
@@ -16,6 +17,8 @@ export function SimulationsClient({
   initialSimulations: Simulation[];
 }) {
   const [query, setQuery] = useState('');
+  const { isAuthenticated } = useAuth();
+  const createAction = simulationCreateAction(isAuthenticated);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -37,8 +40,8 @@ export function SimulationsClient({
 
   return (
     <div className="space-y-6 pb-3 sm:mr-[-5px] sm:pb-4 retro-fade-in">
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0 sm:flex-1">
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 lg:flex-1">
           <h1 className="text-2xl sm:text-3xl font-retro tracking-wider2 text-retro-ink dark:text-retro-ink-dark">
             AI career simulations
           </h1>
@@ -47,18 +50,33 @@ export function SimulationsClient({
             set of conversation goals.
           </p>
         </div>
-        <div className="w-full min-w-0 sm:w-72">
-          <label className="sr-only" htmlFor="simulation-search">
-            Search simulations
-          </label>
-          <input
-            id="simulation-search"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by title, skill, or tag..."
-            className="retro-input w-full"
-          />
+        <div className="flex w-full min-w-0 items-center gap-3 lg:w-auto lg:shrink-0" role="group" aria-label="Simulation tools">
+          {createAction && (
+            <Link
+              href={createAction.href}
+              className="retro-btn-base inline-flex shrink-0 items-center gap-2 px-4 py-2 text-sm font-semibold bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
+            >
+              {createAction.label}{' '}
+              {createAction.badge && (
+                <RetroBadge color="yellow" className="px-1.5 py-0 text-[10px] leading-4 shadow-none">
+                  {createAction.badge}
+                </RetroBadge>
+              )}
+            </Link>
+          )}
+          <div className="min-w-0 flex-1 sm:w-72">
+            <label className="sr-only" htmlFor="simulation-search">
+              Search simulations
+            </label>
+            <input
+              id="simulation-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by title, skill, or tag..."
+              className="retro-input w-full"
+            />
+          </div>
         </div>
       </div>
 

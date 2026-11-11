@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   signedInNavItems,
+  simulationCreateAction,
   guestNavItems,
   mergeNavItems,
   pluginRobotsDisallow,
@@ -27,8 +28,10 @@ describe('web extensions', () => {
     expect(guestNavItems(host)).toEqual(host);
     installedPlugins.push({ ...plugin, navItems: [create, { href: '/private', label: 'Private' }] });
     try {
-      expect(guestNavItems(host)).toEqual([...host, create]);
-      expect(signedInNavItems(host)).toEqual([...host, ...installedPlugins[0].navItems]);
+      expect(guestNavItems(host)).toEqual(host);
+      expect(simulationCreateAction(true)).toEqual(create);
+      expect(simulationCreateAction(false)).toEqual(create);
+      expect(signedInNavItems(host)).toEqual([...host, { href: '/private', label: 'Private' }]);
     } finally {
       installedPlugins.length = 0;
     }
@@ -36,9 +39,10 @@ describe('web extensions', () => {
   it('forwards installed plugin navigation after host items', () => {
     const host = [{ href: '/analytics', label: 'Analytics' }];
     expect(signedInNavItems(host)).toEqual(host);
-    installedPlugins.push(plugin);
+    const extra = { ...plugin, navItems: [{ href: '/tools', label: 'Tools' }] };
+    installedPlugins.push(extra);
     try {
-      expect(signedInNavItems(host)).toEqual([...host, ...plugin.navItems!]);
+      expect(signedInNavItems(host)).toEqual([...host, ...extra.navItems]);
     } finally {
       installedPlugins.length = 0;
     }
@@ -70,4 +74,13 @@ describe('web extensions', () => {
     ).toBe('Catalogue');
     expect(simulationLabel('fixture:abc', { title: null })).toBe('fixture:abc');
   });
+});
+
+it('only exposes creation for an installed plugin and respects guest visibility', () => {
+  expect(simulationCreateAction(true)).toBeUndefined();
+  installedPlugins.push(plugin);
+  try {
+    expect(simulationCreateAction(true)).toEqual(plugin.navItems[0]);
+    expect(simulationCreateAction(false)).toBeUndefined();
+  } finally { installedPlugins.length = 0; }
 });
