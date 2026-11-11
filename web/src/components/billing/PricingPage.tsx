@@ -37,7 +37,7 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
     }
   }
 
-  return <div className="space-y-8 pb-10 retro-fade-in">
+  return <div className="space-y-8 pb-8 retro-fade-in">
     <header className="max-w-3xl mx-auto text-center space-y-4">
       <p className="font-monoRetro text-sm uppercase tracking-wider2">More room to practice</p>
       <h1 className="font-retro text-2xl sm:text-3xl leading-relaxed">Choose your plan</h1>

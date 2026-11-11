@@ -21,7 +21,9 @@ it('shows Pricing instead of Create in the signed-in header and keeps account ac
     expect(navigation.getByRole('link', { name })).toBeInTheDocument();
   }
   expect(navigation.getByRole('link', { name: 'Profile and billing' })).toHaveAttribute('href', '/profile');
-  expect(within(screen.getByRole('contentinfo')).getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', '/pricing');
+  const footer = screen.getByRole('contentinfo');
+  expect(footer).toHaveTextContent('Have questions? Contact us or send an email to');
+  expect(within(footer).getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '/contact');
   fireEvent.click(navigation.getByRole('button', { name: 'Open main menu' }));
   expect(navigation.getByRole('link', { name: 'Profile & billing' })).toHaveAttribute('href', '/profile');
   expect(navigation.queryByRole('link', { name: /Create/ })).not.toBeInTheDocument();
