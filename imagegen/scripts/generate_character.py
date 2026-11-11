@@ -1,51 +1,28 @@
 #!/usr/bin/env python3
-"""Generate a full manga character asset bundle via the imagegen Modal API.
-
-Produces, for one character spec:
-  output/<slug>/base.png            transparent full-body master sprite
-  output/<slug>/base_raw.png        same render before background removal
-  output/<slug>/face_<expr>.png     face close-ups (same character) per expression
-  output/<slug>/shot_<name>.png     other derived shots (upper body, hands, ...)
-  output/<slug>/manifest.json       spec + seeds + parameters for reproducibility
-
-Usage (see imagegen/README.md):
-  python scripts/generate_character.py --endpoint https://... --slug aiko \
-      --description "1girl, solo, office lady, ..." \
-      --expressions neutral,happy,sad,surprised --shots upper_body,hands
-
-Auth: Modal proxy tokens via --token-id/--token-secret or
-MODAL_PROXY_TOKEN_ID / MODAL_PROXY_TOKEN_SECRET env vars.
-"""
+"""Generate character PNG bundles with OpenRouter's image API."""
 
 import argparse
 import base64
+import hashlib
+import io
 import json
+import math
 import os
-import sys
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
 
 import requests
+from PIL import Image, UnidentifiedImageError
 
-QUALITY_TAGS = "masterpiece, high score, great score, absurdres"
-DEFAULT_NEGATIVE = (
-    "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, "
-    "fewer digits, cropped, worst quality, low quality, low score, bad score, "
-    "average score, signature, watermark, username, blurry"
-)
-BASE_PROMPT_SUFFIX = (
-    "standing, full body, looking at viewer, simple background, white background"
-)
-
+ENDPOINT = "https://openrouter.ai/api/v1/images"
+DEFAULT_MODEL = "openai/gpt-image-2.6-flare"
 IDENTITY_CLAUSE = (
     "Keep the same character: identical face, hairstyle, hair color, eye color "
-    "and outfit."
+    "and outfit. Preserve the reference image's manga illustration style."
 )
-STYLE_CLAUSE = "Clean white background, anime style."
-
-EXPRESSIONS: dict[str, str] = {
+EXPRESSIONS = {
     "neutral": "with a calm, neutral expression",
     "happy": "smiling warmly with a cheerful, happy expression",
     "sad": "with a sad, downcast expression and slightly teary eyes",
@@ -55,288 +32,378 @@ EXPRESSIONS: dict[str, str] = {
     "embarrassed": "blushing with an embarrassed, flustered expression",
     "determined": "with a determined, confident expression",
 }
-
-SHOTS: dict[str, str] = {
+SHOTS = {
     "upper_body": "Waist-up shot of this exact character, facing the viewer",
     "hands": "Close-up shot of this exact character's hands held in front of them",
     "profile": "Full-body side profile view of this exact character",
     "back": "Full-body view of this exact character seen from behind",
 }
 
-SEED_MAX = 2**32 - 1
+
+def safe_name(value):
+    if not isinstance(value, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_-]{0,99}", value
+    ):
+        raise SystemExit(
+            "Names must be 1–100 letters, numbers, underscores or hyphens, starting with a letter or number."
+        )
+    return value
 
 
-def expression_instruction(clause: str) -> str:
-    return (
-        f"Close-up portrait of this exact character's face and shoulders, {clause}. "
-        f"{IDENTITY_CLAUSE} {STYLE_CLAUSE}"
-    )
-
-
-def shot_instruction(description: str) -> str:
-    return f"{description}. {IDENTITY_CLAUSE} {STYLE_CLAUSE}"
-
-
-def resolve_entries(
-    entries: list[Any], builtin: dict[str, str], kind: str
-) -> list[tuple[str, str]]:
-    """Normalize a spec list of names / {name, instruction} objects.
-
-    For expressions the built-in value is a clause wrapped by
-    ``expression_instruction``; custom objects provide the full instruction.
-    """
-    resolved: list[tuple[str, str]] = []
+def resolve_entries(entries, builtin, kind):
+    if not isinstance(entries, list):
+        raise SystemExit(f"{kind}s must be a list of names or instruction objects")
+    resolved = []
+    seen = set()
     for entry in entries:
-        if isinstance(entry, str):
-            if entry not in builtin:
-                available = ", ".join(sorted(builtin))
-                raise SystemExit(
-                    f"unknown {kind} '{entry}'; built-ins: {available}. "
-                    f"Use a spec file with an explicit instruction for custom {kind}s."
-                )
+        if isinstance(entry, str) and entry in builtin:
+            name, instruction = entry, builtin[entry]
             if kind == "expression":
-                resolved.append((entry, expression_instruction(builtin[entry])))
-            else:
-                resolved.append((entry, shot_instruction(builtin[entry])))
-        elif isinstance(entry, dict) and entry.get("name") and entry.get("instruction"):
-            resolved.append((str(entry["name"]), str(entry["instruction"])))
+                instruction = f"Close-up portrait of this exact character's face and shoulders, {instruction}"
+        elif isinstance(entry, dict):
+            name, instruction = entry.get("name"), entry.get("instruction")
         else:
             raise SystemExit(
-                f"invalid {kind} entry {entry!r}; expected a name or "
-                "{'name': ..., 'instruction': ...}"
+                f"Unknown {kind}: {entry!r}; use a built-in name or an instruction object"
             )
+        safe_name(name)
+        if (
+            name.casefold() in seen
+            or not isinstance(instruction, str)
+            or not instruction.strip()
+        ):
+            raise SystemExit(f"Duplicate {kind} name or empty instruction: {name}")
+        seen.add(name.casefold())
+        resolved.append(
+            {
+                "name": name,
+                "instruction": f"{instruction.rstrip('.')}. {IDENTITY_CLAUSE}",
+            }
+        )
     return resolved
 
 
-class ImagegenClient:
-    def __init__(
-        self,
-        endpoint: str,
-        token_id: Optional[str],
-        token_secret: Optional[str],
-        timeout: float,
-        retries: int,
-    ):
-        self.endpoint = endpoint.rstrip("/")
-        self.timeout = timeout
-        self.retries = retries
-        self.headers = {"Content-Type": "application/json"}
-        if token_id and token_secret:
-            self.headers["Modal-Key"] = token_id
-            self.headers["Modal-Secret"] = token_secret
-
-    def generate(self, payload: dict[str, Any]) -> dict[str, Any]:
-        last_error: Optional[str] = None
-        for attempt in range(1, self.retries + 2):
-            try:
-                response = requests.post(
-                    self.endpoint,
-                    json=payload,
-                    headers=self.headers,
-                    timeout=self.timeout,
-                )
-            except requests.RequestException as exc:
-                last_error = str(exc)
-            else:
-                if response.status_code == 200:
-                    return response.json()
-                last_error = f"HTTP {response.status_code}: {response.text[:500]}"
-                # 4xx won't get better on retry.
-                if 400 <= response.status_code < 500:
-                    break
-            if attempt <= self.retries:
-                wait = 10 * attempt
-                print(f"  request failed ({last_error}); retrying in {wait}s...")
-                time.sleep(wait)
-        raise SystemExit(f"generation request failed: {last_error}")
-
-
-def load_spec(args: argparse.Namespace) -> dict[str, Any]:
-    spec: dict[str, Any] = {}
+def load_spec(args):
+    spec = {}
     if args.spec:
-        spec = json.loads(Path(args.spec).read_text())
-    if args.slug:
-        spec["slug"] = args.slug
-    if args.description:
-        spec["description"] = args.description
-    if args.seed is not None:
-        spec["seed"] = args.seed
-    if args.expressions is not None:
-        spec["expressions"] = [e for e in args.expressions.split(",") if e]
-    if args.shots is not None:
-        spec["shots"] = [s for s in args.shots.split(",") if s]
-
-    if not spec.get("slug") or not spec.get("description"):
-        raise SystemExit("a character needs --slug and --description (or a --spec file)")
-    spec.setdefault("expressions", ["neutral", "happy", "sad", "surprised"])
-    spec.setdefault("shots", [])
+        try:
+            spec = json.loads(Path(args.spec).read_text())
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"Cannot read character spec: {exc}") from exc
+    if not isinstance(spec, dict):
+        raise SystemExit("Character spec must be a JSON object")
+    unsupported = set(spec) - {"slug", "description", "expressions", "shots"}
+    if unsupported:
+        raise SystemExit(
+            f"Unsupported spec fields: {', '.join(sorted(unsupported))}. Remove legacy diffusion settings; use --model and --aspect-ratio."
+        )
+    for name in ("slug", "description"):
+        if getattr(args, name) is not None:
+            spec[name] = getattr(args, name)
+    safe_name(spec.get("slug"))
+    if not isinstance(spec.get("description"), str) or not spec["description"].strip():
+        raise SystemExit("A non-empty character description is required")
+    for field, builtin, kind, default in (
+        (
+            "expressions",
+            EXPRESSIONS,
+            "expression",
+            ["neutral", "happy", "sad", "surprised"],
+        ),
+        ("shots", SHOTS, "shot", []),
+    ):
+        override = getattr(args, field)
+        entries = (
+            [x.strip() for x in override.split(",") if x.strip()]
+            if override is not None
+            else spec.get(field, default)
+        )
+        spec[field] = resolve_entries(entries, builtin, kind)
+        if args.alpha_edits:
+            names = {entry["name"].casefold() for entry in spec[field]}
+            if any(f"{name}_raw" in names for name in names):
+                raise SystemExit(
+                    f"{field} names collide with an alpha image's _raw companion"
+                )
     return spec
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate a manga character asset bundle via the imagegen Modal API."
+def generate(payload, api_key, timeout, retries):
+    for attempt in range(retries + 1):
+        delay = min(2 ** min(attempt, 6), 60)
+        try:
+            response = requests.post(
+                ENDPOINT,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            error = f"Network request failed ({type(exc).__name__})"
+        else:
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    if not isinstance(result, dict):
+                        raise ValueError("expected an object")
+                    data = base64.b64decode(
+                        result["data"][0]["b64_json"], validate=True
+                    )
+                    usage = result.get("usage") or {}
+                    if not isinstance(usage, dict):
+                        raise ValueError("invalid usage data")
+                    return data, usage
+                except (ValueError, KeyError, IndexError, TypeError) as exc:
+                    raise SystemExit(
+                        "OpenRouter returned an invalid image response"
+                    ) from exc
+            error = f"OpenRouter returned HTTP {response.status_code}"
+            if response.status_code != 429 and not 500 <= response.status_code < 600:
+                raise SystemExit(error)
+            try:
+                retry_after = float(response.headers.get("Retry-After", delay))
+                if math.isfinite(retry_after):
+                    delay = min(max(retry_after, 0), 60)
+            except ValueError:
+                pass
+        if attempt == retries:
+            raise SystemExit(f"{error}; resume this bundle with --resume")
+        print(f"  {error}; retrying in {delay:g}s")
+        time.sleep(delay)
+
+
+def check_png(data, transparent):
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            if image.format != "PNG":
+                raise ValueError("expected PNG")
+            image.load()
+            rgba = image.convert("RGBA")
+    except (
+        OSError,
+        ValueError,
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+    ) as exc:
+        raise SystemExit("OpenRouter did not return a valid PNG") from exc
+    if transparent:
+        low, high = rgba.getchannel("A").getextrema()
+        if low == 255 or high == 0:
+            raise SystemExit(
+                "Expected a visible sprite with real transparency; the model returned opaque or empty pixels"
+            )
+    return rgba
+
+
+def write_atomic(path, data):
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_bytes(data)
+    temporary.replace(path)
+
+
+def white_background(image):
+    canvas = Image.new("RGBA", image.size, "white")
+    canvas.alpha_composite(image)
+    buffer = io.BytesIO()
+    canvas.convert("RGB").save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def generate_bundle(args, spec, settings, out_dir, api_key):
+    manifest_path = out_dir / "manifest.json"
+    manifest = {
+        "version": 1,
+        "spec": spec,
+        "settings": settings,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "images": [],
+    }
+    if args.resume:
+        try:
+            saved = json.loads(manifest_path.read_text())
+        except (OSError, ValueError) as exc:
+            raise SystemExit(
+                "Cannot resume without a valid manifest; use a new output directory"
+            ) from exc
+        if not isinstance(saved, dict) or any(
+            saved.get(key) != manifest[key] for key in ("version", "spec", "settings")
+        ):
+            raise SystemExit(
+                "Resume requires the same spec, model, aspect ratio, and alpha settings"
+            )
+        if not isinstance(saved.get("images"), list):
+            raise SystemExit("Invalid manifest image list")
+        manifest = saved
+
+    base_prompt = (
+        f"Create a single full-body manga character sprite: {spec['description']}. "
+        "Standing, facing the viewer, entire head and feet visible, clean linework, "
+        "consistent anime shading. Isolated on a transparent background, no text."
+    )
+    jobs = [("base.png", base_prompt, True)]
+    for field, prefix in (("expressions", "face"), ("shots", "shot")):
+        jobs.extend(
+            (f"{prefix}_{entry['name']}.png", entry["instruction"], args.alpha_edits)
+            for entry in spec[field]
+        )
+    expected = {name for name, _, _ in jobs}
+    completed = {}
+    for record in manifest["images"]:
+        if (
+            not isinstance(record, dict)
+            or record.get("file") not in expected
+            or record["file"] in completed
+        ):
+            raise SystemExit("Invalid manifest image record")
+        path = out_dir / record["file"]
+        if not path.is_file() or hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest() != record.get("sha256"):
+            raise SystemExit(
+                f"Saved image missing or changed: {path.name}; use a new output directory"
+            )
+        completed[record["file"]] = record
+    if completed and "base.png" not in completed:
+        raise SystemExit(
+            "Cannot resume derived shots without their original base sprite"
+        )
+
+    def checkpoint():
+        write_atomic(manifest_path, (json.dumps(manifest, indent=2) + "\n").encode())
+
+    checkpoint()
+    reference = None
+    for index, (filename, prompt, transparent) in enumerate(jobs, 1):
+        path = out_dir / filename
+        if filename in completed:
+            data = path.read_bytes()
+            image = check_png(data, transparent)
+            print(f"[{index}/{len(jobs)}] keeping {filename}")
+        else:
+            print(f"[{index}/{len(jobs)}] generating {filename}")
+            payload = {
+                "model": settings["model"],
+                "prompt": prompt,
+                "aspect_ratio": settings["aspect_ratio"],
+                "output_format": "png",
+                "background": "transparent" if transparent else "opaque",
+                "n": 1,
+            }
+            if reference is not None:
+                payload["input_references"] = [
+                    {"type": "image_url", "image_url": {"url": reference}}
+                ]
+                payload["prompt"] += (
+                    " Transparent background."
+                    if transparent
+                    else " Clean white background."
+                )
+            data, usage = generate(payload, api_key, args.timeout, args.retries)
+            image = check_png(data, transparent)
+            write_atomic(path, data)
+            record = {
+                "file": filename,
+                "prompt": payload["prompt"],
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "usage": usage,
+            }
+            if transparent:
+                record["raw_file"] = f"{path.stem}_raw.png"
+            manifest["images"].append(record)
+            checkpoint()
+        if transparent:
+            write_atomic(out_dir / f"{path.stem}_raw.png", white_background(image))
+        if filename == "base.png":
+            reference = "data:image/png;base64," + base64.b64encode(data).decode(
+                "ascii"
+            )
+    print(f"Bundle complete: {out_dir}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--spec", help="character spec JSON file")
+    parser.add_argument("--slug", help="character output folder name")
+    parser.add_argument("--description", help="character appearance in plain language")
+    parser.add_argument(
+        "--expressions", help=f"comma-separated expressions: {', '.join(EXPRESSIONS)}"
+    )
+    parser.add_argument("--shots", help=f"comma-separated shots: {', '.join(SHOTS)}")
+    parser.add_argument(
+        "--model", default=os.environ.get("OPENROUTER_IMAGE_MODEL", DEFAULT_MODEL)
     )
     parser.add_argument(
-        "--endpoint",
-        default=os.environ.get("IMAGEGEN_ENDPOINT"),
-        help="ComfyUI API endpoint URL (env: IMAGEGEN_ENDPOINT)",
+        "--aspect-ratio",
+        default="2:3",
+        choices=["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "21:9", "auto"],
     )
     parser.add_argument(
-        "--token-id",
-        default=os.environ.get("MODAL_PROXY_TOKEN_ID"),
-        help="Modal proxy token id (env: MODAL_PROXY_TOKEN_ID)",
-    )
-    parser.add_argument(
-        "--token-secret",
-        default=os.environ.get("MODAL_PROXY_TOKEN_SECRET"),
-        help="Modal proxy token secret (env: MODAL_PROXY_TOKEN_SECRET)",
-    )
-    parser.add_argument("--spec", help="path to a character spec JSON file")
-    parser.add_argument("--slug", help="character slug (output folder name)")
-    parser.add_argument(
-        "--description", help="Danbooru-style character description tags"
-    )
-    parser.add_argument("--seed", type=int, help="base seed for reproducibility")
-    parser.add_argument(
-        "--expressions",
-        help=f"comma-separated face expressions (built-ins: {', '.join(EXPRESSIONS)})",
-    )
-    parser.add_argument(
-        "--shots",
-        help=f"comma-separated extra shots (built-ins: {', '.join(SHOTS)})",
-    )
-    parser.add_argument(
-        "--out", default=None, help="output root directory (default: imagegen/output)"
+        "--out", type=Path, default=Path(__file__).resolve().parents[1] / "output"
     )
     parser.add_argument(
         "--alpha-edits",
         action="store_true",
-        help="also remove the background from face/shot images",
+        help="transparent derived shots, with white-background companions",
     )
     parser.add_argument(
-        "--no-lightning",
+        "--resume",
         action="store_true",
-        help="render edits with the full 20-step schedule instead of the 4-step LoRA",
+        help="continue an existing bundle with identical settings",
     )
     parser.add_argument(
-        "--timeout", type=float, default=900, help="per-request timeout in seconds"
+        "--timeout", type=float, default=300, help="per-request timeout in seconds"
     )
     parser.add_argument(
-        "--retries", type=int, default=2, help="retries per request on transient errors"
+        "--retries",
+        type=int,
+        default=2,
+        help="extra attempts for network errors, 429, and 5xx",
     )
     args = parser.parse_args()
-
-    if not args.endpoint:
-        raise SystemExit("--endpoint (or IMAGEGEN_ENDPOINT) is required")
-    if not (args.token_id and args.token_secret):
-        print(
-            "warning: no proxy token configured; requests will fail with 401 unless "
-            "the endpoint is public",
-            file=sys.stderr,
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise SystemExit("Set OPENROUTER_API_KEY before generating a bundle")
+    if (
+        not args.model.strip()
+        or not math.isfinite(args.timeout)
+        or args.timeout <= 0
+        or not 0 <= args.retries <= 10
+    ):
+        raise SystemExit(
+            "Model must be non-empty, timeout positive and finite, and retries between 0 and 10"
         )
-
     spec = load_spec(args)
-    expressions = resolve_entries(spec["expressions"], EXPRESSIONS, "expression")
-    shots = resolve_entries(spec["shots"], SHOTS, "shot")
-
-    out_root = Path(args.out) if args.out else Path(__file__).resolve().parent.parent / "output"
-    out_dir = out_root / spec["slug"]
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    client = ImagegenClient(
-        args.endpoint, args.token_id, args.token_secret, args.timeout, args.retries
-    )
-
-    base_prompt = f"{spec['description']}, {BASE_PROMPT_SUFFIX}, {QUALITY_TAGS}"
-    negative_prompt = spec.get("negative", DEFAULT_NEGATIVE)
-    base_seed = spec.get("seed")
-
-    manifest: dict[str, Any] = {
-        "slug": spec["slug"],
-        "description": spec["description"],
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "endpoint": client.endpoint,
-        "negative_prompt": negative_prompt,
-        "lightning": not args.no_lightning,
-        "images": [],
+    settings = {
+        "model": args.model,
+        "aspect_ratio": args.aspect_ratio,
+        "alpha_edits": args.alpha_edits,
     }
-
-    # --- Stage A: full-body master sprite -------------------------------------
-    print(f"[1/{1 + len(expressions) + len(shots)}] base sprite for '{spec['slug']}'...")
-    started = time.time()
-    payload: dict[str, Any] = {
-        "workflow": "base",
-        "prompt": base_prompt,
-        "negative_prompt": negative_prompt,
-        "remove_background": True,
-    }
-    if base_seed is not None:
-        payload["seed"] = int(base_seed) % (SEED_MAX + 1)
-    if spec.get("width"):
-        payload["width"] = int(spec["width"])
-    if spec.get("height"):
-        payload["height"] = int(spec["height"])
-
-    result = client.generate(payload)
-    base_seed = result["seed"]
-    base_raw = base64.b64decode(result["images"]["raw"])
-    (out_dir / "base_raw.png").write_bytes(base_raw)
-    (out_dir / "base.png").write_bytes(base64.b64decode(result["images"]["alpha"]))
-    print(f"  done in {time.time() - started:.1f}s (seed {base_seed})")
-    manifest["images"].append(
-        {
-            "file": "base.png",
-            "workflow": "base",
-            "prompt": base_prompt,
-            "seed": base_seed,
-            "raw_file": "base_raw.png",
-        }
-    )
-
-    # --- Stage B: derived shots of the same character --------------------------
-    base_raw_b64 = base64.b64encode(base_raw).decode("ascii")
-    derived = [("face", name, instruction) for name, instruction in expressions]
-    derived += [("shot", name, instruction) for name, instruction in shots]
-
-    for index, (prefix, name, instruction) in enumerate(derived, start=1):
-        filename = f"{prefix}_{name}.png"
-        print(f"[{1 + index}/{1 + len(derived)}] {filename}...")
-        started = time.time()
-        payload = {
-            "workflow": "edit",
-            "prompt": instruction,
-            "image_b64": base_raw_b64,
-            "lightning": not args.no_lightning,
-            "remove_background": bool(args.alpha_edits),
-        }
-        if spec.get("seed") is not None:
-            payload["seed"] = (int(spec["seed"]) + index) % (SEED_MAX + 1)
-
-        result = client.generate(payload)
-        images = result["images"]
-        if args.alpha_edits:
-            (out_dir / filename).write_bytes(base64.b64decode(images["alpha"]))
-            raw_file = f"{prefix}_{name}_raw.png"
-            (out_dir / raw_file).write_bytes(base64.b64decode(images["raw"]))
-        else:
-            (out_dir / filename).write_bytes(base64.b64decode(images["raw"]))
-            raw_file = None
-        print(f"  done in {time.time() - started:.1f}s (seed {result['seed']})")
-        manifest["images"].append(
-            {
-                "file": filename,
-                "workflow": "edit",
-                "kind": prefix,
-                "name": name,
-                "instruction": instruction,
-                "seed": result["seed"],
-                **({"raw_file": raw_file} if raw_file else {}),
-            }
-        )
-
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"\nbundle complete: {out_dir}")
+    out_dir = args.out / spec["slug"]
+    if args.resume:
+        if not out_dir.is_dir():
+            raise SystemExit("No existing bundle to resume")
+    else:
+        try:
+            out_dir.mkdir(parents=True, exist_ok=False)
+        except FileExistsError as exc:
+            raise SystemExit(
+                "Output directory already exists; use --resume or a new --out directory"
+            ) from exc
+    lock = out_dir / ".generating"
+    try:
+        with lock.open("x"):
+            pass
+    except FileExistsError as exc:
+        raise SystemExit(
+            "This bundle is already being generated. Remove .generating only if the previous process has stopped."
+        ) from exc
+    try:
+        generate_bundle(args, spec, settings, out_dir, api_key)
+    finally:
+        lock.unlink()
 
 
 if __name__ == "__main__":

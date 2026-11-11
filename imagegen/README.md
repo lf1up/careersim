@@ -1,156 +1,147 @@
-# imagegen — manga character pipeline (ComfyUI on Modal)
+# Character image bundles with OpenRouter
 
-Generates consistent 2D manga characters for CareerSIM's visual-novel features. One
-[ComfyUI](https://github.com/comfyanonymous/ComfyUI) deployment on
-[modal.com](https://modal.com) produces, per character:
+Generate a full-body manga sprite, then use that sprite as the reference for
+matching expressions and alternate shots. This is the OpenRouter alternative to
+[PR #67's Modal implementation](https://github.com/lf1up/careersim/pull/67).
+It runs as a local Python CLI; no GPU server or model downloads are needed.
+It is not yet connected to CareerSIM's persona or avatar routes.
 
-- a **full-body master sprite** (Animagine XL 4.0, transparent background via BiRefNet);
-- **derived shots of the same character** — face close-ups with different expressions,
-  waist-up shots, hands, profile views — using Qwen-Image-Edit-2509 instruction edits
-  that preserve the character's identity.
+## Setup
 
-See [RESEARCH.md](RESEARCH.md) for the model/approach research and licensing notes.
-
-```
-imagegen/
-├── modal_app/app.py           # Modal app: image build, model downloads, ComfyUI UI + API
-├── workflows/
-│   ├── character_base.json    # API-format: txt2img master sprite (+ alpha branch)
-│   └── character_edit.json    # API-format: identity-preserving edit (+ alpha branch)
-├── scripts/generate_character.py  # CLI: character spec -> full asset bundle
-└── output/<slug>/             # generated bundles (gitignored)
-```
-
-## Prerequisites
-
-- [uv](https://docs.astral.sh/uv/) (same toolchain as `agent/`)
-- A [Modal](https://modal.com) account (Starter plan includes $30/month free compute)
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and an OpenRouter key
+with image-generation credits.
 
 ```bash
 cd imagegen
 uv sync
-uv run modal setup   # one-time browser auth; writes ~/.modal.toml
+export OPENROUTER_API_KEY=your-key
 ```
 
-No Hugging Face token is needed — all models are public and ungated.
+The default model is `openai/gpt-image-2.6-flare`. Override it with `--model` or
+`OPENROUTER_IMAGE_MODEL`. Choose a model/provider supporting image references,
+PNG output, transparent backgrounds, and your requested aspect ratio. Check the
+[endpoint capabilities](https://openrouter.ai/api/v1/images/models/openai/gpt-image-2.6-flare/endpoints)
+before changing models; capabilities differ between providers.
 
-## Deploy
+The CLI reads environment variables from the shell. It does not load `.env` files.
 
-```bash
-uv run modal deploy modal_app/app.py
-```
-
-First deploy builds the image and downloads ~38 GB of model weights into a persistent
-Modal Volume (one-time, ~5–15 min). The deploy prints two URLs:
-
-- `...-comfyui-api.modal.run` — the generation API (used by the client below)
-- `...-ui.modal.run` — interactive ComfyUI (for workflow development)
-
-The API endpoint is protected by [Modal proxy auth](https://modal.com/docs/guide/webhook-proxy-auth).
-Create a proxy token in the Modal dashboard (Settings → Proxy Auth Tokens) and export it:
-
-```bash
-export MODAL_PROXY_TOKEN_ID=wk-...
-export MODAL_PROXY_TOKEN_SECRET=ws-...
-```
-
-### Smoke test without the HTTP endpoint
-
-```bash
-uv run modal run modal_app/app.py
-```
-
-generates one sample character (base + one smiling face shot) straight through the
-deployed infrastructure and writes the PNGs to `/tmp/imagegen-smoke/`.
-
-## Generate a character bundle
+## Generate a bundle
 
 ```bash
 uv run python scripts/generate_character.py \
-  --endpoint https://<workspace>--careersim-imagegen-comfyui-api.modal.run \
   --slug aiko \
-  --description "1girl, solo, aiko, office lady, mid-twenties, long dark brown hair, amber eyes, navy blazer, white shirt, pencil skirt, id badge on lanyard" \
+  --description "A manga office worker in her mid-twenties, long dark brown hair, amber eyes, navy blazer, white shirt, pencil skirt, ID badge" \
   --expressions neutral,happy,sad,surprised \
   --shots upper_body,hands
 ```
 
-Output lands in `output/aiko/`:
+Output goes to `imagegen/output/aiko/`:
 
+```text
+base.png              transparent full-body sprite and reference for edits
+base_raw.png          same pixels composited onto white locally
+face_neutral.png       derived face shots
+face_happy.png
+face_sad.png
+face_surprised.png
+shot_upper_body.png    derived body shots
+shot_hands.png
+manifest.json         normalized spec, settings, prompts, hashes, API usage
 ```
-output/aiko/
-├── base.png            # transparent full-body sprite (the VN asset)
-├── base_raw.png        # same render before background removal (edit reference)
-├── face_neutral.png    # face close-ups, same character, per expression
-├── face_happy.png
-├── face_sad.png
-├── face_surprised.png
-├── shot_upper_body.png
-├── shot_hands.png
-└── manifest.json       # spec, seeds and parameters for reproducibility
-```
+
+The base always requires real transparency. Derived shots have white backgrounds
+by default. Add `--alpha-edits` for transparent derived images and their
+`*_raw.png` white-background companions. The CLI rejects invalid PNGs, fully
+opaque sprites when transparency is required, and fully transparent empty sprites.
+
+`--aspect-ratio` defaults to `2:3` for all images. Exact pixel dimensions depend
+on the model. Every derived request uses the original base as its reference,
+so edits do not accumulate changes from previous shots. Character consistency
+still needs visual review; a reference is not a guarantee of identical features.
 
 Built-in expressions: `neutral`, `happy`, `sad`, `angry`, `surprised`, `worried`,
-`embarrassed`, `determined`. Built-in shots: `upper_body`, `hands`, `profile`,
-`back`. Anything else can be defined in a spec file.
+`embarrassed`, `determined`. Built-in shots: `upper_body`, `hands`, `profile`, `back`.
+Use `--expressions ''` for a base-only smoke test.
 
-### Spec-file mode
+## Character specs
 
-For repeatable casts, keep one JSON file per character:
+```json
+{
+  "slug": "aiko",
+  "description": "Manga office worker, long dark brown hair, amber eyes, navy blazer",
+  "expressions": [
+    "neutral",
+    "happy",
+    {"name": "smug", "instruction": "Close-up portrait with a smug smile and one raised eyebrow"}
+  ],
+  "shots": [
+    "upper_body",
+    {"name": "phone", "instruction": "Close-up of this character's hand holding a smartphone"}
+  ]
+}
+```
 
 ```bash
 uv run python scripts/generate_character.py --spec specs/aiko.json
 ```
 
-```json
-{
-  "slug": "aiko",
-  "description": "1girl, solo, office lady, mid-twenties, long dark brown hair, amber eyes, navy blazer",
-  "seed": 42,
-  "expressions": [
-    "neutral",
-    "happy",
-    { "name": "smug", "instruction": "with a confident smug smile, one eyebrow raised" }
-  ],
-  "shots": [
-    "upper_body",
-    { "name": "phone", "instruction": "Close-up of the character's hand holding a smartphone" }
-  ]
-}
-```
+Custom instructions also receive the identity-preservation instruction. Names
+must start with a letter or number and contain only letters, numbers, underscores,
+or hyphens, up to 100 characters. Duplicate expression or shot names are rejected,
+including names differing only by letter case and collisions with `_raw` companions.
 
-Fixed seeds make the base sprite reproducible; each derived shot records its own seed in
-`manifest.json`.
+Legacy Modal flags (`--endpoint`, proxy tokens, `--seed`, `--no-lightning`) are
+removed. Old spec fields such as `seed`, `negative`, `width`, and `height` are
+rejected with a migration message. Keep only `slug`, `description`, `expressions`,
+and `shots`; select model and aspect ratio with CLI flags.
 
-## Developing workflows interactively
+## Recover interrupted runs
+
+The manifest is saved after each validated image. Run the same command with
+`--resume` to keep completed images and request the remaining ones:
 
 ```bash
-uv run modal serve modal_app/app.py
+uv run python scripts/generate_character.py --spec specs/aiko.json --resume
 ```
 
-opens a live ComfyUI at the printed `...-ui.modal.run` URL with all models available.
-Build/tweak a graph there, use *Export (API)* and drop the JSON into `workflows/` — the
-API loads workflow files fresh from the container on each request, so `modal deploy`
-picks up changes without an image rebuild.
+Use the same model, aspect ratio, alpha setting, and character spec. Changed or
+missing recorded images cause an error so a new base cannot silently be mixed
+with older shots. White-background companions are recreated locally when needed.
+A new run refuses an existing output directory. Use a new `--out` directory for
+a different version of the same character.
 
-## Costs and performance
+One process may write a bundle at a time. After a forced process termination,
+remove `output/<slug>/.generating` only after confirming that process has stopped.
+Then resume. If the process stopped before the first manifest was written, use a
+new output directory.
 
-- GPU: one **L40S** (~$1.95/h, billed per second, scales to zero when idle).
-- Warm timings: base sprite ~10–15 s; each edit shot ~15–25 s with the Lightning 4-step
-  LoRA (default). A full bundle (base + 6 shots) ≈ 2–4 GPU-minutes ≈ **$0.05–0.15**.
-- Cold start adds ~1–3 min (server boot + first model load from the Volume). The
-  container stays warm for 5 minutes after the last request (`scaledown_window`).
-- Hero-quality edits: pass `--no-lightning` to render edits with the full 20-step / CFG 4
-  schedule (~4–8× slower).
+## Cost and failure behavior
 
-## Troubleshooting
+Each image is a separate paid request. A base plus four expressions and two shots
+makes seven requests. Consult the selected model's current endpoint pricing;
+this implementation does not claim the original PR's estimated Modal cost.
+`manifest.json` records the usage and cost returned by OpenRouter.
 
-- **401 from the API** — missing/wrong proxy token headers; re-check
-  `MODAL_PROXY_TOKEN_ID` / `MODAL_PROXY_TOKEN_SECRET`.
-- **First request times out** — cold start plus first Qwen load can exceed client
-  timeouts; the client retries by default. `modal app logs careersim-imagegen` shows
-  server-side progress.
-- **Identity drift on a shot** — regenerate with a different `--seed`; the edit model is
-  seeded per shot. Stronger phrasing in the instruction ("this exact character,
-  identical face and hair") also helps.
-- **Rebuilding models** — weights live in the `careersim-imagegen-hf-cache` Volume;
-  deleting it forces a re-download on next build.
+Network errors, HTTP 429, and HTTP 5xx retry twice by default. Use `--retries 0`
+to disable retries. Numeric `Retry-After` delays are honored up to 60 seconds.
+Authentication and other client errors stop immediately. The default request
+timeout is 300 seconds and can be changed with `--timeout`.
+
+A timeout can happen after the provider has generated and billed an image.
+Retrying or resuming an unrecorded image can therefore incur another charge.
+There is also a small interruption window between writing an image and recording
+it in the manifest. Credentials are never stored in the bundle.
+
+Hosted models can change and do not offer this CLI's old fixed-seed behavior.
+Keep generated files as the source of truth; prompts alone cannot reproduce them.
+
+## Tests
+
+```bash
+uv run python -m unittest discover -s tests -v
+uv run python scripts/generate_character.py --help
+```
+
+Tests mock the HTTP boundary and process real PNG fixtures. CI runs them without
+credentials or image-generation charges. Live artwork quality, identity
+consistency, latency, and cost still need a paid sample run.
