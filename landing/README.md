@@ -30,12 +30,15 @@ only when the creator plugin is live in the app. This page is static, so rebuild
 and redeploy after changing the flag.
 
 Pricing is disabled by default in both apps. Set `LANDING_PRICING_ENABLED=true`
-(or `1`) to show Pricing in the homepage footer, and set
+(or `1`) to show Pricing in the homepage and legal-page footers, and set
 `NEXT_PUBLIC_PRICING_ENABLED=true` in web to enable its pricing links and
 `/pricing` page. Unset, empty, `false`, and `0` keep pricing hidden. Rebuild and redeploy both
 apps after changing these flags. Contact forms and links remain available.
-The homepage and business-page Contact footer links open `/contact` on the
+The homepage, legal-page, and business-page Contact footer links open `/contact` on the
 `LANDING_APP_URL` origin.
+The homepage, Privacy, Terms, and Security pages share `LandingFooter.astro`.
+After building, run `pnpm test:footers` to compare their rendered footers and
+link destinations.
 
 The `/business` contact form on `careersim.ai` is handled by the `web`
 package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
@@ -54,6 +57,7 @@ pnpm dev          # local dev server on :4321
 pnpm build        # static production build
 pnpm preview      # preview the built output
 pnpm check        # Astro type/template checks
+pnpm test:footers # compare homepage/legal footers after pnpm build
 pnpm sync:figma   # refresh Figma metadata and reference screenshots
 ```
 
