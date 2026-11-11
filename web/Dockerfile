@@ -22,7 +22,7 @@ RUN pnpm install --frozen-lockfile --prod=false
 
 FROM base AS build
 ENV NEXT_TELEMETRY_DISABLED=1
-ARG NEXT_PUBLIC_PRICING_ENABLED=true
+ARG NEXT_PUBLIC_PRICING_ENABLED=false
 ENV NEXT_PUBLIC_PRICING_ENABLED=${NEXT_PUBLIC_PRICING_ENABLED}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

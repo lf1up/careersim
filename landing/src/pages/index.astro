@@ -11,7 +11,7 @@ const linkedinUrl = import.meta.env.LANDING_LINKEDIN_URL?.trim() || '';
 const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.local/register';
 const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
 const creatorEnabled = ['true', '1'].includes(import.meta.env.LANDING_CREATOR_ENABLED ?? '');
-const pricingEnabled = ['true', '1'].includes(import.meta.env.LANDING_PRICING_ENABLED ?? 'true');
+const pricingEnabled = ['true', '1'].includes(import.meta.env.LANDING_PRICING_ENABLED ?? '');
 // Only set when the web blog is live — unset hides Blog nav/footer links.
 const blogUrl = import.meta.env.LANDING_BLOG_URL?.trim() || '';
 const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
