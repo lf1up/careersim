@@ -1,3 +1,7 @@
+allowBuilds:
+  argon2: true
+  esbuild: true
+
 overrides:
   brace-expansion@>=4.0.0 <5.0.12: '>=5.0.12 <6.0.0'
   esbuild@<=0.24.2: '>=0.28.1 <1.0.0'
