@@ -61,6 +61,14 @@ pnpm test:footers # compare homepage/legal footers after pnpm build
 pnpm sync:figma   # refresh Figma metadata and reference screenshots
 ```
 
+## Crawling and discovery
+
+The web app generates the canonical site's `/sitemap.xml` and `/robots.txt`,
+including the landing pages when `LANDING_ORIGIN` is configured. Keep
+`LANDING_SITE_URL` equal to web's `NEXT_PUBLIC_SITE_URL`; configure the canonical
+web origin in `LANDING_APP_URL` as well. The standalone landing host does not
+publish a separate sitemap or robots file.
+
 ## 🎨 Figma Source
 
 The source design is saved in `figma/design-source.json`.
