@@ -101,7 +101,7 @@ export const Navbar: React.FC = () => {
             {/* Full nav only from `xl` up: at `lg` widths the nav
                 items + icon controls overflow the 1024px row and crop
                 the brand, so 1024-1279px stays on the burger menu. */}
-            <div className="hidden xl:ml-6 xl:flex xl:min-w-0 xl:gap-3 xl:items-center xl:overflow-x-auto xl:p-1">
+            <div className="hidden xl:ml-6 xl:flex xl:min-w-0 xl:gap-5 xl:items-center xl:overflow-x-auto xl:p-1">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
