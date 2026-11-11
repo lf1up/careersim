@@ -26,7 +26,12 @@ import { readSse } from './sse';
 // API_VERSION_PREFIX=v1).
 /** Full API base URL, version prefix included. Plugin code should use this rather than reading env itself. */
 export function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1').replace(/\/+$/, '');
+  // Server render runs in the web container, where localhost is not the API.
+  const configured =
+    (typeof window === 'undefined' && process.env.API_INTERNAL_URL) ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8000/v1';
+  return configured.replace(/\/+$/, '');
 }
 
 // Auth is cookie-based: the API sets an httpOnly session cookie at
@@ -297,7 +302,11 @@ export const apiClient = {
     const path = slugOrUrl.startsWith('/')
       ? slugOrUrl
       : `/personas/${encodeURIComponent(slugOrUrl)}/avatar`;
-    return `${apiBaseUrl()}${path}`;
+    // Public origin only. apiBaseUrl() uses API_INTERNAL_URL during SSR, which mismatches the hydrated img src.
+    const base = (
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/v1'
+    ).replace(/\/+$/, '');
+    return `${base}${path}`;
   },
 
   // ---------- sessions ----------
