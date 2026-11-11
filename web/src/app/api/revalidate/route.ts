@@ -56,12 +56,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   for (const slug of slugs) {
     revalidatePath(`/blog/${slug}`);
   }
-  // Keep the sitemap fresh so newly published posts are discoverable quickly.
+  // Keep both discovery files fresh after post publication, changes, or removal.
   revalidatePath('/sitemap.xml');
+  revalidatePath('/llms.txt');
 
   const slugPaths = [...slugs].map((slug) => `/blog/${slug}`);
   return NextResponse.json({
     revalidated: true,
-    paths: ['/blog', ...slugPaths, '/sitemap.xml'],
+    paths: ['/blog', ...slugPaths, '/sitemap.xml', '/llms.txt'],
   });
 }

@@ -318,6 +318,34 @@ on the web project. Only the API configures proof-of-work difficulty.
 
 ---
 
+## Crawling and discovery
+
+The web app owns `/sitemap.xml`, `/robots.txt`, and `/llms.txt` for the canonical
+site, including marketing pages served through `LANDING_ORIGIN`. Public-page
+definitions live in `src/lib/crawl-pages.ts`. The discovery files refresh every
+five minutes; the Ghost webhook also invalidates the sitemap and `llms.txt`.
+
+- Contact, the simulation catalog, public simulation details, sign-in, and signup
+  are included. Sign-in and signup deliberately remain indexable.
+- Pricing appears only when `NEXT_PUBLIC_PRICING_ENABLED=true`/`1`. Blog pages
+  and posts require both the blog flag and Ghost credentials.
+- Home, Business, Privacy, Terms, and Security are included only when
+  `LANDING_ORIGIN` is configured. Without it, `/` redirects to the catalog and
+  the other marketing routes are not served by this app.
+- Private account, analytics, session, authentication-action, and API routes are
+  excluded. Plugin crawl restrictions are preserved. Namespaced private
+  simulations are excluded from both the sitemap and `llms.txt`.
+- Sitemap URLs are canonical and deduplicated. Modification dates are emitted
+  only when the CMS supplies a valid update or publication date.
+
+Set `NEXT_PUBLIC_SITE_URL` and landing's `LANDING_SITE_URL` to the same public
+canonical origin. The landing deployment does not generate a competing sitemap
+or robots file. Robots rules manage crawling; private pages retain their
+authentication and `noindex` metadata.
+
+`src/app/crawl.test.ts` checks the feature combinations and classifies every
+current page route so new routes cannot silently bypass this review.
+
 ## 📜 License
 
 This project is licensed under the MIT License -- see the [LICENSE.md](../LICENSE.md) file for details.

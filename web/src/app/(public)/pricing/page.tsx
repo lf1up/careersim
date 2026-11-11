@@ -5,7 +5,8 @@ import { isPricingEnabled } from '@/lib/pricing';
 import { PricingPage } from '@/components/billing/PricingPage';
 import { fetchPlanCatalog } from '@/lib/billing';
 import { RetroAlert } from '@/components/ui/RetroBadge';
-export const metadata: Metadata = { title: 'Pricing', description: 'Compare Free, Plus, and Supporter practice allowances with monthly and yearly billing.' };
+import { metadataFor } from '@/lib/seo';
+export const metadata: Metadata = metadataFor({ title: 'Pricing', path: '/pricing', description: 'Compare Free, Plus, and Supporter practice allowances with monthly and yearly billing.' });
 export const dynamic = 'force-dynamic';
 export default async function Pricing({ searchParams }: { searchParams: Promise<{ interval?: string }> }) {
   if (!isPricingEnabled()) notFound();
