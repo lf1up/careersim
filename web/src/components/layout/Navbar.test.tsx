@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const { auth } = vi.hoisted(() => ({ auth: {
   isAuthenticated: true, isLoading: false, user: { email: 'test@example.com' }, logout: vi.fn(),
@@ -11,7 +11,8 @@ vi.mock('@careersim/plugins', () => ({ plugins: [{ id: 'creator', navItems: [{ h
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 
-beforeEach(() => { auth.isAuthenticated = true; });
+beforeEach(() => { auth.isAuthenticated = true; vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); });
+afterEach(() => vi.unstubAllEnvs());
 
 it('shows Pricing instead of Create in the signed-in header and keeps account access', () => {
   render(<><Navbar /><Footer /></>);
@@ -35,4 +36,13 @@ it('keeps pricing in the guest navigation', () => {
   render(<Navbar />);
   expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Pricing' })).toHaveAttribute('href', '/pricing');
   expect(screen.queryByRole('link', { name: /Create/ })).not.toBeInTheDocument();
+});
+
+it.each([true, false])('hides desktop and mobile pricing links while keeping Contact when authenticated=%s', (authenticated) => {
+  auth.isAuthenticated = authenticated;
+  vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'false');
+  render(<><Navbar /><Footer /></>);
+  fireEvent.click(screen.getByRole('button', { name: 'Open main menu' }));
+  expect(screen.queryByRole('link', { name: 'Pricing' })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '/contact');
 });

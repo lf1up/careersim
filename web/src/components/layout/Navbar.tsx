@@ -9,6 +9,7 @@ import { UserIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 import { guestNavItems, signedInNavItems, type WebNavItem } from '@/extensions';
 import { SITE_NAME } from '@/lib/seo';
+import { isPricingEnabled } from '@/lib/pricing';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
 import { RetroBadge } from '@/components/ui/RetroBadge';
@@ -47,7 +48,8 @@ export const Navbar: React.FC = () => {
   // While the auth bootstrap is running we can't know yet which variant of
   // the bar to show; render a minimal neutral header so the page doesn't
   // flash "guest → auth" or vice-versa.
-  const navItems = isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : guestNavItems(GUEST_NAV_ITEMS);
+  const navItems = (isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : guestNavItems(GUEST_NAV_ITEMS))
+    .filter(item => isPricingEnabled() || item.href !== '/pricing');
 
   const desktopNavLinkClass = (active: boolean) =>
     clsx(

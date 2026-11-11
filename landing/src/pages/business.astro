@@ -8,6 +8,7 @@ const siteName = import.meta.env.LANDING_SITE_NAME?.trim() || 'careersim.local';
 const siteUrl = import.meta.env.LANDING_SITE_URL?.trim() || 'https://careersim.local';
 const githubUrl = import.meta.env.LANDING_GITHUB_URL ?? 'https://github.com/lf1up/careersim';
 const linkedinUrl = import.meta.env.LANDING_LINKEDIN_URL?.trim() || '';
+const appUrl = import.meta.env.LANDING_APP_URL ?? 'https://careersim.local/register';
 const simulationsUrl = import.meta.env.LANDING_SIMULATIONS_URL ?? 'https://careersim.local/simulations';
 const contactEmail = import.meta.env.LANDING_CONTACT_EMAIL ?? 'hello@careersim.local';
 const analyticsProps = landingAnalyticsProps();
@@ -643,7 +644,7 @@ const linkedinIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4
             <ul>
               <li><a href={githubUrl}>GitHub</a></li>
               {linkedinUrl ? <li><a href={linkedinUrl}>LinkedIn</a></li> : null}
-              <li><a href={`mailto:${contactEmail}`}>Contact</a></li>
+              <li><a href={new URL('/contact', appUrl).href}>Contact</a></li>
             </ul>
           </div>
           <div class="footer-col">

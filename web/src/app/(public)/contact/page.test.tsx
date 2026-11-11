@@ -1,11 +1,13 @@
 import { render } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/auth/AltchaWidget', () => ({ AltchaWidget: () => null }));
 
 import ContactPage from './page';
+afterEach(() => vi.unstubAllEnvs());
 
 it('opens Contact at the top of the shared scroll container without resetting later scrolling', async () => {
+  vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'false');
   const main = document.createElement('main');
   document.body.append(main);
   main.scrollTop = 600;
