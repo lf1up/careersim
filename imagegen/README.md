@@ -166,3 +166,14 @@ named `openrouter_key.json` in ComfyUI's user directory. That file contains
 the key into the workflow JSON or a node widget. After starting ComfyUI,
 drag the editable workflow onto its canvas and select Run. Output PNGs land
 in ComfyUI's normal output directory. Each node call uses OpenRouter credits.
+
+For matching facial expressions, copy a finished close-up portrait into
+ComfyUI's input directory as `careersim_face_reference.png`, then open the
+[emotions workflow](workflows/openrouter_emotions.json). It generates neutral,
+sad, angry, surprised, worried, embarrassed, and determined portraits from
+that one fixed reference; keep the original happy portrait as the eighth.
+If the canvas reports a missing media input, select or upload that file in
+the Load Image node once.
+The [API-format version](workflows/openrouter_emotions_api.json) uses the same
+inputs and output names. Each new expression calls OpenRouter once unless
+ComfyUI can reuse a cached result.

@@ -1,0 +1,169 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "careersim_face_reference.png"
+    }
+  },
+  "2": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to a calm, relaxed expression with a natural closed mouth and gentle eyes. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_neutral",
+      "images": [
+        "2",
+        0
+      ]
+    }
+  },
+  "3": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to a sad expression with downturned mouth, slightly teary eyes, and softened brows. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_sad",
+      "images": [
+        "3",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to an angry expression with furrowed brows, narrowed eyes, and a tense mouth. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_angry",
+      "images": [
+        "4",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to a surprised expression with wide eyes, raised brows, and a slightly open mouth. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_surprised",
+      "images": [
+        "5",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to a worried expression with concerned brows and an uncertain mouth. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_worried",
+      "images": [
+        "6",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to an embarrassed expression with a soft blush and a bashful smile, still facing forward. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "14": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_embarrassed",
+      "images": [
+        "7",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Edit the supplied portrait of this exact character. Change only her facial expression to a determined expression with a focused gaze and a confident, closed mouth. Preserve her face shape, hairstyle, dark brown hair, amber eyes, navy blazer, white shirt, ID lanyard, head angle, framing, manga illustration style, and clean white background. Keep the same person; no text or new accessories.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_determined",
+      "images": [
+        "8",
+        0
+      ]
+    }
+  }
+}
