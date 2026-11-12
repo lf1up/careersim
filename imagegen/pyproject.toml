@@ -1,0 +1,14 @@
+[project]
+name = "careersim-imagegen"
+version = "0.1.0"
+description = "Generate manga character sprite bundles through OpenRouter's image API."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32",
+    "pillow>=11,<14",
+]
+
+[tool.uv]
+# This directory is a CLI workspace, not an installable package.
+package = false
