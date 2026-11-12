@@ -145,3 +145,24 @@ uv run python scripts/generate_character.py --help
 Tests mock the HTTP boundary and process real PNG fixtures. CI runs them without
 credentials or image-generation charges. Live artwork quality, identity
 consistency, latency, and cost still need a paid sample run.
+
+## Local ComfyUI workflow
+
+The editable [character workflow](workflows/openrouter_character.json) uses two
+CareerSIM OpenRouter Image nodes: a transparent full-body sprite, followed by
+a happy face shot that uses the sprite as its reference. Both images go to
+ComfyUI's standard Save Image node. The API-format version is
+[`openrouter_character_api.json`](workflows/openrouter_character_api.json).
+
+Install the small local node by linking `comfyui_nodes/careersim_openrouter`
+into your ComfyUI `custom_nodes` directory, then restart ComfyUI. It shares
+the CLI's OpenRouter request and PNG validation code. ComfyUI needs its usual
+Python dependencies plus `requests` and `Pillow`. The node also uses ComfyUI's
+existing PyTorch and NumPy packages.
+
+The node reads `OPENROUTER_API_KEY` from the ComfyUI process or a JSON file
+named `openrouter_key.json` in ComfyUI's user directory. That file contains
+`{"api_key":"..."}` and should be readable only by your account. Do not put
+the key into the workflow JSON or a node widget. After starting ComfyUI,
+drag the editable workflow onto its canvas and select Run. Output PNGs land
+in ComfyUI's normal output directory. Each node call uses OpenRouter credits.

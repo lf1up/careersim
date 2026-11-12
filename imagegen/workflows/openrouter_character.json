@@ -1,0 +1,187 @@
+{
+  "id": "959bc17f-10c0-4f56-898d-7345ea3ffa5e",
+  "revision": 0,
+  "last_node_id": 4,
+  "last_link_id": 3,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "CareerSimOpenRouterImage",
+      "pos": [
+        50,
+        80
+      ],
+      "size": [
+        420,
+        250
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "reference_image",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1,
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CareerSimOpenRouterImage"
+      },
+      "widgets_values": [
+        "openai/gpt-image-2.6-flare",
+        "Create a single full-body manga character sprite: A manga office worker with long dark brown hair, amber eyes, a navy blazer, white shirt, and ID badge. Standing, facing the viewer, entire head and feet visible, clean linework, consistent anime shading. Isolated on a transparent background, no text.",
+        "2:3",
+        "transparent"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CareerSimOpenRouterImage",
+      "pos": [
+        520,
+        80
+      ],
+      "size": [
+        420,
+        250
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "reference_image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CareerSimOpenRouterImage"
+      },
+      "widgets_values": [
+        "openai/gpt-image-2.6-flare",
+        "Close-up portrait of this exact character's face and shoulders, smiling warmly with a cheerful, happy expression. Keep the same character: identical face, hairstyle, hair color, eye color and outfit. Preserve the reference image's manga illustration style. Clean white background.",
+        "2:3",
+        "opaque"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [
+        50,
+        430
+      ],
+      "size": [
+        300,
+        100
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "careersim_openrouter_base"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "SaveImage",
+      "pos": [
+        980,
+        80
+      ],
+      "size": [
+        300,
+        100
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "careersim_openrouter_face_happy"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      2,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        50,
+        100
+      ]
+    }
+  },
+  "version": 0.4
+}
