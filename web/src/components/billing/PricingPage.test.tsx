@@ -18,7 +18,10 @@ it('lists three plans and all configured allowances visibly in responsive cards'
   expect(screen.getByText('15 saved custom personas')).toBeVisible();
   expect(screen.getByText('90 voice minutes / day (1.5 hours)')).toBeVisible();
   expect(screen.getByRole('link', { name: catalog.higherLimitsMessage })).toHaveAttribute('href', '/contact?reason=higher-limits');
-  for (const benefit of catalog.plans[2].benefits.slice(3)) expect(screen.getByText(benefit)).toBeVisible();
+  for (const plan of catalog.plans) {
+    const card = within(screen.getByRole('region', { name: plan.name }));
+    for (const benefit of plan.benefits) expect(card.getByText(benefit)).toBeVisible();
+  }
   expect(screen.getByRole('button', { name: 'Supporter coming soon' })).toBeDisabled();
   expect(plus.parentElement).toHaveClass('grid', 'lg:grid-cols-3');
 });

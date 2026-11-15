@@ -4,6 +4,10 @@ The active billing implementation is in `api/`, with account and pricing UI in `
 
 This is a launch runbook, not evidence that sandbox or production billing has passed. No product creation, payment, invitation, provider contact or deployment is authorized by implementing this feature. Use synthetic accounts and sandbox payment methods for verification. Never include access tokens, webhook secrets, checkout URLs, customer data or card details in evidence.
 
+All tiers include this shared benefit on pricing and account pages:
+
+- Creator plugin access for custom personas and simulations
+
 ## Release status and gates
 
 Both purchase flags default to false. Plus may launch after its technical and operational checks pass. Supporter has a separate provider eligibility gate for both intervals and all plan-change entry points.

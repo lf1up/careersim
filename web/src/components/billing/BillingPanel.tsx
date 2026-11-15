@@ -125,6 +125,7 @@ export function BillingPanel() {
         <div className="space-y-2" aria-live="polite">
           <p className="font-retro text-lg">{account.tier === 'free' ? 'Free' : account.tier === 'plus' ? 'Plus' : 'Supporter'}</p>
           <p>{statusLabel(account)}</p>
+          <ul className="list-disc pl-5 text-sm"><li>Creator plugin access for custom personas and simulations</li></ul>
           {account.interval && <p>Current billing: {account.interval === 'year' ? 'Yearly' : 'Monthly'}</p>}
           {account.accessThrough && <p>{account.reason === 'grace' ? 'Grace access through' : 'Paid access through'} {dateLabel(account.accessThrough)} UTC.{account.reason === 'paid' && account.renews && !account.cancelAtPeriodEnd ? ' Renewal is automatic.' : ''}</p>}
           {account.pendingChange && <p>Scheduled: {account.pendingChange.choice.tier === 'plus' ? 'Plus' : 'Supporter'}, {account.pendingChange.choice.interval === 'year' ? 'yearly' : 'monthly'} on {dateLabel(account.pendingChange.effectiveAt)} UTC.</p>}

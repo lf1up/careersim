@@ -85,6 +85,10 @@ CareerSIM has Free, Plus and Supporter tiers. Default prices are $9/month or $90
 
 Plus defaults to 100 new sessions and 3,000 text messages per configured window, 250 owned custom simulations, 250 owned custom personas and 360 voice minutes per UTC day. Supporter defaults to 200 sessions, 6,000 text messages, 500 owned custom simulations, 500 owned custom personas and 720 voice minutes per UTC day. Configure the tiers independently with `PRO_*` and `SUPPORTER_*` limit settings. Session and message windows default to six hours. Monthly and yearly billing share each tier's limits. Saved-item limits count inventory, not monthly credits. Upgrades and interval changes preserve counters; downgrade preserves saved work.
 
+Every tier includes:
+
+- Creator plugin access for custom personas and simulations
+
 Billing purchases start disabled. Supporter also requires written Polar acceptance of its actual benefits and a configured private channel before either interval can be enabled. The [billing runbook](docs/BILLING.md) covers the four product mappings, read-only `pnpm -C api billing:check`, sandbox evidence, eligibility gates, migration order and recovery. No live products or payment operations are established by this implementation.
 
 ## 📁 Project Structure

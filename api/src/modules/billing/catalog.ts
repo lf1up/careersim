@@ -40,7 +40,12 @@ export type BillingConfig = Pick<
   | "SUPPORTER_MONTHLY_PRICE_CENTS"
   | "SUPPORTER_YEARLY_PRICE_CENTS"
 >;
-const coreBenefits = ["Core scenarios", "Feedback", "Saved practice history"];
+const coreBenefits = [
+  "Core scenarios",
+  "Feedback",
+  "Saved practice history",
+  "Creator plugin access for custom personas and simulations",
+];
 export const supporterBenefits = [
   "Guidance and support from the development team",
   "Chat directly with the developers",

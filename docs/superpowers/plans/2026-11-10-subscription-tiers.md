@@ -17,7 +17,7 @@
 - `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, `PRO_VOICE_DAILY_MINUTES_PER_USER=360`.
 - Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=720`.
 - Preserve unprefixed Free settings and the configured session/message windows, currently 6 hours. Voice resets at midnight UTC. Custom records are owned, non-deleted inventory, not monthly credits.
-- Pricing visibly lists all five caps, core benefits, and "Need higher limits? Contact us to discuss your needs."
+- Pricing and account pages include "Creator plugin access for custom personas and simulations" on every tier. Pricing visibly lists all five caps, core benefits, and "Need higher limits? Contact us to discuss your needs."
 - Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features, including MCP and API access".
 - No tokens, packs, donations, trials, automatic overages, or new voting/community platform. No application code in deprecated `backend/` or `frontend/`.
 - Preserve safety rate limits, ownership checks, moderation, and saved content after downgrade. Annual billing never multiplies or resets usage allowances.
