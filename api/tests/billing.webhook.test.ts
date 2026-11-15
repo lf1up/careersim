@@ -87,7 +87,9 @@ describe("signed Polar webhook inbox", () => {
     ).toBe(2);
   });
   it("does not change parent JSON parsing outside the scoped route", async () => {
-    app.post("/ordinary", async (request) => request.body);
+    app.post("/ordinary", async (request) => ({
+      ok: (request.body as { ok?: boolean })?.ok === true,
+    }));
     const response = await app.inject({
       method: "POST",
       url: "/ordinary",
