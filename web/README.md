@@ -1,9 +1,7 @@
 # 🌐 CareerSIM Web
 
 Next.js 16 (App Router) frontend for the CareerSIM platform. Talks directly to
-the Fastify `api/` service — auth, simulations, personas, sessions, and the SSE
-streaming surface. No admin panel, no socket.io, no analytics: those belong to
-the legacy `frontend/` app and are not backed by the new API.
+the Fastify `api/` service for auth, public simulation browsing, sessions, SSE chat, debrief reports, analytics, and billing. The optional creator plugin adds authoring pages through the host extension API.
 
 ## 🧱 Stack
 
@@ -11,15 +9,13 @@ the legacy `frontend/` app and are not backed by the new API.
 - **Framework**: Next.js 16 (App Router, Turbopack), React 19, TypeScript 6
 - **Styling**: Tailwind 3 with the shared retro theme (fonts, shadows,
   light/dark palette ported from `frontend/`)
-- **Auth**: JWT stored in `localStorage` + `Authorization: Bearer` header (no
-  HTTP-only cookie / BFF layer yet). Registration is email-verified; login
+- **Auth**: HTTP-only session cookie with `credentials: include` on API and SSE requests. `AuthContext` restores the user through `/auth/me`. Registration is email-verified; login
   supports password **or** passwordless magic-link; profile page handles email
   and password rotation
 - **CAPTCHA**: [ALTCHA](https://altcha.org) — self-hosted, privacy-friendly,
   proof-of-work challenges rendered by the `altcha` web component. No third
   party
-- **Streaming**: `fetch` + `ReadableStream` + `eventsource-parser` (the native
-  `EventSource` can't set bearer headers, and the API is POST-based)
+- **Streaming**: `fetch` + `ReadableStream` + `eventsource-parser` for POST-based SSE with session cookies
 - **Voice**: browser-native WebRTC call surface over `livekit-client` (lazy
   dynamic import so it only loads when a call starts), gated by
   `NEXT_PUBLIC_VOICE_ENABLED`
@@ -35,8 +31,7 @@ cp .env.example .env          # set NEXT_PUBLIC_API_URL if needed
 pnpm dev
 ```
 
-Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
-`/login` until you register or sign in.
+Open [http://localhost:3000](http://localhost:3000) to browse the public `/simulations` catalog. Starting a session and opening account pages require sign-in. With `LANDING_ORIGIN` configured, `/` serves the marketing site instead.
 
 > In local dev, outbound emails (verification codes, magic links, password
 > resets) are logged to the API's stdout when `SMTP_HOST` is empty — copy the
@@ -50,11 +45,15 @@ Open http://localhost:3000 — you'll land on `/dashboard`, which redirects to
 | `/login` | Password sign-in **or** request a magic link. ALTCHA-gated |
 | `/forgot-password` | Request a password-reset email. ALTCHA-gated |
 | `/reset-password` | Consume a reset token from the email and set a new password |
-| `/auth/callback` | Consume magic-link / verification tokens and complete sign-in |
+| `/auth/callback` | Consume a magic-link token and complete sign-in |
 | `/profile` | Account summary; change email (with 6-digit confirmation code); change or set password |
 | `/dashboard` | Welcome + counts + recent sessions |
-| `/simulations` | List simulations from `GET /v1/simulations` |
-| `/simulations/[slug]` | Confirm + start a session (`POST /v1/sessions`) |
+| `/simulations` | Public simulation catalog from `GET /v1/simulations` |
+| `/simulations/[slug]` | Public scenario detail; sign in to start a session (`POST /v1/sessions`) |
+| `/analytics` | Protected practice totals, skill averages, score trend, and tone distribution |
+| `/billing` | Protected subscription status, five usage metrics, payment management, and checkout confirmation |
+| `/pricing` | Public three-tier catalog; returns 404 unless `NEXT_PUBLIC_PRICING_ENABLED=true`/`1` |
+| `/contact` | Public personal or business inquiry form with ALTCHA |
 | `/blog` | Public blog index (Ghost Content API, ISR). Requires `NEXT_PUBLIC_BLOG_ENABLED=true` |
 | `/blog/[slug]` | Public blog post with `BlogPosting` JSON-LD. Requires `NEXT_PUBLIC_BLOG_ENABLED=true` |
 | `/sessions` | List caller's sessions (`GET /v1/sessions`) |
@@ -67,17 +66,18 @@ canonical endpoints):
 
 1. **Register (password or passwordless)** — `POST /auth/register` returns
    `202 { pending, email }`; the UI switches to the 6-digit verify screen.
-   `POST /auth/verify-email` consumes the code and returns `{ user, token }`.
+   `POST /auth/verify-email` consumes the code and sets the session cookie. The UI keeps a chosen password in memory and submits it again at confirmation, so it is activated only after email ownership is proven.
 2. **Login (password)** — `POST /auth/login` with ALTCHA payload.
 3. **Login (magic link)** — `POST /auth/login/email-link` sends an email;
    the link lands on `/auth/callback?token=…` which calls
-   `POST /auth/consume-link` and hydrates `AuthContext`.
+   `POST /auth/magic-link/consume` and hydrates `AuthContext`.
 4. **Forgot password** — `POST /auth/forgot-password` → email →
    `/reset-password?token=…` → `POST /auth/reset-password`.
-5. **Profile** — `POST /auth/change-password` and the email-change pair
-   `POST /auth/request-email-change` + `POST /auth/confirm-email-change`.
+5. **Profile** — `PATCH /auth/me/password` and the email-change pair
+   `POST /auth/me/email-change` + `POST /auth/me/email-change/confirm`.
+6. **Logout** — `POST /auth/logout` revokes the stored login session and clears the cookie. Password resets and password/email changes invalidate earlier login sessions; credential changes issue a fresh session.
 
-Every public-facing mutation endpoint is gated by ALTCHA; the widget fetches a
+Registration, password login, magic-link requests, and forgot-password forms require ALTCHA. Code confirmation, token consumption, and verification resends use their own server checks and rate limits. The widget fetches a
 signed challenge from `${NEXT_PUBLIC_API_URL}/auth/challenge`, solves it
 locally in the browser, and the resulting payload is posted alongside the
 form body. Submit buttons stay disabled until the widget emits a `verified`
@@ -96,13 +96,13 @@ without a page reload. No client-side throttling is needed — the server
 is the single source of truth and the 429 body already carries everything
 the UI needs to display.
 
-## Voice mode
+## 🎙️ Voice mode
 
 On `/sessions/[id]`, a **Call** button opens a browser-native voice call with
 the persona — no install required. The flow:
 
 1. `POST /sessions/:id/voice/start` (via `api.startVoiceCall`) mints a
-   short-lived LiveKit token + SFU URL.
+   short-lived LiveKit token, SFU URL, and `call_id`. The join-token lifetime is separate from the daily allowance.
 2. `createVoiceConnection` (`src/lib/voice.ts`) **lazy-imports** `livekit-client`,
    joins the room, publishes the mic, and subscribes to the agent's audio.
 3. The `VoiceCallSurface` renders a live **caption strip** (from the
@@ -110,16 +110,25 @@ the persona — no install required. The flow:
    — a `quota_warning` banner ~60s before the daily budget is spent and a
    `quota_exhausted` cutoff that hard-ends the call with a "Daily N-minute
    voice limit reached" alert.
-4. On hang-up `api.endVoiceCall` marks the call ended; the authoritative
-   quota debit and transcript persistence happen server-side via the
-   `agent-voice` worker, so the chat transcript reflects the spoken turns when
-   you return to text mode.
+4. On hang-up `api.endVoiceCall` identifies the call and the API terminates its room. The worker persists spoken turns through internal routes and reports cumulative duration checkpoints; the API debits the UTC daily allowance without trusting browser duration. The session page refreshes the transcript after hang-up while pending turns finish saving.
 
 The whole feature is behind a build-time kill switch: when
 `NEXT_PUBLIC_VOICE_ENABLED=false`, `isVoiceEnabledClientSide()` returns `false`,
 the Call button renders nothing, and `livekit-client` is never imported. The
-button is also hidden for personas that don't declare a `voice` block. See the
+button is also hidden for personas that don't declare a `voice` block and for group scenes. See the
 repo-level [VOICE_MODE.md](../VOICE_MODE.md) for the end-to-end picture.
+
+## 💳 Subscriptions and account usage
+
+`/pricing` reads the API's Free, Plus, and Supporter catalog, including monthly/yearly prices and five independent limits. `/billing` reads effective access, renewal/cancellation status, and usage. Session starts and text messages use separate configured windows. Custom simulations and personas count current owned inventory; voice resets at midnight UTC. The API enforces these limits across billing intervals and tier changes.
+
+`NEXT_PUBLIC_PRICING_ENABLED` is off by default. Enabling it exposes `/pricing` and pricing links; it does not enable purchases. The API independently requires `BILLING_ENABLED=true` and provider configuration. When pricing is hidden, account status and payment management remain available. Supporter availability comes from the API catalog, including its product and private-channel configuration.
+
+Checkout and payment management use hosted Polar pages. The return page refreshes provider state and can show confirmation pending; a return URL does not prove payment. Self-service plan changes are disabled, so the UI offers contact instead. Supporter instructions are fetched only for eligible accounts. API responses provide all prices and caps; the web app does not maintain a separate pricing table. See the [billing runbook](../docs/BILLING.md) for configuration and provider verification.
+
+## 🔌 Optional plugin pages
+
+The web host copies selected extension API v2 plugins at development/build time. Plugins can add pages, navigation, and crawl restrictions, using the host's cookie-aware API helper and auth context. Creator authoring lives in the separate private `careersim-studio` repository. Use matching API/web plugin selections and compatible revisions. See [plugin setup](../README.md#-plugin-support) for local watchers and the `CAREERSIM_PLUGIN_*` settings.
 
 ## 📰 Headless Ghost blog
 
@@ -128,7 +137,7 @@ on the main domain for SEO). Ghost itself is Content-API-only — put the Ghost
 frontend in **Private Site Mode** so search engines don't index a duplicate
 copy at `:2368`.
 
-### Feature flag
+### 🚦 Feature flag
 
 The blog is gated by `isBlogEnabled()` in `src/lib/blog.ts`: it needs
 `NEXT_PUBLIC_BLOG_ENABLED=true`/`1` **and** Ghost Content API env
@@ -145,7 +154,7 @@ stays off. Discovery links live on the **landing** site header/footer only when
 Because the flag is `NEXT_PUBLIC_*`, it is inlined at build / `pnpm dev` start —
 restart `web` (or recreate the compose `web` service) after changing it.
 
-### One-time local setup
+### 🛠️ One-time local setup
 
 1. Start the stack (`docker compose -f docker-compose.local.yml up`) so
    `ghost` is listening on [http://localhost:2368](http://localhost:2368).
@@ -184,7 +193,7 @@ web/
 │   ├── proxy.ts                             # apex → landing origin (strips noindex)
 │   ├── app/
 │   │   ├── layout.tsx                       # providers + toaster
-│   │   ├── page.tsx                         # redirect("/dashboard")
+│   │   ├── page.tsx                         # redirect("/simulations")
 │   │   ├── globals.css                      # tailwind + retro utility classes
 │   │   ├── sitemap.ts / robots.ts           # SEO crawl surfaces (incl. /blog)
 │   │   ├── api/revalidate/route.ts          # Ghost publish webhook → ISR
@@ -205,6 +214,8 @@ web/
 │   │   └── (app)/
 │   │       ├── layout.tsx                   # Navbar + <RequireAuth> (force-dynamic)
 │   │       ├── dashboard/page.tsx
+│   │       ├── analytics/page.tsx
+│   │       ├── billing/page.tsx
 │   │       ├── profile/page.tsx
 │   │       ├── sessions/page.tsx
 │   │       └── sessions/[id]/page.tsx
@@ -236,8 +247,9 @@ web/
 pnpm dev        # next dev (Turbopack) on :3000
 pnpm build      # next build
 pnpm start      # next start (after build)
-pnpm lint       # next lint
+pnpm lint       # eslint .
 pnpm typecheck  # tsc --noEmit
+pnpm test       # vitest run
 ```
 
 ## 🌱 Environment
@@ -246,6 +258,7 @@ pnpm typecheck  # tsc --noEmit
 | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:8000/v1` | **Full base URL** of the `api/` service, version path included — nothing is appended in code, so this single var controls which version the frontend talks to (e.g. on Vercel: `https://api.careersim.ai/v1`, or the bare origin for an API running without `API_VERSION_PREFIX`). Must match the API's actual prefix. Also used by `AltchaWidget` (`{url}/auth/challenge`) and by `next/image` to derive the allowed avatar path |
 | `API_INTERNAL_URL` | unset (falls back to `NEXT_PUBLIC_API_URL`) | Server-side override with the same full-URL semantics, for when the Next server reaches the API over a different network than the browser (compose sets `http://api:8000/v1`). Keep its version path identical to `NEXT_PUBLIC_API_URL`'s |
+| `NEXT_PUBLIC_SITE_URL` | `https://<VERCEL_URL>` or `https://careersim.local` | Canonical public site origin for metadata and discovery files; match landing's `LANDING_SITE_URL` |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@careersim.local` | Public support/contact email displayed in the app footer |
 | `NEXT_PUBLIC_VOICE_ENABLED` | `true` | Build-time kill switch for voice mode. `false` hides the Call button and skips the `livekit-client` import entirely. Should match `VOICE_ENABLED` on `api`/`agent` |
 | `NEXT_PUBLIC_LIVEKIT_URL` | `ws://localhost:7880` | LiveKit SFU endpoint as reachable **from the browser** (not the in-compose `ws://livekit:7880` hostname) |
@@ -282,27 +295,22 @@ on the web project. Only the API configures proof-of-work difficulty.
 ## 🎨 Design notes
 
 - **The old `frontend/` is untouched.** `web/` is an additive port that only
-  talks to the new `api/` service. When the API surface grows (analytics,
-  admin), the matching pages can be added here.
+  talks to the new `api/` service. Analytics, reports, and billing are implemented here; there is no legacy admin panel.
 - **Retro theme preserved.** `tailwind.config.ts` and `globals.css` mirror
   `frontend/tailwind.config.js` + `frontend/src/index.css` 1:1, so the Retro*
   components look identical to the legacy app.
 - **Client-rendered data fetching.** All protected pages are `'use client'`
-  components that read the JWT from `localStorage`. Both the `(auth)` and
+  components that use `AuthContext` and cookie-authenticated API requests. Both the `(auth)` and
   `(app)` route groups are marked `dynamic = 'force-dynamic'` because
   `RequireAuth`, the auth forms, and the magic-link callback all rely on
   `useSearchParams` + `useAuth`, which can't be evaluated at build time.
-  Server rendering the authenticated surface would require an HTTP-only
-  cookie + a Next.js BFF layer — explicitly out of scope for this pass.
+  Authentication is restored from the API rather than a client-stored token.
 - **ALTCHA over third-party CAPTCHAs.** We chose ALTCHA because it runs
   entirely against our own API, has no cross-origin tracking, and degrades
   gracefully (the widget is a Web Component with a lazy dynamic import, so
   it never blocks initial paint). See `AltchaWidget.tsx` for the React
   wrapper.
-- **Streaming is symmetrical with the API.** `message` events are appended to
-  a "pending assistant" buffer while rendering; when the `done` event arrives,
-  the full `SessionDetail` from the API replaces local state — so persistence
-  and canonical ordering come straight from the server.
+- **Streaming preserves interrupted replies.** The API persists text and voice message events before forwarding them. The chat UI buffers rapid user messages into a batch, displays actor-aware replies, and replaces local state with the canonical session on `done`. A new send can interrupt the current stream; `expected_message_count` lets the API reject stale submissions before generation. Proactive follow-ups persist only at `done`.
 - **Voice never bloats the base bundle.** `livekit-client` is imported lazily
   inside `createVoiceConnection`, so a build with `NEXT_PUBLIC_VOICE_ENABLED=false`
   (or a user who never starts a call) never pays its wheel cost. Captions and
@@ -318,7 +326,7 @@ on the web project. Only the API configures proof-of-work difficulty.
 
 ---
 
-## Crawling and discovery
+## 🕷️ Crawling and discovery
 
 The web app owns `/sitemap.xml`, `/robots.txt`, and `/llms.txt` for the canonical
 site, including marketing pages served through `LANDING_ORIGIN`. Public-page

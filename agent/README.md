@@ -9,7 +9,7 @@ a browser-native voice worker — all from one binary.
 - **LangGraph conversation flow** with persona-driven AI responses,
   configurable via `data/personas.json` + `data/simulations.json`
   (optionally synced from S3 at startup — see
-  [Persona data from S3](#persona-data-from-s3)).
+  [Persona data from S3](#-persona-data-from-s3)).
 - **LLM-based evaluation** for user/AI sentiment + emotion and per-goal
   progress tracking, using a separate (cheaper) eval model configurable via
   `OPENAI_EVAL_MODEL`. Voice sessions add spoken-only signals (pacing,
@@ -21,7 +21,7 @@ a browser-native voice worker — all from one binary.
   modelled as explicit graph branches.
 - **Voice mode** — a LiveKit-based worker that runs STT → the same LangGraph
   turn → TTS, with self-hosted defaults (`faster-whisper` + Piper) and
-  per-persona voice characters. See [Voice worker](#voice-worker---serve-voice)
+  per-persona voice characters. See [Voice worker](#-voice-worker---serve-voice)
   below and the repo-level [VOICE_MODE.md](../VOICE_MODE.md) operator guide.
 - **Three run modes from one binary:**
   - Gradio developer console (default) — state inspector, node tracing, goal
@@ -78,8 +78,13 @@ updated state is returned. No sessions are held in memory on the agent.
 | --- | --- | --- |
 | GET | `/health` | Liveness probe (`{"status":"ok"}`). |
 | GET | `/simulations` | List available simulations (slug, title, persona). |
+| GET | `/simulations/{slug}` | Public-safe scenario detail and participant summaries. |
+| GET | `/personas` | Public-safe persona summaries without private roleplay fields. |
+| GET | `/personas/{slug}/avatar` | Persona avatar image. |
+| GET | `/personas/{slug}/definition` | Full definition for trusted plugin preparation; requires a configured internal key even in development. |
 | POST | `/conversation/init` | Create initial state; optionally run the persona's opening proactive message. |
-| POST | `/conversation/turn` | Run one user-message turn (batch). |
+| POST | `/conversation/turn` | Run a user-message turn; accepts a single message or a batch. |
+| POST | `/conversation/debrief` | Generate a scored session report from supplied state; the API owns its cache. |
 | POST | `/conversation/proactive` | Trigger a proactive message: `start` / `inactivity` / `followup` (batch). |
 | POST | `/conversation/init/stream` | SSE variant of `init`. |
 | POST | `/conversation/turn/stream` | SSE variant of `turn`. |
@@ -103,7 +108,7 @@ final `event: done` carrying the complete updated state.
 
 ### 🔐 Authentication
 
-Every route except `/health` is gated on a shared secret. Callers must
+Application endpoints except `/health` are gated on a shared secret. Callers must
 send the configured `AGENT_INTERNAL_KEY` in an `X-Internal-Key` header;
 missing or mismatched values return **401**. `/health` is intentionally
 exempt so Docker / load-balancer liveness probes can poll it without
@@ -111,10 +116,7 @@ holding the key.
 
 When `AGENT_INTERNAL_KEY` is empty the agent logs a single
 `AGENT_INTERNAL_KEY is not set — accepting all requests` warning and
-treats every caller as trusted. This is the default for local dev,
-the Gradio console, and the pytest suite; production deployments must
-set it (and must set the matching value on the Fastify API side — see
-`api/.env.example`).
+treats every caller as trusted. This fallback is limited to non-production mode. The supplied `.env.example` already contains a development key. With `ENVIRONMENT=production` (or `NODE_ENV=production`), API startup fails if the key is absent. Set the matching key on the Fastify API and voice worker; see `api/.env.example`. The full persona-definition route refuses an empty key in every environment.
 
 ```bash
 curl -H "X-Internal-Key: $AGENT_INTERNAL_KEY" \
@@ -131,7 +133,8 @@ BASE = "http://localhost:8000"
 
 # Internal-API key (see `Authentication` above). Leave headers empty
 # in dev mode when AGENT_INTERNAL_KEY is unset.
-HEADERS = {"X-Internal-Key": os.environ["AGENT_INTERNAL_KEY"]}
+key = os.environ.get("AGENT_INTERNAL_KEY")
+HEADERS = {"X-Internal-Key": key} if key else {}
 
 # Start
 init = httpx.post(f"{BASE}/conversation/init", headers=HEADERS, json={
@@ -162,7 +165,7 @@ Browser UI at http://localhost:7860 with:
 Intended for developers iterating on personas, prompts, and graph behaviour —
 not as the backend's runtime target.
 
-## Voice worker (`--serve voice`)
+## 🎙️ Voice worker (`--serve voice`)
 
 The voice worker turns the same LangGraph engine into a real-time spoken
 conversation. It is a **separate process** from the FastAPI server — it doesn't
@@ -171,18 +174,17 @@ SFU and picks up rooms that the Fastify API mints for authenticated users.
 
 Per call it:
 
-1. Reads the freshest wire-format `state_snapshot` from the API
-   (`GET /internal/sessions/:id/state-for-voice`) and arms a daily-budget
-   watchdog (`GET /internal/sessions/:id/voice-budget`).
-2. Runs **STT → `ConversationService.invoke_turn` (the existing LangGraph
-   turn) → TTS** in the room, streaming captions over a `voice-captions`
-   data-channel topic and budget warnings over `voice-control`.
-3. Posts captured user/AI turns back through the **public** API on the user's
-   bearer token, and reports authoritative call duration + aggregate voice
-   analytics via `POST /internal/sessions/:id/voice/end`.
+1. Reads the freshest wire-format `state_snapshot` through `GET /internal/sessions/:id/state-for-voice` and authorizes the `call_id` with an initial accounting checkpoint.
+2. Captures STT results, batches related utterances, and posts them to `POST /internal/sessions/:id/messages/stream`. The API invokes the same LangGraph engine, persists spoken turns, and streams reply bubbles to the worker for TTS. The worker does not run a second independent conversation turn.
+3. Publishes captions on `voice-captions` and budget warnings on `voice-control`. Persona settings control speech rate, silence, and barge-in behavior.
+4. Sends sequenced cumulative seconds to `POST /internal/voice/calls/:callId/checkpoint`, normally at most 15 seconds apart and at UTC rollover. The API deduplicates retries, debits each UTC day, renews the call lease, and returns whether the call may continue.
+5. Sends a final duration checkpoint to `/internal/voice/calls/:callId/checkpoint`, then posts aggregate analytics to `POST /internal/sessions/:id/voice/end`. That end route merges analysis without debiting duration again.
 
-The engine, prompts, and persona data are reused verbatim — `src/careersim_agent/voice/`
-adds *only* the audio I/O, provider adapters, and persona-driven voice config.
+All worker API calls use `X-Internal-Key`, not the browser's JWT. The worker reads the API origin from `VOICE_API_BASE_URL` and the route prefix separately from `API_VERSION_PREFIX`. It never connects directly to Postgres.
+
+The worker stops when the API denies continuation or cannot confirm the budget within the failure cutoff. The intended cutoff is within 30 seconds of the last confirmation. Shutdown stops audio playback and further spoken bubbles before draining pending transcript work; transcript cleanup can outlast the audio cutoff. See [VOICE_MODE.md](../VOICE_MODE.md) for lease, failure, and reconnect details. Live provider behavior requires a configured LiveKit check.
+
+The engine, prompts, and persona data are shared with text mode. The voice package adds audio providers, turn aggregation, captions, and the API bridge. Voice currently supports single-persona scenes; group scenes are text-only.
 
 **Kill switch.** With `VOICE_ENABLED=false` the worker logs a single line and
 exits `0` cleanly (so docker-compose's restart policy doesn't loop) — the
@@ -202,7 +204,8 @@ per-provider voice settings.
 
 ```bash
 # Local (host) — point at a running livekit + api
-uv run python -m careersim_agent.main --serve voice
+uv sync --locked --extra voice
+VOICE_API_BASE_URL=http://localhost:8000 uv run python -m careersim_agent.main --serve voice
 
 # In Docker the dedicated `agent-voice` service runs this automatically;
 # see docker-compose.local.yml and ../VOICE_MODE.md.
@@ -210,13 +213,12 @@ uv run python -m careersim_agent.main --serve voice
 
 ## 🐳 Docker
 
-The `Dockerfile` builds a self-contained image that runs the agent. By
-default it starts the Gradio console on `7860`; override the command to run
-the API server instead.
+The `Dockerfile` builds separate chat and voice images.
+The `runtime` target starts the Gradio console on `7860`; override its command for the API. The final `voice-runtime` target includes audio dependencies and starts the voice worker. Select the target explicitly when building.
 
 ```bash
 # Build
-docker build -t careersim-agent ./agent
+docker build --target runtime -t careersim-agent ./agent
 
 # Gradio dev console
 docker run --rm -p 7860:7860 --env-file agent/.env careersim-agent
@@ -245,6 +247,9 @@ Configuration is loaded from environment variables (or `.env`). See
 | `OPENAI_EVAL_MODEL` | _(falls back to main)_ | Cheaper model for sentiment / emotion / goal eval. |
 | `RAG_ENABLED` | `true` | Toggle Chroma retrieval. |
 | `RAG_EMBEDDING_MODEL` | `text-embedding-3-small` | Embedding model. |
+| `RAG_RERANK_ENABLED` | `false` | Optional local cross-encoder reranking; install `uv sync --locked --extra rerank`. Errors fall back to vector order. |
+| `AGENT_INTERNAL_KEY` | empty | Shared API authentication key; required for production API startup and worker callbacks. |
+| `ENVIRONMENT` | `development` | `development`, `test`, or `production`; falls back to `NODE_ENV`. |
 | `RAG_CHROMA_PERSIST_DIR` | `.chroma_db` | Persistent vector store path (relative to `agent/`). |
 | `PERSONAS_S3_ENABLED` | `false` | When `true`, pull cast data from S3 into `data/` at startup (see below). |
 | `PERSONAS_S3_BUCKET` | _(empty)_ | Bucket that holds the cast. Required when S3 sync is enabled. |
@@ -253,7 +258,7 @@ Configuration is loaded from environment variables (or `.env`). See
 | `GRADIO_SERVER_PORT` | `7860` | Dev console port. |
 | `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR`. |
 
-### Persona data from S3
+### ☁️ Persona data from S3
 
 By default the agent reads the cast from the git-backed `data/` tree
 (`personas.json`, `simulations.json`, `avatars/`, `documents/`). Set
@@ -279,14 +284,15 @@ is the path for publishing cast updates from a separate personas repo
 into a bucket that agents pick up on the next start. Leave the flag
 `false` for local development.
 
-### Voice mode
+### 🎙️ Voice mode
 
-Only consulted by `--serve voice`. Defaults are self-hosted, so an
-`OPENAI_API_KEY` is the only required key out of the box.
+The worker uses self-hosted audio providers by default, so STT/TTS need no separate cloud key. Conversation generation still needs the configured LLM key. Enabled voice also requires LiveKit credentials, the shared `AGENT_INTERNAL_KEY`, and a reachable API with matching settings.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `VOICE_ENABLED` | `false` | Master kill switch. `false` ⇒ worker logs one line and exits `0`. (The provided `.env.example` ships `true`.) |
+| `VOICE_API_BASE_URL` | `http://api:8000` | API origin for worker callbacks. Use `http://localhost:8000` when running on the host. |
+| `API_VERSION_PREFIX` | empty | Separate API route prefix; match the Fastify API. The supplied `.env.example` and Compose use `v1`. |
 | `LIVEKIT_URL` | `ws://livekit:7880` | SFU signalling URL. Use `ws://localhost:7880` on the host, `wss://` behind TLS. |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | _(required when enabled)_ | Must match the `livekit` server + `api/.env`. |
 | `VOICE_STT_PROVIDER` | `whisper_local` | `whisper_local` / `whisper_openai` / `deepgram`. |
@@ -379,7 +385,7 @@ without an OpenAI API key. The voice suites (`test_voice_*`, `test_state_bridge`
 use stub STT/TTS adapters and a fake API client, so they need neither LiveKit,
 the audio model wheels, nor a network connection.
 
-### Voice smoke + performance scripts
+### 🎙️ Voice smoke + performance scripts
 
 Two helper scripts under `scripts/` exercise the voice path without a browser:
 
@@ -454,7 +460,7 @@ simulation, also add a matching entry to `SIMULATION_PROMPTS` in
 
 ## 📝 Development Notes
 
-- Both run modes share the same `ConversationService`, which is the single
+- All run modes share the same `ConversationService`, which is the single
   source of truth for graph invocation, (de)serialisation, and typing-delay
   computation.
 - The API is a pure function of its inputs — see `TestStatelessness` in
