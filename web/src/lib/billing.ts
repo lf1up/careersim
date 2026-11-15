@@ -1,12 +1,6 @@
 import { z } from 'zod';
 import { request } from './api';
-// Type-only: server implementation and credentials never enter the browser bundle.
-import type { BillingChoice as ApiChoice, BillingAccount as ApiAccount, PlanCatalog } from '../../../api/src/modules/billing/billing.schema';
 
-export type BillingChoice = ApiChoice;
-export type BillingAccount = ApiAccount;
-export type PlanCatalogResponse = PlanCatalog;
-export type BillingInterval = BillingChoice['interval'];
 const tier = z.enum(['free', 'plus', 'supporter']);
 const interval = z.enum(['month', 'year']);
 const choice = z.strictObject({ tier: z.enum(['plus', 'supporter']), interval });
@@ -18,7 +12,7 @@ const limits = z.object({
   chatMessagesMax: z.number().int().positive(), chatWindowMs: z.number().int().positive(),
   customSimulationsMax: z.number().int().positive(), customPersonasMax: z.number().int().positive(), voiceDailyMinutes: z.number().int().nonnegative(),
 });
-const catalogSchema: z.ZodType<PlanCatalogResponse> = z.object({
+const catalogSchema = z.object({
   currency: z.literal('USD'), contactUrl, higherLimitsMessage: z.string(), planChangesAvailable: z.boolean(),
   plans: z.array(z.object({
     tier, name: z.string(), limits, benefits: z.array(z.string()), availability: z.enum(['available', 'billing_disabled', 'coming_soon']),
@@ -26,11 +20,15 @@ const catalogSchema: z.ZodType<PlanCatalogResponse> = z.object({
   })).refine(plans => plans.length === 3 && new Set(plans.map(plan => plan.tier)).size === 3 && plans.every(plan => plan.tier === 'free' || plan.prices.length === 2 && new Set(plan.prices.map(price => price.interval)).size === 2), 'The complete pricing catalog is required.'),
 });
 const usageMetric = z.object({ used: z.number().nonnegative(), limit: z.number().nonnegative(), resetAt: date.nullable() }).nullable();
-const accountSchema: z.ZodType<BillingAccount> = z.object({
+const accountSchema = z.object({
   tier, limits, supporterAccess: z.boolean(), reason: z.enum(['free', 'paid', 'grace', 'expired', 'revoked', 'disputed']), interval: interval.nullable(), paidThrough: date.nullable(), accessThrough: date.nullable(),
   status: z.string(), cancelAtPeriodEnd: z.boolean(), renews: z.boolean(), pendingChange: z.object({ choice, effectiveAt: date }).nullable(), pendingCheckout: z.boolean(), confirmationPending: z.boolean(),
   usage: z.object({ sessions: usageMetric, chatMessages: usageMetric, customSimulations: usageMetric, customPersonas: usageMetric, voice: usageMetric }), planChangesAvailable: z.boolean(), contactUrl,
 });
+export type BillingChoice = z.infer<typeof choice>;
+export type BillingAccount = z.infer<typeof accountSchema>;
+export type PlanCatalogResponse = z.infer<typeof catalogSchema>;
+export type BillingInterval = BillingChoice['interval'];
 const hostedDestination = z.object({ url: secureUrl });
 let cachedCatalog: { value: PlanCatalogResponse; until: number } | null = null;
 
