@@ -51,7 +51,7 @@ function tierSnapshot(
     productId: `${tier}-month`,
     start,
     end,
-    totalAmount: tier === "plus" ? 900 : 10000,
+    totalAmount: tier === "plus" ? 900 : 5900,
     refundedAmount: 0,
     dispute: "none",
   };

@@ -29,6 +29,7 @@ it('defaults to monthly and exposes full annual charges with renewal terms and u
   render(<PricingPage catalog={catalog} />);
   expect(screen.getByRole('radio', { name: 'Monthly' })).toBeChecked();
   expect(within(screen.getByRole('region', { name: 'Plus' })).getByText('$9')).toBeVisible();
+  expect(within(screen.getByRole('region', { name: 'Supporter' })).getByText('$59')).toBeVisible();
   const yearly = screen.getByRole('radio', { name: 'Yearly' });
   yearly.focus();
   fireEvent.click(yearly);
@@ -37,9 +38,9 @@ it('defaults to monthly and exposes full annual charges with renewal terms and u
   const plus = screen.getByRole('region', { name: 'Plus' });
   const supporter = screen.getByRole('region', { name: 'Supporter' });
   expect(within(plus).getByText('$90')).toBeVisible();
-  expect(within(supporter).getByText('$1,000')).toBeVisible();
+  expect(within(supporter).getByText('$590')).toBeVisible();
   expect(within(plus).getByText(/\$7.50.*monthly equivalent/)).toBeVisible();
-  expect(within(supporter).getByText(/About \$83.33.*monthly equivalent/)).toBeVisible();
+  expect(within(supporter).getByText(/About \$49.17.*monthly equivalent/)).toBeVisible();
   expect(screen.getAllByText('billed yearly')).toHaveLength(2);
   expect(screen.getAllByText('2 months free')).toHaveLength(2);
   expect(screen.getByText(/Yearly subscriptions auto-renew/)).toBeVisible();

@@ -55,7 +55,7 @@ describe("billing entitlement policy", () => {
       catalog.plans
         .find((p) => p.tier === "supporter")
         ?.prices.map((p) => p.amountCents),
-    ).toEqual([10000, 100000]);
+    ).toEqual([5900, 59000]);
     expect(
       deriveEntitlement({ kind: "none" }, catalog, new Date()).limits
         .customSimulationsMax,

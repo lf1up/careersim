@@ -43,8 +43,8 @@ Use four distinct server-only allowlisted product UUIDs. Free has no product. Ke
 | --- | --- | --- | ---: | --- | ---: |
 | `POLAR_PLUS_MONTHLY_PRODUCT_ID` | Plus | `PRO_MONTHLY_PRICE_CENTS` | 900 | `month` | 1 |
 | `POLAR_PLUS_YEARLY_PRODUCT_ID` | Plus | `PRO_YEARLY_PRICE_CENTS` | 9000 | `year` | 1 |
-| `POLAR_SUPPORTER_MONTHLY_PRODUCT_ID` | Supporter | `SUPPORTER_MONTHLY_PRICE_CENTS` | 10000 | `month` | 1 |
-| `POLAR_SUPPORTER_YEARLY_PRODUCT_ID` | Supporter | `SUPPORTER_YEARLY_PRICE_CENTS` | 100000 | `year` | 1 |
+| `POLAR_SUPPORTER_MONTHLY_PRODUCT_ID` | Supporter | `SUPPORTER_MONTHLY_PRICE_CENTS` | 5900 | `month` | 1 |
+| `POLAR_SUPPORTER_YEARLY_PRODUCT_ID` | Supporter | `SUPPORTER_YEARLY_PRICE_CENTS` | 59000 | `year` | 1 |
 
 Price settings are positive integer USD cents, up to 2,147,483,647. Omitted settings use the defaults above. The API catalog and read-only catalog audit share these settings. Configure the same amounts on the corresponding Polar products before enabling purchases; changing an environment value does not change a Polar product's charge. The `PRO_*` price names map to the Plus tier, matching its existing paid-limit settings.
 

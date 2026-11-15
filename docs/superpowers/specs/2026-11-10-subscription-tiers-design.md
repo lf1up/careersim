@@ -13,7 +13,7 @@ The user selected three tiers:
 | --- | --- | --- | --- |
 | Free | $0 | $0 | Existing free allowances |
 | Plus | $9 USD | $90 USD | High usage caps explicitly listed on the pricing page |
-| Supporter | $100 USD | $1,000 USD | Higher usage allowances, plus guidance and support from the development team, direct chat, and deciding the project's future together |
+| Supporter | $59 USD | $590 USD | Higher usage allowances, plus guidance and support from the development team, direct chat, and deciding the project's future together |
 
 The user approved the monthly prices, annual billing option, annual prices, and five paid limits. Annual billing charges for 10 months and provides 12 months of access, saving 16.67% against 12 monthly payments.
 
@@ -87,7 +87,7 @@ Approved pricing and display:
 | Tier | Upfront annual charge | Monthly equivalent | Savings against 12 monthly payments |
 | --- | ---: | ---: | ---: |
 | Plus | $90 | $7.50 | $18, or 16.67% |
-| Supporter | $1,000 | About $83.33 | $200, or 16.67% |
+| Supporter | $590 | About $49.17 | $118, or 16.67% |
 
 Use "2 months free" for the discount label. The annual total and "billed yearly" must be prominent; the monthly equivalent is secondary and must not imply monthly installments. It is a recurring annual subscription with the full year's payment collected at checkout, not a one-time lifetime purchase. Show yearly auto-renewal explicitly and allow cancellation of renewal while retaining access through the paid year.
 
