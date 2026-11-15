@@ -543,6 +543,7 @@ async def _run_room_session(
         # case the whole turn is abandoned and re-run (see TurnManager).
         "turn_interrupted": False,
     }
+    playback_stopped = False
 
     async def _pump(text: str) -> None:
         played = 0.0
@@ -580,9 +581,11 @@ async def _run_room_session(
 
     async def speak(text: str) -> None:
         text = (text or "").strip()
-        if not text:
+        if not text or playback_stopped:
             return
         await captions.publish(Caption(role="ai", text=text, is_final=True))  # type: ignore[attr-defined]
+        if playback_stopped:
+            return
         speak_state["speaking"] = True
         speak_state["interrupted"] = False
         task = loop.create_task(_pump(text))
@@ -591,6 +594,13 @@ async def _run_room_session(
             await task
         except asyncio.CancelledError:
             speak_state["interrupted"] = True
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                # Barge-in cancels only the pump; room/turn cancellation
+                # must propagate so an opening cannot start another bubble.
+                with contextlib.suppress(Exception):
+                    source.clear_queue()
+                raise
         except Exception:
             # TTS/synthesis/playback failed for this bubble. Swallow (the
             # turn keeps draining so the transcript still persists and the
@@ -918,6 +928,15 @@ async def _run_room_session(
     try:
         await done.wait()
     finally:
+        # Persistence may drain for a minute after authorization ends, but
+        # audio must stop immediately even when deleting the SFU room fails.
+        playback_stopped = True
+        speak_state["turn_interrupted"] = True
+        playback_task = speak_state.get("task")
+        if playback_task is not None and not playback_task.done():
+            playback_task.cancel()
+        with contextlib.suppress(Exception):
+            source.clear_queue()
         # A room-disconnect cancel is already pending here. Clear it
         # before the STT drain and flush awaits, or they raise
         # immediately and the tail of the call is never written.

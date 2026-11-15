@@ -108,6 +108,7 @@ def _install_livekit(monkeypatch: pytest.MonkeyPatch) -> _Kit:
             self.rate = rate
             self.channels = channels
             self.frames: list[AudioFrame] = []
+            self.clear_calls = 0
             kit.sources.append(self)
 
         async def capture_frame(self, frame: AudioFrame) -> None:
@@ -117,6 +118,7 @@ def _install_livekit(monkeypatch: pytest.MonkeyPatch) -> _Kit:
             return None
 
         def clear_queue(self) -> None:
+            self.clear_calls += 1
             if kit.clear_fails:
                 raise RuntimeError("clear")
 
@@ -1615,3 +1617,127 @@ async def test_entrypoint_revocation_deletes_livekit_room_and_finishes_cleanup(m
     assert api.reported is not None
     controls = [json.loads(data) for data, topic, _ in room.local_participant.data if topic == "voice-control"]
     assert controls == [{"type": "quota_exhausted", "call_id": "call-1", "cap_seconds": 600}]
+
+
+@pytest.mark.parametrize("deletion_error", [RuntimeError("SFU unavailable"), TimeoutError("SFU timeout")])
+async def test_authorization_cutoff_stops_playback_before_transcript_flush(
+    monkeypatch: pytest.MonkeyPatch, fast_turns: None, deletion_error: Exception,
+) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+
+    kit = _install_livekit(monkeypatch)
+    kit.audio_script = _hold()
+    commit = asyncio.Event()
+    persisted = asyncio.Event()
+    flush_started = asyncio.Event()
+    playback_stopped = asyncio.Event()
+    release_audio = asyncio.Event()
+    original_flush = TurnManager.flush
+
+    async def flush(self: TurnManager) -> None:
+        flush_started.set()
+        await original_flush(self)
+
+    monkeypatch.setattr(TurnManager, "flush", flush)
+
+    class API(_API):
+        async def stream_user_message(self, session_id, texts, expected_message_count=None):
+            self.streams.append(list(texts))
+            yield {"type": "message", "content": "First reply."}
+            await commit.wait()
+            yield {"type": "message", "content": "Follow-up reply."}
+            persisted.set()
+            yield {"type": "done"}
+
+    class TTS(_TTS):
+        async def synthesize(self, text):
+            try:
+                async for chunk in super().synthesize(text):
+                    yield chunk
+            finally:
+                playback_stopped.set()
+
+    tts = TTS(block=release_audio)
+    api = API()
+    captions = _Captions()
+    room = _Room()
+    room.remote_participants = _user_track()
+    frames = [types.SimpleNamespace(data=b"\x00\x01", samples_per_channel=1, sample_rate=16000)]
+
+    async def vad():
+        yield types.SimpleNamespace(type="end", frames=frames)
+        await asyncio.Event().wait()
+
+    kit.vad_script = vad
+    room_task = asyncio.create_task(_run_room_session(
+        ctx=_Ctx(room), adapter=_Adapter(),
+        stt=_STT([[STTResult(text="hello", is_final=True, confidence=0.9)]]), tts=tts,
+        captions=captions, api=api, session_id="sess-1", tuning=_tuning(),
+        max_duration_sec=None, budget_managed=True,
+    ))
+    supervisor = None
+    try:
+        await asyncio.wait_for(tts.started.wait(), timeout=2)
+        accounting = _CallAccounting(api, "call-expired")
+        accounting.last_confirmed -= 26
+
+        async def stop_room():
+            raise deletion_error
+
+        supervisor = asyncio.create_task(accounting.supervise(room_task, captions, stop_room))
+        await asyncio.wait_for(flush_started.wait(), timeout=2)
+        assert playback_stopped.is_set(), "audio must stop before persistence drains"
+        assert kit.sources[0].clear_calls > 0
+        assert not persisted.is_set()
+        commit.set()
+        await asyncio.wait_for(supervisor, timeout=2)
+        assert persisted.is_set()
+        assert api.streams == [["hello"]]
+        assert tts.texts == ["First reply."]
+        assert [caption.text for caption in captions.published if caption.role == "ai"] == ["First reply."]
+    finally:
+        commit.set()
+        release_audio.set()
+        if not room_task.done():
+            room_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.wait_for(supervisor if supervisor is not None else room_task, timeout=2)
+
+
+async def test_room_cancellation_stops_opening_bubbles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit = _install_livekit(monkeypatch)
+    kit.audio_script = _hold()
+    kit.vad_script = _hold()
+    release_audio = asyncio.Event()
+    tts = _TTS(block=release_audio)
+    room = _Room()
+    room.remote_participants = _user_track()
+    captions = _Captions()
+    task = asyncio.create_task(_run_room_session(
+        ctx=_Ctx(room), adapter=_Adapter(opening=TurnResult(
+            text="Hello there", new_state={}, burst_messages=["Hello", "there"],
+        )), stt=_STT(), tts=tts, captions=captions, api=_API(),
+        session_id="sess-1", tuning=_tuning(), max_duration_sec=None,
+        budget_managed=True,
+    ))
+    try:
+        await asyncio.wait_for(tts.started.wait(), timeout=2)
+        task.cancel()
+        done, _ = await asyncio.wait([task], timeout=1)
+        assert done and task.cancelled(), "room cancellation must propagate through playback"
+        assert tts.texts == ["Hello"]
+        assert kit.sources[0].clear_calls > 0
+    finally:
+        release_audio.set()
+        # A broken implementation swallows cancellation during each opening
+        # bubble. Bound cleanup so that the failing test leaves no live task.
+        for _ in range(3):
+            if task.done():
+                break
+            task.cancel()
+            await asyncio.wait([task], timeout=1)
+        assert task.done()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
