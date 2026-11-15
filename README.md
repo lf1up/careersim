@@ -5,9 +5,7 @@
 [![CI](https://github.com/lf1up/careersim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lf1up/careersim/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lf1up/careersim/branch/main/graph/badge.svg)](https://codecov.io/gh/lf1up/careersim)
 
-**CareerSIM** is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
-
-The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
+CareerSIM is a web app for practicing interviews, negotiations, and other workplace conversations with AI personas. It supports text and voice practice, with feedback and debrief reports for scored sessions.
 
 > [!NOTE]
 > **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis` + headless `ghost`, plus `livekit` + `agent-voice` for the browser-native voice surface, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
@@ -81,15 +79,9 @@ Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top 
 
 ## Subscriptions
 
-CareerSIM has Free, Plus and Supporter tiers. Default prices are $9/month or $90/year upfront for Plus and $59/month or $590/year upfront for Supporter. Set `PRO_MONTHLY_PRICE_CENTS`, `PRO_YEARLY_PRICE_CENTS`, `SUPPORTER_MONTHLY_PRICE_CENTS` and `SUPPORTER_YEARLY_PRICE_CENTS` in the API environment to publish other prices in USD cents. Configure matching Polar product prices and verify them with `pnpm -C api billing:check`. Yearly subscriptions renew yearly. The default yearly prices offer "2 months free" compared with twelve monthly payments; the badge appears only when the configured yearly price equals ten monthly payments. Listed prices are before applicable checkout taxes.
+CareerSIM supports three subscription tiers: Free, Plus, and Supporter.
 
-Plus defaults to 100 new sessions and 3,000 text messages per configured window, 250 owned custom simulations, 250 owned custom personas and 360 voice minutes per UTC day. Supporter defaults to 200 sessions, 6,000 text messages, 500 owned custom simulations, 500 owned custom personas and 720 voice minutes per UTC day. Configure the tiers independently with `PRO_*` and `SUPPORTER_*` limit settings. Session and message windows default to six hours. Monthly and yearly billing share each tier's limits. Saved-item limits count inventory, not monthly credits. Upgrades and interval changes preserve counters; downgrade preserves saved work.
-
-Every tier includes:
-
-- Creator plugin access for custom personas and simulations
-
-Billing purchases default to disabled. Set `BILLING_ENABLED=true` to offer both paid tiers; Supporter requires both configured products and a private channel. The [billing runbook](docs/BILLING.md) covers the four product mappings, read-only `pnpm -C api billing:check`, sandbox evidence, checkout configuration, migration order and recovery. No live products or payment operations are established by this implementation.
+Subscription purchases and the pricing UI are off by default: `BILLING_ENABLED=false` in the API and `NEXT_PUBLIC_PRICING_ENABLED=false` in the web app. See the [billing runbook](docs/BILLING.md) for configuration and rollout.
 
 ## 📁 Project Structure
 
