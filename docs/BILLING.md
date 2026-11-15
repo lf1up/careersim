@@ -13,7 +13,7 @@ Polar's [acceptable use policy](https://polar.sh/legal/acceptable-use-policy) li
 - Guidance and support from the development team
 - Chat directly with the developers
 - Help decide the project's future together
-- Early access to upcoming features like MCP and API access
+- Early access to upcoming features, including MCP and API access
 
 A SaaS label, a successful catalog check, or a working checkout does not establish eligibility. Configure and test the private channel and manual membership procedure too. Keep `SUPPORTER_CHECKOUT_ENABLED=false` until the owner records acceptance and the channel is ready. A rejection requires an owner decision about the offer or provider. Do not silently change benefits.
 

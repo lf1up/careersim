@@ -18,7 +18,7 @@
 - Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=1440`.
 - Preserve unprefixed Free settings and the configured session/message windows, currently 6 hours. Voice resets at midnight UTC. Custom records are owned, non-deleted inventory, not monthly credits.
 - Pricing visibly lists all five caps, core benefits, and "Need higher limits? Contact us to discuss your needs."
-- Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features like MCP and API access".
+- Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features, including MCP and API access".
 - No tokens, packs, donations, trials, automatic overages, or new voting/community platform. No application code in deprecated `backend/` or `frontend/`.
 - Preserve safety rate limits, ownership checks, moderation, and saved content after downgrade. Annual billing never multiplies or resets usage allowances.
 - Supporter purchase remains disabled for both intervals until Polar accepts the actual offer and a contact channel is configured. This gate applies to checkout and plan changes, not just UI.
@@ -202,7 +202,7 @@ expect(concurrentStartSuccesses).toHaveLength(1);
 expect(screen.getByText('Guidance and support from the development team')).toBeVisible();
 expect(screen.getByText('Chat directly with the developers')).toBeVisible();
 expect(screen.getByText("Help decide the project's future together")).toBeVisible();
-expect(screen.getByText("Early access to upcoming features like MCP and API access")).toBeVisible();
+expect(screen.getByText("Early access to upcoming features, including MCP and API access")).toBeVisible();
 expect(screen.getByText('Need higher limits? Contact us to discuss your needs.')).toBeVisible();
 // After selecting Yearly, assert the full $90 and $1,000 totals and "billed yearly".
 // With a 12-hour catalog window, assert "per 12 hours" and absence of "per 6 hours".

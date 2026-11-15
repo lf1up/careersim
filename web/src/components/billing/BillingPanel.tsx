@@ -9,7 +9,7 @@ import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
 
-const supporterBenefits = ['Guidance and support from the development team', 'Chat directly with the developers', "Help decide the project's future together", 'Early access to upcoming features like MCP and API access'];
+const supporterBenefits = ['Guidance and support from the development team', 'Chat directly with the developers', "Help decide the project's future together", 'Early access to upcoming features, including MCP and API access'];
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(value));
 }
