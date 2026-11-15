@@ -58,6 +58,7 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
           <div className="p-6 border-b-2 border-black dark:border-retro-ink-dark space-y-3">
             <h2 id={titleId} className="font-retro text-xl">{plan.name}</h2>
             {plan.tier === 'plus' && <p className="text-sm font-semibold">For regular practice</p>}
+            {plan.tier === 'supporter' && <p className="text-sm font-semibold">For maximum tinkering</p>}
             <p className="font-monoRetro text-4xl font-bold">{money(price?.amountCents ?? 0)}</p>
             <p>{free ? 'Free to practice' : interval === 'year' ? 'billed yearly' : 'billed monthly'}</p>
             {price && interval === 'year' && <><p className="text-sm">{plan.tier === 'supporter' ? 'About ' : ''}{money(price.amountCents / 12, 2)} monthly equivalent</p>{price.discountLabel && <p className="inline-block px-2 py-1 bg-retro-accent dark:bg-retro-accent-dark text-black font-semibold text-sm">{price.discountLabel}</p>}</>}

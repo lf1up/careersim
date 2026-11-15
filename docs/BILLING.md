@@ -13,6 +13,7 @@ Polar's [acceptable use policy](https://polar.sh/legal/acceptable-use-policy) li
 - Guidance and support from the development team
 - Chat directly with the developers
 - Help decide the project's future together
+- Early access to upcoming features like MCP and API access
 
 A SaaS label, a successful catalog check, or a working checkout does not establish eligibility. Configure and test the private channel and manual membership procedure too. Keep `SUPPORTER_CHECKOUT_ENABLED=false` until the owner records acceptance and the channel is ready. A rejection requires an owner decision about the offer or provider. Do not silently change benefits.
 
@@ -134,7 +135,7 @@ Do not send invitations during implementation. Before enabling Supporter, choose
 
 1. Check the authenticated user's verified Supporter entitlement and current paid/grace deadline in CareerSim. A forwarded link, checkout screenshot or email address is insufficient.
 2. Match the channel identity to the immutable user UUID using an authenticated support exchange. Record only the minimum identity mapping in the operator's restricted log.
-3. Grant membership manually, record the verified period and provide the configured channel instructions. Honor the three benefit lines above without promising equity, a veto, guaranteed delivery or a fixed response-time SLA.
+3. Grant membership manually, record the verified period and provide the configured channel instructions. Honor the four benefit lines above without promising equity, a veto, guaranteed delivery or a fixed response-time SLA.
 4. Review membership on entitlement changes and on a regular operator schedule. Remove access promptly after expiry, revocation, full current-period refund or open/lost dispute. Cancellation alone retains membership through paid-through.
 5. Recheck current entitlement before restoring membership after a dispute or renewal. Confirm that a removed account cannot rejoin using an old URL. Keep support guidance available through the standard contact route while billing is resolved.
 
@@ -172,7 +173,7 @@ For each row, record date, sandbox environment, host/plugin revisions, command o
 
 Run the full API suite, typecheck and lint; web suite, typecheck and lint; creator source suite/typecheck; the planned Python voice suites; and enabled/disabled plugin production builds. The task coordinator records exact local outputs and limitations. Deterministic integration tests should use a real isolated DB/Redis and test-only credentials, not a live charge.
 
-Inspect pricing/account/contact at desktop/mobile widths in light/dark mode, keyboard navigation, both intervals and all three tiers. Capture all five visible limits, three Supporter benefit lines, clear annual total and renewal terms, unavailable-action explanation and personal contact without company. Intercept the contact destination rather than emailing a real recipient. Never include card/customer data in screenshots.
+Inspect pricing/account/contact at desktop/mobile widths in light/dark mode, keyboard navigation, both intervals and all three tiers. Capture all five visible limits, four Supporter benefit lines, clear annual total and renewal terms, unavailable-action explanation and personal contact without company. Intercept the contact destination rather than emailing a real recipient. Never include card/customer data in screenshots.
 
 The configured LiveKit check must cover a call surviving initial token expiry, reconnect, one-active-call enforcement, worker/API failure cutoff within documented bounds, delayed deduplicated checkpoints and injected UTC rollover. See [VOICE_MODE.md](../VOICE_MODE.md) for token, checkpoint and cutoff settings. A Python unit test alone does not establish the deployed reconnect path.
 

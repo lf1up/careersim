@@ -45,6 +45,7 @@ export const supporterBenefits = [
   "Guidance and support from the development team",
   "Chat directly with the developers",
   "Help decide the project's future together",
+  "Early access to upcoming features like MCP and API access",
 ];
 export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
   const free: PlanLimits = {

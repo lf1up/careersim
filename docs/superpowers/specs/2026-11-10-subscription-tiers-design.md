@@ -109,11 +109,12 @@ An account billing section shows current tier, billing status, renewal/access-en
 
 The user explicitly requested guidance and support from the development team, the ability to chat with developers, and the ability to decide the project's future together. This is substantive participation in roadmap and priority discussions, not merely an anonymous suggestion box.
 
-Use these three visible Supporter benefit lines on pricing and account pages:
+Use these four visible Supporter benefit lines on pricing and account pages:
 
 - "Guidance and support from the development team"
 - "Chat directly with the developers"
 - "Help decide the project's future together"
+- "Early access to upcoming features like MCP and API access"
 
 Deliver guidance about using CareerSim and discussing needs through a private discussion channel. Supporters and developers discuss ideas, tradeoffs, and roadmap priorities together. No voting platform is required in v1. The promise does not imply equity, a unilateral veto, guaranteed delivery of every requested feature, or a fixed response-time SLA. Do not dilute the approved benefits to a badge or generic feedback form.
 
