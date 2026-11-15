@@ -267,12 +267,12 @@ async def test_checkpoint_validates_budget_and_sends_call_identity() -> None:
     api = APIClient("http://api.test", "key")
     api._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     try:
-        result = await api.checkpoint_call("call-1", 3, 45, False)
+        result = await api.checkpoint_call("call-1", 3, 45, False, started_at="2026-11-10T12:00:00Z")
     finally:
         await api.aclose()
     assert result["cap_seconds"] == 43200
     assert seen[0].url.path == "/internal/voice/calls/call-1/checkpoint"
-    assert json.loads(seen[0].content) == {"sequence": 3, "cumulative_seconds": 45, "ended": False}
+    assert json.loads(seen[0].content) == {"sequence": 3, "cumulative_seconds": 45, "ended": False, "started_at": "2026-11-10T12:00:00Z"}
 
 
 @pytest.mark.parametrize("patch", [{"continue_call": "yes"}, {"remaining_seconds": -1}, {"cap_seconds": True}, {"reset_at": "tomorrow"}, {"usage_date": "yesterday"}])

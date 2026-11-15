@@ -27,5 +27,6 @@ export const voiceCheckpointSchema = z.object({
   sequence: z.number().int().nonnegative().max(2147483647),
   cumulative_seconds: z.number().int().nonnegative().max(2147483647),
   ended: z.boolean(),
+  started_at: z.iso.datetime().optional(),
 });
 export const voiceCheckpointResponseSchema = voiceBudgetResponseSchema.extend({ continue_call: z.boolean() });

@@ -51,7 +51,7 @@ function configFixture() {
 function paidSnapshot(
   userId: string,
   tier: "plus" | "supporter" = "plus",
-): BillingSnapshot {
+): Extract<BillingSnapshot, { kind: "subscription" }> {
   const order = {
     orderId: `order-${userId}`,
     productId: `${tier}-month`,
@@ -260,6 +260,68 @@ describe("billing routes and checkout serialization", () => {
         .statusCode,
     ).toBe(409);
     expect(provider.created).toHaveLength(1);
+  });
+  it("keeps a returning subscriber's unpaid checkout open through historical-payment refreshes", async () => {
+    const historical = paidSnapshot(userId);
+    const oldOrder = {
+      orderId: "historical-order",
+      checkoutId: "historical-checkout",
+      productId: "plus-month",
+      start: new Date("2026-09-01Z"),
+      end: new Date("2026-10-01Z"),
+      totalAmount: 900,
+      refundedAmount: 0,
+      dispute: "none" as const,
+    };
+    provider.snapshots.set(userId, {
+      ...historical,
+      status: "canceled",
+      revoked: true,
+      paidPeriod: oldOrder,
+      orders: [oldOrder],
+    });
+    const choice = { tier: "plus", interval: "month" };
+    const first = await request("POST", "checkout", choice);
+    expect(first.statusCode).toBe(200);
+
+    const refreshed = await request("POST", "refresh");
+    expect(refreshed.json()).toMatchObject({
+      tier: "free",
+      pendingCheckout: true,
+      confirmationPending: true,
+    });
+    const repeated = await request("POST", "checkout", choice);
+    expect(repeated.statusCode).toBe(200);
+    expect(repeated.json().url).toBe(first.json().url);
+    expect(
+      (await request("POST", "checkout", { tier: "plus", interval: "year" }))
+        .statusCode,
+    ).toBe(409);
+    expect(provider.created).toHaveLength(1);
+
+    const [attempt] = await handle.db
+      .select()
+      .from(billingCheckoutAttempts)
+      .where(eq(billingCheckoutAttempts.userId, userId));
+    const newOrder = {
+      ...oldOrder,
+      orderId: "new-order",
+      checkoutId: attempt?.checkoutId,
+      start: new Date("2026-11-10Z"),
+      end: new Date("2026-12-10Z"),
+    };
+    provider.snapshots.set(userId, {
+      ...paidSnapshot(userId),
+      subscriptionId: "new-subscription",
+      paidPeriod: newOrder,
+      orders: [newOrder],
+    });
+    const activated = await request("POST", "refresh");
+    expect(activated.json()).toMatchObject({
+      tier: "plus",
+      pendingCheckout: false,
+      confirmationPending: false,
+    });
   });
   it("serializes competing monthly/yearly tabs into one intended subscription", async () => {
     const results = await Promise.all([

@@ -52,6 +52,7 @@ export const planCatalogSchema = z.object({
 export type PlanCatalog = z.infer<typeof planCatalogSchema>;
 export const paidOrderSchema = z.object({
   orderId: z.string(),
+  checkoutId: z.string().nullish(),
   productId: z.string(),
   start: z.coerce.date(),
   end: z.coerce.date(),

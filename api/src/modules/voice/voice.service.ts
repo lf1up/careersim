@@ -60,7 +60,7 @@ export interface VoiceService {
   endCall(args: { userId: string; sessionId: string; callId: string }): Promise<VoiceEndResult>;
   endCallInternal(args: { sessionId: string; callId: string; voiceAnalysis?: Record<string, unknown> }): Promise<VoiceEndResult>;
   getBudgetForSession(sessionId: string): Promise<VoiceBudget>;
-  checkpointCall(args: { callId: string; sequence: number; cumulativeSeconds: number; ended: boolean }): Promise<VoiceCheckpoint>;
+  checkpointCall(args: { callId: string; sequence: number; cumulativeSeconds: number; ended: boolean; startedAt?: Date }): Promise<VoiceCheckpoint>;
   fetchStateForVoice(sessionId: string): Promise<AgentWireState>;
   getQuotaRemainingSeconds(userId: string): Promise<number | null>;
 }

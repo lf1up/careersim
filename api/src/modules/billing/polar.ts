@@ -99,6 +99,7 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
     }
     return {
       orderId: order.id,
+      checkoutId: order.checkout_id,
       productId: order.product_id,
       start,
       end,

@@ -94,7 +94,7 @@ export function BillingPanel() {
       });
     }
     return () => { canceled = true; };
-  }, [account?.supporterAccess, account?.tier, handleFailure]);
+  }, [account, handleFailure]);
 
   async function portal() {
     setBusy(true); setError(null);

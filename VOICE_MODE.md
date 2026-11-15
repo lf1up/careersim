@@ -48,7 +48,15 @@ upgrade raises the ceiling and a downgrade reuses the consumed seconds.
 
 The worker sends cumulative duration every **15 seconds** to
 `POST /internal/voice/calls/:callId/checkpoint`, authenticated with
-`X-Internal-Key`. The payload is `{sequence, cumulative_seconds, ended}`.
+`X-Internal-Key`. The initial authorization payload is
+`{sequence, cumulative_seconds, ended}`. After authorization succeeds, the
+worker starts its duration clock and includes its fixed, whole-second UTC
+`started_at` in subsequent checkpoints. The API bounds that origin by the
+reservation and server time, then freezes it once measured time is recorded.
+This keeps startup and authorization delays from shifting usage across midnight.
+Deploy the updated worker with the API; checkpoints without `started_at`
+retain the earlier reservation-based accounting behavior.
+
 The API resolves ownership from the call row, deduplicates sequences,
 rejects durations beyond observed wall time, and splits accepted duration
 at midnight UTC. Responses include `remaining_seconds`, `cap_seconds`,

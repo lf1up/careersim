@@ -180,6 +180,7 @@ export const voiceRoutes: FastifyPluginAsyncZod<VoiceRouteOptions> = async (app,
     const result = await service.checkpointCall({
       callId: request.params.callId, sequence: request.body.sequence,
       cumulativeSeconds: request.body.cumulative_seconds, ended: request.body.ended,
+      startedAt: request.body.started_at ? new Date(request.body.started_at) : undefined,
     });
     return {
       remaining_seconds: result.remainingSeconds, cap_seconds: result.capSeconds,

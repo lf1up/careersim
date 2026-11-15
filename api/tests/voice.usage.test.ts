@@ -85,6 +85,62 @@ describe('durable cumulative voice accounting', () => {
     const budget = await service.getBudgetForSession(sid);
     expect(budget.usageDate).toBe('2026-11-11'); expect(budget.remainingSeconds).toBe(43140);
   });
+  it('anchors worker seconds to the initial checkpoint after a midnight bootstrap delay', async () => {
+    clock = new Date('2026-11-10T23:59:50Z');
+    const call = await start();
+    advance(20);
+    await service.checkpointCall({ callId: call.callId, sequence: 0, cumulativeSeconds: 0, ended: false });
+    advance(15);
+    await service.checkpointCall({ callId: call.callId, sequence: 1, cumulativeSeconds: 15, ended: false, startedAt: new Date('2026-11-11T00:00:10Z') });
+    const rows = await handle.db.select().from(voiceMinuteUsage);
+    expect(rows.map(row => ({ date: row.usageDate, seconds: row.secondsUsed }))).toEqual([
+      { date: '2026-11-11', seconds: 15 },
+    ]);
+  });
+  it('keeps the initial usage origin through replays and a bounded late final checkpoint', async () => {
+    clock = new Date('2026-11-10T23:59:50Z');
+    const call = await start();
+    advance(20);
+    await service.checkpointCall({ callId: call.callId, sequence: 0, cumulativeSeconds: 0, ended: false });
+    advance(15);
+    await service.checkpointCall({ callId: call.callId, sequence: 0, cumulativeSeconds: 0, ended: false });
+    advance(5);
+    await service.endCall({ userId: owner, sessionId: sid, callId: call.callId });
+    advance(10);
+    const final = await service.checkpointCall({ callId: call.callId, sequence: 1, cumulativeSeconds: 30, ended: true, startedAt: new Date('2026-11-11T00:00:10Z') });
+    expect(final.continueCall).toBe(false);
+    const [row] = await handle.db.select().from(voiceCalls);
+    expect(row?.startedAt).toEqual(new Date('2026-11-11T00:00:10Z'));
+    expect(row?.chargedSeconds).toBe(20);
+    expect((await handle.db.select().from(voiceMinuteUsage)).map(usage => [usage.usageDate, usage.secondsUsed])).toEqual([
+      ['2026-11-11', 20],
+    ]);
+  });
+  it('does not restart the reservation lease when the first worker checkpoint is stale', async () => {
+    const call = await start();
+    advance(60);
+    const result = await service.checkpointCall({ callId: call.callId, sequence: 0, cumulativeSeconds: 0, ended: false });
+    expect(result.continueCall).toBe(false);
+    const [row] = await handle.db.select().from(voiceCalls);
+    expect(row?.startedAt).toEqual(new Date('2026-11-10T12:00:00Z'));
+    expect(row?.endedAt).toEqual(new Date('2026-11-10T12:00:30Z'));
+  });
+  it('uses the worker origin when initial authorization returns across midnight', async () => {
+    clock = new Date('2026-11-10T23:59:50Z');
+    const call = await start();
+    advance(9);
+    await service.checkpointCall({ callId: call.callId, sequence: 0, cumulativeSeconds: 0, ended: false });
+    clock = new Date('2026-11-11T00:00:18Z');
+    const origin = new Date('2026-11-11T00:00:03Z');
+    await service.checkpointCall({ callId: call.callId, sequence: 1, cumulativeSeconds: 15, ended: false, startedAt: origin });
+    expect((await handle.db.select().from(voiceMinuteUsage)).map(usage => [usage.usageDate, usage.secondsUsed])).toEqual([
+      ['2026-11-11', 15],
+    ]);
+    advance(15);
+    await expect(service.checkpointCall({ callId: call.callId, sequence: 2, cumulativeSeconds: 30, ended: false,
+      startedAt: new Date('2026-11-11T00:00:04Z'),
+    })).rejects.toMatchObject({ statusCode: 400 });
+  });
   it('refreshes downgraded or revoked paid access using the same daily usage', async () => {
     const call = await start(); advance(30);
     await service.checkpointCall({ callId: call.callId, sequence: 1, cumulativeSeconds: 30, ended: false });

@@ -128,7 +128,7 @@ export function createVoiceUsage(db: AppDatabase, config: VoiceUsageConfig) {
         return budget(tx, userId, cap);
       });
     },
-    async checkpoint(args: { callId: string; sequence: number; cumulativeSeconds: number; ended: boolean }): Promise<VoiceCheckpoint> {
+    async checkpoint(args: { callId: string; sequence: number; cumulativeSeconds: number; ended: boolean; startedAt?: Date }): Promise<VoiceCheckpoint> {
       const [owner] = await db.select({ userId: voiceCalls.userId }).from(voiceCalls).where(eq(voiceCalls.id, args.callId));
       if (!owner) throw notFound('Voice call not found');
       const cap = await capFor(owner.userId);
@@ -139,24 +139,33 @@ export function createVoiceUsage(db: AppDatabase, config: VoiceUsageConfig) {
         const at = now();
         const stale = !call.endedAt && at.getTime() - call.lastCheckpointAt.getTime() >= leaseSeconds * 1000;
         const endedAt = call.endedAt ?? (stale ? new Date(call.lastCheckpointAt.getTime() + 30000) : null);
-        const elapsed = Math.max(0, Math.floor(((endedAt ?? at).getTime() - call.startedAt.getTime()) / 1000));
         if (!Number.isSafeInteger(args.cumulativeSeconds) || args.cumulativeSeconds < 0 || !Number.isSafeInteger(args.sequence) || args.sequence < 0) {
           throw new HttpError(400, 'Invalid cumulative checkpoint', 'voice_invalid_checkpoint');
         }
         const fresh = args.sequence > call.processedSequence;
-        if (fresh && args.cumulativeSeconds > Math.max(0, Math.floor((at.getTime() - call.startedAt.getTime()) / 1000)) + 1) throw new HttpError(400, 'Duration exceeds server-observed call time', 'voice_invalid_duration');
         if (fresh && args.cumulativeSeconds < call.cumulativeSeconds) throw new HttpError(400, 'Cumulative duration cannot decrease', 'voice_invalid_duration');
+        // The worker starts measuring after initial authorization returns.
+        // Its fixed UTC origin handles both bootstrap and response delays;
+        // establish it before the first debit, then keep it immutable.
+        const startedAt = fresh && args.startedAt ? args.startedAt : call.startedAt;
+        if (fresh && args.startedAt && (
+          !Number.isFinite(startedAt.getTime()) || startedAt.getTime() % 1000 !== 0 ||
+          startedAt < call.startedAt || startedAt.getTime() > Math.floor((endedAt ?? at).getTime() / 1000) * 1000 ||
+          (call.cumulativeSeconds > 0 && startedAt.getTime() !== call.startedAt.getTime())
+        )) throw new HttpError(400, 'Invalid worker duration origin', 'voice_invalid_duration');
+        if (fresh && args.cumulativeSeconds > Math.max(0, Math.floor((at.getTime() - startedAt.getTime()) / 1000)) + 1) throw new HttpError(400, 'Duration exceeds server-observed call time', 'voice_invalid_duration');
+        const elapsed = Math.max(0, Math.floor(((endedAt ?? at).getTime() - startedAt.getTime()) / 1000));
         let charged = 0;
         if (fresh) {
           const cumulative = Math.min(args.cumulativeSeconds, elapsed);
-          for (const part of splitUsage(call.startedAt, call.cumulativeSeconds, cumulative)) {
+          for (const part of splitUsage(startedAt, call.cumulativeSeconds, cumulative)) {
             const debit = cap === null ? part.seconds : Math.min(part.seconds, Math.max(0, cap - await used(tx, call.userId, part.usageDate)));
             if (debit <= 0) continue;
             await tx.insert(voiceMinuteUsage).values({ userId: call.userId, usageDate: part.usageDate, secondsUsed: debit, updatedAt: at })
               .onConflictDoUpdate({ target: [voiceMinuteUsage.userId, voiceMinuteUsage.usageDate], set: { secondsUsed: sql`${voiceMinuteUsage.secondsUsed} + ${debit}`, updatedAt: at } });
             charged += debit;
           }
-          await tx.update(voiceCalls).set({ processedSequence: args.sequence, cumulativeSeconds: cumulative,
+          await tx.update(voiceCalls).set({ startedAt, processedSequence: args.sequence, cumulativeSeconds: cumulative,
             chargedSeconds: call.chargedSeconds + charged, lastCheckpointAt: endedAt ? call.lastCheckpointAt : at,
           }).where(eq(voiceCalls.id, call.id));
         }

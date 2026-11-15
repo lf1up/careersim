@@ -32,7 +32,12 @@ function normalizeVersionPrefix(raw: string, ctx: z.RefinementCtx): string {
   return segment;
 }
 
-const positiveLimit = z.coerce.number().int().positive().max(2_147_483_647);
+const nonnegativeLimit = z.coerce
+  .number()
+  .int()
+  .nonnegative()
+  .max(2_147_483_647);
+const positiveLimit = nonnegativeLimit.positive();
 const bool = z
   .enum(["true", "false", "1", "0"])
   .default("false")
@@ -168,8 +173,8 @@ const EnvSchema = z
     CHAT_MESSAGES_MAX: z.coerce.number().int().positive().default(350),
     CHAT_MESSAGES_WINDOW: z.string().trim().min(1).default("6 hours"),
 
-    CUSTOM_SIMULATIONS_MAX: positiveLimit.default(3),
-    CUSTOM_PERSONAS_MAX: positiveLimit.default(10),
+    CUSTOM_SIMULATIONS_MAX: nonnegativeLimit.default(3),
+    CUSTOM_PERSONAS_MAX: nonnegativeLimit.default(10),
     PRO_SESSIONS_CREATE_MAX: positiveLimit.default(100),
     PRO_CHAT_MESSAGES_MAX: positiveLimit.default(3000),
     PRO_CUSTOM_SIMULATIONS_MAX: positiveLimit.default(250),

@@ -344,7 +344,7 @@ class _API:
             raise self.budget_error
         return self.budget
 
-    async def checkpoint_call(self, call_id, sequence, cumulative_seconds, ended):
+    async def checkpoint_call(self, call_id, sequence, cumulative_seconds, ended, *, started_at=None):
         self.checkpoints.append((call_id, sequence, cumulative_seconds, ended))
         budget = await self.fetch_voice_budget(call_id)
         return {"usage_date": "2026-11-10", "reset_at": "2026-11-11T00:00:00Z", "continue_call": True, **budget}
@@ -1458,7 +1458,7 @@ async def test_supervisor_refreshes_at_utc_midnight_before_spending_new_day(monk
     monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
     monkeypatch.setattr('careersim_agent.voice.worker.datetime', ClockDatetime)
     api = _API()
-    async def checkpoint(call_id, sequence, cumulative_seconds, ended):
+    async def checkpoint(call_id, sequence, cumulative_seconds, ended, *, started_at=None):
         api.checkpoints.append((call_id, sequence, cumulative_seconds, ended))
         return {"remaining_seconds": 600, "cap_seconds": 600,
                 "usage_date": '2026-11-11' if clock[0] >= 5 else '2026-11-10',
@@ -1477,3 +1477,31 @@ async def test_supervisor_refreshes_at_utc_midnight_before_spending_new_day(monk
     assert api.checkpoints[1][2] == 5
     assert accounting.budget['usage_date'] == '2026-11-11'
     assert api.checkpoints[2][2] == 20
+
+
+async def test_call_accounting_starts_duration_after_initial_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime as RealDatetime, timedelta, timezone
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    class ClockDatetime(RealDatetime):
+        @classmethod
+        def now(cls, tz=None):
+            return RealDatetime(2026, 11, 10, 23, 59, 58, tzinfo=timezone.utc) + timedelta(seconds=clock[0])
+    monkeypatch.setattr('careersim_agent.voice.worker.datetime', ClockDatetime)
+    origins = []
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    original_checkpoint = api.checkpoint_call
+    async def delayed_initial(call_id, sequence, cumulative_seconds, ended, *, started_at=None):
+        origins.append(started_at)
+        if sequence == 0:
+            clock[0] = 5.0
+        return await original_checkpoint(call_id, sequence, cumulative_seconds, ended)
+    api.checkpoint_call = delayed_initial
+    accounting = _CallAccounting(api, 'call-delayed-auth')
+    clock[0] = 2.0
+    await accounting.checkpoint()
+    clock[0] = 20.0
+    await accounting.checkpoint()
+    assert api.checkpoints == [('call-delayed-auth', 0, 0, False), ('call-delayed-auth', 1, 15, False)]
+    assert origins == [None, '2026-11-11T00:00:03Z']

@@ -57,6 +57,42 @@ it('loads the private channel only for verified Supporter access', async () => {
   expect(screen.getByText('Use your CareerSim email for membership verification.')).toBeVisible();
   for (const benefit of catalog.plans[2].benefits.slice(3)) expect(screen.getByText(benefit)).toBeVisible();
 });
+it('recovers the Supporter channel after a temporary error and successful billing refresh', async () => {
+  const verifiedSupporter = { ...plus, tier: 'supporter', supporterAccess: true };
+  account.mockResolvedValue(verifiedSupporter);
+  refresh.mockResolvedValue({ ...verifiedSupporter });
+  supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSim email.' });
+  render(<BillingPanel />);
+  await screen.findByText(/Supporter access could not be verified/);
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  expect(await screen.findByRole('link', { name: 'Open Supporter channel' })).toHaveAttribute('href', 'https://community.example/private');
+  expect(screen.getByText('Join with your CareerSim email.')).toBeVisible();
+  expect(screen.queryByText(/Supporter access could not be verified/)).toBeNull();
+});
+it('returns to sign-in when refreshed Supporter verification loses authentication', async () => {
+  const verifiedSupporter = { ...plus, tier: 'supporter', supporterAccess: true };
+  account.mockResolvedValue(verifiedSupporter);
+  refresh.mockResolvedValue({ ...verifiedSupporter });
+  supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockRejectedValueOnce(new ApiError(401, 'Sign in required'));
+  render(<BillingPanel />);
+  await screen.findByText(/Supporter access could not be verified/);
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  expect(await screen.findByRole('link', { name: 'Sign in to view billing' })).toBeVisible();
+  expect(screen.queryByRole('link', { name: 'Open Supporter channel' })).toBeNull();
+});
+it('ignores an older channel response after refreshed access is downgraded', async () => {
+  const channel = Promise.withResolvers<{ channelUrl: string; instructions: string }>();
+  account.mockResolvedValueOnce({ ...plus, tier: 'supporter', supporterAccess: true }).mockResolvedValue(freeAccount);
+  refresh.mockResolvedValue(freeAccount);
+  supporter.mockReturnValueOnce(channel.promise);
+  render(<BillingPanel />);
+  await screen.findByText('Subscription active');
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
+  await screen.findByText('Free practice access');
+  await act(async () => { channel.resolve({ channelUrl: 'https://community.example/private', instructions: 'Old membership' }); });
+  expect(screen.queryByRole('link', { name: 'Open Supporter channel' })).toBeNull();
+  expect(screen.queryByText('Old membership')).toBeNull();
+});
 it('never exposes a Supporter channel to Plus', async () => {
   account.mockResolvedValue(plus);
   render(<BillingPanel />);

@@ -75,6 +75,19 @@ describe('voice routes with call identity and cumulative checkpoints', () => {
     expect((await checkpoint(call.call_id, 4, 60)).json()).toEqual(first.json());
     const denied = await start(); expect(denied.statusCode, denied.body).toBe(429);
   });
+  it('accounts the worker UTC origin after authorization crosses midnight', async () => {
+    at = new Date('2026-11-10T23:59:50Z');
+    const call = (await start()).json();
+    at = new Date('2026-11-10T23:59:59Z');
+    expect((await checkpoint(call.call_id, 0, 0)).statusCode).toBe(200);
+    at = new Date('2026-11-11T00:00:18Z');
+    for (const started_at of ['2026-11-10T23:59:49Z', '2026-11-11T00:00:19Z', '2026-11-11T00:00:03.500Z']) {
+      expect((await checkpoint(call.call_id, 1, 15, { started_at })).statusCode).toBe(400);
+    }
+    const result = await checkpoint(call.call_id, 1, 15, { started_at: '2026-11-11T00:00:03Z' });
+    expect(result.statusCode, result.body).toBe(200);
+    expect(result.json()).toMatchObject({ usage_date: '2026-11-11', remaining_seconds: 45 });
+  });
   it('user hangup does not debit and old callbacks do not mutate the replacement', async () => {
     const call = (await start()).json(); at = new Date(at.getTime() + 15000);
     const end = await h.app.inject({ method: 'POST', url: `/v1/sessions/${sessionId}/voice/end`, headers, payload: { call_id: call.call_id } });

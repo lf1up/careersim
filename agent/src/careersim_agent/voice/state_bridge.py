@@ -304,14 +304,18 @@ class APIClient:
 
     async def checkpoint_call(
         self, call_id: str, sequence: int, cumulative_seconds: int, ended: bool,
+        *, started_at: str | None = None,
     ) -> dict[str, Any]:
         """Cumulative, idempotent accounting and current authorization/UTC budget."""
         from datetime import date, datetime
         client = await self._ensure_client()
         url = f"{self._base_url}{self._version_path}/internal/voice/calls/{call_id}/checkpoint"
-        response = await client.post(url, json={
+        body: dict[str, Any] = {
             "sequence": sequence, "cumulative_seconds": cumulative_seconds, "ended": ended,
-        }, timeout=5.0)
+        }
+        if started_at is not None:
+            body["started_at"] = started_at
+        response = await client.post(url, json=body, timeout=5.0)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict):

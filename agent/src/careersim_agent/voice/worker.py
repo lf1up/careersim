@@ -174,6 +174,7 @@ class _CallAccounting:
     def __init__(self, api: Any, call_id: str) -> None:
         self.api, self.call_id = api, call_id
         self.started = time.monotonic()
+        self.started_at: str | None = None
         self.last_confirmed = self.started
         self.sequence = 0
         self.budget: dict[str, Any] = {}
@@ -186,10 +187,18 @@ class _CallAccounting:
         # Bound a hung request by the fail-closed deadline, including network time.
         timeout = max(0.01, min(5.0, 25.0 - (time.monotonic() - self.last_confirmed)))
         result = await asyncio.wait_for(self.api.checkpoint_call(
-            self.call_id, sequence, max(0, int(time.monotonic() - self.started)), ended,
+            self.call_id, sequence,
+            max(0, int(time.monotonic() - self.started)) if self.started_at is not None else 0,
+            ended,
+            started_at=self.started_at,
         ), timeout=timeout)
         self.budget = result
         self.last_confirmed = time.monotonic()
+        if sequence == 0:
+            # No providers/audio run until this authorization returns. Start
+            # measuring here so its network delay cannot lead the API's clock.
+            self.started = self.last_confirmed
+            self.started_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         self.retry_at = self.last_confirmed
         return result
 

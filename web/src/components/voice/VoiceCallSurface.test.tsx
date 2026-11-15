@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { VoiceControlEvent } from '@/lib/types';
@@ -73,4 +74,70 @@ it('releases the server reservation when connection setup fails', async () => {
   render(<VoiceCallSurface sessionId="session-one" onCallEnded={ended} />);
   await waitFor(() => expect(end).toHaveBeenCalledWith('session-one', metadata.call_id));
   expect(ended).toHaveBeenCalledWith(expect.any(Error));
+});
+
+it('keeps a restarted call alive when the previous start response arrives late', async () => {
+  let resolveOld!: (value: typeof metadata) => void;
+  start.mockReturnValueOnce(new Promise(done => { resolveOld = done; }));
+  const first = render(<VoiceCallSurface sessionId="restart-session" onCallEnded={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: 'End call' }));
+  first.unmount();
+  const replacement = { ...metadata, call_id: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb' };
+  let activeCall = metadata.call_id;
+  // The API returns the existing reservation until it has been ended.
+  start.mockImplementation(async () => activeCall === metadata.call_id ? metadata : replacement);
+  end.mockImplementation(async (_session, callId) => {
+    if (callId === activeCall) activeCall = replacement.call_id;
+    return { seconds_recorded: 0, quota_remaining_seconds: 100 };
+  });
+  render(<VoiceCallSurface sessionId="restart-session" onCallEnded={vi.fn()} />);
+  await act(async () => { resolveOld(metadata); });
+  await screen.findByText('Live');
+  // The currently connected reservation must not have received an old end.
+  const startedCall = start.mock.results.length > 1
+    ? await start.mock.results[1].value : metadata;
+  expect(end.mock.calls.filter(([, callId]) => callId === startedCall.call_id)).toEqual([]);
+});
+
+it('shares one reservation through strict effect replay', async () => {
+  const view = render(<StrictMode><VoiceCallSurface sessionId="strict-session" onCallEnded={vi.fn()} /></StrictMode>);
+  await screen.findByText('Live');
+  expect(start).toHaveBeenCalledOnce();
+  expect(end).not.toHaveBeenCalled();
+  view.unmount();
+  await waitFor(() => expect(end).toHaveBeenCalledOnce());
+});
+
+it('waits for an in-flight hangup before reserving a replacement', async () => {
+  let finishEnd!: (value: { seconds_recorded: number; quota_remaining_seconds: number }) => void;
+  end.mockReturnValueOnce(new Promise(done => { finishEnd = done; }));
+  const first = render(<VoiceCallSurface sessionId="closing-session" onCallEnded={vi.fn()} />);
+  await screen.findByText('Live');
+  first.unmount();
+  await waitFor(() => expect(end).toHaveBeenCalledOnce());
+  start.mockResolvedValueOnce({ ...metadata, call_id: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb' });
+  render(<VoiceCallSurface sessionId="closing-session" onCallEnded={vi.fn()} />);
+  expect(start).toHaveBeenCalledOnce();
+  await act(async () => finishEnd({ seconds_recorded: 0, quota_remaining_seconds: 100 }));
+  await screen.findByText('Live');
+  expect(start).toHaveBeenCalledTimes(2);
+  expect(end).toHaveBeenCalledOnce();
+});
+
+it('keeps a single pending connection across a same-session remount', async () => {
+  const pending = Promise.withResolvers<Awaited<ReturnType<typeof import('@/lib/voice').createVoiceConnection>>>();
+  const liveConnection = await connect.getMockImplementation()!();
+  connect.mockReturnValueOnce(pending.promise);
+  const first = render(<VoiceCallSurface sessionId="pending-connection-session" onCallEnded={vi.fn()} />);
+  await waitFor(() => expect(connect).toHaveBeenCalledOnce());
+  first.unmount();
+  const replacement = render(<VoiceCallSurface sessionId="pending-connection-session" onCallEnded={vi.fn()} />);
+  await act(async () => { pending.resolve(liveConnection); });
+  await screen.findByText('Live');
+  expect(connect).toHaveBeenCalledOnce();
+  expect(liveConnection.disconnect).not.toHaveBeenCalled();
+  expect(end).not.toHaveBeenCalled();
+  replacement.unmount();
+  await waitFor(() => expect(liveConnection.disconnect).toHaveBeenCalledOnce());
+  expect(end).toHaveBeenCalledOnce();
 });

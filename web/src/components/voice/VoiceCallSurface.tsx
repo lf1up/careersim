@@ -10,12 +10,13 @@ import React, {
 import toast from 'react-hot-toast';
 
 import { QuotaNotice } from '@/components/billing/QuotaNotice';
-import { apiClient, ApiError } from '@/lib/api';
-import { createVoiceConnection, type VoiceConnection } from '@/lib/voice';
+import { ApiError } from '@/lib/api';
+import type { VoiceConnection } from '@/lib/voice';
 import type { VoiceCaption } from '@/lib/types';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 
 import { VoiceControls } from './VoiceControls';
+import { acquireVoiceReservation } from './reservations';
 
 export interface VoiceCallSurfaceProps {
   sessionId: string;
@@ -96,9 +97,7 @@ function VoiceCallSession({
   // LiveKit connection comes up — initialising with `Date.now()` here
   // would re-evaluate on every re-render and trip React's purity rule.
   const callIdRef = useRef<string | null>(null);
-  const epochRef = useRef(0);
-  const latestSessionRef = useRef(sessionId);
-  const pendingStartRef = useRef<{ sessionId: string; promise: ReturnType<typeof apiClient.startVoiceCall> } | null>(null);
+  const reservationRef = useRef<ReturnType<typeof acquireVoiceReservation> | null>(null);
   const connRef = useRef<VoiceConnection | null>(null);
   const startTimeRef = useRef<number>(0);
   const endingRef = useRef<boolean>(false);
@@ -131,35 +130,21 @@ function VoiceCallSession({
     let unsubscribe = () => {};
     let unsubscribeControl = () => {};
     let disconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    const epoch = ++epochRef.current;
-    latestSessionRef.current = sessionId;
     endingRef.current = false;
     quotaEndedRef.current = false;
-    if (!pendingStartRef.current || pendingStartRef.current.sessionId !== sessionId) {
-      pendingStartRef.current = { sessionId, promise: apiClient.startVoiceCall(sessionId) };
-    }
-    const pending = pendingStartRef.current;
+    const reservation = acquireVoiceReservation(sessionId);
+    reservationRef.current = reservation;
     (async () => {
       try {
-        const meta = await pending.promise;
-        if (cancelled) {
-          if (epochRef.current === epoch || latestSessionRef.current !== sessionId) void apiClient.endVoiceCall(sessionId, meta.call_id).catch(() => {});
-          return;
-        }
-        if (pendingStartRef.current === pending) pendingStartRef.current = null;
+        const meta = await reservation.start;
+        if (cancelled) return;
         ownedCallId = meta.call_id;
         callIdRef.current = meta.call_id;
         setQuotaRemaining(meta.quota_remaining_seconds);
 
-        const conn = await createVoiceConnection({
-          url: meta.livekit_url,
-          token: meta.token,
-        });
+        const conn = await reservation.connect();
         ownedConnection = conn;
-        if (cancelled) {
-          await conn.disconnect();
-          return;
-        }
+        if (cancelled) return;
         connRef.current = conn;
         startTimeRef.current = Date.now();
         setStatus('live');
@@ -271,7 +256,7 @@ function VoiceCallSession({
           disconnectTimer = setTimeout(() => {
             if (!cancelled && connRef.current === conn && callIdRef.current === meta.call_id && !endingRef.current) {
               endingRef.current = true;
-              void apiClient.endVoiceCall(sessionId, meta.call_id).catch(() => {
+              void reservation.release().catch(() => {
                 // Best-effort — the staleness window is the backstop.
               });
               setStatus('ended');
@@ -281,13 +266,12 @@ function VoiceCallSession({
         });
 
       } catch (err) {
-        if (pendingStartRef.current === pending) pendingStartRef.current = null;
         if (cancelled) return;
         const message = formatStartError(err);
         setError(message);
         setStatus('ended');
         toast.error(message);
-        if (ownedCallId) void apiClient.endVoiceCall(sessionId, ownedCallId).catch(() => {});
+        void reservation.release().catch(() => {});
         onCallEnded(err);
       }
     })();
@@ -298,8 +282,8 @@ function VoiceCallSession({
       unsubscribeControl();
       if (connRef.current === ownedConnection) connRef.current = null;
       if (callIdRef.current === ownedCallId) callIdRef.current = null;
-      void ownedConnection?.disconnect();
-      if (ownedCallId) void apiClient.endVoiceCall(sessionId, ownedCallId).catch(() => {});
+      if (reservationRef.current === reservation) reservationRef.current = null;
+      void reservation.release().catch(() => {});
     };
   }, [sessionId, onCallEnded]);
 
@@ -350,14 +334,11 @@ function VoiceCallSession({
     setStatus('ended');
     const callId = callIdRef.current;
     try {
-      await connRef.current?.disconnect();
-    } catch {
-      // disconnection errors are non-fatal
-    }
-    try {
       if (callId) {
-        const result = await apiClient.endVoiceCall(sessionId, callId);
-        setQuotaRemaining(result.quota_remaining_seconds);
+        const result = await reservationRef.current?.release();
+        if (result) setQuotaRemaining(result.quota_remaining_seconds);
+      } else {
+        void reservationRef.current?.release().catch(() => {});
       }
     } catch {
       // Best-effort — if /voice/end fails the SFU close still
@@ -365,7 +346,7 @@ function VoiceCallSession({
       // re-check ownership + quota.
     }
     onCallEnded();
-  }, [onCallEnded, sessionId]);
+  }, [onCallEnded]);
 
   const handleToggleMute = useCallback(async () => {
     const conn = connRef.current;

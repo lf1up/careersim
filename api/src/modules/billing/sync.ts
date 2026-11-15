@@ -213,13 +213,18 @@ export function createBillingSync({
               isNull(billingWebhookInbox.userId),
             ),
           );
-        if (paidPeriod)
+        const paidCheckoutIds = orders.flatMap((order) =>
+          order.checkoutId ? [order.checkoutId] : [],
+        );
+        // Historical payments cannot complete a later unpaid checkout.
+        if (paidCheckoutIds.length)
           await tx
             .update(billingCheckoutAttempts)
             .set({ status: "completed" })
             .where(
               and(
                 eq(billingCheckoutAttempts.userId, userId),
+                inArray(billingCheckoutAttempts.checkoutId, paidCheckoutIds),
                 inArray(billingCheckoutAttempts.status, [
                   "creating",
                   "pending",

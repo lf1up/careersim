@@ -1,16 +1,17 @@
 import { z } from 'zod';
 import { request } from './api';
+import { safeNextPath } from './safe-next-path';
 
 const tier = z.enum(['free', 'plus', 'supporter']);
 const interval = z.enum(['month', 'year']);
 const choice = z.strictObject({ tier: z.enum(['plus', 'supporter']), interval });
 const date = z.iso.datetime({ offset: true });
 const secureUrl = z.url().refine(value => new URL(value).protocol === 'https:', 'A secure destination is required.');
-const contactUrl = z.string().refine(value => value.startsWith('/contact') && !value.includes('\\') || secureUrl.safeParse(value).success, 'Invalid contact destination.');
+const contactUrl = z.string().refine(value => safeNextPath(value, '') !== '', 'Invalid contact destination.');
 const limits = z.object({
   sessionsCreateMax: z.number().int().positive(), sessionsWindowMs: z.number().int().positive(),
   chatMessagesMax: z.number().int().positive(), chatWindowMs: z.number().int().positive(),
-  customSimulationsMax: z.number().int().positive(), customPersonasMax: z.number().int().positive(), voiceDailyMinutes: z.number().int().nonnegative(),
+  customSimulationsMax: z.number().int().nonnegative(), customPersonasMax: z.number().int().nonnegative(), voiceDailyMinutes: z.number().int().nonnegative(),
 });
 const catalogSchema = z.object({
   currency: z.literal('USD'), contactUrl, higherLimitsMessage: z.string(), planChangesAvailable: z.boolean(),

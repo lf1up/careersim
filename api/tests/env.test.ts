@@ -162,6 +162,28 @@ describe("billing configuration", () => {
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
     POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
   };
+  it.each([false, true])(
+    "allows zero Free inventory limits with billing enabled=%s",
+    (billingEnabled) => {
+      const config = loadEnv({
+        ...(billingEnabled ? enabled : baseEnv),
+        CUSTOM_SIMULATIONS_MAX: "0",
+        CUSTOM_PERSONAS_MAX: "0",
+      });
+      expect(config.CUSTOM_SIMULATIONS_MAX).toBe(0);
+      expect(config.CUSTOM_PERSONAS_MAX).toBe(0);
+      expect(config.PRO_CUSTOM_SIMULATIONS_MAX).toBe(250);
+      expect(config.PRO_CUSTOM_PERSONAS_MAX).toBe(250);
+    },
+  );
+  it.each(["CUSTOM_SIMULATIONS_MAX", "CUSTOM_PERSONAS_MAX"])(
+    "rejects invalid Free inventory limit %s",
+    (key) => {
+      for (const value of ["-1", "0.5", "2147483648"]) {
+        expect(() => loadEnv({ ...baseEnv, [key]: value })).toThrow(key);
+      }
+    },
+  );
   it("defaults billing off and publishes requested finite paid caps with parsed windows", () => {
     expect(loadEnv(baseEnv)).toMatchObject({
       BILLING_ENABLED: false,

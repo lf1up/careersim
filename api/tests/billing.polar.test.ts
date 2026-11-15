@@ -134,6 +134,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
           return page([
             {
               id: "order",
+              checkout_id: "paid-checkout",
               paid,
               product_id: "plus-year",
               total_amount: 9900,
@@ -163,6 +164,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
     expect(await provider.fetchSnapshot("immutable-user")).toMatchObject({
       choice: { tier: "plus", interval: "year" },
       paidPeriod: {
+        checkoutId: "paid-checkout",
         start: new Date("2027-02-28T00:00:00Z"),
         end: new Date("2028-02-29T00:00:00Z"),
         totalAmount: 9900,

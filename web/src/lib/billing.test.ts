@@ -28,3 +28,28 @@ it('validates supporter links and scheduled dates at the network boundary', asyn
   fetcher.mockResolvedValue(new Response(JSON.stringify({ choice: { tier: 'plus', interval: 'year' }, effectiveAt: 'invalid' })));
   await expect(scheduleBillingChange({ tier: 'plus', interval: 'year' })).rejects.toThrow();
 });
+it('accepts configured local contact destinations in catalog and account responses', async () => {
+  const contactUrl = '/business#contact';
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(
+    url.endsWith('/account') ? { ...freeAccount, contactUrl } : { ...catalog, contactUrl },
+  ))));
+  await expect(fetchPlanCatalog(true)).resolves.toMatchObject({ contactUrl });
+  await expect(getBillingAccount()).resolves.toMatchObject({ contactUrl });
+});
+it.each(['//outside.example/contact', '/\\outside.example/contact', '/contact\\outside', '/\n/outside.example/contact', '/\t/outside.example/contact', '/contact\u007f', 'contact'])('rejects unsafe contact destination %s', async (contactUrl) => {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(
+    url.endsWith('/account') ? { ...freeAccount, contactUrl } : { ...catalog, contactUrl },
+  ))));
+  await expect(fetchPlanCatalog(true)).rejects.toThrow();
+  await expect(getBillingAccount()).rejects.toThrow();
+});
+it('accepts disabled inventory limits in catalog and account responses', async () => {
+  const limits = { ...freeAccount.limits, customSimulationsMax: 0, customPersonasMax: 0 };
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => Promise.resolve(Response.json(
+    url.endsWith('/account')
+      ? { ...freeAccount, limits }
+      : { ...catalog, plans: catalog.plans.map(plan => plan.tier === 'free' ? { ...plan, limits } : plan) },
+  ))));
+  await expect(fetchPlanCatalog(true)).resolves.toMatchObject({ plans: [expect.objectContaining({ tier: 'free', limits }), expect.anything(), expect.anything()] });
+  await expect(getBillingAccount()).resolves.toMatchObject({ limits });
+});
