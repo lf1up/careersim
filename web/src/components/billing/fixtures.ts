@@ -1,6 +1,6 @@
 import type { PlanCatalogResponse, BillingAccount } from '@/lib/billing';
-export const plusLimits = { sessionsCreateMax: 100, sessionsWindowMs: 21600000, chatMessagesMax: 3000, chatWindowMs: 21600000, customSimulationsMax: 250, customPersonasMax: 250, voiceDailyMinutes: 720 };
-export const supporterLimits = { sessionsCreateMax: 200, sessionsWindowMs: 21600000, chatMessagesMax: 6000, chatWindowMs: 21600000, customSimulationsMax: 500, customPersonasMax: 500, voiceDailyMinutes: 1440 };
+export const plusLimits = { sessionsCreateMax: 100, sessionsWindowMs: 21600000, chatMessagesMax: 3000, chatWindowMs: 21600000, customSimulationsMax: 250, customPersonasMax: 250, voiceDailyMinutes: 360 };
+export const supporterLimits = { sessionsCreateMax: 200, sessionsWindowMs: 21600000, chatMessagesMax: 6000, chatWindowMs: 21600000, customSimulationsMax: 500, customPersonasMax: 500, voiceDailyMinutes: 720 };
 export const catalog: PlanCatalogResponse = {
   currency: 'USD', contactUrl: '/contact?reason=higher-limits', higherLimitsMessage: 'Need higher limits? Contact us to discuss your needs.', planChangesAvailable: false,
   plans: [

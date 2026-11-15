@@ -168,14 +168,14 @@ describe("billing entitlement policy", () => {
                   chatMessagesMax: 6000,
                   customSimulationsMax: 500,
                   customPersonasMax: 500,
-                  voiceDailyMinutes: 1440,
+                  voiceDailyMinutes: 720,
                 }
               : {
                   sessionsCreateMax: 100,
                   chatMessagesMax: 3000,
                   customSimulationsMax: 250,
                   customPersonasMax: 250,
-                  voiceDailyMinutes: 720,
+                  voiceDailyMinutes: 360,
                 },
           supporterAccess: tier === "supporter",
         });

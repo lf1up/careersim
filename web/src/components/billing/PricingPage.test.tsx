@@ -11,7 +11,7 @@ it('lists three plans and all configured allowances visibly in responsive cards'
   render(<PricingPage catalog={catalog} />);
   for (const tier of ['Free', 'Plus', 'Supporter']) expect(screen.getByRole('heading', { name: tier })).toBeVisible();
   const plus = screen.getByRole('region', { name: 'Plus' });
-  for (const text of ['100 new sessions per 6 hours', '3,000 text messages per 6 hours', '250 saved custom simulations', '250 saved custom personas', '720 voice minutes / day (12 hours)']) expect(within(plus).getByText(text)).toBeVisible();
+  for (const text of ['100 new sessions per 6 hours', '3,000 text messages per 6 hours', '250 saved custom simulations', '250 saved custom personas', '360 voice minutes / day (6 hours)']) expect(within(plus).getByText(text)).toBeVisible();
   expect(screen.getByText('4 new sessions per 6 hours')).toBeVisible();
   expect(screen.getByText('420 text messages per 6 hours')).toBeVisible();
   expect(screen.getByText('7 saved custom simulations')).toBeVisible();
@@ -47,8 +47,8 @@ it.each(['month', 'year'] as const)('shows independent Supporter allowances with
   render(<PricingPage catalog={catalog} initialInterval={interval} />);
   const plus = within(screen.getByRole('region', { name: 'Plus' }));
   const supporter = within(screen.getByRole('region', { name: 'Supporter' }));
-  for (const text of ['100 new sessions per 6 hours', '3,000 text messages per 6 hours', '250 saved custom simulations', '250 saved custom personas', '720 voice minutes / day (12 hours)']) expect(plus.getByText(text)).toBeVisible();
-  for (const text of ['200 new sessions per 6 hours', '6,000 text messages per 6 hours', '500 saved custom simulations', '500 saved custom personas', '1,440 voice minutes / day (24 hours)']) expect(supporter.getByText(text)).toBeVisible();
+  for (const text of ['100 new sessions per 6 hours', '3,000 text messages per 6 hours', '250 saved custom simulations', '250 saved custom personas', '360 voice minutes / day (6 hours)']) expect(plus.getByText(text)).toBeVisible();
+  for (const text of ['200 new sessions per 6 hours', '6,000 text messages per 6 hours', '500 saved custom simulations', '500 saved custom personas', '720 voice minutes / day (12 hours)']) expect(supporter.getByText(text)).toBeVisible();
 });
 it('uses non-default catalog windows without claiming six hours', () => {
   render(<PricingPage catalog={{ ...catalog, plans: catalog.plans.map(plan => ({ ...plan, limits: { ...plan.limits, sessionsWindowMs: 43200000, chatWindowMs: 43200000 } })) }} />);

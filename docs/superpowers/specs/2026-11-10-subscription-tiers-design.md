@@ -57,12 +57,12 @@ The user specified the Plus defaults on 2026-11-10 and separate Supporter defaul
 | `PRO_CHAT_MESSAGES_MAX` | 3,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
 | `PRO_CUSTOM_SIMULATIONS_MAX` | 250 | Owned, non-deleted records |
 | `PRO_CUSTOM_PERSONAS_MAX` | 250 | Owned, non-deleted records |
-| `PRO_VOICE_DAILY_MINUTES_PER_USER` | 720 | Per UTC day, equivalent to 12 hours |
+| `PRO_VOICE_DAILY_MINUTES_PER_USER` | 360 | Per UTC day, equivalent to 6 hours |
 | `SUPPORTER_SESSIONS_CREATE_MAX` | 200 | Per existing `SESSIONS_CREATE_WINDOW`, currently 6 hours |
 | `SUPPORTER_CHAT_MESSAGES_MAX` | 6,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
 | `SUPPORTER_CUSTOM_SIMULATIONS_MAX` | 500 | Owned, non-deleted records |
 | `SUPPORTER_CUSTOM_PERSONAS_MAX` | 500 | Owned, non-deleted records |
-| `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER` | 1440 | Per UTC day, equivalent to 24 hours |
+| `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER` | 720 | Per UTC day, equivalent to 12 hours |
 
 Paid caps must be positive safe integers, meet database arithmetic bounds, and be at least the effective Free limits. An unprefixed voice value of zero currently disables the quota; reject that combination when finite paid quotas are enabled rather than making Free more permissive than paid. Do not use zero or infinity to express paid access.
 
@@ -74,7 +74,7 @@ Lead pricing with the actual allowances rather than an "Unlimited" or "zero limi
 
 Present three pricing cards, with Plus as the primary upgrade and a Monthly / Yearly billing toggle. Default to Monthly; switching to Yearly does not change allowances. Show billing interval, full amount charged now, renewal terms, currency, tax treatment, and cancellation terms before checkout. Price treatment: the listed prices are before applicable checkout taxes; confirm market presentation before launch.
 
-The Plus benefits list must visibly include 100 new sessions per 6 hours, 3,000 text messages per 6 hours, up to 250 saved custom simulations, up to 250 saved custom personas, and 720 voice minutes per UTC day. Supporter lists its separate defaults of 200 sessions, 6,000 messages, 500 simulations, 500 personas, and 1440 voice minutes. Explain that saved-item caps are inventory limits, not daily/monthly creation credits. Show core scenarios, feedback, and history alongside those limits; Supporter also prominently shows guidance and support from the development team, direct chat with developers, and collaborative decisions about the project's future. Free displays its effective configured allowances and core benefits.
+The Plus benefits list must visibly include 100 new sessions per 6 hours, 3,000 text messages per 6 hours, up to 250 saved custom simulations, up to 250 saved custom personas, and 360 voice minutes per UTC day. Supporter lists its separate defaults of 200 sessions, 6,000 messages, 500 simulations, 500 personas, and 720 voice minutes. Explain that saved-item caps are inventory limits, not daily/monthly creation credits. Show core scenarios, feedback, and history alongside those limits; Supporter also prominently shows guidance and support from the development team, direct chat with developers, and collaborative decisions about the project's future. Free displays its effective configured allowances and core benefits.
 
 Read public plan limits and window labels from a safe server-owned plan catalog derived from the same configuration used for enforcement. Do not publish environment variable names, credentials, or internal configuration to the pricing UI. If the configured windows change, the pricing labels must change with them. Apply this contract to any pricing shown by `web/` or `landing/`, using a public catalog response or build-time generation as appropriate.
 

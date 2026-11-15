@@ -14,8 +14,8 @@
 
 - Exactly three tiers: `free`, `plus`, `supporter`; Plus uses `PRO_` caps and Supporter uses independent `SUPPORTER_` caps. No fourth Pro tier.
 - Plus: $9/month or $90/year upfront. Supporter: $100/month or $1,000/year upfront. Annual discount: "2 months free", 16.67%; yearly auto-renewal disclosed.
-- `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, `PRO_VOICE_DAILY_MINUTES_PER_USER=720`.
-- Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=1440`.
+- `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, `PRO_VOICE_DAILY_MINUTES_PER_USER=360`.
+- Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=720`.
 - Preserve unprefixed Free settings and the configured session/message windows, currently 6 hours. Voice resets at midnight UTC. Custom records are owned, non-deleted inventory, not monthly credits.
 - Pricing visibly lists all five caps, core benefits, and "Need higher limits? Contact us to discuss your needs."
 - Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features, including MCP and API access".
@@ -71,7 +71,7 @@ Tasks are sequential where contracts depend on earlier work: 1 → 2 → 3; 1 �
 
 ```ts
 expect(paid.limits).toMatchObject({ sessionsCreateMax: 100, chatMessagesMax: 3000,
-  customSimulationsMax: 250, customPersonasMax: 250, voiceDailyMinutes: 720 });
+  customSimulationsMax: 250, customPersonasMax: 250, voiceDailyMinutes: 360 });
 expect(catalog.plans.find(p => p.tier === 'plus')?.prices.map(p => p.amountCents))
   .toEqual([900, 9000]);
 expect(catalog.plans.find(p => p.tier === 'supporter')?.prices.map(p => p.amountCents))
@@ -175,7 +175,7 @@ expect(downgradedExistingRecord.statusCode).toBe(200);
 
 **Interfaces:** Persist `voice_calls` with UUID `callId`, owner/session, started/ended times, last checkpoint, processed sequence, cumulative charged seconds and room. `checkpointCall({callId, sequence, cumulativeSeconds, ended}): Promise<{remainingSeconds:number; capSeconds:number; usageDate:string; resetAt:Date; continueCall:boolean}>`; internal authenticated route `POST /internal/voice/calls/:callId/checkpoint`. Resolve owner from the call record, not client input. Existing start response gains `call_id`; all end/budget callbacks carry it, so callbacks from a previous room cannot affect a new call. In `state_bridge.py`, add `APIClient.checkpoint_call(call_id: str, sequence: int, cumulative_seconds: int, ended: bool) -> dict[str, Any]`, validate its response at the boundary, and update `report_call_end` to carry call identity and final analysis without a second duration debit.
 
-- [ ] Add API tests for the 720-minute paid cap, per-user Free override, concurrent starts across sessions, reconnect to the same active call, repeated/lower/out-of-order checkpoints, stale-call callback after replacement, UTC split, downgrade mid-call, revoked access, and server-rejected impossible duration. Worker tests cover refresh at midnight, cancellation final checkpoint, timeout cutoff and preservation of transcripts.
+- [ ] Add API tests for the 360-minute Plus and 720-minute Supporter caps, per-user Free override, concurrent starts across sessions, reconnect to the same active call, repeated/lower/out-of-order checkpoints, stale-call callback after replacement, UTC split, downgrade mid-call, revoked access, and server-rejected impossible duration. Worker tests cover refresh at midnight, cancellation final checkpoint, timeout cutoff and preservation of transcripts.
 
 ```ts
 expect(paidBudget.capSeconds).toBe(43200);
@@ -209,7 +209,7 @@ expect(screen.getByText('Need higher limits? Contact us to discuss your needs.')
 ```
 
 - [ ] Run `pnpm -C web test -- src/components/billing/PricingPage.test.tsx src/lib/landing-proxy.test.ts`; verify new tests fail.
-- [ ] Implement the pricing page in the existing visual style, Plus primary, exact visible limits and benefits. Show 720 minutes as "720 voice minutes / day (12 hours)" and explain UTC reset. Label custom assets as saved totals. Annual mode shows $90/$1,000 upfront, secondary $7.50/about $83.33 monthly equivalents, and "2 months free". Do not headline unlimited use.
+- [ ] Implement the pricing page in the existing visual style, Plus primary, exact visible limits and benefits. Show Plus as "360 voice minutes / day (6 hours)" and Supporter as "720 voice minutes / day (12 hours)" and explain UTC reset. Label custom assets as saved totals. Annual mode shows $90/$1,000 upfront, secondary $7.50/about $83.33 monthly equivalents, and "2 months free". Do not headline unlimited use.
 - [ ] Fetch a safe current catalog; do not render invented fallback prices on errors. Use a short-lived catalog cache and refresh before checkout. Keep `/pricing` served by Next.js, outside the marketing proxy allowlist. Link landing navigation to it instead of duplicating prices in Astro. Public visitors sign in with a validated internal return path preserving the selected tier/interval.
 - [ ] Link contact notice to `/contact?reason=higher-limits`; authenticated paid cap errors use the same action, never an upsell to Supporter. Preserve the existing Free reset/upgrade path.
 - [ ] Run focused tests and `pnpm -C web typecheck`; expect PASS. Commit: `feat: show subscription pricing and yearly savings`.

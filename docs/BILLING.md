@@ -87,7 +87,7 @@ Defaults for each tier are:
 | `CHAT_MESSAGES_MAX` | 3000 | 6000 |
 | `CUSTOM_SIMULATIONS_MAX` | 250 | 500 |
 | `CUSTOM_PERSONAS_MAX` | 250 | 500 |
-| `VOICE_DAILY_MINUTES_PER_USER` | 720 | 1440 |
+| `VOICE_DAILY_MINUTES_PER_USER` | 360 | 720 |
 
 Each setting combines its tier prefix with the limit name, for example `SUPPORTER_CHAT_MESSAGES_MAX=6000`. Values must be positive safe integers within storage bounds and at least the effective Free caps. Tier overrides are independent. Monthly and yearly billing use the same limits within each tier. A zero unlimited Free voice cap is incompatible with finite paid quotas. Voice resets at midnight UTC. Custom simulation/persona caps count owned, non-deleted inventory including drafts, rather than monthly creation credits.
 

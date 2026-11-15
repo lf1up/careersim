@@ -394,7 +394,7 @@ describe("subscription access through the full API", () => {
         chatMessagesMax: 3000,
         customSimulationsMax: 250,
         customPersonasMax: 250,
-        voiceDailyMinutes: 720,
+        voiceDailyMinutes: 360,
       },
     });
     expect((await create()).statusCode).toBe(201);

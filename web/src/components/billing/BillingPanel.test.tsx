@@ -11,7 +11,7 @@ const supporterAccount = { ...plus, tier: 'supporter' as const, limits: supporte
   chatMessages: { used: 1234, limit: 6000, resetAt: '2026-11-10T18:00:00.000Z' },
   customSimulations: { used: 123, limit: 500, resetAt: null },
   customPersonas: { used: 87, limit: 500, resetAt: null },
-  voice: { used: 90, limit: 1440, resetAt: '2026-11-11T00:00:00.000Z' },
+  voice: { used: 90, limit: 720, resetAt: '2026-11-11T00:00:00.000Z' },
 } };
 beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); supporter.mockReset().mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSim email for membership verification.' }); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
@@ -67,13 +67,13 @@ it('loads the private channel only for verified Supporter access', async () => {
 it('shows all verified Supporter usage against its independent allowances', async () => {
   account.mockResolvedValue(supporterAccount);
   render(<BillingPanel />);
-  for (const text of ['23 / 200', '1,234 / 6,000', '123 / 500', '87 / 500', '90 / 1,440']) expect(await screen.findByText(text)).toBeVisible();
+  for (const text of ['23 / 200', '1,234 / 6,000', '123 / 500', '87 / 500', '90 / 720']) expect(await screen.findByText(text)).toBeVisible();
   expect(screen.getByText(/Sessions reset per 6 hours; text messages per 6 hours/)).toBeVisible();
 });
 it('keeps actual Supporter allowances visible when usage counters are unavailable', async () => {
   account.mockResolvedValue({ ...supporterAccount, usage: freeAccount.usage });
   render(<BillingPanel />);
-  for (const limit of ['200', '6,000', '1,440']) expect(await screen.findByText(`Usage temporarily unavailable / ${limit}`)).toBeVisible();
+  for (const limit of ['200', '6,000', '720']) expect(await screen.findByText(`Usage temporarily unavailable / ${limit}`)).toBeVisible();
   expect(screen.getAllByText('Usage temporarily unavailable / 500')).toHaveLength(2);
 });
 it('recovers the Supporter channel after a temporary error and successful billing refresh', async () => {
