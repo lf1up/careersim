@@ -270,4 +270,4 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 
 ## Delivery record
 
-Implementation completed on `feat/subscriptions`; see `docs/subscriptions-handoff.md` for exact compatible repository revisions, final verification evidence, local branch import instructions, and remaining external launch gates.
+Implementation completed on `feat/subscriptions`; see `docs/BILLING.md` for remaining external launch gates.
