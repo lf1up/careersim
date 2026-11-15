@@ -3,13 +3,14 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { z } from 'zod';
+import { billingPricesSchema } from '../src/modules/billing/prices.js';
 
 export const expectedProducts = [
-  { key: 'POLAR_PLUS_MONTHLY_PRODUCT_ID', tier: 'plus', interval: 'month', cents: 900 },
-  { key: 'POLAR_PLUS_YEARLY_PRODUCT_ID', tier: 'plus', interval: 'year', cents: 9000 },
-  { key: 'POLAR_SUPPORTER_MONTHLY_PRODUCT_ID', tier: 'supporter', interval: 'month', cents: 10000 },
-  { key: 'POLAR_SUPPORTER_YEARLY_PRODUCT_ID', tier: 'supporter', interval: 'year', cents: 100000 },
-] satisfies Array<{ key: string; tier: string; interval: string; cents: number }>;
+  { key: 'POLAR_PLUS_MONTHLY_PRODUCT_ID', tier: 'plus', interval: 'month', priceKey: 'PRO_MONTHLY_PRICE_CENTS' },
+  { key: 'POLAR_PLUS_YEARLY_PRODUCT_ID', tier: 'plus', interval: 'year', priceKey: 'PRO_YEARLY_PRICE_CENTS' },
+  { key: 'POLAR_SUPPORTER_MONTHLY_PRODUCT_ID', tier: 'supporter', interval: 'month', priceKey: 'SUPPORTER_MONTHLY_PRICE_CENTS' },
+  { key: 'POLAR_SUPPORTER_YEARLY_PRODUCT_ID', tier: 'supporter', interval: 'year', priceKey: 'SUPPORTER_YEARLY_PRICE_CENTS' },
+] satisfies Array<{ key: string; tier: string; interval: string; priceKey: keyof z.infer<typeof billingPricesSchema> }>;
 
 const ProductSchema = z.object({
   id: z.string(),
@@ -37,6 +38,8 @@ export async function checkBillingCatalog(
   source: NodeJS.ProcessEnv,
   fetchProduct: FetchProduct,
 ): Promise<Report> {
+  const configuredPrices = billingPricesSchema.safeParse(source);
+  if (!configuredPrices.success) return { ok: false, lines: ['catalog: prices must be positive integer USD cents; no requests made'] };
   const lines: string[] = [];
   const ids = expectedProducts.map(({ key }) => source[key]?.trim() ?? '');
   for (const [index, expected] of expectedProducts.entries()) {
@@ -73,7 +76,8 @@ export async function checkBillingCatalog(
         const price = prices[0];
         if (!price) throw new Error('Active price missing');
         if (price.amount_type !== 'fixed') mismatches.push('fixed amount required');
-        if (price.price_amount !== expected.cents) mismatches.push(`amount must be ${expected.cents} cents`);
+        const expectedCents = configuredPrices.data[expected.priceKey];
+        if (price.price_amount !== expectedCents) mismatches.push(`amount must be ${expectedCents} cents`);
         if (price.price_currency !== 'usd') mismatches.push('currency must be USD');
         if (price.tax_behavior !== 'exclusive') mismatches.push('tax behavior must be exclusive');
         if (price.recurring_interval != null && price.recurring_interval !== expected.interval) {

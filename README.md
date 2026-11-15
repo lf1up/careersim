@@ -81,7 +81,7 @@ Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top 
 
 ## Subscriptions
 
-CareerSIM has Free, Plus and Supporter tiers. Plus is $9/month or $90/year upfront; Supporter is $100/month or $1,000/year upfront. Yearly subscriptions renew yearly and offer "2 months free" compared with twelve monthly payments. Listed prices are before applicable checkout taxes.
+CareerSIM has Free, Plus and Supporter tiers. Default prices are $9/month or $90/year upfront for Plus and $100/month or $1,000/year upfront for Supporter. Set `PRO_MONTHLY_PRICE_CENTS`, `PRO_YEARLY_PRICE_CENTS`, `SUPPORTER_MONTHLY_PRICE_CENTS` and `SUPPORTER_YEARLY_PRICE_CENTS` in the API environment to publish other prices in USD cents. Configure matching Polar product prices and verify them with `pnpm -C api billing:check`. Yearly subscriptions renew yearly. The default yearly prices offer "2 months free" compared with twelve monthly payments; the badge appears only when the configured yearly price equals ten monthly payments. Listed prices are before applicable checkout taxes.
 
 Both paid tiers share 100 new sessions per configured window, 3,000 text messages per configured window, 250 owned custom simulations, 250 owned custom personas and 720 voice minutes per UTC day. Session and message windows default to six hours. Saved-item limits count inventory, not monthly credits. Upgrades and interval changes preserve counters; downgrade preserves saved work.
 

@@ -60,7 +60,7 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
             {plan.tier === 'plus' && <p className="text-sm font-semibold">For regular practice</p>}
             <p className="font-monoRetro text-4xl font-bold">{money(price?.amountCents ?? 0)}</p>
             <p>{free ? 'Free to practice' : interval === 'year' ? 'billed yearly' : 'billed monthly'}</p>
-            {price && interval === 'year' && <><p className="text-sm">{plan.tier === 'supporter' ? 'About ' : ''}{money(price.amountCents / 12, 2)} monthly equivalent</p><p className="inline-block px-2 py-1 bg-retro-accent dark:bg-retro-accent-dark text-black font-semibold text-sm">{price.discountLabel}</p></>}
+            {price && interval === 'year' && <><p className="text-sm">{plan.tier === 'supporter' ? 'About ' : ''}{money(price.amountCents / 12, 2)} monthly equivalent</p>{price.discountLabel && <p className="inline-block px-2 py-1 bg-retro-accent dark:bg-retro-accent-dark text-black font-semibold text-sm">{price.discountLabel}</p>}</>}
           </div>
           <div className="p-6 flex flex-col flex-1 gap-5">
             <ul className="space-y-3 text-sm leading-relaxed">

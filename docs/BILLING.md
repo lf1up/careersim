@@ -34,16 +34,18 @@ Local tests demonstrate implementation behavior using deterministic provider fix
 
 Use four distinct server-only allowlisted product UUIDs. Free has no product. Keep sandbox and production IDs and tokens separate; a name or price never identifies a user's tier.
 
-| Mapping variable | Tier | Charge in USD cents | Product interval | Count | Upfront charge |
-| --- | --- | ---: | --- | ---: | ---: |
-| `POLAR_PLUS_MONTHLY_PRODUCT_ID` | Plus | 900 | `month` | 1 | $9 |
-| `POLAR_PLUS_YEARLY_PRODUCT_ID` | Plus | 9000 | `year` | 1 | $90 |
-| `POLAR_SUPPORTER_MONTHLY_PRODUCT_ID` | Supporter | 10000 | `month` | 1 | $100 |
-| `POLAR_SUPPORTER_YEARLY_PRODUCT_ID` | Supporter | 100000 | `year` | 1 | $1,000 |
+| Product setting | Tier | Price setting | Default USD cents | Interval | Count |
+| --- | --- | --- | ---: | --- | ---: |
+| `POLAR_PLUS_MONTHLY_PRODUCT_ID` | Plus | `PRO_MONTHLY_PRICE_CENTS` | 900 | `month` | 1 |
+| `POLAR_PLUS_YEARLY_PRODUCT_ID` | Plus | `PRO_YEARLY_PRICE_CENTS` | 9000 | `year` | 1 |
+| `POLAR_SUPPORTER_MONTHLY_PRODUCT_ID` | Supporter | `SUPPORTER_MONTHLY_PRICE_CENTS` | 10000 | `month` | 1 |
+| `POLAR_SUPPORTER_YEARLY_PRODUCT_ID` | Supporter | `SUPPORTER_YEARLY_PRICE_CENTS` | 100000 | `year` | 1 |
+
+Price settings are positive integer USD cents, up to 2,147,483,647. Omitted settings use the defaults above. The API catalog and read-only catalog audit share these settings. Configure the same amounts on the corresponding Polar products before enabling purchases; changing an environment value does not change a Polar product's charge. The `PRO_*` price names map to the Plus tier, matching its existing paid-limit settings.
 
 Configure a single active fixed USD price per product, recurring billing, no trial, and explicit `exclusive` tax behavior. Listed prices are before applicable checkout taxes. `location` and `inclusive` do not satisfy that contract; the catalog check rejects both. See Polar's [product configuration](https://polar.sh/docs/api-reference/products/create) and [checkout tax behavior](https://polar.sh/docs/api-reference/checkouts/get-session). Verify actual buyer-country checkout presentation before launch. Do not infer tax handling from a product display name or an organization default.
 
-Yearly means a recurring full upfront yearly payment with yearly auto-renewal. Show the full annual total prominently. "2 months free" means 16.67% savings relative to twelve monthly payments. There is no coupon, installment plan, lifetime product, usage charge or automatic overage. Both intervals grant identical caps. Annual purchase and interval changes never reset counters or grant a year of voice minutes upfront.
+Yearly means a recurring full upfront yearly payment with yearly auto-renewal. Show the full annual total prominently. The "2 months free" badge appears only when the configured yearly price equals ten monthly payments, a 16.67% saving relative to twelve monthly payments. Other yearly prices omit that badge. There is no coupon, installment plan, lifetime product, usage charge or automatic overage. Both intervals grant identical caps. Annual purchase and interval changes never reset counters or grant a year of voice minutes upfront.
 
 Run the read-only check in a shell with an injected sandbox-only secret environment:
 
@@ -51,7 +53,7 @@ Run the read-only check in a shell with an injected sandbox-only secret environm
 pnpm -C api billing:check
 ```
 
-The command reads `POLAR_ENVIRONMENT`, `POLAR_ACCESS_TOKEN` and the four product variables. It defaults to sandbox, accepts only `sandbox` or `production`, performs only product GET requests to a fixed Polar host, refuses redirects, and exits nonzero for missing configuration, unreadable products, malformed responses or any mismatch. It does not need the database, does not load `.env` automatically, and never creates or updates products. Do not paste tokens into command arguments or chat. Load secrets using the release environment's secret manager. The report includes tier/interval labels and mismatch fields, not provider bodies, IDs or credentials.
+The command reads `POLAR_ENVIRONMENT`, `POLAR_ACCESS_TOKEN`, the four product variables and the four price settings. It defaults to sandbox, accepts only `sandbox` or `production`, performs only product GET requests to a fixed Polar host, refuses redirects, and exits nonzero for missing configuration, invalid prices, unreadable products, malformed responses or any mismatch. It does not need the database, does not load `.env` automatically, and never creates or updates products. Do not paste tokens into command arguments or chat. Load secrets using the release environment's secret manager. The report includes tier/interval labels and mismatch fields, not provider bodies, IDs or credentials.
 
 A passing audit confirms product configuration only. Run it again against the explicitly selected production environment during the authorized release, with the production mappings, before purchases are enabled.
 

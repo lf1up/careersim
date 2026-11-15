@@ -30,6 +30,10 @@ export type BillingConfig = Pick<
   | "PRO_CUSTOM_SIMULATIONS_MAX"
   | "PRO_CUSTOM_PERSONAS_MAX"
   | "PRO_VOICE_DAILY_MINUTES_PER_USER"
+  | "PRO_MONTHLY_PRICE_CENTS"
+  | "PRO_YEARLY_PRICE_CENTS"
+  | "SUPPORTER_MONTHLY_PRICE_CENTS"
+  | "SUPPORTER_YEARLY_PRICE_CENTS"
 >;
 const coreBenefits = ["Core scenarios", "Feedback", "Saved practice history"];
 export const supporterBenefits = [
@@ -77,11 +81,19 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
         benefits: coreBenefits,
         availability: config.BILLING_ENABLED ? "available" : "billing_disabled",
         prices: [
-          { interval: "month", amountCents: 900, discountLabel: null },
+          {
+            interval: "month",
+            amountCents: config.PRO_MONTHLY_PRICE_CENTS,
+            discountLabel: null,
+          },
           {
             interval: "year",
-            amountCents: 9000,
-            discountLabel: "2 months free",
+            amountCents: config.PRO_YEARLY_PRICE_CENTS,
+            discountLabel:
+              config.PRO_YEARLY_PRICE_CENTS ===
+              config.PRO_MONTHLY_PRICE_CENTS * 10
+                ? "2 months free"
+                : null,
           },
         ],
       },
@@ -96,11 +108,19 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
             ? "available"
             : "coming_soon",
         prices: [
-          { interval: "month", amountCents: 10000, discountLabel: null },
+          {
+            interval: "month",
+            amountCents: config.SUPPORTER_MONTHLY_PRICE_CENTS,
+            discountLabel: null,
+          },
           {
             interval: "year",
-            amountCents: 100000,
-            discountLabel: "2 months free",
+            amountCents: config.SUPPORTER_YEARLY_PRICE_CENTS,
+            discountLabel:
+              config.SUPPORTER_YEARLY_PRICE_CENTS ===
+              config.SUPPORTER_MONTHLY_PRICE_CENTS * 10
+                ? "2 months free"
+                : null,
           },
         ],
       },

@@ -15,6 +15,14 @@ const ids = [
 const configured = Object.fromEntries(
   expectedProducts.map(({ key }, index) => [key, ids[index]]),
 );
+const defaultAmounts = [900, 9000, 10000, 100000];
+const customPricing = {
+  PRO_MONTHLY_PRICE_CENTS: "1200",
+  PRO_YEARLY_PRICE_CENTS: "12000",
+  SUPPORTER_MONTHLY_PRICE_CENTS: "15000",
+  SUPPORTER_YEARLY_PRICE_CENTS: "150000",
+};
+const customAmounts = [1200, 12000, 15000, 150000];
 
 function product(id: string) {
   const expected = expectedProducts[ids.indexOf(id)];
@@ -31,7 +39,7 @@ function product(id: string) {
       {
         is_archived: false,
         amount_type: "fixed",
-        price_amount: expected.cents,
+        price_amount: defaultAmounts[ids.indexOf(id)],
         price_currency: "usd",
         tax_behavior: "exclusive",
       },
@@ -46,6 +54,64 @@ describe("read-only billing catalog check", () => {
     );
     expect(result.ok).toBe(true);
     expect(result.lines).toHaveLength(4);
+  });
+  it("audits all four configured prices without requiring unrelated application environment", async () => {
+    const result = await checkBillingCatalog(
+      { ...configured, ...customPricing },
+      async (id) => {
+        const data = product(id);
+        return {
+          ...data,
+          prices: data.prices.map((price) => ({
+            ...price,
+            price_amount: customAmounts[ids.indexOf(id)],
+          })),
+        };
+      },
+    );
+    expect(result).toEqual({
+      ok: true,
+      lines: [
+        "plus/month: OK",
+        "plus/year: OK",
+        "supporter/month: OK",
+        "supporter/year: OK",
+      ],
+    });
+  });
+  it("rejects provider prices that match the defaults instead of configured amounts", async () => {
+    const result = await checkBillingCatalog(
+      { ...configured, ...customPricing },
+      async (id) => product(id),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.lines).toEqual([
+      "plus/month: MISMATCH amount must be 1200 cents",
+      "plus/year: MISMATCH amount must be 12000 cents",
+      "supporter/month: MISMATCH amount must be 15000 cents",
+      "supporter/year: MISMATCH amount must be 150000 cents",
+    ]);
+  });
+  it.each([
+    ["PRO_MONTHLY_PRICE_CENTS", "0"],
+    ["PRO_YEARLY_PRICE_CENTS", "-12000"],
+    ["SUPPORTER_MONTHLY_PRICE_CENTS", "15000.5"],
+    ["SUPPORTER_YEARLY_PRICE_CENTS", "private-invalid-value"],
+  ])("rejects invalid %s before any provider requests", async (key, value) => {
+    const request = vi.fn<typeof fetch>();
+    const result = await runBillingCatalogCheck(
+      {
+        ...configured,
+        ...customPricing,
+        [key]: value,
+        POLAR_ACCESS_TOKEN: "secret",
+      },
+      request,
+    );
+    expect(result.ok).toBe(false);
+    expect(request).not.toHaveBeenCalled();
+    expect(result.lines.join("\n")).toContain("price");
+    expect(result.lines.join("\n")).not.toContain("private-invalid-value");
   });
 
   it.each([

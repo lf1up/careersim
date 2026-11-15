@@ -194,8 +194,62 @@ describe("billing configuration", () => {
       PRO_CUSTOM_SIMULATIONS_MAX: 250,
       PRO_CUSTOM_PERSONAS_MAX: 250,
       PRO_VOICE_DAILY_MINUTES_PER_USER: 720,
+      PRO_MONTHLY_PRICE_CENTS: 900,
+      PRO_YEARLY_PRICE_CENTS: 9000,
+      SUPPORTER_MONTHLY_PRICE_CENTS: 10000,
+      SUPPORTER_YEARLY_PRICE_CENTS: 100000,
       SESSIONS_CREATE_WINDOW_MS: 21_600_000,
       CHAT_MESSAGES_WINDOW_MS: 21_600_000,
+    });
+  });
+  it("loads configured monthly and yearly prices in USD cents", () => {
+    expect(
+      loadEnv({
+        ...baseEnv,
+        PRO_MONTHLY_PRICE_CENTS: "1200",
+        PRO_YEARLY_PRICE_CENTS: "14400",
+        SUPPORTER_MONTHLY_PRICE_CENTS: "15000",
+        SUPPORTER_YEARLY_PRICE_CENTS: "150000",
+      }),
+    ).toMatchObject({
+      PRO_MONTHLY_PRICE_CENTS: 1200,
+      PRO_YEARLY_PRICE_CENTS: 14400,
+      SUPPORTER_MONTHLY_PRICE_CENTS: 15000,
+      SUPPORTER_YEARLY_PRICE_CENTS: 150000,
+    });
+  });
+  it.each([
+    "PRO_MONTHLY_PRICE_CENTS",
+    "PRO_YEARLY_PRICE_CENTS",
+    "SUPPORTER_MONTHLY_PRICE_CENTS",
+    "SUPPORTER_YEARLY_PRICE_CENTS",
+  ])("rejects invalid price cents in %s", (key) => {
+    for (const value of [
+      "0",
+      "-1",
+      "1.5",
+      "NaN",
+      "Infinity",
+      "2147483648",
+      "9007199254740992",
+      "",
+    ])
+      expect(() => loadEnv({ ...baseEnv, [key]: value })).toThrow(key);
+  });
+  it("accepts price cents at the supported integer boundaries", () => {
+    expect(
+      loadEnv({
+        ...baseEnv,
+        PRO_MONTHLY_PRICE_CENTS: "1",
+        PRO_YEARLY_PRICE_CENTS: "2147483647",
+        SUPPORTER_MONTHLY_PRICE_CENTS: "1",
+        SUPPORTER_YEARLY_PRICE_CENTS: "2147483647",
+      }),
+    ).toMatchObject({
+      PRO_MONTHLY_PRICE_CENTS: 1,
+      PRO_YEARLY_PRICE_CENTS: 2147483647,
+      SUPPORTER_MONTHLY_PRICE_CENTS: 1,
+      SUPPORTER_YEARLY_PRICE_CENTS: 2147483647,
     });
   });
   it("requires private keys and Plus products only when enabled", () => {

@@ -63,6 +63,6 @@ export function windowLabel(milliseconds: number): string {
   const minutes = milliseconds / 60_000;
   return `${minutes.toLocaleString('en-US')} ${minutes === 1 ? 'minute' : 'minutes'}`;
 }
-export function money(amountCents: number, decimals = 0): string {
+export function money(amountCents: number, decimals = amountCents % 100 === 0 ? 0 : 2): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(amountCents / 100);
 }

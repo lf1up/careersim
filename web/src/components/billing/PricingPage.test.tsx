@@ -48,6 +48,21 @@ it('uses non-default catalog windows without claiming six hours', () => {
   expect(screen.getAllByText(/per 12 hours/)).toHaveLength(6);
   expect(screen.queryByText(/per 6 hours/)).toBeNull();
 });
+it('shows configured prices to the cent without claiming an unconfigured yearly discount', () => {
+  const custom = { ...catalog, plans: catalog.plans.map(plan => ({ ...plan, prices: plan.prices.map(price => ({
+    ...price,
+    amountCents: plan.tier === 'plus' ? (price.interval === 'month' ? 1299 : 12999) : (price.interval === 'month' ? 16999 : 199999),
+    discountLabel: null,
+  })) })) };
+  render(<PricingPage catalog={custom} />);
+  expect(within(screen.getByRole('region', { name: 'Plus' })).getByText('$12.99')).toBeVisible();
+  expect(within(screen.getByRole('region', { name: 'Supporter' })).getByText('$169.99')).toBeVisible();
+  fireEvent.click(screen.getByRole('radio', { name: 'Yearly' }));
+  expect(within(screen.getByRole('region', { name: 'Plus' })).getByText('$129.99')).toBeVisible();
+  expect(within(screen.getByRole('region', { name: 'Supporter' })).getByText('$1,999.99')).toBeVisible();
+  expect(within(screen.getByRole('region', { name: 'Plus' })).getByText('$10.83 monthly equivalent')).toBeVisible();
+  expect(screen.queryByText('2 months free')).toBeNull();
+});
 it('refreshes the catalog and blocks checkout when the offer becomes unavailable', async () => {
   auth.isAuthenticated = true;
   fetchCatalog.mockResolvedValue({ ...catalog, plans: catalog.plans.map(plan => ({ ...plan, availability: 'billing_disabled' })) });

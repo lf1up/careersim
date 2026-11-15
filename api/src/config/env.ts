@@ -2,6 +2,7 @@ import { z } from "zod";
 import ms from "ms";
 
 import { parseCorsAllowedOrigins } from "../utils/cors.js";
+import { billingPricesSchema } from "../modules/billing/prices.js";
 
 /**
  * Normalize `API_VERSION_PREFIX` into the path segment versioned routes
@@ -61,6 +62,7 @@ export function parseBillingWindow(value: string): number {
 }
 const EnvSchema = z
   .object({
+    ...billingPricesSchema.shape,
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),

@@ -78,6 +78,77 @@ describe("billing entitlement policy", () => {
       customPersonasMax: 0,
     });
   });
+  it.each([
+    {
+      proYearly: 12000,
+      supporterYearly: 150000,
+      proDiscountLabel: "2 months free",
+      supporterDiscountLabel: "2 months free",
+    },
+    {
+      proYearly: 14400,
+      supporterYearly: 180000,
+      proDiscountLabel: null,
+      supporterDiscountLabel: null,
+    },
+    {
+      proYearly: 12500,
+      supporterYearly: 160000,
+      proDiscountLabel: null,
+      supporterDiscountLabel: null,
+    },
+    {
+      proYearly: 12000,
+      supporterYearly: 180000,
+      proDiscountLabel: "2 months free",
+      supporterDiscountLabel: null,
+    },
+  ])(
+    "publishes configured annual totals without an inaccurate discount: %j",
+    ({
+      proYearly,
+      supporterYearly,
+      proDiscountLabel,
+      supporterDiscountLabel,
+    }) => {
+      const catalog = buildPlanCatalog({
+        ...config(),
+        PRO_MONTHLY_PRICE_CENTS: 1200,
+        PRO_YEARLY_PRICE_CENTS: proYearly,
+        SUPPORTER_MONTHLY_PRICE_CENTS: 15000,
+        SUPPORTER_YEARLY_PRICE_CENTS: supporterYearly,
+      });
+      expect(
+        planCatalogSchema
+          .parse(catalog)
+          .plans.map(({ tier, prices }) => ({ tier, prices })),
+      ).toEqual([
+        { tier: "free", prices: [] },
+        {
+          tier: "plus",
+          prices: [
+            { interval: "month", amountCents: 1200, discountLabel: null },
+            {
+              interval: "year",
+              amountCents: proYearly,
+              discountLabel: proDiscountLabel,
+            },
+          ],
+        },
+        {
+          tier: "supporter",
+          prices: [
+            { interval: "month", amountCents: 15000, discountLabel: null },
+            {
+              interval: "year",
+              amountCents: supporterYearly,
+              discountLabel: supporterDiscountLabel,
+            },
+          ],
+        },
+      ]);
+    },
+  );
   it.each(["plus", "supporter"] as const)(
     "uses identical five paid caps for %s for both intervals",
     (tier) => {
