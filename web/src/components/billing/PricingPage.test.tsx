@@ -22,7 +22,7 @@ it('lists three plans and all configured allowances visibly in responsive cards'
     const card = within(screen.getByRole('region', { name: plan.name }));
     for (const benefit of plan.benefits) expect(card.getByText(benefit)).toBeVisible();
   }
-  expect(screen.getByRole('button', { name: 'Supporter coming soon' })).toBeDisabled();
+  expect(screen.getByRole('link', { name: 'Sign in for Supporter' })).toHaveAttribute('href', '/login?next=%2Fpricing%3Ftier%3Dsupporter%26interval%3Dmonth');
   expect(plus.parentElement).toHaveClass('grid', 'lg:grid-cols-3');
 });
 it('defaults to monthly and exposes full annual charges with renewal terms and unchanged limits', () => {
@@ -88,4 +88,13 @@ it('restores a selected annual interval after sign-in', () => {
   render(<PricingPage catalog={catalog} initialInterval="year" />);
   expect(screen.getByRole('radio', { name: 'Yearly' })).toBeChecked();
   expect(within(screen.getByRole('region', { name: 'Plus' })).getByText('$90')).toBeVisible();
+});
+
+it.each(['month', 'year'] as const)('starts Supporter checkout with %s billing', async (interval) => {
+  auth.isAuthenticated = true;
+  checkout.mockRejectedValueOnce(new Error('Checkout request failed.'));
+  render(<PricingPage catalog={catalog} initialInterval={interval} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Choose Supporter' }));
+  await screen.findByText('Checkout request failed.');
+  expect(checkout).toHaveBeenCalledWith({ tier: 'supporter', interval });
 });

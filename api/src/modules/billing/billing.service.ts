@@ -57,10 +57,7 @@ export function createBillingService({
         "billing_disabled",
         "New purchases are currently unavailable.",
       );
-    if (
-      choice.tier === "supporter" &&
-      (!config.SUPPORTER_CHECKOUT_ENABLED || !config.SUPPORTER_CHANNEL_URL)
-    ) {
+    if (choice.tier === "supporter" && !config.SUPPORTER_CHANNEL_URL) {
       throw conflict(
         "supporter_unavailable",
         "Supporter is not available for purchase.",

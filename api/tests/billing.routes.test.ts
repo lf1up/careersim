@@ -44,7 +44,6 @@ function configFixture() {
     POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
     POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
     POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
-    SUPPORTER_CHECKOUT_ENABLED: "true",
     SUPPORTER_CHANNEL_URL: "https://private.example.com/supporters",
   });
 }
@@ -158,6 +157,9 @@ describe("billing routes and checkout serialization", () => {
   it("publishes the safe catalog but requires authentication on all account operations", async () => {
     const catalog = await request("GET", "catalog", undefined, "");
     expect(catalog.statusCode).toBe(200);
+    expect(
+      catalog.json().plans.find((plan: { tier: string }) => plan.tier === "supporter").availability,
+    ).toBe("available");
     expect(catalog.body).not.toContain(config.SUPPORTER_CHANNEL_URL);
     for (const [method, route] of [
       ["GET", "account"],
@@ -225,8 +227,8 @@ describe("billing routes and checkout serialization", () => {
     expect(response.statusCode).toBe(200);
     expect(provider.created[0]?.userId).toBe(userId);
   });
-  it("gates Supporter checkout and changes for both intervals, including when the channel is missing", async () => {
-    config.SUPPORTER_CHECKOUT_ENABLED = false;
+  it("blocks Supporter checkout and changes for both intervals when the channel is missing", async () => {
+    config.SUPPORTER_CHANNEL_URL = "";
     for (const interval of ["month", "year"])
       for (const route of ["checkout", "change"]) {
         expect(
@@ -234,16 +236,6 @@ describe("billing routes and checkout serialization", () => {
             .statusCode,
         ).toBe(409);
       }
-    config.SUPPORTER_CHECKOUT_ENABLED = true;
-    config.SUPPORTER_CHANNEL_URL = "";
-    expect(
-      (
-        await request("POST", "checkout", {
-          tier: "supporter",
-          interval: "month",
-        })
-      ).statusCode,
-    ).toBe(409);
     expect(provider.created).toHaveLength(0);
   });
   it("reuses one same-choice checkout and rejects conflicting tabs", async () => {

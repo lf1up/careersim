@@ -10,16 +10,16 @@ All tiers include this shared benefit on pricing and account pages:
 
 ## Release status and gates
 
-Both purchase flags default to false. Plus may launch after its technical and operational checks pass. Supporter has a separate provider eligibility gate for both intervals and all plan-change entry points.
+`BILLING_ENABLED` defaults to false and controls new purchases for both paid tiers. Supporter checkout is available when billing is enabled, both Supporter products are configured, and a private channel is configured.
 
-Polar's [acceptable use policy](https://polar.sh/legal/acceptable-use-policy) lists donations, community access and sponsorship among prohibited categories. Obtain written acceptance of the actual offer before enabling Supporter, including its configured monthly and yearly prices, its published Supporter usage limits, and these exact benefits:
+Supporter provides its published usage limits, shared Creator plugin access, and these additional benefits:
 
 - Guidance and support from the development team
 - Chat directly with the developers
 - Help decide the project's future together
 - Early access to upcoming features, including MCP and API access
 
-A SaaS label, a successful catalog check, or a working checkout does not establish eligibility. Configure and test the private channel and manual membership procedure too. Keep `SUPPORTER_CHECKOUT_ENABLED=false` until the owner records acceptance and the channel is ready. A rejection requires an owner decision about the offer or provider. Do not silently change benefits.
+Configure and test the private channel and manual membership procedure. Do not silently change the published benefits.
 
 | External launch check | Current evidence | Release consequence |
 | --- | --- | --- |
@@ -28,7 +28,6 @@ A SaaS label, a successful catalog check, or a working checkout does not establi
 | Signed public webhook delivery, replay and catch-up | Not observed against Polar | Block paid checkout |
 | Portal next-period changes for every tier/interval pair | Not observed; self-service switching stays disabled | Keep contact fallback; do not enable switching |
 | Provider dispute signal or tested dashboard-to-local suspension | Not observed against Polar | Block paid checkout until a working suspension path is tested |
-| Supporter offer acceptance | No written acceptance recorded | Block both Supporter intervals and changes to Supporter |
 | Supporter private channel and membership controls | No channel/membership evidence recorded | Block Supporter purchase |
 | Configured self-hosted LiveKit end-to-end checks | Not observed in this task | Block paid voice claims until verified |
 | Deployment destination, secret configuration, release artifacts | Not deployed by this task | Perform only in an authorized release |
@@ -75,7 +74,6 @@ The old `infrastructure/k8s/base/backend-deployment.yaml` and legacy AWS infrast
 | `POLAR_ACCESS_TOKEN` | Server-only token with required checkout/customer/subscription/order/dispute reads and operations. Use least privilege supported by Polar; never expose through `NEXT_PUBLIC_*`. |
 | `POLAR_WEBHOOK_SECRET` | Server-only signing secret for this environment's webhook endpoint. |
 | Four `POLAR_*_PRODUCT_ID` values | Exact mappings above; never accept arbitrary IDs from the browser. |
-| `SUPPORTER_CHECKOUT_ENABLED` | Separate acceptance gate, false until provider approval and channel verification. |
 | `SUPPORTER_CHANNEL_URL` | Private channel URL, exposed only to verified Supporters. A hidden URL alone does not enforce membership. |
 | `BILLING_CONTACT_URL` | Higher-limit and unavailable-plan contact destination, normally `/contact`. |
 | `REDIS_URL` | Shared quota counters required for multiple API instances. Use persistent Redis and retain keys through their quota window. |
@@ -131,7 +129,7 @@ For stale state, first verify the configured environment and the user's immutabl
 
 Refunds, cancellations, revocations and dispute handling are payment operations requiring the corresponding release/operator authorization. After an authorized provider action, refresh authoritative local state, verify the affected order/period and confirm quota access. Preserve an audit record without payment credentials. Cancellation is not a substitute for an immediate dispute suspension.
 
-Self-service tier and interval changes stay unavailable until sandbox proves the adapter can schedule one combined replacement with `next_period` and no proration or overlapping subscription. Test monthly-to-yearly, yearly-to-monthly and every tier transition. Confirm the next full charge and effective date before confirmation, preserve current benefits through the paid period, and retain the contact fallback for unsupported combinations. Configure the Polar organization portal policy for `next_period`; customer session creation cannot force that policy. Disable portal product switching while sandbox validation is missing or Supporter remains gated. A direct portal switch must not bypass the Supporter eligibility gate. Portal access for invoices, payment methods and cancellation must remain available to existing subscribers when new purchases are disabled.
+Self-service tier and interval changes stay unavailable until sandbox proves the adapter can schedule one combined replacement with `next_period` and no proration or overlapping subscription. Test monthly-to-yearly, yearly-to-monthly and every tier transition. Confirm the next full charge and effective date before confirmation, preserve current benefits through the paid period, and retain the contact fallback for unsupported combinations. Configure the Polar organization portal policy for `next_period`; customer session creation cannot force that policy. Disable portal product switching while sandbox validation is missing or Supporter products and channel are not configured. Portal access for invoices, payment methods and cancellation must remain available to existing subscribers when new purchases are disabled.
 
 ## Manual Supporter membership
 
@@ -145,19 +143,19 @@ Do not send invitations during implementation. Before enabling Supporter, choose
 
 ## Rollout and rollback
 
-1. Back up Postgres and verify additive migration execution on the release database. Keep both purchase flags false.
+1. Back up Postgres and verify additive migration execution on the release database. Keep `BILLING_ENABLED=false`.
 2. Apply billing/voice schema migrations. Do not remove existing tables or saved records.
 3. Build the compatible host extension contract and creator source revision together. Record both repository SHAs. Never patch `extensions/installed` generated copies as the source change. Test production builds with plugins enabled and disabled.
 4. Release the compatible API, agent voice worker and web artifacts. Verify shared Redis and runtime reconciliation, signed raw-body webhooks and immutable UUID mapping. Keep checkout disabled while existing paid-state processing operates.
 5. Complete the sandbox matrix, local verification and privacy-safe browser evidence below. Verify LiveKit against its configured self-hosted endpoint, not only a mocked client.
-6. During the authorized release, audit the separate production product mappings and enable Plus purchases only when all Plus gates pass.
-7. Enable Supporter separately after written eligibility acceptance, working private membership controls and both interval checks. Never enable it merely because Plus works.
+6. During the authorized release, audit the separate production product mappings and enable purchases with `BILLING_ENABLED=true` after verifying the configured paid tiers.
+7. Verify Supporter private membership controls and checkout for both intervals. No separate Supporter launch flag is required.
 
-During an incident, disable new purchases with `BILLING_ENABLED=false`, and disable new Supporter selections separately if needed. Keep entitlement resolution, signed event processing, reconciliation and existing-customer portal access running. This kill switch must not downgrade existing subscribers. Roll back only to a build that understands stored billing entitlements and the compatible plugin contract. Keep migrations additive; do not drop the billing/voice tables or restore code that collects payments but ignores access. If compatible rollback is unavailable, hold checkout closed and forward-fix.
+During an incident, disable new purchases with `BILLING_ENABLED=false`. Keep entitlement resolution, signed event processing, reconciliation and existing-customer portal access running. This kill switch must not downgrade existing subscribers. Roll back only to a build that understands stored billing entitlements and the compatible plugin contract. Keep migrations additive; do not drop the billing/voice tables or restore code that collects payments but ignores access. If compatible rollback is unavailable, hold checkout closed and forward-fix.
 
 ## Evidence to collect before launch
 
-For each row, record date, sandbox environment, host/plugin revisions, command or precise action, expected outcome, actual outcome, and a redacted artifact reference. Use `blocked` when credentials, a signal or provider acceptance are missing. Never turn an unperformed step into `passed`.
+For each row, record date, sandbox environment, host/plugin revisions, command or precise action, expected outcome, actual outcome, and a redacted artifact reference. Use `blocked` when credentials or a required provider signal are missing. Never turn an unperformed step into `passed`.
 
 | Sandbox exercise | Expected observation | Observed outcome |
 | --- | --- | --- |

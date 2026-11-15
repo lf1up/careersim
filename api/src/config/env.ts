@@ -199,7 +199,6 @@ const EnvSchema = z
     POLAR_PLUS_YEARLY_PRODUCT_ID: z.string().default(""),
     POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: z.string().default(""),
     POLAR_SUPPORTER_YEARLY_PRODUCT_ID: z.string().default(""),
-    SUPPORTER_CHECKOUT_ENABLED: bool,
     SUPPORTER_CHANNEL_URL: z.union([z.literal(""), z.url()]).default(""),
     BILLING_CONTACT_URL: z
       .string()
@@ -350,13 +349,12 @@ const EnvSchema = z
           path: [key],
           message: "Required when billing is enabled",
         });
-    if (env.SUPPORTER_CHECKOUT_ENABLED) {
-      if (!env.BILLING_ENABLED)
-        ctx.addIssue({
-          code: "custom",
-          path: ["SUPPORTER_CHECKOUT_ENABLED"],
-          message: "Requires billing enabled",
-        });
+    if (
+      env.BILLING_ENABLED &&
+      (env.POLAR_SUPPORTER_MONTHLY_PRODUCT_ID ||
+        env.POLAR_SUPPORTER_YEARLY_PRODUCT_ID ||
+        env.SUPPORTER_CHANNEL_URL)
+    ) {
       for (const key of [
         "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID",
         "POLAR_SUPPORTER_YEARLY_PRODUCT_ID",
@@ -366,7 +364,7 @@ const EnvSchema = z
           ctx.addIssue({
             code: "custom",
             path: [key],
-            message: "Required when Supporter checkout is enabled",
+            message: "Required when Supporter billing is configured",
           });
     }
     if (

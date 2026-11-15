@@ -21,7 +21,7 @@
 - Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features, including MCP and API access".
 - No tokens, packs, donations, trials, automatic overages, or new voting/community platform. No application code in deprecated `backend/` or `frontend/`.
 - Preserve safety rate limits, ownership checks, moderation, and saved content after downgrade. Annual billing never multiplies or resets usage allowances.
-- Supporter purchase remains disabled for both intervals until Polar accepts the actual offer and a contact channel is configured. This gate applies to checkout and plan changes, not just UI.
+- Supporter checkout uses `BILLING_ENABLED` with both Supporter products and a configured private channel; there is no separate launch flag.
 - Preserve the approved three-day failed-renewal grace and cancellation/refund/dispute policies in the spec. Cancellation alone never receives grace.
 - The current workspace authorizes planning. Execution must arrange writable checkouts for both repositories; do not modify generated plugin copies or write into the sibling repository without filesystem authorization. If needed, prepare an isolated writable checkout within an allowed root and coordinate its commit with the host.
 - Use existing per-package package-manager versions. API and studio require Node >=22.12.0; use a compatible Node runtime throughout. Do not introduce an unrelated dependency upgrade.
@@ -79,7 +79,7 @@ expect(catalog.plans.find(p => p.tier === 'supporter')?.prices.map(p => p.amount
 ```
 
 - [ ] Run `pnpm -C api test -- tests/billing.entitlements.test.ts tests/env.test.ts`; confirm new cases fail for missing contracts, not infrastructure errors.
-- [ ] Add validated config: five requested `PRO_` defaults, Free creator limits, `BILLING_ENABLED=false`, `POLAR_ENVIRONMENT=sandbox`, private access/webhook secrets, four `POLAR_{PLUS,SUPPORTER}_{MONTHLY,YEARLY}_PRODUCT_ID` values, `SUPPORTER_CHECKOUT_ENABLED=false`, `SUPPORTER_CHANNEL_URL`, and contact URL `/contact`. Require secrets/Plus products only when billing is enabled; require Supporter products/channel only when its launch flag is enabled. Reject duplicate product IDs and paid caps below Free. Parse window durations once using the project's installed duration dependency, declaring it directly if necessary; reject ambiguous durations.
+- [ ] Add validated config: five requested `PRO_` defaults, Free creator limits, `BILLING_ENABLED=false`, `POLAR_ENVIRONMENT=sandbox`, private access/webhook secrets, four `POLAR_{PLUS,SUPPORTER}_{MONTHLY,YEARLY}_PRODUCT_ID` values, `SUPPORTER_CHANNEL_URL`, and contact URL `/contact`. Require secrets/Plus products only when billing is enabled; require the complete Supporter products/channel configuration when any of those settings are supplied with billing enabled. Reject duplicate product IDs and paid caps below Free. Parse window durations once using the project's installed duration dependency, declaring it directly if necessary; reject ambiguous durations.
 - [ ] Create tables for unique user/customer binding, provider subscriptions, paid orders with their periods/refunds, webhook inbox with unique provider event ID, and checkout attempts. Unique provider IDs and indexes support account lookup and pending reconciliation. Preserve unknown provider products for diagnosis without granting access. Generate migration via `pnpm -C api db:generate`; inspect SQL and journal, and run it against existing and empty test databases.
 - [ ] Implement catalog and resolver. Only normalized verified evidence can grant access; no row means Free, DB failure propagates as a service error. Do not store tier in JWTs or grant trial access. Use provider period timestamps, including leap-year annual periods.
 - [ ] Run the focused tests and `pnpm -C api typecheck`; expect PASS. Commit task files: `feat: define subscription catalog and entitlements`.
@@ -196,7 +196,7 @@ expect(concurrentStartSuccesses).toHaveLength(1);
 
 **Interfaces:** `fetchPlanCatalog(): Promise<PlanCatalogResponse>` and authenticated `startCheckout(choice: BillingChoice): Promise<{url:string}>` in `web/src/lib/billing.ts`, using validated API wire schemas consistent with Task 1. `PricingPage({catalog: PlanCatalogResponse})` renders catalog data; no frontend-only cap constants. Derive wire types from API schemas/OpenAPI using existing project conventions rather than importing server runtime modules into the client.
 
-- [ ] Write component tests for all three tiers, all five paid caps, Free overrides, monthly default, annual toggle, complete yearly charge, savings, auto-renewal copy, contact notice, the three exact Supporter benefit strings, disabled Supporter CTA, and custom 12-hour configuration windows. Test keyboard toggle and small-screen table/card visibility. Do not assert only a snapshot.
+- [ ] Write component tests for all three tiers, all five paid caps, Free overrides, monthly default, annual toggle, complete yearly charge, savings, auto-renewal copy, contact notice, the approved Supporter benefit strings, enabled Supporter checkout for both intervals and disabled checkout when unavailable, and custom 12-hour configuration windows. Test keyboard toggle and small-screen table/card visibility. Do not assert only a snapshot.
 
 ```tsx
 expect(screen.getByText('Guidance and support from the development team')).toBeVisible();
@@ -231,7 +231,7 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 
 - [ ] Run `pnpm -C web test -- src/components/billing/BillingPanel.test.tsx src/components/contact/ContactForm.test.tsx src/app/api/contact/route.test.ts`; confirm new cases fail.
 - [ ] Implement billing status, usage/reset details, cancellation/management links, scheduled choice display and bounded post-checkout refresh. Show current access date even if auto-renewal is canceled. After a verified tier change, refetch usage/entitlements; do not reload or mint a JWT to grant access.
-- [ ] Show Supporter guidance, direct chat and shared roadmap benefits with the server-gated channel URL and joining instructions. The launch checklist requires working membership verification and removal. Use a private channel configured by the operator; no direct messaging integration, automatic invitation sending or voting application. Changing the launch flag must block new purchases without silently revoking existing paid users' access.
+- [ ] Show Supporter guidance, direct chat and shared roadmap benefits with the server-gated channel URL and joining instructions. The launch checklist requires working membership verification and removal. Use a private channel configured by the operator; no direct messaging integration, automatic invitation sending or voting application. Changing `BILLING_ENABLED` must block new purchases without silently revoking existing paid users' access.
 - [ ] Implement personal contact using existing mail delivery and abuse checks. Require name, valid email, and message; company is optional only for personal requests. Treat reason/context from URL or form as untrusted labels, never proof of Supporter status. Tests use intercepted mail; do not send real messages. Preserve `/business` behavior and its existing form payload.
 - [ ] Run focused tests, web typecheck and related contact regressions; expect PASS. Commit: `feat: add billing management and supporter contact access`.
 
@@ -245,7 +245,7 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 - [ ] Run `pnpm -C api test -- tests/billing.integration.test.ts`; confirm failures expose missing integration, then wire the tasks until the test passes. Do not use actual live charges as test fixtures.
 - [ ] Document four sandbox product mappings, exact cents/intervals and tax behavior, signed endpoint setup, events, reconciliation job, portal next-period settings, customer UUID mapping, refund/dispute operations, manual Supporter membership handling, and recovery from stale state. Record which observed SDK events establish payment and dispute state; if a required dispute signal is unavailable, document the provider dashboard-to-local suspension operation and test that path before launch.
 - [ ] Document rollout order: migrations → compatible host/plugin artifacts → API/worker/web → sandbox evidence → enabled Plus checkout → separately cleared Supporter. Preserve webhook/reconciliation processing when disabling new purchases. The kill switch must not revoke existing paid users. Keep rollback schema additive and do not roll back to code that bills users but ignores entitlements.
-- [ ] Run the read-only product check against sandbox when credentials are available. Exercise all four sandbox purchases, payment failure, grace, cancellation, annual interval changes, signed replay and refund; record exact observed outcomes. If credentials or provider acceptance are missing, mark the corresponding launch checks blocked, not passed. No need to ask the user for secrets in chat.
+- [ ] Run the read-only product check against sandbox when credentials are available. Exercise all four sandbox purchases, payment failure, grace, cancellation, annual interval changes, signed replay and refund; record exact observed outcomes. If credentials or a required provider signal are missing, mark the corresponding launch checks blocked, not passed. No need to ask the user for secrets in chat.
 - [ ] Verify voice against the configured self-hosted LiveKit: active call survives initial token expiry; reconnect works; one-active-call guard holds; worker/API failure stops audio within the documented bounds; delayed checkpoints do not double-debit; UTC rollover works with injected clocks in tests.
 - [ ] Run `pnpm -C api test`, `pnpm -C api typecheck`, `pnpm -C api lint`; run creator tests/typecheck in its checkout; run `pnpm -C web test`, `pnpm -C web typecheck`, `pnpm -C web lint`; in `agent/` run `uv run pytest tests/test_voice_worker_session.py tests/test_voice_worker.py tests/test_voice_integration.py -q`. Run production builds with plugins enabled and disabled using the supported plugin build scripts. Supply test-only services and credentials, never production accounts.
 - [ ] Inspect pricing/account/contact in the browser at desktop and mobile widths, light/dark modes, keyboard-only navigation, both billing intervals and all three account tiers. Confirm every limit and Supporter benefit is visible, yearly totals are clear, contact submits to an intercepted destination, and disabled actions explain availability. Capture evidence without card/customer data.
@@ -253,11 +253,11 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 
 ## Planning self-review
 
-- Spec coverage: catalog and lifecycle → Tasks 1–3; all five limits → Tasks 4–6; annual pricing and visibility → Task 7; guidance/direct chat/shared roadmap/contact → Task 8; provider eligibility and rollout → Task 9.
+- Spec coverage: catalog and lifecycle → Tasks 1–3; all five limits → Tasks 4–6; annual pricing and visibility → Task 7; guidance/direct chat/shared roadmap/contact → Task 8; checkout configuration and rollout → Task 9.
 - Contracts flow from `billing.schema.ts` and the host plugin SDK. Provider DTOs do not escape the adapter; frontend wire schemas are validated and kept in sync with OpenAPI.
 - Review Focus cases are assigned to concrete tests. Existing integration helpers/PGlite are reused; Redis concurrency uses a real isolated instance.
 - The only new author implementation defaults are five-minute reconciliation, 15-second voice checkpoints, 30-second budget-failure cutoff, 60-second stale-call lease and 10-minute initial join tokens. These implement the approved bounded-failure behavior and are not new customer pricing promises.
-- The exact Supporter channel and Polar acceptance remain release configuration/dependencies. No additional business decision blocks writing or reviewing this plan.
+- The exact Supporter channel remains release configuration. No additional business decision blocks writing or reviewing this plan.
 
 ## Primary references checked on 2026-11-10
 
@@ -267,7 +267,6 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 - https://polar.sh/docs/integrate/webhooks/events
 - https://polar.sh/docs/api-reference/webhooks/order.paid
 - https://polar.sh/docs/api-reference/subscriptions/update
-- https://polar.sh/legal/acceptable-use-policy
 - https://docs.livekit.io/frontends/reference/tokens-grants/
 
 ## Delivery record

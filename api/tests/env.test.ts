@@ -187,7 +187,6 @@ describe("billing configuration", () => {
   it("defaults billing off and publishes requested finite paid caps with parsed windows", () => {
     expect(loadEnv(baseEnv)).toMatchObject({
       BILLING_ENABLED: false,
-      SUPPORTER_CHECKOUT_ENABLED: false,
       POLAR_ENVIRONMENT: "sandbox",
       PRO_SESSIONS_CREATE_MAX: 100,
       PRO_CHAT_MESSAGES_MAX: 3000,
@@ -355,19 +354,21 @@ describe("billing configuration", () => {
       }).BILLING_ENABLED,
     ).toBe(false);
   });
-  it("requires both Supporter products and private channel behind the explicit launch gate", () => {
-    expect(() =>
-      loadEnv({ ...enabled, SUPPORTER_CHECKOUT_ENABLED: "true" }),
-    ).toThrow(/SUPPORTER_CHANNEL_URL/);
-    expect(
-      loadEnv({
-        ...enabled,
-        SUPPORTER_CHECKOUT_ENABLED: "true",
-        SUPPORTER_CHANNEL_URL: "https://private.example/channel",
-        POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
-        POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
-      }).SUPPORTER_CHECKOUT_ENABLED,
-    ).toBe(true);
+  it("enables configured Supporter billing without a separate launch flag", () => {
+    const supporter = {
+      ...enabled,
+      SUPPORTER_CHANNEL_URL: "https://private.example/channel",
+      POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
+      POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
+    };
+    expect(loadEnv(supporter)).not.toHaveProperty("SUPPORTER_CHECKOUT_ENABLED");
+    for (const key of [
+      "SUPPORTER_CHANNEL_URL",
+      "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID",
+      "POLAR_SUPPORTER_YEARLY_PRODUCT_ID",
+    ] as const) {
+      expect(() => loadEnv({ ...supporter, [key]: "" })).toThrow(key);
+    }
   });
   it("rejects duplicate products, unsafe paid integers, lower paid caps and unlimited Free voice with billing enabled", () => {
     expect(() =>

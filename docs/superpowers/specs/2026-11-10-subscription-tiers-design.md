@@ -93,7 +93,7 @@ Use "2 months free" for the discount label. The annual total and "billed yearly"
 
 Annual billing changes payment cadence only. Session/message windows, daily voice resets, and saved-item caps remain the same. Do not multiply allowances by 12, grant a year's voice minutes upfront, accumulate unused daily minutes, or reset counters when the interval changes. Paid-through access uses Polar's actual period boundaries, not a hardcoded 365-day offset.
 
-Map four server-allowlisted Polar products to `(tier, interval)`: Plus monthly, Plus yearly, Supporter monthly, and Supporter yearly. Polar documents separate products for recurring billing intervals. Free requires no paid product. Supporter's eligibility flag covers both intervals. Annual totals are fixed product prices; no coupon is required for the built-in discount.
+Map four server-allowlisted Polar products to `(tier, interval)`: Plus monthly, Plus yearly, Supporter monthly, and Supporter yearly. Polar documents separate products for recurring billing intervals. Free requires no paid product. Both paid tiers use `BILLING_ENABLED`; configured Supporter products and a private channel enable both Supporter intervals. Annual totals are fixed product prices; no coupon is required for the built-in discount.
 
 Interval-switch policy: monthly-to-yearly and yearly-to-monthly changes take effect at the next renewal, with the date and next charge displayed before confirmation. A new Free user can buy the annual plan immediately. Existing subscribers retain their current paid period; do not collect a second overlapping annual subscription. Combine any tier and interval change into one scheduled replacement. Verify all combinations in Polar's sandbox; use the existing contact fallback if scheduling cannot be supported reliably.
 
@@ -105,7 +105,7 @@ Paid users who hit a technical cap receive the cap/reset explanation and a suppo
 
 An account billing section shows current tier, billing status, renewal/access-end date, usage details, and a link to Polar's customer portal. A successful checkout redirect shows pending activation until the API verifies the purchase; returning from checkout alone never grants access.
 
-## Supporter benefit and eligibility
+## Supporter benefits and access
 
 The user explicitly requested guidance and support from the development team, the ability to chat with developers, and the ability to decide the project's future together. This is substantive participation in roadmap and priority discussions, not merely an anonymous suggestion box.
 
@@ -120,9 +120,7 @@ Deliver guidance about using CareerSim and discussing needs through a private di
 
 Use a configurable channel URL plus membership instructions behind verified Supporter access. The exact channel provider is left to the project owner before launch; building a community platform or messaging integration is outside this release. Manual membership verification/removal is acceptable for the initial cohort, with a documented operator checklist. A hidden link alone is not membership enforcement. No invitations or messages are sent as part of this planning work.
 
-Polar's current Acceptable Use Policy, effective October 1, 2026, lists donations, community access, and sponsorship among prohibited categories. The proposed Supporter benefit may fall within these categories. Selling it as a SaaS subscription does not automatically resolve that issue.
-
-Prepare all three tiers in the design and internal model, but keep Supporter checkout disabled until Polar explicitly accepts the described offer. Show it as unavailable or coming soon while disabled, never as a working checkout. Obtain written clarification using the actual price and benefits. Do not silently replace the benefit or route to another provider. If rejected, the owner must decide whether to change the offer or provider; Plus can launch independently. No request to Polar is sent without explicit authorization.
+Supporter checkout uses the same billing switch as Plus. Offer it when `BILLING_ENABLED=true`, both Supporter product IDs are configured, and the private channel is configured. No separate launch flag is required.
 
 ## Entitlement ownership and persistence
 
@@ -178,7 +176,7 @@ Before launch verify:
 - Tampered checkout parameters, forged signatures, and unrecognized products cannot grant access.
 - Voice covers simultaneous starts, reconnection, duplicate end callbacks, worker crash, entitlement change, midnight rollover, token renewal, and a missing budget service.
 - Polar outages preserve only time-bounded verified access and recover through reconciliation.
-- Supporter checkout remains disabled until provider eligibility and a working contact channel are confirmed.
+- Supporter checkout is available with billing enabled, both product IDs configured, and a working private channel.
 
 Monitor per-tier active users, conversions, provider costs, call minutes, cap encounters, webhook failures, and stale billing state. High caps protect against extreme usage; they do not guarantee that a $9 subscription covers every user's cost. Cost measurement continues without blocking the user's chosen launch model.
 
@@ -190,7 +188,6 @@ The five paid cap values, visible pricing/contact requirements, annual discount,
 
 ## Sources checked on 2026-11-10
 
-- https://polar.sh/legal/acceptable-use-policy
 - https://polar.sh/docs/integrate/customer-state
 - https://polar.sh/docs/integrate/webhooks/events
 - https://polar.sh/docs/api-reference/subscriptions/update

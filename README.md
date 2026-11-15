@@ -89,7 +89,7 @@ Every tier includes:
 
 - Creator plugin access for custom personas and simulations
 
-Billing purchases start disabled. Supporter also requires written Polar acceptance of its actual benefits and a configured private channel before either interval can be enabled. The [billing runbook](docs/BILLING.md) covers the four product mappings, read-only `pnpm -C api billing:check`, sandbox evidence, eligibility gates, migration order and recovery. No live products or payment operations are established by this implementation.
+Billing purchases default to disabled. Set `BILLING_ENABLED=true` to offer both paid tiers; Supporter requires both configured products and a private channel. The [billing runbook](docs/BILLING.md) covers the four product mappings, read-only `pnpm -C api billing:check`, sandbox evidence, checkout configuration, migration order and recovery. No live products or payment operations are established by this implementation.
 
 ## 📁 Project Structure
 

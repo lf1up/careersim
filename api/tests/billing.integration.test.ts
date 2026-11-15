@@ -25,6 +25,7 @@ const independentLimitsConfig = () =>
     POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
     POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
     POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
+    SUPPORTER_CHANNEL_URL: "https://private.example/supporters",
     SESSIONS_CREATE_MAX: "1",
     CHAT_MESSAGES_MAX: "1",
     CUSTOM_SIMULATIONS_MAX: "1",
@@ -317,6 +318,7 @@ describe("subscription access through the full API", () => {
       POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
       POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
       POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
+      SUPPORTER_CHANNEL_URL: "https://private.example/supporters",
     });
     let clock = new Date("2026-11-10T12:00:00Z");
     const provider = new FakeBillingProvider();

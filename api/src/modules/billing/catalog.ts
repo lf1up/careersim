@@ -14,7 +14,6 @@ export type BillingConfig = Pick<
   | "POLAR_PLUS_YEARLY_PRODUCT_ID"
   | "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID"
   | "POLAR_SUPPORTER_YEARLY_PRODUCT_ID"
-  | "SUPPORTER_CHECKOUT_ENABLED"
   | "SUPPORTER_CHANNEL_URL"
   | "BILLING_CONTACT_URL"
   | "WEB_APP_URL"
@@ -123,7 +122,9 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
         benefits: [...coreBenefits, ...supporterBenefits],
         availability: !config.BILLING_ENABLED
           ? "billing_disabled"
-          : config.SUPPORTER_CHECKOUT_ENABLED && config.SUPPORTER_CHANNEL_URL
+          : config.POLAR_SUPPORTER_MONTHLY_PRODUCT_ID &&
+              config.POLAR_SUPPORTER_YEARLY_PRODUCT_ID &&
+              config.SUPPORTER_CHANNEL_URL
             ? "available"
             : "coming_soon",
         prices: [
