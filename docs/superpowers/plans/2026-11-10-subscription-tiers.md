@@ -12,9 +12,10 @@
 
 ## Global Constraints
 
-- Exactly three tiers: `free`, `plus`, `supporter`; both paid tiers use the same `PRO_` caps. No fourth Pro tier.
+- Exactly three tiers: `free`, `plus`, `supporter`; Plus uses `PRO_` caps and Supporter uses independent `SUPPORTER_` caps. No fourth Pro tier.
 - Plus: $9/month or $90/year upfront. Supporter: $100/month or $1,000/year upfront. Annual discount: "2 months free", 16.67%; yearly auto-renewal disclosed.
 - `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, `PRO_VOICE_DAILY_MINUTES_PER_USER=720`.
+- Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=1440`.
 - Preserve unprefixed Free settings and the configured session/message windows, currently 6 hours. Voice resets at midnight UTC. Custom records are owned, non-deleted inventory, not monthly credits.
 - Pricing visibly lists all five caps, core benefits, and "Need higher limits? Contact us to discuss your needs."
 - Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together".
@@ -154,7 +155,7 @@ expect(redisOutageResponse.statusCode).toBe(503);
 
 **Interfaces:** Add required `resolveEntitlements(userId: string): Promise<Entitlement>` to `ApiPluginContext` and re-export the type from host SDK. Pass the resolver into CreatorService and PersonaService constructors. Keep moderation settings separate from usage limits. Creator usage responses return resolved `used/max` for both inventories; playgrounds retain host `checkTextMessageQuota`.
 
-- [ ] Add plugin integration cases: Free 3/10 versus paid 250/250, Plus/Supporter and month/year parity, create at boundary, two concurrent creates for last slot, saved drafts and published records counted together, soft-delete freeing a slot, restore/clone paths respecting caps, and downgrade retaining reads/edits/deletes while blocking additional creates. Test displayed max as well as enforcement.
+- [ ] Add plugin integration cases: Free 3/10, Plus 250/250, and Supporter 500/500 inventory defaults; month/year parity within each tier; create at boundary, two concurrent creates for last slot, saved drafts and published records counted together, soft-delete freeing a slot, restore/clone paths respecting caps, and downgrade retaining reads/edits/deletes while blocking additional creates. Test displayed max as well as enforcement.
 
 ```ts
 expect(paidUsage.simulations.max).toBe(250);
@@ -239,7 +240,7 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 
 **Interfaces:** `check-billing-catalog.ts` is a read-only command that compares configured product IDs against Polar product amount/currency/interval/tax settings, prints a redacted mismatch report and exits nonzero on disagreement. Add `pnpm -C api billing:check` for it. It never creates or updates a product.
 
-- [ ] Write an integration test spanning initial Free use → verified Plus payment → same counters with higher limits → scheduled yearly change → paid yearly renewal → cancellation at paid-through → Free with custom records preserved. Add Supporter parity and purchase-disable cases, missed-event reconciliation, provider-outage behavior, and account privacy isolation. Use real DB/Redis and the deterministic provider adapter.
+- [ ] Write an integration test spanning initial Free use → verified Plus payment → same counters with higher limits → scheduled yearly change → paid yearly renewal → cancellation at paid-through → Free with custom records preserved. Add Supporter-specific limits and purchase-disable cases, missed-event reconciliation, provider-outage behavior, and account privacy isolation. Use real DB/Redis and the deterministic provider adapter.
 - [ ] Run `pnpm -C api test -- tests/billing.integration.test.ts`; confirm failures expose missing integration, then wire the tasks until the test passes. Do not use actual live charges as test fixtures.
 - [ ] Document four sandbox product mappings, exact cents/intervals and tax behavior, signed endpoint setup, events, reconciliation job, portal next-period settings, customer UUID mapping, refund/dispute operations, manual Supporter membership handling, and recovery from stale state. Record which observed SDK events establish payment and dispute state; if a required dispute signal is unavailable, document the provider dashboard-to-local suspension operation and test that path before launch.
 - [ ] Document rollout order: migrations → compatible host/plugin artifacts → API/worker/web → sandbox evidence → enabled Plus checkout → separately cleared Supporter. Preserve webhook/reconciliation processing when disabling new purchases. The kill switch must not revoke existing paid users. Keep rollback schema additive and do not roll back to code that bills users but ignores entitlements.

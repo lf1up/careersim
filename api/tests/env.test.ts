@@ -194,6 +194,11 @@ describe("billing configuration", () => {
       PRO_CUSTOM_SIMULATIONS_MAX: 250,
       PRO_CUSTOM_PERSONAS_MAX: 250,
       PRO_VOICE_DAILY_MINUTES_PER_USER: 720,
+      SUPPORTER_SESSIONS_CREATE_MAX: 200,
+      SUPPORTER_CHAT_MESSAGES_MAX: 6000,
+      SUPPORTER_CUSTOM_SIMULATIONS_MAX: 500,
+      SUPPORTER_CUSTOM_PERSONAS_MAX: 500,
+      SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: 1440,
       PRO_MONTHLY_PRICE_CENTS: 900,
       PRO_YEARLY_PRICE_CENTS: 9000,
       SUPPORTER_MONTHLY_PRICE_CENTS: 10000,
@@ -217,6 +222,45 @@ describe("billing configuration", () => {
       SUPPORTER_MONTHLY_PRICE_CENTS: 15000,
       SUPPORTER_YEARLY_PRICE_CENTS: 150000,
     });
+  });
+  it("loads independent Supporter limit overrides", () => {
+    expect(
+      loadEnv({
+        ...baseEnv,
+        PRO_CHAT_MESSAGES_MAX: "450",
+        SUPPORTER_SESSIONS_CREATE_MAX: "210",
+        SUPPORTER_CHAT_MESSAGES_MAX: "400",
+        SUPPORTER_CUSTOM_SIMULATIONS_MAX: "510",
+        SUPPORTER_CUSTOM_PERSONAS_MAX: "520",
+        SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: "1450",
+      }),
+    ).toMatchObject({
+      PRO_CHAT_MESSAGES_MAX: 450,
+      SUPPORTER_SESSIONS_CREATE_MAX: 210,
+      SUPPORTER_CHAT_MESSAGES_MAX: 400,
+      SUPPORTER_CUSTOM_SIMULATIONS_MAX: 510,
+      SUPPORTER_CUSTOM_PERSONAS_MAX: 520,
+      SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: 1450,
+    });
+  });
+  it.each([
+    "SUPPORTER_SESSIONS_CREATE_MAX",
+    "SUPPORTER_CHAT_MESSAGES_MAX",
+    "SUPPORTER_CUSTOM_SIMULATIONS_MAX",
+    "SUPPORTER_CUSTOM_PERSONAS_MAX",
+    "SUPPORTER_VOICE_DAILY_MINUTES_PER_USER",
+  ])("validates Supporter storage bounds and the Free floor for %s", (key) => {
+    for (const value of ["0", "-1", "1.5", "2147483648", "1"]) {
+      expect(() => loadEnv({ ...baseEnv, [key]: value })).toThrow(key);
+    }
+  });
+  it("keeps Supporter voice seconds within integer storage bounds", () => {
+    expect(() =>
+      loadEnv({
+        ...baseEnv,
+        SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: "35791395",
+      }),
+    ).toThrow("SUPPORTER_VOICE_DAILY_MINUTES_PER_USER");
   });
   it.each([
     "PRO_MONTHLY_PRICE_CENTS",

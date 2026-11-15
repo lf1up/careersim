@@ -184,6 +184,13 @@ const EnvSchema = z
     PRO_VOICE_DAILY_MINUTES_PER_USER: positiveLimit
       .max(35_791_394)
       .default(720),
+    SUPPORTER_SESSIONS_CREATE_MAX: positiveLimit.default(200),
+    SUPPORTER_CHAT_MESSAGES_MAX: positiveLimit.default(6000),
+    SUPPORTER_CUSTOM_SIMULATIONS_MAX: positiveLimit.default(500),
+    SUPPORTER_CUSTOM_PERSONAS_MAX: positiveLimit.default(500),
+    SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: positiveLimit
+      .max(35_791_394)
+      .default(1440),
     BILLING_ENABLED: bool,
     POLAR_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
     POLAR_ACCESS_TOKEN: z.string().default(""),
@@ -287,6 +294,14 @@ const EnvSchema = z
       ["PRO_CUSTOM_SIMULATIONS_MAX", "CUSTOM_SIMULATIONS_MAX"],
       ["PRO_CUSTOM_PERSONAS_MAX", "CUSTOM_PERSONAS_MAX"],
       ["PRO_VOICE_DAILY_MINUTES_PER_USER", "VOICE_DAILY_MINUTES_PER_USER"],
+      ["SUPPORTER_SESSIONS_CREATE_MAX", "SESSIONS_CREATE_MAX"],
+      ["SUPPORTER_CHAT_MESSAGES_MAX", "CHAT_MESSAGES_MAX"],
+      ["SUPPORTER_CUSTOM_SIMULATIONS_MAX", "CUSTOM_SIMULATIONS_MAX"],
+      ["SUPPORTER_CUSTOM_PERSONAS_MAX", "CUSTOM_PERSONAS_MAX"],
+      [
+        "SUPPORTER_VOICE_DAILY_MINUTES_PER_USER",
+        "VOICE_DAILY_MINUTES_PER_USER",
+      ],
     ] as const;
     for (const [paid, free] of pairs)
       if (

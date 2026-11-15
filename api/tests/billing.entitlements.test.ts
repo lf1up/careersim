@@ -150,7 +150,7 @@ describe("billing entitlement policy", () => {
     },
   );
   it.each(["plus", "supporter"] as const)(
-    "uses identical five paid caps for %s for both intervals",
+    "uses the configured %s caps for both intervals",
     (tier) => {
       for (const interval of ["month", "year"] as const) {
         expect(
@@ -161,18 +161,73 @@ describe("billing entitlement policy", () => {
           ),
         ).toMatchObject({
           tier,
-          limits: {
-            sessionsCreateMax: 100,
-            chatMessagesMax: 3000,
-            customSimulationsMax: 250,
-            customPersonasMax: 250,
-            voiceDailyMinutes: 720,
-          },
+          limits:
+            tier === "supporter"
+              ? {
+                  sessionsCreateMax: 200,
+                  chatMessagesMax: 6000,
+                  customSimulationsMax: 500,
+                  customPersonasMax: 500,
+                  voiceDailyMinutes: 1440,
+                }
+              : {
+                  sessionsCreateMax: 100,
+                  chatMessagesMax: 3000,
+                  customSimulationsMax: 250,
+                  customPersonasMax: 250,
+                  voiceDailyMinutes: 720,
+                },
           supporterAccess: tier === "supporter",
         });
       }
     },
   );
+  it("keeps Plus and Supporter limit overrides independent", () => {
+    const catalog = buildPlanCatalog({
+      ...config(),
+      PRO_SESSIONS_CREATE_MAX: 120,
+      PRO_CHAT_MESSAGES_MAX: 3200,
+      PRO_CUSTOM_SIMULATIONS_MAX: 260,
+      PRO_CUSTOM_PERSONAS_MAX: 270,
+      PRO_VOICE_DAILY_MINUTES_PER_USER: 730,
+      SUPPORTER_SESSIONS_CREATE_MAX: 210,
+      SUPPORTER_CHAT_MESSAGES_MAX: 6200,
+      SUPPORTER_CUSTOM_SIMULATIONS_MAX: 510,
+      SUPPORTER_CUSTOM_PERSONAS_MAX: 520,
+      SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: 1450,
+    });
+    for (const interval of ["month", "year"] as const) {
+      const now = new Date("2026-11-09Z");
+      expect(
+        deriveEntitlement(
+          snapshot({ choice: { tier: "plus", interval } }),
+          catalog,
+          now,
+        ).limits,
+      ).toMatchObject({
+        sessionsCreateMax: 120,
+        chatMessagesMax: 3200,
+        customSimulationsMax: 260,
+        customPersonasMax: 270,
+        voiceDailyMinutes: 730,
+      });
+      expect(
+        deriveEntitlement(
+          snapshot({ choice: { tier: "supporter", interval } }),
+          catalog,
+          now,
+        ).limits,
+      ).toMatchObject({
+        sessionsCreateMax: 210,
+        chatMessagesMax: 6200,
+        customSimulationsMax: 510,
+        customPersonasMax: 520,
+        voiceDailyMinutes: 1450,
+        sessionsWindowMs: 21_600_000,
+        chatWindowMs: 21_600_000,
+      });
+    }
+  });
   it("grants 72 hours only after a failed renewal with proof of previous payment", () => {
     const catalog = buildPlanCatalog(config());
     expect(

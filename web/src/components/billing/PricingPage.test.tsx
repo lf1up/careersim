@@ -43,6 +43,13 @@ it('defaults to monthly and exposes full annual charges with renewal terms and u
   expect(within(plus).getByText('100 new sessions per 6 hours')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Sign in for Plus' })).toHaveAttribute('href', '/login?next=%2Fpricing%3Ftier%3Dplus%26interval%3Dyear');
 });
+it.each(['month', 'year'] as const)('shows independent Supporter allowances with %s billing while preserving Plus allowances', (interval) => {
+  render(<PricingPage catalog={catalog} initialInterval={interval} />);
+  const plus = within(screen.getByRole('region', { name: 'Plus' }));
+  const supporter = within(screen.getByRole('region', { name: 'Supporter' }));
+  for (const text of ['100 new sessions per 6 hours', '3,000 text messages per 6 hours', '250 saved custom simulations', '250 saved custom personas', '720 voice minutes / day (12 hours)']) expect(plus.getByText(text)).toBeVisible();
+  for (const text of ['200 new sessions per 6 hours', '6,000 text messages per 6 hours', '500 saved custom simulations', '500 saved custom personas', '1,440 voice minutes / day (24 hours)']) expect(supporter.getByText(text)).toBeVisible();
+});
 it('uses non-default catalog windows without claiming six hours', () => {
   render(<PricingPage catalog={{ ...catalog, plans: catalog.plans.map(plan => ({ ...plan, limits: { ...plan.limits, sessionsWindowMs: 43200000, chatWindowMs: 43200000 } })) }} />);
   expect(screen.getAllByText(/per 12 hours/)).toHaveLength(6);

@@ -13,11 +13,11 @@ The user selected three tiers:
 | --- | --- | --- | --- |
 | Free | $0 | $0 | Existing free allowances |
 | Plus | $9 USD | $90 USD | High usage caps explicitly listed on the pricing page |
-| Supporter | $100 USD | $1,000 USD | Same usage allowance as Plus, plus guidance and support from the development team, direct chat, and deciding the project's future together |
+| Supporter | $100 USD | $1,000 USD | Higher usage allowances, plus guidance and support from the development team, direct chat, and deciding the project's future together |
 
 The user approved the monthly prices, annual billing option, annual prices, and five paid limits. Annual billing charges for 10 months and provides 12 months of access, saving 16.67% against 12 monthly payments.
 
-Both paid tiers use the requested `PRO_` environment-variable prefix. There is no separate Pro product or fourth tier. Application tier identifiers are `free`, `plus`, and `supporter`.
+Plus uses the `PRO_` environment-variable prefix. Supporter uses independent `SUPPORTER_` settings, with higher defaults approved on 2026-11-15. There is no separate Pro product or fourth tier. Application tier identifiers are `free`, `plus`, and `supporter`.
 
 Polar is the selected billing provider. Both paid tiers offer monthly and yearly billing. This release has no tokens, prepaid packs, donations, or free trials.
 
@@ -49,7 +49,7 @@ Creator functionality comes from `lf1up/careersim-studio`, locally available at 
 
 ## Agreed paid caps
 
-The user specified these numbers on 2026-11-10, replacing all earlier suggested caps. Preserve existing unprefixed settings for Free, including deployment overrides. Both paid tiers, on either billing interval, resolve to the same finite positive limits:
+The user specified the Plus defaults on 2026-11-10 and separate Supporter defaults on 2026-11-15. Preserve existing unprefixed settings for Free, including deployment overrides. Monthly and yearly billing use the same finite positive limits within each tier:
 
 | Paid environment variable | Value | Accounting unit |
 | --- | ---: | --- |
@@ -58,6 +58,11 @@ The user specified these numbers on 2026-11-10, replacing all earlier suggested 
 | `PRO_CUSTOM_SIMULATIONS_MAX` | 250 | Owned, non-deleted records |
 | `PRO_CUSTOM_PERSONAS_MAX` | 250 | Owned, non-deleted records |
 | `PRO_VOICE_DAILY_MINUTES_PER_USER` | 720 | Per UTC day, equivalent to 12 hours |
+| `SUPPORTER_SESSIONS_CREATE_MAX` | 200 | Per existing `SESSIONS_CREATE_WINDOW`, currently 6 hours |
+| `SUPPORTER_CHAT_MESSAGES_MAX` | 6,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
+| `SUPPORTER_CUSTOM_SIMULATIONS_MAX` | 500 | Owned, non-deleted records |
+| `SUPPORTER_CUSTOM_PERSONAS_MAX` | 500 | Owned, non-deleted records |
+| `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER` | 1440 | Per UTC day, equivalent to 24 hours |
 
 Paid caps must be positive safe integers, meet database arithmetic bounds, and be at least the effective Free limits. An unprefixed voice value of zero currently disables the quota; reject that combination when finite paid quotas are enabled rather than making Free more permissive than paid. Do not use zero or infinity to express paid access.
 
@@ -69,7 +74,7 @@ Lead pricing with the actual allowances rather than an "Unlimited" or "zero limi
 
 Present three pricing cards, with Plus as the primary upgrade and a Monthly / Yearly billing toggle. Default to Monthly; switching to Yearly does not change allowances. Show billing interval, full amount charged now, renewal terms, currency, tax treatment, and cancellation terms before checkout. Price treatment: the listed prices are before applicable checkout taxes; confirm market presentation before launch.
 
-The paid benefits list must visibly include 100 new sessions per 6 hours, 3,000 text messages per 6 hours, up to 250 saved custom simulations, up to 250 saved custom personas, and 720 voice minutes per UTC day. Explain that saved-item caps are inventory limits, not daily/monthly creation credits. Show core scenarios, feedback, and history alongside those limits; Supporter also prominently shows guidance and support from the development team, direct chat with developers, and collaborative decisions about the project's future. Free displays its effective configured allowances and core benefits.
+The Plus benefits list must visibly include 100 new sessions per 6 hours, 3,000 text messages per 6 hours, up to 250 saved custom simulations, up to 250 saved custom personas, and 720 voice minutes per UTC day. Supporter lists its separate defaults of 200 sessions, 6,000 messages, 500 simulations, 500 personas, and 1440 voice minutes. Explain that saved-item caps are inventory limits, not daily/monthly creation credits. Show core scenarios, feedback, and history alongside those limits; Supporter also prominently shows guidance and support from the development team, direct chat with developers, and collaborative decisions about the project's future. Free displays its effective configured allowances and core benefits.
 
 Read public plan limits and window labels from a safe server-owned plan catalog derived from the same configuration used for enforcement. Do not publish environment variable names, credentials, or internal configuration to the pricing UI. If the configured windows change, the pricing labels must change with them. Apply this contract to any pricing shown by `web/` or `landing/`, using a public catalog response or build-time generation as appropriate.
 
@@ -94,9 +99,9 @@ Interval-switch policy: monthly-to-yearly and yearly-to-monthly changes take eff
 
 ## Account and cap experience
 
-Free users retain core scenarios, feedback, history, and current capabilities. At a free cap, explain when usage resets or which stored object count was reached, then offer Plus. Supporter is optional and must not appear necessary for better AI quality or additional usage.
+Free users retain core scenarios, feedback, history, and current capabilities. At a free cap, explain when usage resets or which stored object count was reached, then offer Plus. Supporter is optional and does not change AI quality.
 
-Paid users who hit a technical cap receive the cap/reset explanation and a support route. Do not upsell Plus users to Supporter for more allowance, since both have the same allowance.
+Paid users who hit a technical cap receive the cap/reset explanation and a support route. Show Plus users the separate Supporter allowances when comparing plans. Plan changes remain subject to the verified next-period flow or the contact fallback.
 
 An account billing section shows current tier, billing status, renewal/access-end date, usage details, and a link to Polar's customer portal. A successful checkout redirect shows pending activation until the API verifies the purchase; returning from checkout alone never grants access.
 
@@ -161,8 +166,8 @@ Work touches core API billing, auth/account responses, quota enforcement, voice 
 
 Before launch verify:
 
-- Free, Plus, and Supporter resolve correctly across all five limits, with paid parity and immediate upgrade behavior.
-- Monthly and yearly variants grant identical caps; the pricing page shows every effective cap, reset window, shared benefit, and higher-limit contact link.
+- Free, Plus, and Supporter resolve correctly across all five tier-specific limits, with immediate upgrade behavior.
+- Monthly and yearly variants within each tier grant identical caps; the pricing page shows every effective cap, reset window, shared benefit, and higher-limit contact link.
 - The annual toggle shows the correct full upfront total, monthly equivalent, savings, and yearly renewal terms without implying monthly installments.
 - All four paid products map to the correct tier/interval; client tampering cannot substitute a cheaper product or alter price.
 - Annual purchase, renewal, cancellation, failed renewal, refund, and interval/tier changes use the actual paid period, preserve usage counters, and do not create duplicate subscriptions.

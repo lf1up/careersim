@@ -12,12 +12,298 @@ import {
   type TestHarness,
 } from "./helpers/build-test-app.js";
 
+const independentLimitsConfig = () =>
+  loadEnv({
+    DATABASE_URL: "postgres://test",
+    AGENT_API_URL: "http://test",
+    JWT_SECRET: "test-secret-test-secret",
+    ALTCHA_HMAC_KEY: "test-secret-test-secret",
+    BILLING_ENABLED: "true",
+    POLAR_ACCESS_TOKEN: "fixture-token",
+    POLAR_WEBHOOK_SECRET: "fixture-secret",
+    POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
+    POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
+    POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
+    POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
+    SESSIONS_CREATE_MAX: "1",
+    CHAT_MESSAGES_MAX: "1",
+    CUSTOM_SIMULATIONS_MAX: "1",
+    CUSTOM_PERSONAS_MAX: "1",
+    VOICE_DAILY_MINUTES_PER_USER: "1",
+    PRO_SESSIONS_CREATE_MAX: "2",
+    PRO_CHAT_MESSAGES_MAX: "3",
+    PRO_CUSTOM_SIMULATIONS_MAX: "2",
+    PRO_CUSTOM_PERSONAS_MAX: "2",
+    PRO_VOICE_DAILY_MINUTES_PER_USER: "2",
+    SUPPORTER_SESSIONS_CREATE_MAX: "3",
+    SUPPORTER_CHAT_MESSAGES_MAX: "5",
+    SUPPORTER_CUSTOM_SIMULATIONS_MAX: "3",
+    SUPPORTER_CUSTOM_PERSONAS_MAX: "3",
+    SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: "3",
+  });
+function tierSnapshot(
+  tier: "plus" | "supporter",
+  start: Date,
+  end: Date,
+): BillingSnapshot {
+  const order: PaidOrder = {
+    orderId: `${tier}-order`,
+    productId: `${tier}-month`,
+    start,
+    end,
+    totalAmount: tier === "plus" ? 900 : 10000,
+    refundedAmount: 0,
+    dispute: "none",
+  };
+  return {
+    kind: "subscription",
+    customerId: "tier-customer",
+    subscriptionId: "tier-subscription",
+    productId: order.productId,
+    choice: { tier, interval: "month" },
+    status: "active",
+    paidPeriod: order,
+    orders: [order],
+    cancelAtPeriodEnd: false,
+    failedRenewal: false,
+    revoked: false,
+    pendingChange: null,
+  };
+}
+
 describe("subscription access through the full API", () => {
   let harness: TestHarness | undefined;
   afterEach(async () => {
     await harness?.close();
   });
 
+  it("enforces independent Supporter caps and keeps window usage after a verified Plus downgrade", async () => {
+    let clock = new Date("2026-11-10T12:00:00Z");
+    const provider = new FakeBillingProvider();
+    harness = await buildTestApp({
+      billing: {
+        config: independentLimitsConfig(),
+        provider,
+        now: () => clock,
+      },
+      rateLimitEnabled: true,
+      rateLimitGlobalMax: 1000,
+      quotaStore: createMemoryWindowQuota({ now: () => clock }),
+    });
+    const { app } = harness;
+    const { userId, authHeader: headers } = await registerAndAuth(app);
+    provider.snapshots.set(
+      userId,
+      tierSnapshot(
+        "supporter",
+        new Date("2026-10-10T12:00:15Z"),
+        new Date("2026-11-10T12:00:15Z"),
+      ),
+    );
+    const supporter = await app.inject({
+      method: "POST",
+      url: "/v1/billing/refresh",
+      headers,
+    });
+    expect(supporter.statusCode, supporter.body).toBe(200);
+    expect(supporter.json()).toMatchObject({
+      tier: "supporter",
+      limits: {
+        sessionsCreateMax: 3,
+        chatMessagesMax: 5,
+        customSimulationsMax: 3,
+        customPersonasMax: 3,
+        voiceDailyMinutes: 3,
+      },
+    });
+    const create = () =>
+      app.inject({
+        method: "POST",
+        url: "/v1/sessions",
+        headers,
+        payload: { simulation_slug: "behavioral-interview-brenda" },
+      });
+    const first = await create();
+    expect(first.statusCode, first.body).toBe(201);
+    expect((await create()).statusCode).toBe(201);
+    expect((await create()).statusCode).toBe(201);
+    expect((await create()).json()).toMatchObject({
+      error: "RATE_LIMITED",
+      tier: "supporter",
+      used: 3,
+      max: 3,
+    });
+    const send = (content: string | string[]) =>
+      app.inject({
+        method: "POST",
+        url: `/v1/sessions/${first.json().id}/messages`,
+        headers,
+        payload: { content },
+      });
+    expect(
+      (await send(["one", "two", "three", "four", "five"])).statusCode,
+    ).toBe(200);
+    expect((await send("six")).json()).toMatchObject({
+      error: "RATE_LIMITED",
+      tier: "supporter",
+      used: 5,
+      max: 5,
+    });
+    const before = (
+      await app.inject({ method: "GET", url: "/v1/billing/account", headers })
+    ).json();
+
+    clock = new Date("2026-11-10T12:00:15Z");
+    provider.snapshots.set(
+      userId,
+      tierSnapshot("plus", clock, new Date("2026-12-10T12:00:15Z")),
+    );
+    const downgraded = await app.inject({
+      method: "POST",
+      url: "/v1/billing/refresh",
+      headers,
+    });
+    expect(downgraded.statusCode, downgraded.body).toBe(200);
+    expect(downgraded.json()).toMatchObject({
+      tier: "plus",
+      usage: {
+        sessions: { used: 3, limit: 2, resetAt: before.usage.sessions.resetAt },
+        chatMessages: {
+          used: 5,
+          limit: 3,
+          resetAt: before.usage.chatMessages.resetAt,
+        },
+      },
+    });
+    expect((await create()).json()).toMatchObject({
+      error: "RATE_LIMITED",
+      tier: "plus",
+      used: 3,
+      max: 2,
+    });
+    expect((await send("still over quota")).json()).toMatchObject({
+      error: "RATE_LIMITED",
+      tier: "plus",
+      used: 5,
+      max: 3,
+    });
+  });
+  it("keeps daily voice seconds when verified Supporter access changes to the lower Plus cap", async () => {
+    let clock = new Date("2026-11-10T12:00:00Z");
+    const provider = new FakeBillingProvider();
+    const internal = { "x-internal-key": "test-internal-key" };
+    harness = await buildTestApp({
+      billing: {
+        config: independentLimitsConfig(),
+        provider,
+        now: () => clock,
+      },
+      voice: { enabled: true, now: () => clock, terminateRoom: async () => {} },
+    });
+    const { app } = harness;
+    const { userId, authHeader: headers } = await registerAndAuth(app);
+    provider.snapshots.set(
+      userId,
+      tierSnapshot(
+        "supporter",
+        new Date("2026-10-10T12:01:00Z"),
+        new Date("2026-11-10T12:01:00Z"),
+      ),
+    );
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/billing/refresh",
+          headers,
+        })
+      ).statusCode,
+    ).toBe(200);
+    const session = await app.inject({
+      method: "POST",
+      url: "/v1/sessions",
+      headers,
+      payload: { simulation_slug: "behavioral-interview-brenda" },
+    });
+    expect(session.statusCode, session.body).toBe(201);
+    const sessionId = session.json().id;
+    const budget = () =>
+      app.inject({
+        method: "GET",
+        url: `/v1/internal/sessions/${sessionId}/voice-budget`,
+        headers: internal,
+      });
+    expect((await budget()).json()).toMatchObject({
+      cap_seconds: 180,
+      remaining_seconds: 180,
+    });
+    const call = await app.inject({
+      method: "POST",
+      url: `/v1/sessions/${sessionId}/voice/start`,
+      headers,
+    });
+    expect(call.statusCode, call.body).toBe(200);
+    const checkpoint = (sequence: number) =>
+      app.inject({
+        method: "POST",
+        url: `/v1/internal/voice/calls/${call.json().call_id}/checkpoint`,
+        headers: internal,
+        payload: { sequence, cumulative_seconds: sequence * 15, ended: false },
+      });
+    for (let sequence = 1; sequence <= 3; sequence++) {
+      clock = new Date(clock.getTime() + 15000);
+      expect((await checkpoint(sequence)).statusCode).toBe(200);
+    }
+    expect((await budget()).json()).toMatchObject({
+      cap_seconds: 180,
+      remaining_seconds: 135,
+    });
+    clock = new Date("2026-11-10T12:01:00Z");
+    provider.snapshots.set(
+      userId,
+      tierSnapshot("plus", clock, new Date("2026-12-10T12:01:00Z")),
+    );
+    const downgraded = await app.inject({
+      method: "POST",
+      url: "/v1/billing/refresh",
+      headers,
+    });
+    expect(downgraded.json()).toMatchObject({
+      tier: "plus",
+      usage: { voice: { used: 0.75, limit: 2 } },
+    });
+    expect((await budget()).json()).toMatchObject({
+      cap_seconds: 120,
+      remaining_seconds: 75,
+    });
+    for (let sequence = 4; sequence <= 8; sequence++) {
+      const result = await checkpoint(sequence);
+      expect(result.statusCode, result.body).toBe(200);
+      expect(result.json().continue_call).toBe(sequence < 8);
+      if (sequence < 8) clock = new Date(clock.getTime() + 15000);
+    }
+    expect((await budget()).json()).toMatchObject({
+      cap_seconds: 120,
+      remaining_seconds: 0,
+    });
+    const account = await app.inject({
+      method: "GET",
+      url: "/v1/billing/account",
+      headers,
+    });
+    expect(account.json()).toMatchObject({
+      usage: { voice: { used: 2, limit: 2 } },
+    });
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: `/v1/sessions/${sessionId}/voice/start`,
+          headers,
+        })
+      ).statusCode,
+    ).toBe(429);
+  });
   it("activates verified annual access on the same counters and preserves access until cancellation expiry", async () => {
     const config = loadEnv({
       DATABASE_URL: "postgres://test",

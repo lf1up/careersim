@@ -3,10 +3,17 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const { account, refresh, portal, supporter, change, catalogFetch } = vi.hoisted(() => ({ account: vi.fn(), refresh: vi.fn(), portal: vi.fn(), supporter: vi.fn(), change: vi.fn(), catalogFetch: vi.fn() }));
 vi.mock('@/lib/billing', async (original) => ({ ...await original<typeof import('@/lib/billing')>(), getBillingAccount: account, refreshBillingAccount: refresh, createBillingPortal: portal, getSupporterAccess: supporter, scheduleBillingChange: change, fetchPlanCatalog: catalogFetch }));
 import { ApiError } from '@/lib/api';
-import { catalog, freeAccount, paidLimits } from './fixtures';
+import { catalog, freeAccount, plusLimits, supporterLimits } from './fixtures';
 import { BillingPanel } from './BillingPanel';
-const plus = { ...freeAccount, tier: 'plus' as const, limits: paidLimits, reason: 'paid' as const, status: 'active', interval: 'year' as const, paidThrough: '2027-11-10T00:00:00.000Z', accessThrough: '2027-11-10T00:00:00.000Z', renews: true, usage: { ...freeAccount.usage, sessions: { used: 23, limit: 100, resetAt: '2026-11-10T18:00:00.000Z' } } };
-beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); });
+const plus = { ...freeAccount, tier: 'plus' as const, limits: plusLimits, reason: 'paid' as const, status: 'active', interval: 'year' as const, paidThrough: '2027-11-10T00:00:00.000Z', accessThrough: '2027-11-10T00:00:00.000Z', renews: true, usage: { ...freeAccount.usage, sessions: { used: 23, limit: 100, resetAt: '2026-11-10T18:00:00.000Z' } } };
+const supporterAccount = { ...plus, tier: 'supporter' as const, limits: supporterLimits, supporterAccess: true, usage: {
+  sessions: { used: 23, limit: 200, resetAt: '2026-11-10T18:00:00.000Z' },
+  chatMessages: { used: 1234, limit: 6000, resetAt: '2026-11-10T18:00:00.000Z' },
+  customSimulations: { used: 123, limit: 500, resetAt: null },
+  customPersonas: { used: 87, limit: 500, resetAt: null },
+  voice: { used: 90, limit: 1440, resetAt: '2026-11-11T00:00:00.000Z' },
+} };
+beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); supporter.mockReset().mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSim email for membership verification.' }); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 it('keeps checkout pending until authoritative activation without re-login', async () => {
   const pending = { ...freeAccount, pendingCheckout: true, confirmationPending: true };
@@ -50,15 +57,27 @@ it('shows portal errors and a sign-in route after lost authentication', async ()
   expect(await screen.findByRole('link', { name: 'Sign in to view billing' })).toHaveAttribute('href', '/login?next=%2Fprofile%23billing');
 });
 it('loads the private channel only for verified Supporter access', async () => {
-  account.mockResolvedValue({ ...plus, tier: 'supporter', supporterAccess: true });
+  account.mockResolvedValue(supporterAccount);
   supporter.mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSim email for membership verification.' });
   render(<BillingPanel />);
   await screen.findByRole('link', { name: 'Open Supporter channel' });
   expect(screen.getByText('Use your CareerSim email for membership verification.')).toBeVisible();
   for (const benefit of catalog.plans[2].benefits.slice(3)) expect(screen.getByText(benefit)).toBeVisible();
 });
+it('shows all verified Supporter usage against its independent allowances', async () => {
+  account.mockResolvedValue(supporterAccount);
+  render(<BillingPanel />);
+  for (const text of ['23 / 200', '1,234 / 6,000', '123 / 500', '87 / 500', '90 / 1,440']) expect(await screen.findByText(text)).toBeVisible();
+  expect(screen.getByText(/Sessions reset per 6 hours; text messages per 6 hours/)).toBeVisible();
+});
+it('keeps actual Supporter allowances visible when usage counters are unavailable', async () => {
+  account.mockResolvedValue({ ...supporterAccount, usage: freeAccount.usage });
+  render(<BillingPanel />);
+  for (const limit of ['200', '6,000', '1,440']) expect(await screen.findByText(`Usage temporarily unavailable / ${limit}`)).toBeVisible();
+  expect(screen.getAllByText('Usage temporarily unavailable / 500')).toHaveLength(2);
+});
 it('recovers the Supporter channel after a temporary error and successful billing refresh', async () => {
-  const verifiedSupporter = { ...plus, tier: 'supporter', supporterAccess: true };
+  const verifiedSupporter = supporterAccount;
   account.mockResolvedValue(verifiedSupporter);
   refresh.mockResolvedValue({ ...verifiedSupporter });
   supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSim email.' });
@@ -70,7 +89,7 @@ it('recovers the Supporter channel after a temporary error and successful billin
   expect(screen.queryByText(/Supporter access could not be verified/)).toBeNull();
 });
 it('returns to sign-in when refreshed Supporter verification loses authentication', async () => {
-  const verifiedSupporter = { ...plus, tier: 'supporter', supporterAccess: true };
+  const verifiedSupporter = supporterAccount;
   account.mockResolvedValue(verifiedSupporter);
   refresh.mockResolvedValue({ ...verifiedSupporter });
   supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockRejectedValueOnce(new ApiError(401, 'Sign in required'));
@@ -82,7 +101,7 @@ it('returns to sign-in when refreshed Supporter verification loses authenticatio
 });
 it('ignores an older channel response after refreshed access is downgraded', async () => {
   const channel = Promise.withResolvers<{ channelUrl: string; instructions: string }>();
-  account.mockResolvedValueOnce({ ...plus, tier: 'supporter', supporterAccess: true }).mockResolvedValue(freeAccount);
+  account.mockResolvedValueOnce(supporterAccount).mockResolvedValue(freeAccount);
   refresh.mockResolvedValue(freeAccount);
   supporter.mockReturnValueOnce(channel.promise);
   render(<BillingPanel />);

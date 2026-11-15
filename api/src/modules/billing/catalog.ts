@@ -30,6 +30,11 @@ export type BillingConfig = Pick<
   | "PRO_CUSTOM_SIMULATIONS_MAX"
   | "PRO_CUSTOM_PERSONAS_MAX"
   | "PRO_VOICE_DAILY_MINUTES_PER_USER"
+  | "SUPPORTER_SESSIONS_CREATE_MAX"
+  | "SUPPORTER_CHAT_MESSAGES_MAX"
+  | "SUPPORTER_CUSTOM_SIMULATIONS_MAX"
+  | "SUPPORTER_CUSTOM_PERSONAS_MAX"
+  | "SUPPORTER_VOICE_DAILY_MINUTES_PER_USER"
   | "PRO_MONTHLY_PRICE_CENTS"
   | "PRO_YEARLY_PRICE_CENTS"
   | "SUPPORTER_MONTHLY_PRICE_CENTS"
@@ -51,13 +56,21 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
     customPersonasMax: config.CUSTOM_PERSONAS_MAX,
     voiceDailyMinutes: config.VOICE_DAILY_MINUTES_PER_USER,
   };
-  const paid: PlanLimits = {
+  const plus: PlanLimits = {
     ...free,
     sessionsCreateMax: config.PRO_SESSIONS_CREATE_MAX,
     chatMessagesMax: config.PRO_CHAT_MESSAGES_MAX,
     customSimulationsMax: config.PRO_CUSTOM_SIMULATIONS_MAX,
     customPersonasMax: config.PRO_CUSTOM_PERSONAS_MAX,
     voiceDailyMinutes: config.PRO_VOICE_DAILY_MINUTES_PER_USER,
+  };
+  const supporter: PlanLimits = {
+    ...free,
+    sessionsCreateMax: config.SUPPORTER_SESSIONS_CREATE_MAX,
+    chatMessagesMax: config.SUPPORTER_CHAT_MESSAGES_MAX,
+    customSimulationsMax: config.SUPPORTER_CUSTOM_SIMULATIONS_MAX,
+    customPersonasMax: config.SUPPORTER_CUSTOM_PERSONAS_MAX,
+    voiceDailyMinutes: config.SUPPORTER_VOICE_DAILY_MINUTES_PER_USER,
   };
   return {
     currency: "USD",
@@ -77,7 +90,7 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
       {
         tier: "plus",
         name: "Plus",
-        limits: paid,
+        limits: plus,
         benefits: coreBenefits,
         availability: config.BILLING_ENABLED ? "available" : "billing_disabled",
         prices: [
@@ -100,7 +113,7 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
       {
         tier: "supporter",
         name: "Supporter",
-        limits: paid,
+        limits: supporter,
         benefits: [...coreBenefits, ...supporterBenefits],
         availability: !config.BILLING_ENABLED
           ? "billing_disabled"

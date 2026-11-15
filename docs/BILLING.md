@@ -8,7 +8,7 @@ This is a launch runbook, not evidence that sandbox or production billing has pa
 
 Both purchase flags default to false. Plus may launch after its technical and operational checks pass. Supporter has a separate provider eligibility gate for both intervals and all plan-change entry points.
 
-Polar's [acceptable use policy](https://polar.sh/legal/acceptable-use-policy) lists donations, community access and sponsorship among prohibited categories. Obtain written acceptance of the actual offer before enabling Supporter, including $100/month and $1,000/year, the same SaaS caps as Plus, and these exact benefits:
+Polar's [acceptable use policy](https://polar.sh/legal/acceptable-use-policy) lists donations, community access and sponsorship among prohibited categories. Obtain written acceptance of the actual offer before enabling Supporter, including its configured monthly and yearly prices, its published Supporter usage limits, and these exact benefits:
 
 - Guidance and support from the development team
 - Chat directly with the developers
@@ -75,9 +75,20 @@ The old `infrastructure/k8s/base/backend-deployment.yaml` and legacy AWS infrast
 | `BILLING_CONTACT_URL` | Higher-limit and unavailable-plan contact destination, normally `/contact`. |
 | `REDIS_URL` | Shared quota counters required for multiple API instances. Use persistent Redis and retain keys through their quota window. |
 | Free limit and window settings | Preserve deployed unprefixed overrides. Default session/message windows are six hours. |
-| Five `PRO_*` settings | Paid caps shared by Plus/Supporter, shown below. |
+| Five `PRO_*` limit settings | Plus usage caps, shown below. |
+| Five `SUPPORTER_*` limit settings | Independent Supporter usage caps, shown below. |
 
-Approved paid settings are `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, and `PRO_VOICE_DAILY_MINUTES_PER_USER=720`. Values must be positive safe integers within storage bounds and at least the effective Free caps. A zero unlimited Free voice cap is incompatible with finite paid quotas. Voice resets at midnight UTC. Custom simulation/persona caps count owned, non-deleted inventory including drafts, rather than monthly creation credits.
+Defaults for each tier are:
+
+| Limit | Plus (`PRO_`) | Supporter (`SUPPORTER_`) |
+| --- | ---: | ---: |
+| `SESSIONS_CREATE_MAX` | 100 | 200 |
+| `CHAT_MESSAGES_MAX` | 3000 | 6000 |
+| `CUSTOM_SIMULATIONS_MAX` | 250 | 500 |
+| `CUSTOM_PERSONAS_MAX` | 250 | 500 |
+| `VOICE_DAILY_MINUTES_PER_USER` | 720 | 1440 |
+
+Each setting combines its tier prefix with the limit name, for example `SUPPORTER_CHAT_MESSAGES_MAX=6000`. Values must be positive safe integers within storage bounds and at least the effective Free caps. Tier overrides are independent. Monthly and yearly billing use the same limits within each tier. A zero unlimited Free voice cap is incompatible with finite paid quotas. Voice resets at midnight UTC. Custom simulation/persona caps count owned, non-deleted inventory including drafts, rather than monthly creation credits.
 
 Quota-storage failures must block new expensive work with a retryable error. Burst limiter fallback is not permission to bypass subscription quotas. Catastrophic Redis data loss can reset a window; these counters are application limits, not a financial ledger. Retain saved records through downgrade, and block only new inventory until the owner is below the effective cap.
 
@@ -146,7 +157,7 @@ For each row, record date, sandbox environment, host/plugin revisions, command o
 | Sandbox exercise | Expected observation | Observed outcome |
 | --- | --- | --- |
 | Read-only four-product audit | All four exact prices/cadences/tax settings match | Blocked; no supplied sandbox credentials/mappings |
-| Initial purchase for all four mappings | Only verified payment activates correct tier; paid caps identical | Not run |
+| Initial purchase for all four mappings | Only verified payment activates the correct tier and its configured limits; both intervals share that tier's caps | Not run |
 | Unpaid initial checkout | Free, no grace | Not run against Polar |
 | Failed paid renewal | Three-day grace then Free using injected clocks where needed | Not run against Polar |
 | Monthly and yearly cancellation | Access ends at real paid-through; no grace | Not run against Polar |
