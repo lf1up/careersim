@@ -4,7 +4,12 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { PGlite } from "@electric-sql/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { createPgliteClient } from "../src/db/client.js";
-import { users, billingWebhookInbox } from "../src/db/schema.js";
+import {
+  users,
+  billingCustomers,
+  billingWebhookInbox,
+} from "../src/db/schema.js";
+import { eq } from "drizzle-orm";
 import { billingWebhookRoutes } from "../src/modules/billing/webhook.route.js";
 const secret =
   "whsec_" + Buffer.from("test-billing-signing-key").toString("base64");
@@ -14,6 +19,7 @@ describe("signed Polar webhook inbox", () => {
   let userId: string;
   let calls: number;
   let fail: boolean;
+  let syncedUsers: string[];
   beforeEach(async () => {
     handle = createPgliteClient(new PGlite());
     await migrate(handle.db, { migrationsFolder: "src/db/migrations" });
@@ -23,12 +29,18 @@ describe("signed Polar webhook inbox", () => {
       .values({ id: userId, email: `${userId}@test.com` });
     calls = 0;
     fail = false;
+    syncedUsers = [];
     app = Fastify();
     await app.register(billingWebhookRoutes, {
       db: handle.db,
       secret,
-      syncCustomer: async () => {
+      syncCustomer: async ({
+        userId: synchronizedUser,
+      }: {
+        userId: string;
+      }) => {
         calls++;
+        syncedUsers.push(synchronizedUser);
         if (fail) throw new Error("provider timeout");
       },
     });
@@ -37,11 +49,19 @@ describe("signed Polar webhook inbox", () => {
     await app.close();
     await handle.close();
   });
-  function delivery(id: string, forged = false) {
+  function delivery(
+    id: string,
+    forged = false,
+    data: unknown = {
+      id: "order",
+      customer: { id: "customer", external_id: userId },
+    },
+    type = "order.paid",
+  ) {
     const payload = JSON.stringify({
-      type: "order.paid",
+      type,
       timestamp: new Date().toISOString(),
-      data: { id: "order", customer: { id: "customer", external_id: userId } },
+      data,
     });
     const timestamp = String(Math.floor(Date.now() / 1000));
     const signature = createHmac(
@@ -96,5 +116,134 @@ describe("signed Polar webhook inbox", () => {
       payload: { ok: true },
     });
     expect(response.json()).toEqual({ ok: true });
+  });
+  it("rejects non-JSON bodies before signature processing or inbox writes", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/billing/webhook",
+      headers: { "content-type": "text/plain" },
+      payload: "not a JSON webhook",
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: "billing_invalid_body" });
+    expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+    expect(calls).toBe(0);
+  });
+  it("rejects a JSON delivery with missing signature headers", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/billing/webhook",
+      payload: { type: "order.paid", data: { id: "order" } },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({ error: "billing_invalid_signature" });
+    expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+  });
+  it("rejects a correctly signed event type outside the supported provider contract", async () => {
+    const response = await delivery(
+      "unknown",
+      false,
+      { id: "order" },
+      "order.invented",
+    );
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: "billing_unsupported_event" });
+    expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+    expect(calls).toBe(0);
+  });
+  it("keeps malformed identity data unresolved instead of syncing an arbitrary account", async () => {
+    expect(
+      (
+        await delivery("malformed", false, {
+          id: "order",
+          customer: { id: "customer", external_id: "not-a-user-uuid" },
+        })
+      ).statusCode,
+    ).toBe(202);
+    expect(await handle.db.select().from(billingWebhookInbox)).toMatchObject([
+      { eventId: "malformed", userId: null, customerId: null },
+    ]);
+    expect(calls).toBe(0);
+  });
+  it("does not trust a valid UUID unless that account exists", async () => {
+    expect(
+      (
+        await delivery("absent", false, {
+          id: "order",
+          external_customer_id: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(202);
+    expect(await handle.db.select().from(billingWebhookInbox)).toMatchObject([
+      { eventId: "absent", userId: null },
+    ]);
+    expect(calls).toBe(0);
+  });
+  it("uses a stored provider customer mapping when the claimed account no longer exists", async () => {
+    await handle.db
+      .insert(billingCustomers)
+      .values({ userId, customerId: "known-customer" });
+    expect(
+      (
+        await delivery("mapped", false, {
+          id: "order",
+          external_customer_id: randomUUID(),
+          customer_id: "known-customer",
+        })
+      ).statusCode,
+    ).toBe(202);
+    expect(await handle.db.select().from(billingWebhookInbox)).toMatchObject([
+      { userId, customerId: "known-customer", orderId: "order", attempts: 1 },
+    ]);
+    expect(syncedUsers).toEqual([userId]);
+  });
+  it("keeps an unknown provider customer pending without inventing an account mapping", async () => {
+    expect(
+      (
+        await delivery("unmapped", false, {
+          id: "order",
+          customer_id: "unknown-customer",
+        })
+      ).statusCode,
+    ).toBe(202);
+    expect(await handle.db.select().from(billingWebhookInbox)).toMatchObject([
+      {
+        userId: null,
+        customerId: "unknown-customer",
+        attempts: 0,
+        processedAt: null,
+      },
+    ]);
+    expect(calls).toBe(0);
+  });
+  it("resolves customer events from their top-level external identity and customer ID", async () => {
+    expect(
+      (
+        await delivery(
+          "customer",
+          false,
+          { id: "customer", external_id: userId },
+          "customer.updated",
+        )
+      ).statusCode,
+    ).toBe(202);
+    expect(await handle.db.select().from(billingWebhookInbox)).toMatchObject([
+      { userId, customerId: "customer", orderId: null },
+    ]);
+    expect(syncedUsers).toEqual([userId]);
+  });
+  it("acknowledges an already-processed delivery without repeating synchronization", async () => {
+    await delivery("processed");
+    await handle.db
+      .update(billingWebhookInbox)
+      .set({ processedAt: new Date() })
+      .where(eq(billingWebhookInbox.eventId, "processed"));
+    const response = await delivery("processed");
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ received: true });
+    expect(calls).toBe(1);
+    expect(await handle.db.select().from(billingWebhookInbox)).toMatchObject([
+      { attempts: 1 },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMemoryWindowQuota } from '../src/modules/quotas/window-quota.js';
+import { createMemoryWindowQuota, createWindowQuota, quotaWindowMs } from '../src/modules/quotas/window-quota.js';
 
 describe('atomic window quota', () => {
   it('rejects whole batches, reuses consumption for ceiling changes and isolates users', async () => {
@@ -21,5 +21,23 @@ describe('atomic window quota', () => {
     clock = 1010;
     expect(await quota.read(args)).toEqual({ used: 0, resetsAt: null });
     expect(await quota.consume(args)).toMatchObject({ allowed: true, used: 1 });
+  });
+});
+
+describe('quota window configuration', () => {
+  it.each([
+    ['250ms', 250], ['2 milliseconds', 2], ['1s', 1000], ['2 seconds', 2000],
+    ['1.5 m', 90000], ['2 minutes', 120000], ['1h', 3600000], [' 2 HOURS ', 7200000],
+    ['1d', 86400000], ['2 days', 172800000],
+  ])('converts %s to a millisecond expiry', (duration, expected) => {
+    expect(quotaWindowMs(String(duration))).toBe(expected);
+  });
+  it.each(['0 seconds', '-1h', '1 month', 'tomorrow', '0.001ms', '9007199254740992ms'])('rejects unusable quota duration %s', duration => {
+    expect(() => quotaWindowMs(duration)).toThrow('Invalid quota window');
+  });
+  it.each([null, [1, 2], ['1', 2, 1000]])('rejects a malformed Redis quota response %j', async result => {
+    const quota = createWindowQuota({ redis: { eval: async () => result } });
+    await expect(quota.consume({ userId: 'alice', bucket: 'messages', windowMs: 1000, count: 1, max: 3 }))
+      .rejects.toThrow('Invalid quota store response');
   });
 });

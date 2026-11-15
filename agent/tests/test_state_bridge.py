@@ -275,7 +275,12 @@ async def test_checkpoint_validates_budget_and_sends_call_identity() -> None:
     assert json.loads(seen[0].content) == {"sequence": 3, "cumulative_seconds": 45, "ended": False, "started_at": "2026-11-10T12:00:00Z"}
 
 
-@pytest.mark.parametrize("patch", [{"continue_call": "yes"}, {"remaining_seconds": -1}, {"cap_seconds": True}, {"reset_at": "tomorrow"}, {"usage_date": "yesterday"}])
+@pytest.mark.parametrize("patch", [{"continue_call": "yes"}, {"remaining_seconds": -1}, {"cap_seconds": True}, {"reset_at": "tomorrow"}, {"usage_date": "yesterday"},
+    {"reset_at": "2026-11-11T00:00:00"},
+    {"reset_at": "2026-11-11T00:00:00+01:00"},
+    {"reset_at": "2026-11-10T23:59:59Z"},
+    {"reset_at": "2026-11-09T00:00:00Z"},
+])
 async def test_checkpoint_rejects_malformed_budget(patch: dict) -> None:
     payload = {"remaining_seconds": 60, "cap_seconds": 60, "usage_date": "2026-11-10", "reset_at": "2026-11-11T00:00:00Z", "continue_call": True, **patch}
     api = APIClient("http://api.test", "key")
@@ -283,5 +288,16 @@ async def test_checkpoint_rejects_malformed_budget(patch: dict) -> None:
     try:
         with pytest.raises(ValueError):
             await api.checkpoint_call("call-1", 1, 15, False)
+    finally:
+        await api.aclose()
+
+
+@pytest.mark.parametrize("payload", [None, [], "budget unavailable"])
+async def test_checkpoint_rejects_non_object_authorization(payload) -> None:
+    api = APIClient("http://api.test", "key")
+    api._client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, content=json.dumps(payload), headers={"content-type": "application/json"})))
+    try:
+        with pytest.raises(ValueError, match="Voice checkpoint must return an object"):
+            await api.checkpoint_call("call-1", 0, 0, False)
     finally:
         await api.aclose()

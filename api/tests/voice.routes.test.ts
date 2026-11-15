@@ -12,7 +12,7 @@ describe('voice routes with call identity and cumulative checkpoints', () => {
   let sessionId: string;
   beforeEach(async () => {
     at = new Date('2026-11-10T12:00:00Z');
-    h = await buildTestApp({ voice: { enabled: true, dailyMinutesPerUser: 1, internalKey: key,
+    h = await buildTestApp({ rateLimitEnabled: true, voice: { enabled: true, dailyMinutesPerUser: 1, internalKey: key,
       now: () => at, terminateRoom: async () => {} } });
     ({ authHeader: headers } = await registerAndAuth(h.app));
     const response = await h.app.inject({ method: 'POST', url: '/v1/sessions', headers, payload: { simulation_slug: slug } });
@@ -46,6 +46,9 @@ describe('voice routes with call identity and cumulative checkpoints', () => {
     expect((await checkpoint(call.call_id, -1, 0)).statusCode).toBe(400);
     expect((await checkpoint(call.call_id, 1, -1)).statusCode).toBe(400);
     expect((await checkpoint(call.call_id, 1, 999999)).statusCode).toBe(400);
+    expect((await h.app.inject({ method: 'POST', url: `/v1/internal/voice/calls/${call.call_id}/checkpoint`,
+      headers: { 'x-internal-key': 'wrong-voice-internalkey' },
+      payload: { sequence: 1, cumulative_seconds: 0, ended: false } })).statusCode).toBe(401);
   });
   it('protects state, budget, and final-analysis routes with the internal secret', async () => {
     const call = (await start()).json();

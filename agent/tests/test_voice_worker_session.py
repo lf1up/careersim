@@ -794,7 +794,10 @@ async def test_entrypoint_swallows_finalize_and_report_failures(
     room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.report_error = RuntimeError("end failed")
-    monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", _async_ok)
+    async def finished_room(**_kwargs: Any) -> None:
+        api.budget_error = RuntimeError("checkpoint unavailable during shutdown")
+
+    monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", finished_room)
     monkeypatch.setattr(
         "careersim_agent.voice.state_bridge.APIClient.from_env",
         lambda: api,
@@ -808,6 +811,8 @@ async def test_entrypoint_swallows_finalize_and_report_failures(
     _patch_providers(monkeypatch, stt, tts)
     with caplog.at_level(logging.ERROR):
         await _voice_entrypoint(_Ctx(room))
+    assert "final voice checkpoint failed for call-1" in caplog.text
+    assert api.checkpoints[-1][3] is True
     assert "finalize_voice_analysis failed" in caplog.text
     assert "voice/end report failed" in caplog.text
     assert stt.closed is True
@@ -1505,3 +1510,108 @@ async def test_call_accounting_starts_duration_after_initial_authorization(monke
     await accounting.checkpoint()
     assert api.checkpoints == [('call-delayed-auth', 0, 0, False), ('call-delayed-auth', 1, 15, False)]
     assert origins == [None, '2026-11-11T00:00:03Z']
+
+
+async def test_non_object_metadata_falls_back_to_the_participant(fast_sleep: Any) -> None:
+    room = _Room()
+    room.metadata = '["sess-wrong"]'
+    room.remote_participants = {
+        "user": types.SimpleNamespace(metadata='{"session_id":"sess-right","call_id":"call-right"}'),
+    }
+    assert await _resolve_session_metadata(room) == "sess-right"
+    assert await _resolve_session_metadata(room, "call_id") == "call-right"
+
+
+@pytest.mark.parametrize("missing_identity", [True, False], ids=["missing-call-id", "authorization-denied"])
+async def test_entrypoint_rejects_unaccounted_calls_before_loading_providers(
+    monkeypatch: pytest.MonkeyPatch, fast_sleep: Any, missing_identity: bool,
+) -> None:
+    room = _Room()
+    room.metadata = '{"session_id":"sess-1"}' if missing_identity else '{"session_id":"sess-1","call_id":"call-1"}'
+    api = _API()
+    api.budget = {"remaining_seconds": 0, "cap_seconds": 600, "continue_call": False}
+    monkeypatch.setattr("careersim_agent.voice.state_bridge.APIClient.from_env", lambda: api)
+
+    def unauthorized_provider(_persona: Any) -> Any:
+        pytest.fail("an unauthorized call must not load paid voice providers")
+
+    monkeypatch.setattr("careersim_agent.voice.providers.get_stt_provider", unauthorized_provider)
+    monkeypatch.setattr("careersim_agent.voice.providers.get_tts_provider", unauthorized_provider)
+    await _voice_entrypoint(_Ctx(room))
+    assert api.closed is True
+    assert api.streams == []
+    assert api.reported is None
+    assert api.checkpoints == ([] if missing_identity else [("call-1", 0, 0, False)])
+
+
+@pytest.mark.parametrize("warning_delay", [False, True], ids=["authorization-already-stale", "warning-uses-last-five-seconds"])
+async def test_expired_authorization_stops_room_without_another_checkpoint(
+    monkeypatch: pytest.MonkeyPatch, warning_delay: bool,
+) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr("careersim_agent.voice.worker.time.monotonic", lambda: clock[0])
+    api = _API()
+    api.budget["remaining_seconds"] = 60
+    accounting = _CallAccounting(api, "call-expired")
+    await accounting.checkpoint()
+    clock[0] = 20.0 if warning_delay else 25.0
+    warnings = []
+    class Captions:
+        async def publish_control(self, payload):
+            warnings.append(payload)
+            clock[0] += 5.0
+
+    stopped_at = []
+    async def stop_room():
+        stopped_at.append(clock[0])
+        clock[0] += 5.0
+
+    room_task = asyncio.create_task(asyncio.Event().wait())
+    await accounting.supervise(room_task, Captions(), stop_room)
+    assert room_task.cancelled()
+    assert stopped_at == [25.0]
+    assert clock[0] == 30.0
+    assert len(api.checkpoints) == 1
+    assert [frame["type"] for frame in warnings] == (["quota_warning"] if warning_delay else [])
+
+
+async def test_entrypoint_revocation_deletes_livekit_room_and_finishes_cleanup(monkeypatch: pytest.MonkeyPatch) -> None:
+    livekit_api = types.ModuleType("livekit.api")
+    livekit_api.DeleteRoomRequest = lambda *, room: types.SimpleNamespace(room=room)
+    monkeypatch.setitem(sys.modules, "livekit.api", livekit_api)
+    clock = [0.0]
+    monkeypatch.setattr("careersim_agent.voice.worker.time.monotonic", lambda: clock[0])
+    room = _Room()
+    room.metadata = '{"session_id":"sess-1","call_id":"call-1"}'
+    ctx = _Ctx(room)
+    deleted = []
+    async def delete_room(request):
+        deleted.append((request.room, clock[0]))
+    ctx.api = types.SimpleNamespace(room=types.SimpleNamespace(delete_room=delete_room))
+    api = _API()
+    api.budget = {"remaining_seconds": 120, "cap_seconds": 600, "usage_date": "2099-01-01", "reset_at": "2099-01-02T00:00:00Z"}
+    monkeypatch.setattr("careersim_agent.voice.state_bridge.APIClient.from_env", lambda: api)
+    drained = []
+    async def run_room(**_kwargs):
+        api.budget["continue_call"] = False
+        try:
+            await asyncio.Event().wait()
+        finally:
+            drained.append(True)
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, "wait", advance_wait)
+    monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", run_room)
+    stt, tts = _STT(), _TTS()
+    _patch_providers(monkeypatch, stt, tts)
+    await _voice_entrypoint(ctx)
+    assert deleted == [("room-1", 15.0)]
+    assert drained == [True]
+    assert stt.closed and tts.closed and api.closed
+    assert api.checkpoints[-1][3] is True
+    assert api.reported is not None
+    controls = [json.loads(data) for data, topic, _ in room.local_participant.data if topic == "voice-control"]
+    assert controls == [{"type": "quota_exhausted", "call_id": "call-1", "cap_seconds": 600}]

@@ -25,6 +25,53 @@ const page = (items: unknown[], maxPage = 1) =>
     items,
     pagination: { total_count: items.length, max_page: maxPage },
   });
+const subscription = {
+  id: "subscription",
+  customer_id: "customer",
+  customer: { external_id: "immutable-user" },
+  product_id: "plus-month",
+  status: "active",
+  ended_at: null,
+  created_at: "2026-01-01T00:00:00Z",
+  pending_update: null,
+  cancel_at_period_end: false,
+  current_period_end: "2026-12-01T00:00:00Z",
+};
+const invoiceLine = {
+  proration: false,
+  start_timestamp: "2026-11-01T00:00:00Z",
+  end_timestamp: "2026-12-01T00:00:00Z",
+};
+const paidOrder = {
+  id: "order",
+  checkout_id: "checkout",
+  paid: true,
+  product_id: "plus-month",
+  total_amount: 900,
+  refunded_amount: 0,
+  refunded_tax_amount: 0,
+  currency: "usd",
+  items: [invoiceLine],
+};
+function snapshotTransport({
+  subscriptions = [subscription],
+  orders = [paidOrder],
+  disputes = [],
+}: {
+  subscriptions?: unknown[];
+  orders?: unknown[];
+  disputes?: unknown[];
+} = {}) {
+  const fetcher = vi.fn<typeof fetch>(async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/v1/subscriptions/") return page(subscriptions);
+    if (url.pathname === "/v1/orders/") return page(orders);
+    if (url.pathname === "/v1/disputes/") return page(disputes);
+    throw new Error(`Unexpected provider request: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetcher);
+  return fetcher;
+}
 
 afterEach(() => vi.unstubAllGlobals());
 describe("Polar adapter through the installed versioned SDK", () => {
@@ -198,5 +245,191 @@ describe("Polar adapter through the installed versioned SDK", () => {
     await expect(
       createPolarProvider(config()).revokeSubscription("subscription"),
     ).rejects.toThrow();
+  });
+  it("returns no subscription when the provider has no customer history", async () => {
+    const fetcher = snapshotTransport({ subscriptions: [] });
+    expect(
+      await createPolarProvider(config()).fetchSnapshot("immutable-user"),
+    ).toEqual({ kind: "none" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("rejects multiple live subscriptions instead of selecting arbitrary paid access", async () => {
+    snapshotTransport({
+      subscriptions: [subscription, { ...subscription, id: "duplicate" }],
+    });
+    await expect(
+      createPolarProvider(config()).fetchSnapshot("immutable-user"),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: "billing_duplicate_subscriptions",
+    });
+  });
+  it("rejects a provider customer belonging to another immutable account", async () => {
+    const fetcher = snapshotTransport({
+      subscriptions: [
+        { ...subscription, customer: { external_id: "another-user" } },
+      ],
+    });
+    await expect(
+      createPolarProvider(config()).fetchSnapshot("immutable-user"),
+    ).rejects.toThrow("Provider customer identity mismatch");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("uses the newest ended subscription when only historical subscriptions remain", async () => {
+    snapshotTransport({
+      subscriptions: [
+        {
+          ...subscription,
+          id: "older",
+          status: "canceled",
+          ended_at: "2026-03-01T00:00:00Z",
+        },
+        {
+          ...subscription,
+          id: "newer",
+          created_at: "2026-06-01T00:00:00Z",
+          status: "canceled",
+          ended_at: "2026-07-01T00:00:00Z",
+        },
+      ],
+      orders: [],
+    });
+    expect(
+      await createPolarProvider(config()).fetchSnapshot("immutable-user"),
+    ).toMatchObject({
+      subscriptionId: "newer",
+      revoked: true,
+      paidPeriod: null,
+    });
+  });
+  it.each([
+    ["missing product", { product_id: null }],
+    ["zero total", { total_amount: 0 }],
+    ["non-USD currency", { currency: "eur" }],
+    ["missing invoice dates", { items: [] }],
+    ["proration only", { items: [{ ...invoiceLine, proration: true }] }],
+    [
+      "conflicting invoice periods",
+      {
+        items: [
+          invoiceLine,
+          { ...invoiceLine, end_timestamp: "2027-01-01T00:00:00Z" },
+        ],
+      },
+    ],
+    [
+      "invalid start date",
+      { items: [{ ...invoiceLine, start_timestamp: "invalid" }] },
+    ],
+    [
+      "invalid end date",
+      { items: [{ ...invoiceLine, end_timestamp: "invalid" }] },
+    ],
+    [
+      "backward invoice period",
+      { items: [{ ...invoiceLine, end_timestamp: "2026-10-01T00:00:00Z" }] },
+    ],
+  ])(
+    "does not treat %s as proof of a paid period",
+    async (_label, override) => {
+      const fetcher = snapshotTransport({
+        orders: [{ ...paidOrder, ...override }],
+      });
+      expect(
+        await createPolarProvider(config()).fetchSnapshot("immutable-user"),
+      ).toMatchObject({ paidPeriod: null, orders: [] });
+      expect(
+        fetcher.mock.calls.every(
+          ([input]) => !String(input).includes("/disputes/"),
+        ),
+      ).toBe(true);
+    },
+  );
+  it.each([
+    [[{ status: "prevented" }], "none"],
+    [[{ status: "won" }, { status: "needs_response" }], "open"],
+    [[{ status: "needs_response" }, { status: "won" }], "open"],
+    [[{ status: "lost" }, { status: "won" }], "lost"],
+  ])("preserves dispute precedence for %j", async (disputes, expected) => {
+    snapshotTransport({ disputes });
+    expect(
+      await createPolarProvider(config()).fetchSnapshot("immutable-user"),
+    ).toMatchObject({ paidPeriod: { dispute: expected } });
+  });
+  it("selects the newest paid invoice and maps the scheduled next-period product", async () => {
+    snapshotTransport({
+      subscriptions: [
+        {
+          ...subscription,
+          status: "past_due",
+          pending_update: { product_id: "plus-year" },
+        },
+      ],
+      orders: [
+        {
+          ...paidOrder,
+          id: "older",
+          items: [{ ...invoiceLine, start_timestamp: "2026-10-01T00:00:00Z" }],
+        },
+        { ...paidOrder, id: "shorter" },
+        {
+          ...paidOrder,
+          id: "newest",
+          product_id: "plus-year",
+          items: [{ ...invoiceLine, end_timestamp: "2027-11-01T00:00:00Z" }],
+        },
+      ],
+    });
+    expect(
+      await createPolarProvider(config()).fetchSnapshot("immutable-user"),
+    ).toMatchObject({
+      choice: { tier: "plus", interval: "year" },
+      paidPeriod: { orderId: "newest" },
+      failedRenewal: true,
+      pendingChange: {
+        choice: { tier: "plus", interval: "year" },
+        effectiveAt: new Date("2026-12-01T00:00:00Z"),
+      },
+    });
+  });
+  it("refuses checkout before network access when its product is unconfigured", async () => {
+    const fetcher = snapshotTransport();
+    await expect(
+      createPolarProvider(config()).createCheckout({
+        userId: "immutable-user",
+        choice: { tier: "supporter", interval: "month" },
+        attemptId: "attempt",
+      }),
+    ).rejects.toThrow("Product is not configured");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("returns no recovered checkout when all provider attempts belong to other requests", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => page([checkout])),
+    );
+    expect(
+      await createPolarProvider(config()).findCheckout("missing-attempt"),
+    ).toBeNull();
+  });
+  it("treats an already-missing subscription as a completed revoke without a follow-up read", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({ detail: "not found" }, { status: 404 }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      createPolarProvider(config()).revokeSubscription("subscription"),
+    ).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("propagates an unexpected revoke failure without claiming the subscription ended", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({ detail: "bad request" }, { status: 400 }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      createPolarProvider(config()).revokeSubscription("subscription"),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
