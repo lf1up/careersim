@@ -69,7 +69,7 @@ const envSchema = z
     OPENAI_API_KEY: z.string(),
     // App attribution shown in OpenRouter activity logs / rankings
     // (sent as X-Title and HTTP-Referer headers).
-    OPENAI_APP_NAME: z.string().default('CareerSim'),
+    OPENAI_APP_NAME: z.string().default('CareerSIM'),
     OPENAI_APP_URL: z.string().default(''),
     OPENAI_MODEL: z.string().default('openai/gpt-5.2'),
     OPENAI_PROVIDER: z.string().default('openai'),

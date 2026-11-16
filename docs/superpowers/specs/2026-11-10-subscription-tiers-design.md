@@ -1,11 +1,11 @@
-# CareerSim subscription tiers
+# CareerSIM subscription tiers
 
 Date: 2026-11-10
 Status: Approved by the user on 2026-11-10, with Supporter benefit wording clarified in the approval. No product implementation or live payment setup performed.
 
 ## Intent and agreed decisions
 
-Keep CareerSim accessible while giving paying users generous, clearly disclosed practice allowances. Revenue should help sustain the project; maximizing revenue is not the goal.
+Keep CareerSIM accessible while giving paying users generous, clearly disclosed practice allowances. Revenue should help sustain the project; maximizing revenue is not the goal.
 
 The user selected three tiers:
 
@@ -116,7 +116,7 @@ Use these four visible Supporter benefit lines on pricing and account pages:
 - "Help decide the project's future together"
 - "Early access to upcoming features, including MCP and API access"
 
-Deliver guidance about using CareerSim and discussing needs through a private discussion channel. Supporters and developers discuss ideas, tradeoffs, and roadmap priorities together. No voting platform is required in v1. The promise does not imply equity, a unilateral veto, guaranteed delivery of every requested feature, or a fixed response-time SLA. Do not dilute the approved benefits to a badge or generic feedback form.
+Deliver guidance about using CareerSIM and discussing needs through a private discussion channel. Supporters and developers discuss ideas, tradeoffs, and roadmap priorities together. No voting platform is required in v1. The promise does not imply equity, a unilateral veto, guaranteed delivery of every requested feature, or a fixed response-time SLA. Do not dilute the approved benefits to a badge or generic feedback form.
 
 Use a configurable channel URL plus membership instructions behind verified Supporter access. The exact channel provider is left to the project owner before launch; building a community platform or messaging integration is outside this release. Manual membership verification/removal is acceptable for the initial cohort, with a documented operator checklist. A hidden link alone is not membership enforcement. No invitations or messages are sent as part of this planning work.
 
@@ -126,7 +126,7 @@ Supporter checkout uses the same billing switch as Plus. Offer it when `BILLING_
 
 The API owns a single entitlement resolver keyed by authenticated user ID. It returns the tier, effective five limits, and Supporter access. Plugin services receive this resolver through the host extension contract instead of querying Polar or introducing a second billing model. Resolve on each quota-sensitive action; never rely on a long-lived JWT tier or frontend assertions.
 
-Persist Polar customer/subscription identifiers, recognized product mapping, billing interval, provider state, paid-through time, renewal/cancellation information, pending tier/interval changes, last synchronization time, and webhook processing state in Postgres. A new user has Free access without needing a Polar customer. Use the immutable CareerSim user UUID as Polar's external customer ID; email changes do not change ownership.
+Persist Polar customer/subscription identifiers, recognized product mapping, billing interval, provider state, paid-through time, renewal/cancellation information, pending tier/interval changes, last synchronization time, and webhook processing state in Postgres. A new user has Free access without needing a Polar customer. Use the immutable CareerSIM user UUID as Polar's external customer ID; email changes do not change ownership.
 
 Only server-configured, allowlisted Polar product IDs map to a Plus/Supporter tier and monthly/yearly interval. The server validates the selected pair and resolves its product; the client cannot submit a price or arbitrary product ID. Do not infer access from amount paid, product display name, or checkout metadata supplied by the client. Keep sandbox and production mappings/credentials separate.
 
@@ -143,7 +143,7 @@ Enforce one intended subscription per account. Serialize checkout creation, reus
 7. Tier and billing-interval changes take effect at the next renewal without proration, including annual-to-monthly changes at the end of the paid year. Polar documents `next_period` scheduling. Display the effective date and next full charge, keep the current benefits until then, and verify this behavior in the sandbox. If sandbox validation cannot reproduce scheduling reliably, omit the affected self-service switch in v1 and show a contact path; do not create overlapping subscriptions or a custom scheduling system as a substitute.
 8. Run periodic reconciliation and offer an authenticated refresh after checkout. On provider failure, keep the last verified access only through its stored paid-through/grace deadline; do not fabricate a new grant or extend access indefinitely. Missing billing state defaults to Free; database failures are service errors, not silent downgrades.
 
-Polar handles payment collection and its merchant-of-record checkout responsibilities. CareerSim handles access, counters, and the Supporter benefit. No usage-based charges or automatic overages are configured.
+Polar handles payment collection and its merchant-of-record checkout responsibilities. CareerSIM handles access, counters, and the Supporter benefit. No usage-based charges or automatic overages are configured.
 
 ## Quota behavior and downgrade rules
 

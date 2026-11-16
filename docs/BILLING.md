@@ -97,7 +97,7 @@ Quota-storage failures must block new expensive work with a retryable error. Bur
 
 ## Provider identity and signed events
 
-Use the immutable CareerSim user UUID as Polar's external customer ID. Email changes do not change billing ownership. Never map access by email, product name, checkout return, price paid or client metadata. Billing account, refresh and portal requests must use the authenticated user's UUID. Do not log portal/checkout bearer URLs.
+Use the immutable CareerSIM user UUID as Polar's external customer ID. Email changes do not change billing ownership. Never map access by email, product name, checkout return, price paid or client metadata. Billing account, refresh and portal requests must use the authenticated user's UUID. Do not log portal/checkout bearer URLs.
 
 Configure the public billing webhook at `{API_VERSION_PREFIX}/billing/webhook` on the API origin. Preserve the exact raw request bytes through ingress and Fastify. Validate Standard Webhooks signatures with the environment's signing secret before mutation; parsed-and-reserialized JSON is not the signing payload. Persist event identities and synchronize under the account lock so duplicates and reordered payloads cannot apply an older snapshot.
 
@@ -135,7 +135,7 @@ Self-service tier and interval changes stay unavailable until sandbox proves the
 
 Do not send invitations during implementation. Before enabling Supporter, choose a private channel with actual membership controls and an operator responsible for the initial cohort.
 
-1. Check the authenticated user's verified Supporter entitlement and current paid/grace deadline in CareerSim. A forwarded link, checkout screenshot or email address is insufficient.
+1. Check the authenticated user's verified Supporter entitlement and current paid/grace deadline in CareerSIM. A forwarded link, checkout screenshot or email address is insufficient.
 2. Match the channel identity to the immutable user UUID using an authenticated support exchange. Record only the minimum identity mapping in the operator's restricted log.
 3. Grant membership manually, record the verified period and provide the configured channel instructions. Honor the four benefit lines above without promising equity, a veto, guaranteed delivery or a fixed response-time SLA.
 4. Review membership on entitlement changes and on a regular operator schedule. Remove access promptly after expiry, revocation, full current-period refund or open/lost dispute. Cancellation alone retains membership through paid-through.

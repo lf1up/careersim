@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     openai_base_url: Optional[str] = None
     # App attribution shown in OpenRouter activity logs / rankings
     # (sent as X-Title and HTTP-Referer headers on each request).
-    openai_app_name: str = "CareerSim"
+    openai_app_name: str = "CareerSIM"
     openai_app_url: str = ""
     openai_model: str = "gpt-4o-mini"
     openai_provider: str = "openai"

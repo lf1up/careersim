@@ -13,7 +13,7 @@ const supporterAccount = { ...plus, tier: 'supporter' as const, limits: supporte
   customPersonas: { used: 87, limit: 500, resetAt: null },
   voice: { used: 90, limit: 720, resetAt: '2026-11-11T00:00:00.000Z' },
 } };
-beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); supporter.mockReset().mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSim email for membership verification.' }); });
+beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); supporter.mockReset().mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSIM email for membership verification.' }); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 it('keeps checkout pending until authoritative activation without re-login', async () => {
   const pending = { ...freeAccount, pendingCheckout: true, confirmationPending: true };
@@ -58,10 +58,10 @@ it('shows portal errors and a sign-in route after lost authentication', async ()
 });
 it('loads the private channel only for verified Supporter access', async () => {
   account.mockResolvedValue(supporterAccount);
-  supporter.mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSim email for membership verification.' });
+  supporter.mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSIM email for membership verification.' });
   render(<BillingPanel />);
   await screen.findByRole('link', { name: 'Open Supporter channel' });
-  expect(screen.getByText('Use your CareerSim email for membership verification.')).toBeVisible();
+  expect(screen.getByText('Use your CareerSIM email for membership verification.')).toBeVisible();
   for (const benefit of catalog.plans[2].benefits.slice(3)) expect(screen.getByText(benefit)).toBeVisible();
 });
 it('shows all verified Supporter usage against its independent allowances', async () => {
@@ -80,12 +80,12 @@ it('recovers the Supporter channel after a temporary error and successful billin
   const verifiedSupporter = supporterAccount;
   account.mockResolvedValue(verifiedSupporter);
   refresh.mockResolvedValue({ ...verifiedSupporter });
-  supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSim email.' });
+  supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSIM email.' });
   render(<BillingPanel />);
   await screen.findByText(/Supporter access could not be verified/);
   fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
   expect(await screen.findByRole('link', { name: 'Open Supporter channel' })).toHaveAttribute('href', 'https://community.example/private');
-  expect(screen.getByText('Join with your CareerSim email.')).toBeVisible();
+  expect(screen.getByText('Join with your CareerSIM email.')).toBeVisible();
   expect(screen.queryByText(/Supporter access could not be verified/)).toBeNull();
 });
 it('returns to sign-in when refreshed Supporter verification loses authentication', async () => {

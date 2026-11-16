@@ -9,7 +9,7 @@
 > - **Status:** kept as a reference template; needs a port before it can deploy the new stack
 > - **Do not deploy as-is to production.**
 
-This directory contains Terraform code to provision the production-ready AWS infrastructure for Careersim.
+This directory contains Terraform code to provision the production-ready AWS infrastructure for CareerSIM.
 
 ### 🛠️ What gets created
 - **Network**: VPC, 2 public subnets, 2 private subnets, Internet Gateway, NAT Gateway, routing

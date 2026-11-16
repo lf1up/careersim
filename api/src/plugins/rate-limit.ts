@@ -241,7 +241,7 @@ export default fp<RateLimitOptions>(
       redis = new Redis(opts.redisUrl, {
         maxRetriesPerRequest: 1,
         // `keyPrefix` namespaces all buckets so the rate limiter can
-        // share a Redis instance with other CareerSim features without
+        // share a Redis instance with other CareerSIM features without
         // colliding.
         keyPrefix: 'careersim:rl:',
       });

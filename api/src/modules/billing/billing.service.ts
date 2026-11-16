@@ -350,7 +350,7 @@ export function createBillingService({
     return {
       channelUrl: config.SUPPORTER_CHANNEL_URL,
       instructions:
-        "Contact the development team through the private channel to verify your membership. Membership is checked against your current CareerSim Supporter access.",
+        "Contact the development team through the private channel to verify your membership. Membership is checked against your current CareerSIM Supporter access.",
     };
   }
   return {
