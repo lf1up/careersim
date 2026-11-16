@@ -102,6 +102,13 @@ describe('personal contact', () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ html: expect.stringContaining('&lt;Practice&gt;'), text: expect.stringContaining('Higher limits') }));
     expect(send.mock.calls[0][0].html).not.toContain('<Practice>');
   });
+  it('delivers Pro questions as personal requests without requiring a company', async () => {
+    expect((await POST(personal({ reason: 'pro' }))).status).toBe(200);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      subject: 'CareerSIM contact: Pro question',
+      text: expect.stringContaining('Reason: Pro question'),
+    }));
+  });
   it('keeps company required for legacy business requests', async () => {
     expect((await POST(personal({ audience: '', useCase: 'training' }))).status).toBe(400);
     expect(send).not.toHaveBeenCalled();

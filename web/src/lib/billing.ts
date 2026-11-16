@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { request } from './api';
 import { safeNextPath } from './safe-next-path';
 
-const tier = z.enum(['free', 'plus', 'supporter']);
+const tier = z.enum(['free', 'plus', 'pro']);
 const interval = z.enum(['month', 'year']);
-const choice = z.strictObject({ tier: z.enum(['plus', 'supporter']), interval });
+const choice = z.strictObject({ tier: z.enum(['plus', 'pro']), interval });
 const date = z.iso.datetime({ offset: true });
 const secureUrl = z.url().refine(value => new URL(value).protocol === 'https:', 'A secure destination is required.');
 const contactUrl = z.string().refine(value => safeNextPath(value, '') !== '', 'Invalid contact destination.');
@@ -22,7 +22,7 @@ const catalogSchema = z.object({
 });
 const usageMetric = z.object({ used: z.number().nonnegative(), limit: z.number().nonnegative(), resetAt: date.nullable() }).nullable();
 const accountSchema = z.object({
-  tier, limits, supporterAccess: z.boolean(), reason: z.enum(['free', 'paid', 'grace', 'expired', 'revoked', 'disputed']), interval: interval.nullable(), paidThrough: date.nullable(), accessThrough: date.nullable(),
+  tier, limits, proAccess: z.boolean(), reason: z.enum(['free', 'paid', 'grace', 'expired', 'revoked', 'disputed']), interval: interval.nullable(), paidThrough: date.nullable(), accessThrough: date.nullable(),
   status: z.string(), cancelAtPeriodEnd: z.boolean(), renews: z.boolean(), pendingChange: z.object({ choice, effectiveAt: date }).nullable(), pendingCheckout: z.boolean(), confirmationPending: z.boolean(),
   usage: z.object({ sessions: usageMetric, chatMessages: usageMetric, customSimulations: usageMetric, customPersonas: usageMetric, voice: usageMetric }), planChangesAvailable: z.boolean(), contactUrl,
 });
@@ -54,8 +54,8 @@ export async function createBillingPortal(): Promise<{ url: string }> {
 export async function scheduleBillingChange(selected: BillingChoice): Promise<{ choice: BillingChoice; effectiveAt: string }> {
   return z.object({ choice, effectiveAt: date }).parse(await request<unknown>('/billing/change', { method: 'POST', body: choice.parse(selected) }));
 }
-export async function getSupporterAccess(): Promise<{ channelUrl: string; instructions: string }> {
-  return z.object({ channelUrl: secureUrl, instructions: z.string().min(1) }).parse(await request<unknown>('/billing/supporter', { cache: 'no-store' }));
+export async function getProAccess(): Promise<{ channelUrl: string; instructions: string }> {
+  return z.object({ channelUrl: secureUrl, instructions: z.string().min(1) }).parse(await request<unknown>('/billing/pro', { cache: 'no-store' }));
 }
 export function windowLabel(milliseconds: number): string {
   const hours = milliseconds / 3_600_000;

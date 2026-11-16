@@ -1,10 +1,16 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/auth/AltchaWidget', () => ({ AltchaWidget: () => null }));
 
 import ContactPage from './page';
 afterEach(() => vi.unstubAllEnvs());
+
+it('opens the Pro contact reason from the URL', async () => {
+  render(await ContactPage({ searchParams: Promise.resolve({ reason: 'pro' }) }));
+  expect(screen.getByLabelText('Reason')).toHaveValue('pro');
+  expect(screen.getByRole('option', { name: 'Pro question' })).toHaveProperty('selected', true);
+});
 
 it('opens Contact at the top of the shared scroll container without resetting later scrolling', async () => {
   vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'false');

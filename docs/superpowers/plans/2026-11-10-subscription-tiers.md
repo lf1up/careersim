@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce Free, Plus, and Supporter subscriptions with Polar monthly/yearly checkout, visible allowances, and the approved Supporter benefits.
+**Goal:** Introduce Free, Plus, and Pro subscriptions with Polar monthly/yearly checkout, visible allowances, and the approved Pro benefits.
 
 **Architecture:** The Fastify API owns billing state and resolves per-user entitlements. Existing Redis request counters, Postgres voice accounting, and the creator plugin consume those entitlements. Next.js renders one public pricing catalog and authenticated billing/support screens; Polar collects payments and hosts payment management.
 
@@ -12,16 +12,16 @@
 
 ## Global Constraints
 
-- Exactly three tiers: `free`, `plus`, `supporter`; Plus uses `PRO_` caps and Supporter uses independent `SUPPORTER_` caps. No fourth Pro tier.
-- Plus: $9/month or $90/year upfront. Supporter: $49/month or $490/year upfront. Annual discount: "2 months free", 16.67%; yearly auto-renewal disclosed.
-- `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, `PRO_VOICE_DAILY_MINUTES_PER_USER=360`.
-- Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=720`.
+- Exactly three tiers: `free`, `plus`, `pro`; Plus uses `PLUS_` caps and Pro uses independent `PRO_` caps. Pro replaces the former Supporter tier.
+- Plus: $9/month or $90/year upfront. Pro: $49/month or $490/year upfront. Annual discount: "2 months free", 16.67%; yearly auto-renewal disclosed.
+- `PLUS_SESSIONS_CREATE_MAX=100`, `PLUS_CHAT_MESSAGES_MAX=3000`, `PLUS_CUSTOM_SIMULATIONS_MAX=250`, `PLUS_CUSTOM_PERSONAS_MAX=250`, `PLUS_VOICE_DAILY_MINUTES_PER_USER=360`.
+- Pro defaults revised on 2026-11-15: `PRO_SESSIONS_CREATE_MAX=200`, `PRO_CHAT_MESSAGES_MAX=6000`, `PRO_CUSTOM_SIMULATIONS_MAX=500`, `PRO_CUSTOM_PERSONAS_MAX=500`, `PRO_VOICE_DAILY_MINUTES_PER_USER=720`.
 - Preserve unprefixed Free settings and the configured session/message windows, currently 6 hours. Voice resets at midnight UTC. Custom records are owned, non-deleted inventory, not monthly credits.
 - Pricing and account pages include "Creator plugin access for custom personas and simulations" on every tier. Pricing visibly lists all five caps, core benefits, and "Need higher limits? Contact us to discuss your needs."
-- Supporter benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features, including MCP and API access".
+- Pro benefit copy: "Guidance and support from the development team"; "Chat directly with the developers"; "Help decide the project's future together"; "Early access to upcoming features, including MCP and API access".
 - No tokens, packs, donations, trials, automatic overages, or new voting/community platform. No application code in deprecated `backend/` or `frontend/`.
 - Preserve safety rate limits, ownership checks, moderation, and saved content after downgrade. Annual billing never multiplies or resets usage allowances.
-- Supporter checkout uses `BILLING_ENABLED` with both Supporter products and a configured private channel; there is no separate launch flag.
+- Pro checkout uses `BILLING_ENABLED` with both Pro products and a configured private channel; there is no separate launch flag.
 - Preserve the approved three-day failed-renewal grace and cancellation/refund/dispute policies in the spec. Cancellation alone never receives grace.
 - The current workspace authorizes planning. Execution must arrange writable checkouts for both repositories; do not modify generated plugin copies or write into the sibling repository without filesystem authorization. If needed, prepare an isolated writable checkout within an allowed root and coordinate its commit with the host.
 - Use existing per-package package-manager versions. API and studio require Node >=22.12.0; use a compatible Node runtime throughout. Do not introduce an unrelated dependency upgrade.
@@ -49,7 +49,7 @@ Paths are relative to `/Users/lf1up/Projects/careersim` unless prefixed `studio:
 | Creator | `api/src/extensions/sdk.ts`, `studio:plugins/creator/api/*`, `studio:plugins/creator/shared/limits.ts` | One host resolver for inventory and playground quotas |
 | Voice | `api/src/modules/voice/*`, new `voice-usage.ts`, `agent/src/careersim_agent/voice/{worker.py,state_bridge.py}` | Call identity, checkpoints, daily budgets and cutoff |
 | Pricing | `web/src/app/(public)/pricing/page.tsx`, `web/src/components/billing/PricingPage.tsx`, `web/src/lib/billing.ts` | Public catalog and monthly/yearly comparison |
-| Account/contact | `web/src/components/billing/BillingPanel.tsx`, `web/src/app/(public)/contact/page.tsx`, existing contact API | Account lifecycle, Supporter access and personal contact |
+| Account/contact | `web/src/components/billing/BillingPanel.tsx`, `web/src/app/(public)/contact/page.tsx`, existing contact API | Account lifecycle, Pro access and personal contact |
 | Operations | `docs/BILLING.md`, env examples, `VOICE_MODE.md`, CI | Sandbox evidence, migration order, flags and recovery |
 
 Tasks are sequential where contracts depend on earlier work: 1 → 2 → 3; 1 → 4 → 5; 1 → 6; 3/4/5/6 → 7/8 → 9. Keep these in one coordinated plan because they share entitlement contracts and must launch together. Each task nevertheless has its own testable deliverable.
@@ -60,11 +60,11 @@ Tasks are sequential where contracts depend on earlier work: 1 → 2 → 3; 1 �
 
 **Interfaces:** Define and export schema-derived `Tier`, `PaidTier`, `BillingInterval`, `BillingChoice`, `PlanLimits`, `PlanCatalog`, `BillingSnapshot`, `Entitlement`, and `BillingAccount` from `billing.schema.ts`.
 
-- `Tier = 'free' | 'plus' | 'supporter'`, `PaidTier` excludes Free, interval is `'month' | 'year'`, choice is `{ tier: PaidTier; interval: BillingInterval }`.
+- `Tier = 'free' | 'plus' | 'pro'`, `PaidTier` excludes Free, interval is `'month' | 'year'`, choice is `{ tier: PaidTier; interval: BillingInterval }`.
 - `PlanLimits` fields: `sessionsCreateMax`, `sessionsWindowMs`, `chatMessagesMax`, `chatWindowMs`, `customSimulationsMax`, `customPersonasMax`, `voiceDailyMinutes`.
 - `PlanCatalog` contains three public plans, limits, benefit strings, USD prices in integer cents, interval, contact URL, and a typed availability state. No product IDs, channel URLs, secrets or environment names in the public response.
 - `BillingSnapshot` is normalized provider evidence: recognized choice, paid period start/end and order ID, cancellation, failed renewal, pending choice/effective time, and explicit refund/revocation/dispute state. Separate no-subscription and paid variants; do not derive paid access from an unverified active status.
-- `Entitlement` has `tier`, `limits`, `supporterAccess`, and a discriminated access reason (`free`, `paid`, `grace`, `expired`, `revoked`, `disputed`). `BillingAccount` adds interval, paid-through, renewal/cancellation, pending change and usage, without exposing private provider payloads.
+- `Entitlement` has `tier`, `limits`, `proAccess`, and a discriminated access reason (`free`, `paid`, `grace`, `expired`, `revoked`, `disputed`). `BillingAccount` adds interval, paid-through, renewal/cancellation, pending change and usage, without exposing private provider payloads.
 - `buildPlanCatalog(config: BillingConfig): PlanCatalog`, `deriveEntitlement(snapshot: BillingSnapshot, catalog: PlanCatalog, now: Date): Entitlement`, `resolveEntitlements(userId: string): Promise<Entitlement>` from a `createEntitlementService({db, catalog, now})` factory. `BillingConfig` is derived from the validated env schema.
 
 - [ ] Write `billing.entitlements.test.ts` using a real PGlite DB and fixed clock. Assert both paid tiers and both intervals resolve to the five approved caps; Free reads overridden configuration. At paid-through + 72 hours a failed renewal becomes Free, while voluntary cancellation becomes Free at paid-through. Initial unpaid access has no grace. Historical refund does not touch a newer paid period.
@@ -74,12 +74,12 @@ expect(paid.limits).toMatchObject({ sessionsCreateMax: 100, chatMessagesMax: 300
   customSimulationsMax: 250, customPersonasMax: 250, voiceDailyMinutes: 360 });
 expect(catalog.plans.find(p => p.tier === 'plus')?.prices.map(p => p.amountCents))
   .toEqual([900, 9000]);
-expect(catalog.plans.find(p => p.tier === 'supporter')?.prices.map(p => p.amountCents))
+expect(catalog.plans.find(p => p.tier === 'pro')?.prices.map(p => p.amountCents))
   .toEqual([4900, 49000]);
 ```
 
 - [ ] Run `pnpm -C api test -- tests/billing.entitlements.test.ts tests/env.test.ts`; confirm new cases fail for missing contracts, not infrastructure errors.
-- [ ] Add validated config: five requested `PRO_` defaults, Free creator limits, `BILLING_ENABLED=false`, `POLAR_ENVIRONMENT=sandbox`, private access/webhook secrets, four `POLAR_{PLUS,SUPPORTER}_{MONTHLY,YEARLY}_PRODUCT_ID` values, `SUPPORTER_CHANNEL_URL`, and contact URL `/contact`. Require secrets/Plus products only when billing is enabled; require the complete Supporter products/channel configuration when any of those settings are supplied with billing enabled. Reject duplicate product IDs and paid caps below Free. Parse window durations once using the project's installed duration dependency, declaring it directly if necessary; reject ambiguous durations.
+- [ ] Add validated config: five requested `PLUS_` defaults, Free creator limits, `BILLING_ENABLED=false`, `POLAR_ENVIRONMENT=sandbox`, private access/webhook secrets, four `POLAR_{PLUS,PRO}_{MONTHLY,YEARLY}_PRODUCT_ID` values, `PRO_CHANNEL_URL`, and contact URL `/contact`. Require secrets/Plus products only when billing is enabled; require the complete Pro products/channel configuration when any of those settings are supplied with billing enabled. Reject duplicate product IDs and paid caps below Free. Parse window durations once using the project's installed duration dependency, declaring it directly if necessary; reject ambiguous durations.
 - [ ] Create tables for unique user/customer binding, provider subscriptions, paid orders with their periods/refunds, webhook inbox with unique provider event ID, and checkout attempts. Unique provider IDs and indexes support account lookup and pending reconciliation. Preserve unknown provider products for diagnosis without granting access. Generate migration via `pnpm -C api db:generate`; inspect SQL and journal, and run it against existing and empty test databases.
 - [ ] Implement catalog and resolver. Only normalized verified evidence can grant access; no row means Free, DB failure propagates as a service error. Do not store tier in JWTs or grant trial access. Use provider period timestamps, including leap-year annual periods.
 - [ ] Run the focused tests and `pnpm -C api typecheck`; expect PASS. Commit task files: `feat: define subscription catalog and entitlements`.
@@ -110,13 +110,13 @@ expect(snapshotAfterRenewalFailure.paidThrough).toEqual(previousPaidThrough);
 
 **Files:** Create `api/src/modules/billing/{billing.service.ts,billing.route.ts}` and `api/tests/billing.routes.test.ts`; extend `billing.schema.ts`, `server.ts`, `index.ts`, `api/src/extensions/sdk.ts`, `api/scripts/plugins.mjs`, `web/scripts/plugins.mjs` and test factory.
 
-**Interfaces:** Routes under the configured API version prefix: `GET /billing/catalog` public, `GET /billing/account` authenticated, `POST /billing/checkout` with `BillingChoice`, `POST /billing/refresh`, `POST /billing/portal`, `POST /billing/change` with `BillingChoice`, `GET /billing/supporter` authenticated. `createBillingService` provides corresponding `getAccount(userId): Promise<BillingAccount>`, `startCheckout({userId,choice})`, `refresh(userId)`, `portal(userId)`, `scheduleChange({userId,choice})`, and `supporterAccess(userId): Promise<{channelUrl:string; instructions:string}>` methods; checkout and portal return `{url:string}`, refresh returns `BillingAccount`, change returns pending choice/effective date.
+**Interfaces:** Routes under the configured API version prefix: `GET /billing/catalog` public, `GET /billing/account` authenticated, `POST /billing/checkout` with `BillingChoice`, `POST /billing/refresh`, `POST /billing/portal`, `POST /billing/change` with `BillingChoice`, `GET /billing/pro` authenticated. `createBillingService` provides corresponding `getAccount(userId): Promise<BillingAccount>`, `startCheckout({userId,choice})`, `refresh(userId)`, `portal(userId)`, `scheduleChange({userId,choice})`, and `proAccess(userId): Promise<{channelUrl:string; instructions:string}>` methods; checkout and portal return `{url:string}`, refresh returns `BillingAccount`, change returns pending choice/effective date.
 
-- [ ] Add authenticated route tests for all four products, unauthenticated access, changed email with stable user UUID, unknown tier/interval, price/product-ID injection, another user's portal/account, disabled Supporter checkout and change, duplicate tabs, provider timeout recovery, active subscriber sent to management, and checkout return without a paid event. Confirm Supporter URL never appears in public/Plus responses.
+- [ ] Add authenticated route tests for all four products, unauthenticated access, changed email with stable user UUID, unknown tier/interval, price/product-ID injection, another user's portal/account, disabled Pro checkout and change, duplicate tabs, provider timeout recovery, active subscriber sent to management, and checkout return without a paid event. Confirm Pro URL never appears in public/Plus responses.
 
 ```ts
-expect(disabledSupporterCheckout.statusCode).toBe(409);
-expect(disabledSupporterPlanChange.statusCode).toBe(409);
+expect(disabledProCheckout.statusCode).toBe(409);
+expect(disabledProPlanChange.statusCode).toBe(409);
 expect(tamperedPriceRequest.statusCode).toBe(400);
 expect(providerCreatedCheckouts).toHaveLength(1);
 expect(accountBeforePayment.tier).toBe('free');
@@ -124,7 +124,7 @@ expect(accountBeforePayment.tier).toBe('free');
 
 - [ ] Run `pnpm -C api test -- tests/billing.routes.test.ts`; verify expected failures.
 - [ ] Implement strict request schemas and allowlisted product lookup. Set external customer ID from authenticated UUID and fixed trusted return URLs. Serialize checkout attempts by user: reuse a valid same-choice checkout, reject a conflicting pending choice, and reconcile ambiguous network outcomes via the stored attempt ID before retrying. Store provider operation IDs; never blindly repeat a create after timeout. Refresh provider state before creating a new subscription.
-- [ ] Implement next-period tier/interval changes with the existing subscription and explicit `next_period` behavior. Expose feature availability for combinations validated in sandbox. If unsupported, return a typed conflict with `/contact` rather than creating a second subscription. Set the same default in the Polar portal so portal actions cannot silently change the policy. Grant no Supporter access before its paid effective period.
+- [ ] Implement next-period tier/interval changes with the existing subscription and explicit `next_period` behavior. Expose feature availability for combinations validated in sandbox. If unsupported, return a typed conflict with `/contact` rather than creating a second subscription. Set the same default in the Polar portal so portal actions cannot silently change the policy. Grant no Pro access before its paid effective period.
 - [ ] Add billing route reservation to host SDK validation and both plugin-copy scripts. Rate-limit checkout/portal/refresh operations independently of chat quotas. Return billing-disabled availability without preventing Free use. Keep checkout-success refresh bounded; an outage must show pending confirmation rather than false success.
 - [ ] Run focused tests plus `pnpm -C api test -- tests/extensions.test.ts tests/plugins-script.test.ts` and typecheck; expect PASS. Commit: `feat: expose subscription checkout and account APIs`.
 
@@ -155,7 +155,7 @@ expect(redisOutageResponse.statusCode).toBe(503);
 
 **Interfaces:** Add required `resolveEntitlements(userId: string): Promise<Entitlement>` to `ApiPluginContext` and re-export the type from host SDK. Pass the resolver into CreatorService and PersonaService constructors. Keep moderation settings separate from usage limits. Creator usage responses return resolved `used/max` for both inventories; playgrounds retain host `checkTextMessageQuota`.
 
-- [ ] Add plugin integration cases: Free 3/10, Plus 250/250, and Supporter 500/500 inventory defaults; month/year parity within each tier; create at boundary, two concurrent creates for last slot, saved drafts and published records counted together, soft-delete freeing a slot, restore/clone paths respecting caps, and downgrade retaining reads/edits/deletes while blocking additional creates. Test displayed max as well as enforcement.
+- [ ] Add plugin integration cases: Free 3/10, Plus 250/250, and Pro 500/500 inventory defaults; month/year parity within each tier; create at boundary, two concurrent creates for last slot, saved drafts and published records counted together, soft-delete freeing a slot, restore/clone paths respecting caps, and downgrade retaining reads/edits/deletes while blocking additional creates. Test displayed max as well as enforcement.
 
 ```ts
 expect(paidUsage.simulations.max).toBe(250);
@@ -175,7 +175,7 @@ expect(downgradedExistingRecord.statusCode).toBe(200);
 
 **Interfaces:** Persist `voice_calls` with UUID `callId`, owner/session, started/ended times, last checkpoint, processed sequence, cumulative charged seconds and room. `checkpointCall({callId, sequence, cumulativeSeconds, ended}): Promise<{remainingSeconds:number; capSeconds:number; usageDate:string; resetAt:Date; continueCall:boolean}>`; internal authenticated route `POST /internal/voice/calls/:callId/checkpoint`. Resolve owner from the call record, not client input. Existing start response gains `call_id`; all end/budget callbacks carry it, so callbacks from a previous room cannot affect a new call. In `state_bridge.py`, add `APIClient.checkpoint_call(call_id: str, sequence: int, cumulative_seconds: int, ended: bool) -> dict[str, Any]`, validate its response at the boundary, and update `report_call_end` to carry call identity and final analysis without a second duration debit.
 
-- [ ] Add API tests for the 360-minute Plus and 720-minute Supporter caps, per-user Free override, concurrent starts across sessions, reconnect to the same active call, repeated/lower/out-of-order checkpoints, stale-call callback after replacement, UTC split, downgrade mid-call, revoked access, and server-rejected impossible duration. Worker tests cover refresh at midnight, cancellation final checkpoint, timeout cutoff and preservation of transcripts.
+- [ ] Add API tests for the 360-minute Plus and 720-minute Pro caps, per-user Free override, concurrent starts across sessions, reconnect to the same active call, repeated/lower/out-of-order checkpoints, stale-call callback after replacement, UTC split, downgrade mid-call, revoked access, and server-rejected impossible duration. Worker tests cover refresh at midnight, cancellation final checkpoint, timeout cutoff and preservation of transcripts.
 
 ```ts
 expect(paidBudget.capSeconds).toBe(43200);
@@ -196,7 +196,7 @@ expect(concurrentStartSuccesses).toHaveLength(1);
 
 **Interfaces:** `fetchPlanCatalog(): Promise<PlanCatalogResponse>` and authenticated `startCheckout(choice: BillingChoice): Promise<{url:string}>` in `web/src/lib/billing.ts`, using validated API wire schemas consistent with Task 1. `PricingPage({catalog: PlanCatalogResponse})` renders catalog data; no frontend-only cap constants. Derive wire types from API schemas/OpenAPI using existing project conventions rather than importing server runtime modules into the client.
 
-- [ ] Write component tests for all three tiers, all five paid caps, Free overrides, monthly default, annual toggle, complete yearly charge, savings, auto-renewal copy, contact notice, the approved Supporter benefit strings, enabled Supporter checkout for both intervals and disabled checkout when unavailable, and custom 12-hour configuration windows. Test keyboard toggle and small-screen table/card visibility. Do not assert only a snapshot.
+- [ ] Write component tests for all three tiers, all five paid caps, Free overrides, monthly default, annual toggle, complete yearly charge, savings, auto-renewal copy, contact notice, the approved Pro benefit strings, enabled Pro checkout for both intervals and disabled checkout when unavailable, and custom 12-hour configuration windows. Test keyboard toggle and small-screen table/card visibility. Do not assert only a snapshot.
 
 ```tsx
 expect(screen.getByText('Guidance and support from the development team')).toBeVisible();
@@ -209,31 +209,31 @@ expect(screen.getByText('Need higher limits? Contact us to discuss your needs.')
 ```
 
 - [ ] Run `pnpm -C web test -- src/components/billing/PricingPage.test.tsx src/lib/landing-proxy.test.ts`; verify new tests fail.
-- [ ] Implement the pricing page in the existing visual style, Plus primary, exact visible limits and benefits. Show Plus as "360 voice minutes / day (6 hours)" and Supporter as "720 voice minutes / day (12 hours)" and explain UTC reset. Label custom assets as saved totals. Annual mode shows $90/$490 upfront, secondary $7.50/about $40.83 monthly equivalents, and "2 months free". Do not headline unlimited use.
+- [ ] Implement the pricing page in the existing visual style, Plus primary, exact visible limits and benefits. Show Plus as "360 voice minutes / day (6 hours)" and Pro as "720 voice minutes / day (12 hours)" and explain UTC reset. Label custom assets as saved totals. Annual mode shows $90/$490 upfront, secondary $7.50/about $40.83 monthly equivalents, and "2 months free". Do not headline unlimited use.
 - [ ] Fetch a safe current catalog; do not render invented fallback prices on errors. Use a short-lived catalog cache and refresh before checkout. Keep `/pricing` served by Next.js, outside the marketing proxy allowlist. Link landing navigation to it instead of duplicating prices in Astro. Public visitors sign in with a validated internal return path preserving the selected tier/interval.
-- [ ] Link contact notice to `/contact?reason=higher-limits`; authenticated paid cap errors use the same action, never an upsell to Supporter. Preserve the existing Free reset/upgrade path.
+- [ ] Link contact notice to `/contact?reason=higher-limits`; authenticated paid cap errors use the same action, never an upsell to Pro. Preserve the existing Free reset/upgrade path.
 - [ ] Run focused tests and `pnpm -C web typecheck`; expect PASS. Commit: `feat: show subscription pricing and yearly savings`.
 
-## Task 8: Account billing, Supporter access and personal contact
+## Task 8: Account billing, Pro access and personal contact
 
 **Files:** Create `web/src/components/billing/{BillingPanel.tsx,BillingPanel.test.tsx}`, `web/src/app/(public)/contact/page.tsx`, `web/src/components/contact/{ContactForm.tsx,ContactForm.test.tsx}`; modify `web/src/components/auth/ProfilePage.tsx`, `web/src/lib/billing.ts`, `web/src/app/api/contact/{route.ts,route.test.ts}`, `web/src/lib/contact-client.ts`, chat quota error presentation and voice quota presentation where they currently render.
 
-**Interfaces:** Add typed billing API wrappers for account/refresh/portal/change/supporter routes from Task 3. `BillingPanel()` fetches authenticated account state. `ContactForm({reason:'general'|'higher-limits'|'supporter'})` posts the existing multipart contact endpoint with `audience=personal`; missing audience remains legacy `business` behavior.
+**Interfaces:** Add typed billing API wrappers for account/refresh/portal/change/pro routes from Task 3. `BillingPanel()` fetches authenticated account state. `ContactForm({reason:'general'|'higher-limits'|'pro'})` posts the existing multipart contact endpoint with `audience=personal`; missing audience remains legacy `business` behavior.
 
-- [ ] Write tests for pending checkout without success, confirmed activation without re-login, annual paid-through and scheduled change dates, grace/canceled/revoked states, portal failure, lost auth, and Supporter CTA only with verified access. Assert all approved Supporter copy is visible. Contact tests verify personal requests accept no company, business requests still require one, reason validation, CAPTCHA, honeypot, length/rate limits and HTML escaping remain enforced.
+- [ ] Write tests for pending checkout without success, confirmed activation without re-login, annual paid-through and scheduled change dates, grace/canceled/revoked states, portal failure, lost auth, and Pro CTA only with verified access. Assert all approved Pro copy is visible. Contact tests verify personal requests accept no company, business requests still require one, reason validation, CAPTCHA, honeypot, length/rate limits and HTML escaping remain enforced.
 
 ```ts
 expect(personalWithoutCompany.status).toBe(200);
 expect(businessWithoutCompany.status).toBe(400);
-expect(plusSupporterLinkResponse.statusCode).toBe(403);
+expect(plusProLinkResponse.statusCode).toBe(403);
 // A pending checkout must display pending confirmation, never "Subscription active".
 ```
 
 - [ ] Run `pnpm -C web test -- src/components/billing/BillingPanel.test.tsx src/components/contact/ContactForm.test.tsx src/app/api/contact/route.test.ts`; confirm new cases fail.
 - [ ] Implement billing status, usage/reset details, cancellation/management links, scheduled choice display and bounded post-checkout refresh. Show current access date even if auto-renewal is canceled. After a verified tier change, refetch usage/entitlements; do not reload or mint a JWT to grant access.
-- [ ] Show Supporter guidance, direct chat and shared roadmap benefits with the server-gated channel URL and joining instructions. The launch checklist requires working membership verification and removal. Use a private channel configured by the operator; no direct messaging integration, automatic invitation sending or voting application. Changing `BILLING_ENABLED` must block new purchases without silently revoking existing paid users' access.
-- [ ] Implement personal contact using existing mail delivery and abuse checks. Require name, valid email, and message; company is optional only for personal requests. Treat reason/context from URL or form as untrusted labels, never proof of Supporter status. Tests use intercepted mail; do not send real messages. Preserve `/business` behavior and its existing form payload.
-- [ ] Run focused tests, web typecheck and related contact regressions; expect PASS. Commit: `feat: add billing management and supporter contact access`.
+- [ ] Show Pro guidance, direct chat and shared roadmap benefits with the server-gated channel URL and joining instructions. The launch checklist requires working membership verification and removal. Use a private channel configured by the operator; no direct messaging integration, automatic invitation sending or voting application. Changing `BILLING_ENABLED` must block new purchases without silently revoking existing paid users' access.
+- [ ] Implement personal contact using existing mail delivery and abuse checks. Require name, valid email, and message; company is optional only for personal requests. Treat reason/context from URL or form as untrusted labels, never proof of Pro status. Tests use intercepted mail; do not send real messages. Preserve `/business` behavior and its existing form payload.
+- [ ] Run focused tests, web typecheck and related contact regressions; expect PASS. Commit: `feat: add billing management and pro contact access`.
 
 ## Task 9: Integration evidence, deployment configuration and launch handoff
 
@@ -241,14 +241,14 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 
 **Interfaces:** `check-billing-catalog.ts` is a read-only command that compares configured product IDs against Polar product amount/currency/interval/tax settings, prints a redacted mismatch report and exits nonzero on disagreement. Add `pnpm -C api billing:check` for it. It never creates or updates a product.
 
-- [ ] Write an integration test spanning initial Free use → verified Plus payment → same counters with higher limits → scheduled yearly change → paid yearly renewal → cancellation at paid-through → Free with custom records preserved. Add Supporter-specific limits and purchase-disable cases, missed-event reconciliation, provider-outage behavior, and account privacy isolation. Use real DB/Redis and the deterministic provider adapter.
+- [ ] Write an integration test spanning initial Free use → verified Plus payment → same counters with higher limits → scheduled yearly change → paid yearly renewal → cancellation at paid-through → Free with custom records preserved. Add Pro-specific limits and purchase-disable cases, missed-event reconciliation, provider-outage behavior, and account privacy isolation. Use real DB/Redis and the deterministic provider adapter.
 - [ ] Run `pnpm -C api test -- tests/billing.integration.test.ts`; confirm failures expose missing integration, then wire the tasks until the test passes. Do not use actual live charges as test fixtures.
-- [ ] Document four sandbox product mappings, exact cents/intervals and tax behavior, signed endpoint setup, events, reconciliation job, portal next-period settings, customer UUID mapping, refund/dispute operations, manual Supporter membership handling, and recovery from stale state. Record which observed SDK events establish payment and dispute state; if a required dispute signal is unavailable, document the provider dashboard-to-local suspension operation and test that path before launch.
-- [ ] Document rollout order: migrations → compatible host/plugin artifacts → API/worker/web → sandbox evidence → enabled Plus checkout → separately cleared Supporter. Preserve webhook/reconciliation processing when disabling new purchases. The kill switch must not revoke existing paid users. Keep rollback schema additive and do not roll back to code that bills users but ignores entitlements.
+- [ ] Document four sandbox product mappings, exact cents/intervals and tax behavior, signed endpoint setup, events, reconciliation job, portal next-period settings, customer UUID mapping, refund/dispute operations, manual Pro membership handling, and recovery from stale state. Record which observed SDK events establish payment and dispute state; if a required dispute signal is unavailable, document the provider dashboard-to-local suspension operation and test that path before launch.
+- [ ] Document rollout order: migrations → compatible host/plugin artifacts → API/worker/web → sandbox evidence → enabled checkout for each verified paid tier. Preserve webhook/reconciliation processing when disabling new purchases. The kill switch must not revoke existing paid users. Keep rollback schema additive and do not roll back to code that bills users but ignores entitlements.
 - [ ] Run the read-only product check against sandbox when credentials are available. Exercise all four sandbox purchases, payment failure, grace, cancellation, annual interval changes, signed replay and refund; record exact observed outcomes. If credentials or a required provider signal are missing, mark the corresponding launch checks blocked, not passed. No need to ask the user for secrets in chat.
 - [ ] Verify voice against the configured self-hosted LiveKit: active call survives initial token expiry; reconnect works; one-active-call guard holds; worker/API failure stops audio within the documented bounds; delayed checkpoints do not double-debit; UTC rollover works with injected clocks in tests.
 - [ ] Run `pnpm -C api test`, `pnpm -C api typecheck`, `pnpm -C api lint`; run creator tests/typecheck in its checkout; run `pnpm -C web test`, `pnpm -C web typecheck`, `pnpm -C web lint`; in `agent/` run `uv run pytest tests/test_voice_worker_session.py tests/test_voice_worker.py tests/test_voice_integration.py -q`. Run production builds with plugins enabled and disabled using the supported plugin build scripts. Supply test-only services and credentials, never production accounts.
-- [ ] Inspect pricing/account/contact in the browser at desktop and mobile widths, light/dark modes, keyboard-only navigation, both billing intervals and all three account tiers. Confirm every limit and Supporter benefit is visible, yearly totals are clear, contact submits to an intercepted destination, and disabled actions explain availability. Capture evidence without card/customer data.
+- [ ] Inspect pricing/account/contact in the browser at desktop and mobile widths, light/dark modes, keyboard-only navigation, both billing intervals and all three account tiers. Confirm every limit and Pro benefit is visible, yearly totals are clear, contact submits to an intercepted destination, and disabled actions explain availability. Capture evidence without card/customer data.
 - [ ] Commit task files: `docs: add subscription launch and recovery runbook`. Summarize test evidence, remaining external launch gates, both repo revisions, and migration order. Leave production product creation, deployment, real payment operations and external messages for their authorized release step.
 
 ## Planning self-review
@@ -257,7 +257,7 @@ expect(plusSupporterLinkResponse.statusCode).toBe(403);
 - Contracts flow from `billing.schema.ts` and the host plugin SDK. Provider DTOs do not escape the adapter; frontend wire schemas are validated and kept in sync with OpenAPI.
 - Review Focus cases are assigned to concrete tests. Existing integration helpers/PGlite are reused; Redis concurrency uses a real isolated instance.
 - The only new author implementation defaults are five-minute reconciliation, 15-second voice checkpoints, 30-second budget-failure cutoff, 60-second stale-call lease and 10-minute initial join tokens. These implement the approved bounded-failure behavior and are not new customer pricing promises.
-- The exact Supporter channel remains release configuration. No additional business decision blocks writing or reviewing this plan.
+- The exact Pro channel remains release configuration. No additional business decision blocks writing or reviewing this plan.
 
 ## Primary references checked on 2026-11-10
 

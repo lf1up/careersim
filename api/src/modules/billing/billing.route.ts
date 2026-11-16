@@ -103,7 +103,7 @@ export const billingRoutes: FastifyPluginAsyncZod<BillingRouteOptions> = async (
       }),
   );
   app.get(
-    "/billing/supporter",
+    "/billing/pro",
     {
       onRequest: [app.authenticate],
       schema: {
@@ -113,6 +113,6 @@ export const billingRoutes: FastifyPluginAsyncZod<BillingRouteOptions> = async (
         },
       },
     },
-    async (request) => service.supporterAccess(request.user.sub),
+    async (request) => service.proAccess(request.user.sub),
   );
 };

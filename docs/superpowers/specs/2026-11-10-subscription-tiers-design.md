@@ -1,7 +1,7 @@
 # CareerSIM subscription tiers
 
 Date: 2026-11-10
-Status: Approved by the user on 2026-11-10, with Supporter benefit wording clarified in the approval. No product implementation or live payment setup performed.
+Status: Approved by the user on 2026-11-10, with Pro benefit wording clarified in the approval. No product implementation or live payment setup performed.
 
 ## Intent and agreed decisions
 
@@ -13,11 +13,11 @@ The user selected three tiers:
 | --- | --- | --- | --- |
 | Free | $0 | $0 | Existing free allowances |
 | Plus | $9 USD | $90 USD | High usage caps explicitly listed on the pricing page |
-| Supporter | $49 USD | $490 USD | Higher usage allowances, plus guidance and support from the development team, direct chat, and deciding the project's future together |
+| Pro | $49 USD | $490 USD | Higher usage allowances, plus guidance and support from the development team, direct chat, and deciding the project's future together |
 
 The user approved the monthly prices, annual billing option, annual prices, and five paid limits. Annual billing charges for 10 months and provides 12 months of access, saving 16.67% against 12 monthly payments.
 
-Plus uses the `PRO_` environment-variable prefix. Supporter uses independent `SUPPORTER_` settings, with higher defaults approved on 2026-11-15. There is no separate Pro product or fourth tier. Application tier identifiers are `free`, `plus`, and `supporter`.
+Plus uses the `PLUS_` environment-variable prefix. Pro uses independent `PRO_` settings, with higher defaults approved on 2026-11-15. Pro is the renamed former Supporter tier. There are exactly three tiers. Application tier identifiers are `free`, `plus`, and `pro`. The [billing migration runbook](../../BILLING.md#breaking-configuration-and-api-rename) maps the previous configuration and API names to this contract.
 
 Polar is the selected billing provider. Both paid tiers offer monthly and yearly billing. This release has no tokens, prepaid packs, donations, or free trials.
 
@@ -49,20 +49,20 @@ Creator functionality comes from `lf1up/careersim-studio`, locally available at 
 
 ## Agreed paid caps
 
-The user specified the Plus defaults on 2026-11-10 and separate Supporter defaults on 2026-11-15. Preserve existing unprefixed settings for Free, including deployment overrides. Monthly and yearly billing use the same finite positive limits within each tier:
+The user specified the Plus defaults on 2026-11-10 and separate Pro defaults on 2026-11-15. Preserve existing unprefixed settings for Free, including deployment overrides. Monthly and yearly billing use the same finite positive limits within each tier:
 
 | Paid environment variable | Value | Accounting unit |
 | --- | ---: | --- |
-| `PRO_SESSIONS_CREATE_MAX` | 100 | Per existing `SESSIONS_CREATE_WINDOW`, currently 6 hours |
-| `PRO_CHAT_MESSAGES_MAX` | 3,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
-| `PRO_CUSTOM_SIMULATIONS_MAX` | 250 | Owned, non-deleted records |
-| `PRO_CUSTOM_PERSONAS_MAX` | 250 | Owned, non-deleted records |
-| `PRO_VOICE_DAILY_MINUTES_PER_USER` | 360 | Per UTC day, equivalent to 6 hours |
-| `SUPPORTER_SESSIONS_CREATE_MAX` | 200 | Per existing `SESSIONS_CREATE_WINDOW`, currently 6 hours |
-| `SUPPORTER_CHAT_MESSAGES_MAX` | 6,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
-| `SUPPORTER_CUSTOM_SIMULATIONS_MAX` | 500 | Owned, non-deleted records |
-| `SUPPORTER_CUSTOM_PERSONAS_MAX` | 500 | Owned, non-deleted records |
-| `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER` | 720 | Per UTC day, equivalent to 12 hours |
+| `PLUS_SESSIONS_CREATE_MAX` | 100 | Per existing `SESSIONS_CREATE_WINDOW`, currently 6 hours |
+| `PLUS_CHAT_MESSAGES_MAX` | 3,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
+| `PLUS_CUSTOM_SIMULATIONS_MAX` | 250 | Owned, non-deleted records |
+| `PLUS_CUSTOM_PERSONAS_MAX` | 250 | Owned, non-deleted records |
+| `PLUS_VOICE_DAILY_MINUTES_PER_USER` | 360 | Per UTC day, equivalent to 6 hours |
+| `PRO_SESSIONS_CREATE_MAX` | 200 | Per existing `SESSIONS_CREATE_WINDOW`, currently 6 hours |
+| `PRO_CHAT_MESSAGES_MAX` | 6,000 | Per existing `CHAT_MESSAGES_WINDOW`, currently 6 hours |
+| `PRO_CUSTOM_SIMULATIONS_MAX` | 500 | Owned, non-deleted records |
+| `PRO_CUSTOM_PERSONAS_MAX` | 500 | Owned, non-deleted records |
+| `PRO_VOICE_DAILY_MINUTES_PER_USER` | 720 | Per UTC day, equivalent to 12 hours |
 
 Paid caps must be positive safe integers, meet database arithmetic bounds, and be at least the effective Free limits. An unprefixed voice value of zero currently disables the quota; reject that combination when finite paid quotas are enabled rather than making Free more permissive than paid. Do not use zero or infinity to express paid access.
 
@@ -74,7 +74,7 @@ Lead pricing with the actual allowances rather than an "Unlimited" or "zero limi
 
 Present three pricing cards, with Plus as the primary upgrade and a Monthly / Yearly billing toggle. Default to Monthly; switching to Yearly does not change allowances. Show billing interval, full amount charged now, renewal terms, currency, tax treatment, and cancellation terms before checkout. Price treatment: the listed prices are before applicable checkout taxes; confirm market presentation before launch.
 
-The Plus benefits list must visibly include 100 new sessions per 6 hours, 3,000 text messages per 6 hours, up to 250 saved custom simulations, up to 250 saved custom personas, and 360 voice minutes per UTC day. Supporter lists its separate defaults of 200 sessions, 6,000 messages, 500 simulations, 500 personas, and 720 voice minutes. Explain that saved-item caps are inventory limits, not daily/monthly creation credits. Show core scenarios, feedback, history, and "Creator plugin access for custom personas and simulations" alongside those limits on every plan; Supporter also prominently shows guidance and support from the development team, direct chat with developers, and collaborative decisions about the project's future. Free displays its effective configured allowances and core benefits.
+The Plus benefits list must visibly include 100 new sessions per 6 hours, 3,000 text messages per 6 hours, up to 250 saved custom simulations, up to 250 saved custom personas, and 360 voice minutes per UTC day. Pro lists its separate defaults of 200 sessions, 6,000 messages, 500 simulations, 500 personas, and 720 voice minutes. Explain that saved-item caps are inventory limits, not daily/monthly creation credits. Show core scenarios, feedback, history, and "Creator plugin access for custom personas and simulations" alongside those limits on every plan; Pro also prominently shows guidance and support from the development team, direct chat with developers, and collaborative decisions about the project's future. Free displays its effective configured allowances and core benefits.
 
 Read public plan limits and window labels from a safe server-owned plan catalog derived from the same configuration used for enforcement. Do not publish environment variable names, credentials, or internal configuration to the pricing UI. If the configured windows change, the pricing labels must change with them. Apply this contract to any pricing shown by `web/` or `landing/`, using a public catalog response or build-time generation as appropriate.
 
@@ -87,54 +87,54 @@ Approved pricing and display:
 | Tier | Upfront annual charge | Monthly equivalent | Savings against 12 monthly payments |
 | --- | ---: | ---: | ---: |
 | Plus | $90 | $7.50 | $18, or 16.67% |
-| Supporter | $490 | About $40.83 | $98, or 16.67% |
+| Pro | $490 | About $40.83 | $98, or 16.67% |
 
 Use "2 months free" for the discount label. The annual total and "billed yearly" must be prominent; the monthly equivalent is secondary and must not imply monthly installments. It is a recurring annual subscription with the full year's payment collected at checkout, not a one-time lifetime purchase. Show yearly auto-renewal explicitly and allow cancellation of renewal while retaining access through the paid year.
 
 Annual billing changes payment cadence only. Session/message windows, daily voice resets, and saved-item caps remain the same. Do not multiply allowances by 12, grant a year's voice minutes upfront, accumulate unused daily minutes, or reset counters when the interval changes. Paid-through access uses Polar's actual period boundaries, not a hardcoded 365-day offset.
 
-Map four server-allowlisted Polar products to `(tier, interval)`: Plus monthly, Plus yearly, Supporter monthly, and Supporter yearly. Polar documents separate products for recurring billing intervals. Free requires no paid product. Both paid tiers use `BILLING_ENABLED`; configured Supporter products and a private channel enable both Supporter intervals. Annual totals are fixed product prices; no coupon is required for the built-in discount.
+Map four server-allowlisted Polar products to `(tier, interval)`: Plus monthly, Plus yearly, Pro monthly, and Pro yearly. Polar documents separate products for recurring billing intervals. Free requires no paid product. Both paid tiers use `BILLING_ENABLED`; configured Pro products and a private channel enable both Pro intervals. Annual totals are fixed product prices; no coupon is required for the built-in discount.
 
 Interval-switch policy: monthly-to-yearly and yearly-to-monthly changes take effect at the next renewal, with the date and next charge displayed before confirmation. A new Free user can buy the annual plan immediately. Existing subscribers retain their current paid period; do not collect a second overlapping annual subscription. Combine any tier and interval change into one scheduled replacement. Verify all combinations in Polar's sandbox; use the existing contact fallback if scheduling cannot be supported reliably.
 
 ## Account and cap experience
 
-Free users retain core scenarios, feedback, history, and current capabilities. At a free cap, explain when usage resets or which stored object count was reached, then offer Plus. Supporter is optional and does not change AI quality.
+Free users retain core scenarios, feedback, history, and current capabilities. At a free cap, explain when usage resets or which stored object count was reached, then offer Plus. Pro is optional and does not change AI quality.
 
-Paid users who hit a technical cap receive the cap/reset explanation and a support route. Show Plus users the separate Supporter allowances when comparing plans. Plan changes remain subject to the verified next-period flow or the contact fallback.
+Paid users who hit a technical cap receive the cap/reset explanation and a support route. Show Plus users the separate Pro allowances when comparing plans. Plan changes remain subject to the verified next-period flow or the contact fallback.
 
 An account billing section shows current tier, billing status, renewal/access-end date, usage details, and a link to Polar's customer portal. A successful checkout redirect shows pending activation until the API verifies the purchase; returning from checkout alone never grants access.
 
-## Supporter benefits and access
+## Pro benefits and access
 
 The user explicitly requested guidance and support from the development team, the ability to chat with developers, and the ability to decide the project's future together. This is substantive participation in roadmap and priority discussions, not merely an anonymous suggestion box.
 
-Use these four visible Supporter benefit lines on pricing and account pages:
+Use these four visible Pro benefit lines on pricing and account pages:
 
 - "Guidance and support from the development team"
 - "Chat directly with the developers"
 - "Help decide the project's future together"
 - "Early access to upcoming features, including MCP and API access"
 
-Deliver guidance about using CareerSIM and discussing needs through a private discussion channel. Supporters and developers discuss ideas, tradeoffs, and roadmap priorities together. No voting platform is required in v1. The promise does not imply equity, a unilateral veto, guaranteed delivery of every requested feature, or a fixed response-time SLA. Do not dilute the approved benefits to a badge or generic feedback form.
+Deliver guidance about using CareerSIM and discussing needs through a private discussion channel. Pro subscribers and developers discuss ideas, tradeoffs, and roadmap priorities together. No voting platform is required in v1. The promise does not imply equity, a unilateral veto, guaranteed delivery of every requested feature, or a fixed response-time SLA. Do not dilute the approved benefits to a badge or generic feedback form.
 
-Use a configurable channel URL plus membership instructions behind verified Supporter access. The exact channel provider is left to the project owner before launch; building a community platform or messaging integration is outside this release. Manual membership verification/removal is acceptable for the initial cohort, with a documented operator checklist. A hidden link alone is not membership enforcement. No invitations or messages are sent as part of this planning work.
+Use a configurable channel URL plus membership instructions behind verified Pro access. The exact channel provider is left to the project owner before launch; building a community platform or messaging integration is outside this release. Manual membership verification/removal is acceptable for the initial cohort, with a documented operator checklist. A hidden link alone is not membership enforcement. No invitations or messages are sent as part of this planning work.
 
-Supporter checkout uses the same billing switch as Plus. Offer it when `BILLING_ENABLED=true`, both Supporter product IDs are configured, and the private channel is configured. No separate launch flag is required.
+Pro checkout uses the same billing switch as Plus. Offer it when `BILLING_ENABLED=true`, both Pro product IDs are configured, and the private channel is configured. No separate launch flag is required.
 
 ## Entitlement ownership and persistence
 
-The API owns a single entitlement resolver keyed by authenticated user ID. It returns the tier, effective five limits, and Supporter access. Plugin services receive this resolver through the host extension contract instead of querying Polar or introducing a second billing model. Resolve on each quota-sensitive action; never rely on a long-lived JWT tier or frontend assertions.
+The API owns a single entitlement resolver keyed by authenticated user ID. It returns the tier, effective five limits, and Pro access. Plugin services receive this resolver through the host extension contract instead of querying Polar or introducing a second billing model. Resolve on each quota-sensitive action; never rely on a long-lived JWT tier or frontend assertions.
 
 Persist Polar customer/subscription identifiers, recognized product mapping, billing interval, provider state, paid-through time, renewal/cancellation information, pending tier/interval changes, last synchronization time, and webhook processing state in Postgres. A new user has Free access without needing a Polar customer. Use the immutable CareerSIM user UUID as Polar's external customer ID; email changes do not change ownership.
 
-Only server-configured, allowlisted Polar product IDs map to a Plus/Supporter tier and monthly/yearly interval. The server validates the selected pair and resolves its product; the client cannot submit a price or arbitrary product ID. Do not infer access from amount paid, product display name, or checkout metadata supplied by the client. Keep sandbox and production mappings/credentials separate.
+Only server-configured, allowlisted Polar product IDs map to a Plus/Pro tier and monthly/yearly interval. The server validates the selected pair and resolves its product; the client cannot submit a price or arbitrary product ID. Do not infer access from amount paid, product display name, or checkout metadata supplied by the client. Keep sandbox and production mappings/credentials separate.
 
 Enforce one intended subscription per account. Serialize checkout creation, reuse valid pending checkout where appropriate, and send existing subscribers to plan management. Unexpected duplicate provider subscriptions must be surfaced for reconciliation, not summed into extra allowances.
 
 ## Checkout and billing lifecycle
 
-1. An authenticated user chooses an allowed tier and billing interval. The API creates hosted checkout tied to their UUID and a server-selected product for that pair. Supporter also requires its launch flag for either interval.
+1. An authenticated user chooses an allowed tier and billing interval. The API creates hosted checkout tied to their UUID and a server-selected product for that pair. Pro also requires both product mappings and a configured private channel for either interval.
 2. Verify webhook signatures against raw request bodies. Store event identity and process idempotently. Reject invalid signatures before mutation.
 3. Treat provider events as synchronization triggers. Fetch authoritative customer/subscription state, serialize synchronization per account, and apply only recognized purchases. Reordered event payloads cannot restore older access.
 4. A verified successful initial payment grants the purchased tier. `subscription.created`, checkout return, or a cycle event alone is not proof of payment.
@@ -143,11 +143,11 @@ Enforce one intended subscription per account. Serialize checkout creation, reus
 7. Tier and billing-interval changes take effect at the next renewal without proration, including annual-to-monthly changes at the end of the paid year. Polar documents `next_period` scheduling. Display the effective date and next full charge, keep the current benefits until then, and verify this behavior in the sandbox. If sandbox validation cannot reproduce scheduling reliably, omit the affected self-service switch in v1 and show a contact path; do not create overlapping subscriptions or a custom scheduling system as a substitute.
 8. Run periodic reconciliation and offer an authenticated refresh after checkout. On provider failure, keep the last verified access only through its stored paid-through/grace deadline; do not fabricate a new grant or extend access indefinitely. Missing billing state defaults to Free; database failures are service errors, not silent downgrades.
 
-Polar handles payment collection and its merchant-of-record checkout responsibilities. CareerSIM handles access, counters, and the Supporter benefit. No usage-based charges or automatic overages are configured.
+Polar handles payment collection and its merchant-of-record checkout responsibilities. CareerSIM handles access, counters, and the Pro benefit. No usage-based charges or automatic overages are configured.
 
 ## Quota behavior and downgrade rules
 
-Use the same usage counters when a user changes tiers. An upgrade increases the ceiling immediately after verified activation without erasing consumption. A downgrade applies the Free ceiling to existing usage. Plus-to-Supporter changes never reset counters.
+Use the same usage counters when a user changes tiers. An upgrade increases the ceiling immediately after verified activation without erasing consumption. A downgrade applies the Free ceiling to existing usage. Plus-to-Pro changes never reset counters.
 
 Session and text quotas need atomic per-user accounting shared across API instances. In v1, consume the complete validated request count atomically at acceptance or reject without consuming a partial batch. A later model/provider failure may consume that allowance, matching the existing request-limit approach; it does not charge money. Count accepted user messages rather than assistant bubbles, judge calls, or voice transcripts. All batch, streaming, and creator playground paths use the same policy.
 
@@ -165,7 +165,7 @@ Work touches core API billing, auth/account responses, quota enforcement, voice 
 
 Before launch verify:
 
-- Free, Plus, and Supporter resolve correctly across all five tier-specific limits, with immediate upgrade behavior.
+- Free, Plus, and Pro resolve correctly across all five tier-specific limits, with immediate upgrade behavior.
 - Monthly and yearly variants within each tier grant identical caps; the pricing page shows every effective cap, reset window, shared benefit, and higher-limit contact link.
 - The annual toggle shows the correct full upfront total, monthly equivalent, savings, and yearly renewal terms without implying monthly installments.
 - All four paid products map to the correct tier/interval; client tampering cannot substitute a cheaper product or alter price.
@@ -176,7 +176,7 @@ Before launch verify:
 - Tampered checkout parameters, forged signatures, and unrecognized products cannot grant access.
 - Voice covers simultaneous starts, reconnection, duplicate end callbacks, worker crash, entitlement change, midnight rollover, token renewal, and a missing budget service.
 - Polar outages preserve only time-bounded verified access and recover through reconciliation.
-- Supporter checkout is available with billing enabled, both product IDs configured, and a working private channel.
+- Pro checkout is available with billing enabled, both product IDs configured, and a working private channel.
 
 Monitor per-tier active users, conversions, provider costs, call minutes, cap encounters, webhook failures, and stale billing state. High caps protect against extreme usage; they do not guarantee that a $9 subscription covers every user's cost. Cost measurement continues without blocking the user's chosen launch model.
 
@@ -184,7 +184,7 @@ Monitor per-tier active users, conversions, provider costs, call minutes, cap en
 
 This is a cross-service feature, not a configuration-only change. Keep the first release focused: reuse existing counters and voice infrastructure with the changes needed for per-user limits and long paid calls. Defer a general-purpose durable metering/reservation engine. The approved implementation sequence is: billing/entitlement model; shared quota and creator integration; voice handling; Polar sandbox lifecycle; pricing/account UI; rollout and monitoring. No production checkout or deployment is authorized by this design alone.
 
-The five paid cap values, visible pricing/contact requirements, annual discount, and Supporter benefit wording are approved user decisions. The design's three-day grace, tax presentation, scheduled tier/interval changes, and refund/dispute behavior were presented as author choices and are covered by the user's approval. The exact Supporter channel remains an operator configuration before launch. Database field names, module layout, test fixtures, bounded token renewal intervals, reconciliation cadence, and adapter details are left to the builder, subject to the behavioral contracts above.
+The five paid cap values, visible pricing/contact requirements, annual discount, and Pro benefit wording are approved user decisions. The design's three-day grace, tax presentation, scheduled tier/interval changes, and refund/dispute behavior were presented as author choices and are covered by the user's approval. The exact Pro channel remains an operator configuration before launch. Database field names, module layout, test fixtures, bounded token renewal intervals, reconciliation cadence, and adapter details are left to the builder, subject to the behavioral contracts above.
 
 ## Sources checked on 2026-11-10
 

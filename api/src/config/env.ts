@@ -2,7 +2,7 @@ import { z } from "zod";
 import ms from "ms";
 
 import { parseCorsAllowedOrigins } from "../utils/cors.js";
-import { billingPricesSchema } from "../modules/billing/prices.js";
+import { billingPricesSchema, tierEnvironmentMigrationError } from "../modules/billing/prices.js";
 
 /**
  * Normalize `API_VERSION_PREFIX` into the path segment versioned routes
@@ -177,18 +177,18 @@ const EnvSchema = z
 
     CUSTOM_SIMULATIONS_MAX: nonnegativeLimit.default(3),
     CUSTOM_PERSONAS_MAX: nonnegativeLimit.default(10),
-    PRO_SESSIONS_CREATE_MAX: positiveLimit.default(100),
-    PRO_CHAT_MESSAGES_MAX: positiveLimit.default(3000),
-    PRO_CUSTOM_SIMULATIONS_MAX: positiveLimit.default(250),
-    PRO_CUSTOM_PERSONAS_MAX: positiveLimit.default(250),
-    PRO_VOICE_DAILY_MINUTES_PER_USER: positiveLimit
+    PLUS_SESSIONS_CREATE_MAX: positiveLimit.default(100),
+    PLUS_CHAT_MESSAGES_MAX: positiveLimit.default(3000),
+    PLUS_CUSTOM_SIMULATIONS_MAX: positiveLimit.default(250),
+    PLUS_CUSTOM_PERSONAS_MAX: positiveLimit.default(250),
+    PLUS_VOICE_DAILY_MINUTES_PER_USER: positiveLimit
       .max(35_791_394)
       .default(360),
-    SUPPORTER_SESSIONS_CREATE_MAX: positiveLimit.default(200),
-    SUPPORTER_CHAT_MESSAGES_MAX: positiveLimit.default(6000),
-    SUPPORTER_CUSTOM_SIMULATIONS_MAX: positiveLimit.default(500),
-    SUPPORTER_CUSTOM_PERSONAS_MAX: positiveLimit.default(500),
-    SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: positiveLimit
+    PRO_SESSIONS_CREATE_MAX: positiveLimit.default(200),
+    PRO_CHAT_MESSAGES_MAX: positiveLimit.default(6000),
+    PRO_CUSTOM_SIMULATIONS_MAX: positiveLimit.default(500),
+    PRO_CUSTOM_PERSONAS_MAX: positiveLimit.default(500),
+    PRO_VOICE_DAILY_MINUTES_PER_USER: positiveLimit
       .max(35_791_394)
       .default(720),
     BILLING_ENABLED: bool,
@@ -197,9 +197,9 @@ const EnvSchema = z
     POLAR_WEBHOOK_SECRET: z.string().default(""),
     POLAR_PLUS_MONTHLY_PRODUCT_ID: z.string().default(""),
     POLAR_PLUS_YEARLY_PRODUCT_ID: z.string().default(""),
-    POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: z.string().default(""),
-    POLAR_SUPPORTER_YEARLY_PRODUCT_ID: z.string().default(""),
-    SUPPORTER_CHANNEL_URL: z.union([z.literal(""), z.url()]).default(""),
+    POLAR_PRO_MONTHLY_PRODUCT_ID: z.string().default(""),
+    POLAR_PRO_YEARLY_PRODUCT_ID: z.string().default(""),
+    PRO_CHANNEL_URL: z.union([z.literal(""), z.url()]).default(""),
     BILLING_CONTACT_URL: z
       .string()
       .regex(/^\/(?!\/)/)
@@ -280,25 +280,25 @@ const EnvSchema = z
     const products = [
       "POLAR_PLUS_MONTHLY_PRODUCT_ID",
       "POLAR_PLUS_YEARLY_PRODUCT_ID",
-      "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID",
-      "POLAR_SUPPORTER_YEARLY_PRODUCT_ID",
+      "POLAR_PRO_MONTHLY_PRODUCT_ID",
+      "POLAR_PRO_YEARLY_PRODUCT_ID",
     ] as const;
     const billingConfigured =
       env.BILLING_ENABLED ||
       Boolean(env.POLAR_ACCESS_TOKEN) ||
       products.some((key) => Boolean(env[key]));
     const pairs = [
+      ["PLUS_SESSIONS_CREATE_MAX", "SESSIONS_CREATE_MAX"],
+      ["PLUS_CHAT_MESSAGES_MAX", "CHAT_MESSAGES_MAX"],
+      ["PLUS_CUSTOM_SIMULATIONS_MAX", "CUSTOM_SIMULATIONS_MAX"],
+      ["PLUS_CUSTOM_PERSONAS_MAX", "CUSTOM_PERSONAS_MAX"],
+      ["PLUS_VOICE_DAILY_MINUTES_PER_USER", "VOICE_DAILY_MINUTES_PER_USER"],
       ["PRO_SESSIONS_CREATE_MAX", "SESSIONS_CREATE_MAX"],
       ["PRO_CHAT_MESSAGES_MAX", "CHAT_MESSAGES_MAX"],
       ["PRO_CUSTOM_SIMULATIONS_MAX", "CUSTOM_SIMULATIONS_MAX"],
       ["PRO_CUSTOM_PERSONAS_MAX", "CUSTOM_PERSONAS_MAX"],
-      ["PRO_VOICE_DAILY_MINUTES_PER_USER", "VOICE_DAILY_MINUTES_PER_USER"],
-      ["SUPPORTER_SESSIONS_CREATE_MAX", "SESSIONS_CREATE_MAX"],
-      ["SUPPORTER_CHAT_MESSAGES_MAX", "CHAT_MESSAGES_MAX"],
-      ["SUPPORTER_CUSTOM_SIMULATIONS_MAX", "CUSTOM_SIMULATIONS_MAX"],
-      ["SUPPORTER_CUSTOM_PERSONAS_MAX", "CUSTOM_PERSONAS_MAX"],
       [
-        "SUPPORTER_VOICE_DAILY_MINUTES_PER_USER",
+        "PRO_VOICE_DAILY_MINUTES_PER_USER",
         "VOICE_DAILY_MINUTES_PER_USER",
       ],
     ] as const;
@@ -351,20 +351,20 @@ const EnvSchema = z
         });
     if (
       env.BILLING_ENABLED &&
-      (env.POLAR_SUPPORTER_MONTHLY_PRODUCT_ID ||
-        env.POLAR_SUPPORTER_YEARLY_PRODUCT_ID ||
-        env.SUPPORTER_CHANNEL_URL)
+      (env.POLAR_PRO_MONTHLY_PRODUCT_ID ||
+        env.POLAR_PRO_YEARLY_PRODUCT_ID ||
+        env.PRO_CHANNEL_URL)
     ) {
       for (const key of [
-        "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID",
-        "POLAR_SUPPORTER_YEARLY_PRODUCT_ID",
-        "SUPPORTER_CHANNEL_URL",
+        "POLAR_PRO_MONTHLY_PRODUCT_ID",
+        "POLAR_PRO_YEARLY_PRODUCT_ID",
+        "PRO_CHANNEL_URL",
       ] as const)
         if (!env[key])
           ctx.addIssue({
             code: "custom",
             path: [key],
-            message: "Required when Supporter billing is configured",
+            message: "Required when Pro billing is configured",
           });
     }
     if (
@@ -387,6 +387,8 @@ export type Env = z.infer<typeof EnvSchema> & {
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+  const migrationError = tierEnvironmentMigrationError(source);
+  if (migrationError) throw new Error(migrationError);
   const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
     const errors = parsed.error.issues

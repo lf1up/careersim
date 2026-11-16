@@ -16,7 +16,7 @@ export function deriveEntitlement(
   const free = (reason: Entitlement["reason"]): Entitlement => ({
     tier: "free",
     limits: catalog.plans.find((p) => p.tier === "free")!.limits,
-    supporterAccess: false,
+    proAccess: false,
     reason,
   });
   if (snapshot.kind === "none" || !snapshot.choice || !snapshot.paidPeriod)
@@ -41,7 +41,7 @@ export function deriveEntitlement(
   return {
     tier,
     limits: catalog.plans.find((p) => p.tier === tier)!.limits,
-    supporterAccess: tier === "supporter",
+    proAccess: tier === "pro",
     reason: active ? "paid" : "grace",
   };
 }

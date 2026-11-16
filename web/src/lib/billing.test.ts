@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { catalog, freeAccount } from '@/components/billing/fixtures';
-import { fetchPlanCatalog, getBillingAccount, startCheckout, createBillingPortal, getSupporterAccess, scheduleBillingChange } from './billing';
+import { fetchPlanCatalog, getBillingAccount, startCheckout, createBillingPortal, getProAccess, scheduleBillingChange } from './billing';
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 it('validates a public catalog, caches briefly and refreshes before purchase', async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog)));
@@ -21,12 +21,20 @@ it('uses prefixed cookie-authenticated billing routes and rejects malformed resp
   fetcher.mockResolvedValue(new Response(JSON.stringify({ url: 'javascript:alert(1)' })));
   await expect(createBillingPortal()).rejects.toThrow();
 });
-it('validates supporter links and scheduled dates at the network boundary', async () => {
+it('validates pro links and scheduled dates at the network boundary', async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ channelUrl: 'javascript:alert(1)', instructions: 'Join' })));
   vi.stubGlobal('fetch', fetcher);
-  await expect(getSupporterAccess()).rejects.toThrow();
+  await expect(getProAccess()).rejects.toThrow();
   fetcher.mockResolvedValue(new Response(JSON.stringify({ choice: { tier: 'plus', interval: 'year' }, effectiveAt: 'invalid' })));
   await expect(scheduleBillingChange({ tier: 'plus', interval: 'year' })).rejects.toThrow();
+});
+it('loads verified Pro access from the prefixed authenticated route without caching', async () => {
+  vi.stubEnv('NEXT_PUBLIC_API_URL', 'https://api.example/v4/');
+  const access = { channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSIM email.' };
+  const fetcher = vi.fn().mockResolvedValue(Response.json(access));
+  vi.stubGlobal('fetch', fetcher);
+  await expect(getProAccess()).resolves.toEqual(access);
+  expect(fetcher).toHaveBeenCalledWith('https://api.example/v4/billing/pro', expect.objectContaining({ credentials: 'include', cache: 'no-store' }));
 });
 it('accepts configured local contact destinations in catalog and account responses', async () => {
   const contactUrl = '/business#contact';

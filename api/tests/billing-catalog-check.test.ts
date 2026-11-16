@@ -17,10 +17,10 @@ const configured = Object.fromEntries(
 );
 const defaultAmounts = [900, 9000, 4900, 49000];
 const customPricing = {
-  PRO_MONTHLY_PRICE_CENTS: "1200",
-  PRO_YEARLY_PRICE_CENTS: "12000",
-  SUPPORTER_MONTHLY_PRICE_CENTS: "15000",
-  SUPPORTER_YEARLY_PRICE_CENTS: "150000",
+  PLUS_MONTHLY_PRICE_CENTS: "1200",
+  PLUS_YEARLY_PRICE_CENTS: "12000",
+  PRO_MONTHLY_PRICE_CENTS: "15000",
+  PRO_YEARLY_PRICE_CENTS: "150000",
 };
 const customAmounts = [1200, 12000, 15000, 150000];
 
@@ -74,8 +74,8 @@ describe("read-only billing catalog check", () => {
       lines: [
         "plus/month: OK",
         "plus/year: OK",
-        "supporter/month: OK",
-        "supporter/year: OK",
+        "pro/month: OK",
+        "pro/year: OK",
       ],
     });
   });
@@ -88,15 +88,15 @@ describe("read-only billing catalog check", () => {
     expect(result.lines).toEqual([
       "plus/month: MISMATCH amount must be 1200 cents",
       "plus/year: MISMATCH amount must be 12000 cents",
-      "supporter/month: MISMATCH amount must be 15000 cents",
-      "supporter/year: MISMATCH amount must be 150000 cents",
+      "pro/month: MISMATCH amount must be 15000 cents",
+      "pro/year: MISMATCH amount must be 150000 cents",
     ]);
   });
   it.each([
-    ["PRO_MONTHLY_PRICE_CENTS", "0"],
-    ["PRO_YEARLY_PRICE_CENTS", "-12000"],
-    ["SUPPORTER_MONTHLY_PRICE_CENTS", "15000.5"],
-    ["SUPPORTER_YEARLY_PRICE_CENTS", "private-invalid-value"],
+    ["PLUS_MONTHLY_PRICE_CENTS", "0"],
+    ["PLUS_YEARLY_PRICE_CENTS", "-12000"],
+    ["PRO_MONTHLY_PRICE_CENTS", "15000.5"],
+    ["PRO_YEARLY_PRICE_CENTS", "private-invalid-value"],
   ])("rejects invalid %s before any provider requests", async (key, value) => {
     const request = vi.fn<typeof fetch>();
     const result = await runBillingCatalogCheck(
@@ -318,4 +318,14 @@ describe("read-only billing catalog check", () => {
     ).toBe(false);
     expect(request).not.toHaveBeenCalled();
   });
+});
+
+
+it("rejects a legacy tier environment before reading Polar products", async () => {
+  const request = vi.fn();
+  const result = await runBillingCatalogCheck({ ...configured, POLAR_ACCESS_TOKEN: "fixture-token", SUPPORTER_MONTHLY_PRICE_CENTS: "private-value" }, request);
+  expect(result.ok).toBe(false);
+  expect(result.lines.join("\n")).toContain("PLUS_");
+  expect(result.lines.join("\n")).not.toContain("private-value");
+  expect(request).not.toHaveBeenCalled();
 });

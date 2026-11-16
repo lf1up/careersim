@@ -6,7 +6,7 @@ import { getBillingAccount } from '@/lib/billing';
 import { isPricingEnabled } from '@/lib/pricing';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 
-type QuotaPayload = { message?: string; tier?: 'free' | 'plus' | 'supporter'; resetsAt?: string };
+type QuotaPayload = { message?: string; tier?: 'free' | 'plus' | 'pro'; resetsAt?: string };
 function quotaPayload(error: unknown): QuotaPayload | null {
   if (!error || typeof error !== 'object') return null;
   const payload = 'payload' in error ? error.payload : error;
@@ -14,13 +14,13 @@ function quotaPayload(error: unknown): QuotaPayload | null {
   const code = 'error' in payload ? payload.error : 'code' in payload ? payload.code : undefined;
   const isQuota = 'quotaKind' in payload && (payload.quotaKind === 'sessions' || payload.quotaKind === 'messages') || code === 'voice_quota_exhausted' || code === 'CUSTOM_SIMULATIONS_LIMIT' || code === 'CUSTOM_PERSONAS_LIMIT';
   if (!isQuota) return null;
-  const tier = 'tier' in payload && (payload.tier === 'free' || payload.tier === 'plus' || payload.tier === 'supporter') ? payload.tier : undefined;
+  const tier = 'tier' in payload && (payload.tier === 'free' || payload.tier === 'plus' || payload.tier === 'pro') ? payload.tier : undefined;
   const resetAt = 'resetsAt' in payload ? payload.resetsAt : 'resetAt' in payload ? payload.resetAt : undefined;
   return { tier, message: 'message' in payload && typeof payload.message === 'string' ? payload.message : undefined, resetsAt: typeof resetAt === 'string' && Number.isFinite(Date.parse(resetAt)) ? resetAt : undefined };
 }
 export function QuotaNotice({ error }: { error: unknown }) {
   const payload = quotaPayload(error);
-  const [verifiedTier, setVerifiedTier] = useState<'free' | 'plus' | 'supporter' | null>(null);
+  const [verifiedTier, setVerifiedTier] = useState<'free' | 'plus' | 'pro' | null>(null);
   const needsTier = payload !== null && !payload.tier;
   useEffect(() => {
     let canceled = false;

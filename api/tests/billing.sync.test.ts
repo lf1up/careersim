@@ -148,8 +148,8 @@ describe("authoritative billing synchronization", () => {
     provider.snapshots.set(
       userId,
       paidSnapshot({
-        choice: { tier: "supporter", interval: "year" },
-        productId: "supporter-year",
+        choice: { tier: "pro", interval: "year" },
+        productId: "pro-year",
       }),
     );
     await service.syncCustomer({ userId, reason: "unpaid upgrade" });

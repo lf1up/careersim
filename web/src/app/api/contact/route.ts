@@ -26,7 +26,7 @@ const USE_CASE_LABELS: Record<string, string> = {
 const REASON_LABELS: Record<string, string> = {
   general: 'General question',
   'higher-limits': 'Higher limits',
-  supporter: 'Supporter question',
+  pro: 'Pro question',
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

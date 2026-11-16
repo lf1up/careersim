@@ -116,13 +116,13 @@ These routes use `X-Internal-Key` with a nonempty matching `AGENT_INTERNAL_KEY` 
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| GET | `/v1/billing/catalog` | public | Free, Plus, and Supporter prices, limits, benefits, and availability |
+| GET | `/v1/billing/catalog` | public | Free, Plus, and Pro prices, limits, benefits, and availability |
 | GET | `/v1/billing/account` | jwt | Effective entitlement, paid period, status, and five usage metrics |
 | POST | `/v1/billing/checkout` | jwt | Start or reuse hosted Polar checkout for an allowlisted tier and interval |
 | POST | `/v1/billing/refresh` | jwt | Synchronize provider state and return the account |
 | POST | `/v1/billing/portal` | jwt | Hosted payment, invoice, and cancellation management |
 | POST | `/v1/billing/change` | jwt | Currently rejects self-service changes; clients use contact fallback |
-| GET | `/v1/billing/supporter` | jwt, Supporter | Private-channel instructions for verified Supporters |
+| GET | `/v1/billing/pro` | jwt, Pro | Private-channel instructions for verified Pro subscribers |
 | POST | `/v1/billing/webhook` | signed Polar event | Verify raw-body signature, store event identity, and refresh authoritative provider state |
 
 Checkout, refresh, portal, and change routes have a 6/min per-user operation limit. The webhook has a 120/min limit.
@@ -148,11 +148,11 @@ keyers — IP, email-from-body, authenticated user id) lives in
 
 ## 💳 Subscriptions and quotas
 
-The API owns Polar billing state and derives entitlements from stored, verified paid periods. `BILLING_ENABLED=false` blocks new purchases by default, while existing access, portal management, signed webhooks, and configured reconciliation continue. Supporter becomes available when billing, both Supporter product mappings, and `SUPPORTER_CHANNEL_URL` are configured. Self-service tier/interval changes remain disabled.
+The API owns Polar billing state and derives entitlements from stored, verified paid periods. `BILLING_ENABLED=false` blocks new purchases by default, while existing access, portal management, signed webhooks, and configured reconciliation continue. Pro becomes available when billing, both Pro product mappings, and `PRO_CHANNEL_URL` are configured. Self-service tier/interval changes remain disabled.
 
 Five limits are independent:
 
-| Limit | Free default | Plus default (`PRO_*`) | Supporter default (`SUPPORTER_*`) |
+| Limit | Free default | Plus default (`PLUS_*`) | Pro default (`PRO_*`) |
 | --- | ---: | ---: | ---: |
 | Session starts per session window | 2 | 100 | 200 |
 | Text messages per chat window | 350 | 3000 | 6000 |
@@ -164,7 +164,7 @@ Session and chat windows each default to six hours and start with the first admi
 
 Custom inventory is reported by the optional creator plugin through extension API v2. Caps count owned, non-deleted records, including drafts. Downgrades retain existing records and block new inventory above the effective cap. Monthly and yearly plans grant the same limits.
 
-Prices are API configuration in USD cents: `PRO_MONTHLY_PRICE_CENTS=900`, `PRO_YEARLY_PRICE_CENTS=9000`, `SUPPORTER_MONTHLY_PRICE_CENTS=4900`, and `SUPPORTER_YEARLY_PRICE_CENTS=49000`. `PRO_*` maps to Plus. Changing these values does not change Polar products.
+Prices are API configuration in USD cents: `PLUS_MONTHLY_PRICE_CENTS=900`, `PLUS_YEARLY_PRICE_CENTS=9000`, `PRO_MONTHLY_PRICE_CENTS=4900`, and `PRO_YEARLY_PRICE_CENTS=49000`. `PLUS_*` maps to Plus. Changing these values does not change Polar products. When upgrading, move old `PRO_*` values to `PLUS_*` before renaming former `SUPPORTER_*` values to `PRO_*`. See the [breaking configuration and API rename](../docs/BILLING.md#breaking-configuration-and-api-rename).
 
 Signed events enter a durable inbox and trigger a fresh provider read. Reconciliation runs every five minutes when a provider token is configured, with retries for failed synchronization. Paid access lasts through the verified paid period. Failed renewals can receive 72 hours of grace; voluntary cancellation does not. Refunds, revocation, and disputes affect access according to the verified period. Checkout return alone never grants paid access.
 

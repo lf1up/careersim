@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-export const tierSchema = z.enum(["free", "plus", "supporter"]);
-export const paidTierSchema = z.enum(["plus", "supporter"]);
+export const tierSchema = z.enum(["free", "plus", "pro"]);
+export const paidTierSchema = z.enum(["plus", "pro"]);
 export const billingIntervalSchema = z.enum(["month", "year"]);
 export const billingChoiceSchema = z.strictObject({
   tier: paidTierSchema,
@@ -86,7 +86,7 @@ export type BillingSnapshot = z.infer<typeof billingSnapshotSchema>;
 export const entitlementSchema = z.object({
   tier: tierSchema,
   limits: planLimitsSchema,
-  supporterAccess: z.boolean(),
+  proAccess: z.boolean(),
   reason: z.enum(["free", "paid", "grace", "expired", "revoked", "disputed"]),
 });
 export type Entitlement = z.infer<typeof entitlementSchema>;

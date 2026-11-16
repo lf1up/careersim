@@ -172,8 +172,8 @@ describe("billing configuration", () => {
       });
       expect(config.CUSTOM_SIMULATIONS_MAX).toBe(0);
       expect(config.CUSTOM_PERSONAS_MAX).toBe(0);
-      expect(config.PRO_CUSTOM_SIMULATIONS_MAX).toBe(250);
-      expect(config.PRO_CUSTOM_PERSONAS_MAX).toBe(250);
+      expect(config.PLUS_CUSTOM_SIMULATIONS_MAX).toBe(250);
+      expect(config.PLUS_CUSTOM_PERSONAS_MAX).toBe(250);
     },
   );
   it.each(["CUSTOM_SIMULATIONS_MAX", "CUSTOM_PERSONAS_MAX"])(
@@ -188,20 +188,20 @@ describe("billing configuration", () => {
     expect(loadEnv(baseEnv)).toMatchObject({
       BILLING_ENABLED: false,
       POLAR_ENVIRONMENT: "sandbox",
-      PRO_SESSIONS_CREATE_MAX: 100,
-      PRO_CHAT_MESSAGES_MAX: 3000,
-      PRO_CUSTOM_SIMULATIONS_MAX: 250,
-      PRO_CUSTOM_PERSONAS_MAX: 250,
-      PRO_VOICE_DAILY_MINUTES_PER_USER: 360,
-      SUPPORTER_SESSIONS_CREATE_MAX: 200,
-      SUPPORTER_CHAT_MESSAGES_MAX: 6000,
-      SUPPORTER_CUSTOM_SIMULATIONS_MAX: 500,
-      SUPPORTER_CUSTOM_PERSONAS_MAX: 500,
-      SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: 720,
-      PRO_MONTHLY_PRICE_CENTS: 900,
-      PRO_YEARLY_PRICE_CENTS: 9000,
-      SUPPORTER_MONTHLY_PRICE_CENTS: 4900,
-      SUPPORTER_YEARLY_PRICE_CENTS: 49000,
+      PLUS_SESSIONS_CREATE_MAX: 100,
+      PLUS_CHAT_MESSAGES_MAX: 3000,
+      PLUS_CUSTOM_SIMULATIONS_MAX: 250,
+      PLUS_CUSTOM_PERSONAS_MAX: 250,
+      PLUS_VOICE_DAILY_MINUTES_PER_USER: 360,
+      PRO_SESSIONS_CREATE_MAX: 200,
+      PRO_CHAT_MESSAGES_MAX: 6000,
+      PRO_CUSTOM_SIMULATIONS_MAX: 500,
+      PRO_CUSTOM_PERSONAS_MAX: 500,
+      PRO_VOICE_DAILY_MINUTES_PER_USER: 720,
+      PLUS_MONTHLY_PRICE_CENTS: 900,
+      PLUS_YEARLY_PRICE_CENTS: 9000,
+      PRO_MONTHLY_PRICE_CENTS: 4900,
+      PRO_YEARLY_PRICE_CENTS: 49000,
       SESSIONS_CREATE_WINDOW_MS: 21_600_000,
       CHAT_MESSAGES_WINDOW_MS: 21_600_000,
     });
@@ -210,62 +210,62 @@ describe("billing configuration", () => {
     expect(
       loadEnv({
         ...baseEnv,
-        PRO_MONTHLY_PRICE_CENTS: "1200",
-        PRO_YEARLY_PRICE_CENTS: "14400",
-        SUPPORTER_MONTHLY_PRICE_CENTS: "15000",
-        SUPPORTER_YEARLY_PRICE_CENTS: "150000",
+        PLUS_MONTHLY_PRICE_CENTS: "1200",
+        PLUS_YEARLY_PRICE_CENTS: "14400",
+        PRO_MONTHLY_PRICE_CENTS: "15000",
+        PRO_YEARLY_PRICE_CENTS: "150000",
       }),
     ).toMatchObject({
-      PRO_MONTHLY_PRICE_CENTS: 1200,
-      PRO_YEARLY_PRICE_CENTS: 14400,
-      SUPPORTER_MONTHLY_PRICE_CENTS: 15000,
-      SUPPORTER_YEARLY_PRICE_CENTS: 150000,
+      PLUS_MONTHLY_PRICE_CENTS: 1200,
+      PLUS_YEARLY_PRICE_CENTS: 14400,
+      PRO_MONTHLY_PRICE_CENTS: 15000,
+      PRO_YEARLY_PRICE_CENTS: 150000,
     });
   });
-  it("loads independent Supporter limit overrides", () => {
+  it("loads independent Pro limit overrides", () => {
     expect(
       loadEnv({
         ...baseEnv,
-        PRO_CHAT_MESSAGES_MAX: "450",
-        SUPPORTER_SESSIONS_CREATE_MAX: "210",
-        SUPPORTER_CHAT_MESSAGES_MAX: "400",
-        SUPPORTER_CUSTOM_SIMULATIONS_MAX: "510",
-        SUPPORTER_CUSTOM_PERSONAS_MAX: "520",
-        SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: "1450",
+        PLUS_CHAT_MESSAGES_MAX: "450",
+        PRO_SESSIONS_CREATE_MAX: "210",
+        PRO_CHAT_MESSAGES_MAX: "400",
+        PRO_CUSTOM_SIMULATIONS_MAX: "510",
+        PRO_CUSTOM_PERSONAS_MAX: "520",
+        PRO_VOICE_DAILY_MINUTES_PER_USER: "1450",
       }),
     ).toMatchObject({
-      PRO_CHAT_MESSAGES_MAX: 450,
-      SUPPORTER_SESSIONS_CREATE_MAX: 210,
-      SUPPORTER_CHAT_MESSAGES_MAX: 400,
-      SUPPORTER_CUSTOM_SIMULATIONS_MAX: 510,
-      SUPPORTER_CUSTOM_PERSONAS_MAX: 520,
-      SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: 1450,
+      PLUS_CHAT_MESSAGES_MAX: 450,
+      PRO_SESSIONS_CREATE_MAX: 210,
+      PRO_CHAT_MESSAGES_MAX: 400,
+      PRO_CUSTOM_SIMULATIONS_MAX: 510,
+      PRO_CUSTOM_PERSONAS_MAX: 520,
+      PRO_VOICE_DAILY_MINUTES_PER_USER: 1450,
     });
   });
   it.each([
-    "SUPPORTER_SESSIONS_CREATE_MAX",
-    "SUPPORTER_CHAT_MESSAGES_MAX",
-    "SUPPORTER_CUSTOM_SIMULATIONS_MAX",
-    "SUPPORTER_CUSTOM_PERSONAS_MAX",
-    "SUPPORTER_VOICE_DAILY_MINUTES_PER_USER",
-  ])("validates Supporter storage bounds and the Free floor for %s", (key) => {
+    "PRO_SESSIONS_CREATE_MAX",
+    "PRO_CHAT_MESSAGES_MAX",
+    "PRO_CUSTOM_SIMULATIONS_MAX",
+    "PRO_CUSTOM_PERSONAS_MAX",
+    "PRO_VOICE_DAILY_MINUTES_PER_USER",
+  ])("validates Pro storage bounds and the Free floor for %s", (key) => {
     for (const value of ["0", "-1", "1.5", "2147483648", "1"]) {
       expect(() => loadEnv({ ...baseEnv, [key]: value })).toThrow(key);
     }
   });
-  it("keeps Supporter voice seconds within integer storage bounds", () => {
+  it("keeps Pro voice seconds within integer storage bounds", () => {
     expect(() =>
       loadEnv({
         ...baseEnv,
-        SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: "35791395",
+        PRO_VOICE_DAILY_MINUTES_PER_USER: "35791395",
       }),
-    ).toThrow("SUPPORTER_VOICE_DAILY_MINUTES_PER_USER");
+    ).toThrow("PRO_VOICE_DAILY_MINUTES_PER_USER");
   });
   it.each([
+    "PLUS_MONTHLY_PRICE_CENTS",
+    "PLUS_YEARLY_PRICE_CENTS",
     "PRO_MONTHLY_PRICE_CENTS",
     "PRO_YEARLY_PRICE_CENTS",
-    "SUPPORTER_MONTHLY_PRICE_CENTS",
-    "SUPPORTER_YEARLY_PRICE_CENTS",
   ])("rejects invalid price cents in %s", (key) => {
     for (const value of [
       "0",
@@ -283,16 +283,16 @@ describe("billing configuration", () => {
     expect(
       loadEnv({
         ...baseEnv,
+        PLUS_MONTHLY_PRICE_CENTS: "1",
+        PLUS_YEARLY_PRICE_CENTS: "2147483647",
         PRO_MONTHLY_PRICE_CENTS: "1",
         PRO_YEARLY_PRICE_CENTS: "2147483647",
-        SUPPORTER_MONTHLY_PRICE_CENTS: "1",
-        SUPPORTER_YEARLY_PRICE_CENTS: "2147483647",
       }),
     ).toMatchObject({
+      PLUS_MONTHLY_PRICE_CENTS: 1,
+      PLUS_YEARLY_PRICE_CENTS: 2147483647,
       PRO_MONTHLY_PRICE_CENTS: 1,
       PRO_YEARLY_PRICE_CENTS: 2147483647,
-      SUPPORTER_MONTHLY_PRICE_CENTS: 1,
-      SUPPORTER_YEARLY_PRICE_CENTS: 2147483647,
     });
   });
   it("requires private keys and Plus products only when enabled", () => {
@@ -345,7 +345,7 @@ describe("billing configuration", () => {
         REDIS_URL: "redis://localhost:6379",
         VOICE_DAILY_MINUTES_PER_USER: "0",
       }),
-    ).toThrow(/PRO_VOICE_DAILY_MINUTES_PER_USER/);
+    ).toThrow(/PLUS_VOICE_DAILY_MINUTES_PER_USER/);
     expect(
       loadEnv({
         ...baseEnv,
@@ -354,20 +354,20 @@ describe("billing configuration", () => {
       }).BILLING_ENABLED,
     ).toBe(false);
   });
-  it("enables configured Supporter billing without a separate launch flag", () => {
-    const supporter = {
+  it("enables configured Pro billing without a separate launch flag", () => {
+    const pro = {
       ...enabled,
-      SUPPORTER_CHANNEL_URL: "https://private.example/channel",
-      POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
-      POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
+      PRO_CHANNEL_URL: "https://private.example/channel",
+      POLAR_PRO_MONTHLY_PRODUCT_ID: "pro-month",
+      POLAR_PRO_YEARLY_PRODUCT_ID: "pro-year",
     };
-    expect(loadEnv(supporter)).not.toHaveProperty("SUPPORTER_CHECKOUT_ENABLED");
+    expect(loadEnv(pro)).not.toHaveProperty("PRO_CHECKOUT_ENABLED");
     for (const key of [
-      "SUPPORTER_CHANNEL_URL",
-      "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID",
-      "POLAR_SUPPORTER_YEARLY_PRODUCT_ID",
+      "PRO_CHANNEL_URL",
+      "POLAR_PRO_MONTHLY_PRODUCT_ID",
+      "POLAR_PRO_YEARLY_PRODUCT_ID",
     ] as const) {
-      expect(() => loadEnv({ ...supporter, [key]: "" })).toThrow(key);
+      expect(() => loadEnv({ ...pro, [key]: "" })).toThrow(key);
     }
   });
   it("rejects duplicate products, unsafe paid integers, lower paid caps and unlimited Free voice with billing enabled", () => {
@@ -376,14 +376,14 @@ describe("billing configuration", () => {
     ).toThrow(/unique/);
     for (const value of ["0", "-1", "1.5", "9007199254740992"])
       expect(() =>
-        loadEnv({ ...baseEnv, PRO_CHAT_MESSAGES_MAX: value }),
-      ).toThrow(/PRO_CHAT_MESSAGES_MAX/);
+        loadEnv({ ...baseEnv, PLUS_CHAT_MESSAGES_MAX: value }),
+      ).toThrow(/PLUS_CHAT_MESSAGES_MAX/);
     expect(() => loadEnv({ ...baseEnv, SESSIONS_CREATE_MAX: "101" })).toThrow(
-      /PRO_SESSIONS_CREATE_MAX/,
+      /PLUS_SESSIONS_CREATE_MAX/,
     );
     expect(() =>
       loadEnv({ ...enabled, VOICE_DAILY_MINUTES_PER_USER: "0" }),
-    ).toThrow(/PRO_VOICE_DAILY_MINUTES_PER_USER/);
+    ).toThrow(/PLUS_VOICE_DAILY_MINUTES_PER_USER/);
   });
   it("rejects ambiguous durations and accepts explicit non-default windows", () => {
     for (const value of [
@@ -407,5 +407,15 @@ describe("billing configuration", () => {
       SESSIONS_CREATE_WINDOW_MS: 5_400_000,
       CHAT_MESSAGES_WINDOW_MS: 1_800_000,
     });
+  });
+});
+
+
+describe("tier environment migration", () => {
+  it.each(["SUPPORTER_CHAT_MESSAGES_MAX", "SUPPORTER_MONTHLY_PRICE_CENTS", "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID", "SUPPORTER_CHANNEL_URL"])("rejects legacy %s rather than silently applying old PRO values to the new Pro tier", (key) => {
+    expect(() => loadEnv({ ...baseEnv, PRO_MONTHLY_PRICE_CENTS: "900", [key]: "private-value" })).toThrow(/PLUS_/);
+    try { loadEnv({ ...baseEnv, [key]: "private-value" }); } catch (error) {
+      expect(String(error)).not.toContain("private-value");
+    }
   });
 });

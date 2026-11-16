@@ -397,7 +397,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
     await expect(
       createPolarProvider(config()).createCheckout({
         userId: "immutable-user",
-        choice: { tier: "supporter", interval: "month" },
+        choice: { tier: "pro", interval: "month" },
         attemptId: "attempt",
       }),
     ).rejects.toThrow("Product is not configured");

@@ -28,7 +28,7 @@ export function publicCrawlPages(): CrawlPage[] {
     { path: '/contact', title: 'Contact us', description: 'Questions, support, and requests for higher practice limits.', group: 'core', changeFrequency: 'monthly', priority: 0.6 },
     { path: '/register', title: 'Create account', description: 'Create an account to start practicing.', group: 'core', changeFrequency: 'monthly', priority: 0.5 },
     { path: '/login', title: 'Sign in', description: 'Sign in to continue practicing.', group: 'core', changeFrequency: 'monthly', priority: 0.5 },
-    ...(isPricingEnabled() ? [{ path: '/pricing', title: 'Pricing', description: 'Compare Free, Plus, and Supporter plans and practice allowances.', group: 'core' as const, changeFrequency: 'monthly' as const, priority: 0.8 }] : []),
+    ...(isPricingEnabled() ? [{ path: '/pricing', title: 'Pricing', description: 'Compare Free, Plus, and Pro plans and practice allowances.', group: 'core' as const, changeFrequency: 'monthly' as const, priority: 0.8 }] : []),
     ...(isBlogEnabled() ? [{ path: '/blog', title: 'Blog', description: 'Guides and practice tips for career conversations.', group: 'core' as const, changeFrequency: 'daily' as const, priority: 0.8 }] : []),
   ];
 }

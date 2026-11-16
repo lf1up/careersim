@@ -53,7 +53,7 @@ describe("billing entitlement policy", () => {
     ).toEqual([900, 9000]);
     expect(
       catalog.plans
-        .find((p) => p.tier === "supporter")
+        .find((p) => p.tier === "pro")
         ?.prices.map((p) => p.amountCents),
     ).toEqual([4900, 49000]);
     expect(
@@ -80,43 +80,43 @@ describe("billing entitlement policy", () => {
   });
   it.each([
     {
-      proYearly: 12000,
-      supporterYearly: 150000,
+      plusYearly: 12000,
+      proYearly: 150000,
+      plusDiscountLabel: "2 months free",
       proDiscountLabel: "2 months free",
-      supporterDiscountLabel: "2 months free",
     },
     {
-      proYearly: 14400,
-      supporterYearly: 180000,
+      plusYearly: 14400,
+      proYearly: 180000,
+      plusDiscountLabel: null,
       proDiscountLabel: null,
-      supporterDiscountLabel: null,
     },
     {
-      proYearly: 12500,
-      supporterYearly: 160000,
+      plusYearly: 12500,
+      proYearly: 160000,
+      plusDiscountLabel: null,
       proDiscountLabel: null,
-      supporterDiscountLabel: null,
     },
     {
-      proYearly: 12000,
-      supporterYearly: 180000,
-      proDiscountLabel: "2 months free",
-      supporterDiscountLabel: null,
+      plusYearly: 12000,
+      proYearly: 180000,
+      plusDiscountLabel: "2 months free",
+      proDiscountLabel: null,
     },
   ])(
     "publishes configured annual totals without an inaccurate discount: %j",
     ({
+      plusYearly,
       proYearly,
-      supporterYearly,
+      plusDiscountLabel,
       proDiscountLabel,
-      supporterDiscountLabel,
     }) => {
       const catalog = buildPlanCatalog({
         ...config(),
-        PRO_MONTHLY_PRICE_CENTS: 1200,
+        PLUS_MONTHLY_PRICE_CENTS: 1200,
+        PLUS_YEARLY_PRICE_CENTS: plusYearly,
+        PRO_MONTHLY_PRICE_CENTS: 15000,
         PRO_YEARLY_PRICE_CENTS: proYearly,
-        SUPPORTER_MONTHLY_PRICE_CENTS: 15000,
-        SUPPORTER_YEARLY_PRICE_CENTS: supporterYearly,
       });
       expect(
         planCatalogSchema
@@ -130,26 +130,26 @@ describe("billing entitlement policy", () => {
             { interval: "month", amountCents: 1200, discountLabel: null },
             {
               interval: "year",
-              amountCents: proYearly,
-              discountLabel: proDiscountLabel,
+              amountCents: plusYearly,
+              discountLabel: plusDiscountLabel,
             },
           ],
         },
         {
-          tier: "supporter",
+          tier: "pro",
           prices: [
             { interval: "month", amountCents: 15000, discountLabel: null },
             {
               interval: "year",
-              amountCents: supporterYearly,
-              discountLabel: supporterDiscountLabel,
+              amountCents: proYearly,
+              discountLabel: proDiscountLabel,
             },
           ],
         },
       ]);
     },
   );
-  it.each(["plus", "supporter"] as const)(
+  it.each(["plus", "pro"] as const)(
     "uses the configured %s caps for both intervals",
     (tier) => {
       for (const interval of ["month", "year"] as const) {
@@ -162,7 +162,7 @@ describe("billing entitlement policy", () => {
         ).toMatchObject({
           tier,
           limits:
-            tier === "supporter"
+            tier === "pro"
               ? {
                   sessionsCreateMax: 200,
                   chatMessagesMax: 6000,
@@ -177,24 +177,24 @@ describe("billing entitlement policy", () => {
                   customPersonasMax: 250,
                   voiceDailyMinutes: 360,
                 },
-          supporterAccess: tier === "supporter",
+          proAccess: tier === "pro",
         });
       }
     },
   );
-  it("keeps Plus and Supporter limit overrides independent", () => {
+  it("keeps Plus and Pro limit overrides independent", () => {
     const catalog = buildPlanCatalog({
       ...config(),
-      PRO_SESSIONS_CREATE_MAX: 120,
-      PRO_CHAT_MESSAGES_MAX: 3200,
-      PRO_CUSTOM_SIMULATIONS_MAX: 260,
-      PRO_CUSTOM_PERSONAS_MAX: 270,
-      PRO_VOICE_DAILY_MINUTES_PER_USER: 730,
-      SUPPORTER_SESSIONS_CREATE_MAX: 210,
-      SUPPORTER_CHAT_MESSAGES_MAX: 6200,
-      SUPPORTER_CUSTOM_SIMULATIONS_MAX: 510,
-      SUPPORTER_CUSTOM_PERSONAS_MAX: 520,
-      SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: 1450,
+      PLUS_SESSIONS_CREATE_MAX: 120,
+      PLUS_CHAT_MESSAGES_MAX: 3200,
+      PLUS_CUSTOM_SIMULATIONS_MAX: 260,
+      PLUS_CUSTOM_PERSONAS_MAX: 270,
+      PLUS_VOICE_DAILY_MINUTES_PER_USER: 730,
+      PRO_SESSIONS_CREATE_MAX: 210,
+      PRO_CHAT_MESSAGES_MAX: 6200,
+      PRO_CUSTOM_SIMULATIONS_MAX: 510,
+      PRO_CUSTOM_PERSONAS_MAX: 520,
+      PRO_VOICE_DAILY_MINUTES_PER_USER: 1450,
     });
     for (const interval of ["month", "year"] as const) {
       const now = new Date("2026-11-09Z");
@@ -213,7 +213,7 @@ describe("billing entitlement policy", () => {
       });
       expect(
         deriveEntitlement(
-          snapshot({ choice: { tier: "supporter", interval } }),
+          snapshot({ choice: { tier: "pro", interval } }),
           catalog,
           now,
         ).limits,

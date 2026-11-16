@@ -42,14 +42,14 @@ function configFixture() {
     POLAR_WEBHOOK_SECRET: "test-secret",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
     POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
-    POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
-    POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
-    SUPPORTER_CHANNEL_URL: "https://private.example.com/supporters",
+    POLAR_PRO_MONTHLY_PRODUCT_ID: "pro-month",
+    POLAR_PRO_YEARLY_PRODUCT_ID: "pro-year",
+    PRO_CHANNEL_URL: "https://private.example.com/pros",
   });
 }
 function paidSnapshot(
   userId: string,
-  tier: "plus" | "supporter" = "plus",
+  tier: "plus" | "pro" = "plus",
 ): Extract<BillingSnapshot, { kind: "subscription" }> {
   const order = {
     orderId: `order-${userId}`,
@@ -158,12 +158,12 @@ describe("billing routes and checkout serialization", () => {
     const catalog = await request("GET", "catalog", undefined, "");
     expect(catalog.statusCode).toBe(200);
     expect(
-      catalog.json().plans.find((plan: { tier: string }) => plan.tier === "supporter").availability,
+      catalog.json().plans.find((plan: { tier: string }) => plan.tier === "pro").availability,
     ).toBe("available");
-    expect(catalog.body).not.toContain(config.SUPPORTER_CHANNEL_URL);
+    expect(catalog.body).not.toContain(config.PRO_CHANNEL_URL);
     for (const [method, route] of [
       ["GET", "account"],
-      ["GET", "supporter"],
+      ["GET", "pro"],
       ["POST", "checkout"],
       ["POST", "portal"],
       ["POST", "refresh"],
@@ -186,8 +186,8 @@ describe("billing routes and checkout serialization", () => {
   it.each([
     ["plus", "month"],
     ["plus", "year"],
-    ["supporter", "month"],
-    ["supporter", "year"],
+    ["pro", "month"],
+    ["pro", "year"],
   ] as const)(
     "allows the configured %s/%s choice only for the authenticated UUID",
     async (tier, interval) => {
@@ -200,11 +200,11 @@ describe("billing routes and checkout serialization", () => {
       const account = await request("GET", "account");
       expect(account.json().tier).toBe("free");
       expect(account.json().confirmationPending).toBe(true);
-      expect(account.body).not.toContain(config.SUPPORTER_CHANNEL_URL);
+      expect(account.body).not.toContain(config.PRO_CHANNEL_URL);
     },
   );
   it.each([
-    { tier: "pro", interval: "month" },
+    { tier: "supporter", interval: "month" },
     { tier: "plus", interval: "week" },
     { tier: "plus", interval: "month", price: 1 },
     { tier: "plus", interval: "year", productId: "plus-month" },
@@ -227,12 +227,12 @@ describe("billing routes and checkout serialization", () => {
     expect(response.statusCode).toBe(200);
     expect(provider.created[0]?.userId).toBe(userId);
   });
-  it("blocks Supporter checkout and changes for both intervals when the channel is missing", async () => {
-    config.SUPPORTER_CHANNEL_URL = "";
+  it("blocks Pro checkout and changes for both intervals when the channel is missing", async () => {
+    config.PRO_CHANNEL_URL = "";
     for (const interval of ["month", "year"])
       for (const route of ["checkout", "change"]) {
         expect(
-          (await request("POST", route, { tier: "supporter", interval }))
+          (await request("POST", route, { tier: "pro", interval }))
             .statusCode,
         ).toBe(409);
       }
@@ -453,19 +453,19 @@ describe("billing routes and checkout serialization", () => {
     expect(response.statusCode).toBe(409);
     expect(response.json().contactUrl).toBe("/contact");
   });
-  it("reveals the private channel only to a verified current Supporter", async () => {
-    expect((await request("GET", "supporter")).statusCode).toBe(403);
+  it("reveals the private channel only to a verified current Pro", async () => {
+    expect((await request("GET", "pro")).statusCode).toBe(403);
     provider.snapshots.set(userId, paidSnapshot(userId));
     await service.refresh(userId);
-    expect((await request("GET", "supporter")).statusCode).toBe(403);
-    const supporter = paidSnapshot(userId, "supporter");
-    provider.snapshots.set(userId, supporter);
+    expect((await request("GET", "pro")).statusCode).toBe(403);
+    const pro = paidSnapshot(userId, "pro");
+    provider.snapshots.set(userId, pro);
     await service.refresh(userId);
-    const response = await request("GET", "supporter");
+    const response = await request("GET", "pro");
     expect(response.statusCode).toBe(200);
-    expect(response.json().channelUrl).toBe(config.SUPPORTER_CHANNEL_URL);
+    expect(response.json().channelUrl).toBe(config.PRO_CHANNEL_URL);
     expect((await request("GET", "account")).body).not.toContain(
-      config.SUPPORTER_CHANNEL_URL,
+      config.PRO_CHANNEL_URL,
     );
   });
 });

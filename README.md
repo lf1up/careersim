@@ -81,7 +81,7 @@ Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top 
 
 ## 💳 Subscriptions
 
-CareerSIM supports three subscription tiers: Free, Plus, and Supporter.
+CareerSIM supports three subscription tiers: Free, Plus, and Pro.
 
 Subscription purchases and the pricing UI are off by default: `BILLING_ENABLED=false` in the API and `NEXT_PUBLIC_PRICING_ENABLED=false` in the web app. See the [billing runbook](docs/BILLING.md) for configuration and rollout.
 

@@ -57,10 +57,10 @@ export function createBillingService({
         "billing_disabled",
         "New purchases are currently unavailable.",
       );
-    if (choice.tier === "supporter" && !config.SUPPORTER_CHANNEL_URL) {
+    if (choice.tier === "pro" && !config.PRO_CHANNEL_URL) {
       throw conflict(
-        "supporter_unavailable",
-        "Supporter is not available for purchase.",
+        "pro_unavailable",
+        "Pro is not available for purchase.",
       );
     }
     if (!productForChoice(config, choice))
@@ -337,20 +337,20 @@ export function createBillingService({
       "Plan changes are not available yet. Contact us to discuss a next-period change.",
     );
   }
-  async function supporterAccess(
+  async function proAccess(
     userId: string,
   ): Promise<{ channelUrl: string; instructions: string }> {
     const entitlement = await resolveEntitlements(userId);
-    if (!entitlement.supporterAccess || !config.SUPPORTER_CHANNEL_URL)
+    if (!entitlement.proAccess || !config.PRO_CHANNEL_URL)
       throw new HttpError(
         403,
-        "Verified Supporter access is required.",
-        "supporter_access_required",
+        "Verified Pro access is required.",
+        "pro_access_required",
       );
     return {
-      channelUrl: config.SUPPORTER_CHANNEL_URL,
+      channelUrl: config.PRO_CHANNEL_URL,
       instructions:
-        "Contact the development team through the private channel to verify your membership. Membership is checked against your current CareerSIM Supporter access.",
+        "Contact the development team through the private channel to verify your membership. Membership is checked against your current CareerSIM Pro access.",
     };
   }
   return {
@@ -359,6 +359,6 @@ export function createBillingService({
     refresh,
     portal,
     scheduleChange,
-    supporterAccess,
+    proAccess,
   };
 }

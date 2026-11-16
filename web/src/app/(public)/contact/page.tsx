@@ -7,7 +7,7 @@ import { metadataFor } from '@/lib/seo';
 export const metadata: Metadata = metadataFor({ title: 'Contact us', path: '/contact', description: 'Ask a question or discuss higher practice limits with the CareerSIM team.' });
 export default async function ContactPage({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
   const params = await searchParams;
-  const reason: ContactReason = params.reason === 'higher-limits' || params.reason === 'supporter' ? params.reason : 'general';
+  const reason: ContactReason = params.reason === 'higher-limits' || params.reason === 'pro' ? params.reason : 'general';
   return (
     <div className="max-w-2xl mx-auto space-y-6 pt-2 pb-3 sm:pt-0 sm:pb-4 retro-fade-in">
       <ContactScrollReset />

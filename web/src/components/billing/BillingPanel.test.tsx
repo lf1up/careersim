@@ -1,19 +1,19 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const { account, refresh, portal, supporter, change, catalogFetch } = vi.hoisted(() => ({ account: vi.fn(), refresh: vi.fn(), portal: vi.fn(), supporter: vi.fn(), change: vi.fn(), catalogFetch: vi.fn() }));
-vi.mock('@/lib/billing', async (original) => ({ ...await original<typeof import('@/lib/billing')>(), getBillingAccount: account, refreshBillingAccount: refresh, createBillingPortal: portal, getSupporterAccess: supporter, scheduleBillingChange: change, fetchPlanCatalog: catalogFetch }));
+const { account, refresh, portal, pro, change, catalogFetch } = vi.hoisted(() => ({ account: vi.fn(), refresh: vi.fn(), portal: vi.fn(), pro: vi.fn(), change: vi.fn(), catalogFetch: vi.fn() }));
+vi.mock('@/lib/billing', async (original) => ({ ...await original<typeof import('@/lib/billing')>(), getBillingAccount: account, refreshBillingAccount: refresh, createBillingPortal: portal, getProAccess: pro, scheduleBillingChange: change, fetchPlanCatalog: catalogFetch }));
 import { ApiError } from '@/lib/api';
-import { catalog, freeAccount, plusLimits, supporterLimits } from './fixtures';
+import { catalog, freeAccount, plusLimits, proLimits } from './fixtures';
 import { BillingPanel } from './BillingPanel';
 const plus = { ...freeAccount, tier: 'plus' as const, limits: plusLimits, reason: 'paid' as const, status: 'active', interval: 'year' as const, paidThrough: '2027-11-10T00:00:00.000Z', accessThrough: '2027-11-10T00:00:00.000Z', renews: true, usage: { ...freeAccount.usage, sessions: { used: 23, limit: 100, resetAt: '2026-11-10T18:00:00.000Z' } } };
-const supporterAccount = { ...plus, tier: 'supporter' as const, limits: supporterLimits, supporterAccess: true, usage: {
+const proAccount = { ...plus, tier: 'pro' as const, limits: proLimits, proAccess: true, usage: {
   sessions: { used: 23, limit: 200, resetAt: '2026-11-10T18:00:00.000Z' },
   chatMessages: { used: 1234, limit: 6000, resetAt: '2026-11-10T18:00:00.000Z' },
   customSimulations: { used: 123, limit: 500, resetAt: null },
   customPersonas: { used: 87, limit: 500, resetAt: null },
   voice: { used: 90, limit: 720, resetAt: '2026-11-11T00:00:00.000Z' },
 } };
-beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); supporter.mockReset().mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSIM email for membership verification.' }); });
+beforeEach(() => { vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'); vi.clearAllMocks(); account.mockResolvedValue(freeAccount); refresh.mockResolvedValue(freeAccount); catalogFetch.mockResolvedValue(catalog); pro.mockReset().mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSIM email for membership verification.' }); });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 it('keeps checkout pending until authoritative activation without re-login', async () => {
   const pending = { ...freeAccount, pendingCheckout: true, confirmationPending: true };
@@ -56,68 +56,68 @@ it('shows portal errors and a sign-in route after lost authentication', async ()
   fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
   expect(await screen.findByRole('link', { name: 'Sign in to view billing' })).toHaveAttribute('href', '/login?next=%2Fprofile%23billing');
 });
-it('loads the private channel only for verified Supporter access', async () => {
-  account.mockResolvedValue(supporterAccount);
-  supporter.mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSIM email for membership verification.' });
+it('loads the private channel only for verified Pro access', async () => {
+  account.mockResolvedValue(proAccount);
+  pro.mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Use your CareerSIM email for membership verification.' });
   render(<BillingPanel />);
-  await screen.findByRole('link', { name: 'Open Supporter channel' });
+  await screen.findByRole('link', { name: 'Open Pro channel' });
   expect(screen.getByText('Use your CareerSIM email for membership verification.')).toBeVisible();
   for (const benefit of catalog.plans[2].benefits.slice(3)) expect(screen.getByText(benefit)).toBeVisible();
 });
-it('shows all verified Supporter usage against its independent allowances', async () => {
-  account.mockResolvedValue(supporterAccount);
+it('shows all verified Pro usage against its independent allowances', async () => {
+  account.mockResolvedValue(proAccount);
   render(<BillingPanel />);
   for (const text of ['23 / 200', '1,234 / 6,000', '123 / 500', '87 / 500', '90 / 720']) expect(await screen.findByText(text)).toBeVisible();
   expect(screen.getByText(/Sessions reset per 6 hours; text messages per 6 hours/)).toBeVisible();
 });
-it('keeps actual Supporter allowances visible when usage counters are unavailable', async () => {
-  account.mockResolvedValue({ ...supporterAccount, usage: freeAccount.usage });
+it('keeps actual Pro allowances visible when usage counters are unavailable', async () => {
+  account.mockResolvedValue({ ...proAccount, usage: freeAccount.usage });
   render(<BillingPanel />);
   for (const limit of ['200', '6,000', '720']) expect(await screen.findByText(`Usage temporarily unavailable / ${limit}`)).toBeVisible();
   expect(screen.getAllByText('Usage temporarily unavailable / 500')).toHaveLength(2);
 });
-it('recovers the Supporter channel after a temporary error and successful billing refresh', async () => {
-  const verifiedSupporter = supporterAccount;
-  account.mockResolvedValue(verifiedSupporter);
-  refresh.mockResolvedValue({ ...verifiedSupporter });
-  supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSIM email.' });
+it('recovers the Pro channel after a temporary error and successful billing refresh', async () => {
+  const verifiedPro = proAccount;
+  account.mockResolvedValue(verifiedPro);
+  refresh.mockResolvedValue({ ...verifiedPro });
+  pro.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue({ channelUrl: 'https://community.example/private', instructions: 'Join with your CareerSIM email.' });
   render(<BillingPanel />);
-  await screen.findByText(/Supporter access could not be verified/);
+  await screen.findByText(/Pro access could not be verified/);
   fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
-  expect(await screen.findByRole('link', { name: 'Open Supporter channel' })).toHaveAttribute('href', 'https://community.example/private');
+  expect(await screen.findByRole('link', { name: 'Open Pro channel' })).toHaveAttribute('href', 'https://community.example/private');
   expect(screen.getByText('Join with your CareerSIM email.')).toBeVisible();
-  expect(screen.queryByText(/Supporter access could not be verified/)).toBeNull();
+  expect(screen.queryByText(/Pro access could not be verified/)).toBeNull();
 });
-it('returns to sign-in when refreshed Supporter verification loses authentication', async () => {
-  const verifiedSupporter = supporterAccount;
-  account.mockResolvedValue(verifiedSupporter);
-  refresh.mockResolvedValue({ ...verifiedSupporter });
-  supporter.mockRejectedValueOnce(new Error('Temporary outage')).mockRejectedValueOnce(new ApiError(401, 'Sign in required'));
+it('returns to sign-in when refreshed Pro verification loses authentication', async () => {
+  const verifiedPro = proAccount;
+  account.mockResolvedValue(verifiedPro);
+  refresh.mockResolvedValue({ ...verifiedPro });
+  pro.mockRejectedValueOnce(new Error('Temporary outage')).mockRejectedValueOnce(new ApiError(401, 'Sign in required'));
   render(<BillingPanel />);
-  await screen.findByText(/Supporter access could not be verified/);
+  await screen.findByText(/Pro access could not be verified/);
   fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
   expect(await screen.findByRole('link', { name: 'Sign in to view billing' })).toBeVisible();
-  expect(screen.queryByRole('link', { name: 'Open Supporter channel' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Open Pro channel' })).toBeNull();
 });
 it('ignores an older channel response after refreshed access is downgraded', async () => {
   const channel = Promise.withResolvers<{ channelUrl: string; instructions: string }>();
-  account.mockResolvedValueOnce(supporterAccount).mockResolvedValue(freeAccount);
+  account.mockResolvedValueOnce(proAccount).mockResolvedValue(freeAccount);
   refresh.mockResolvedValue(freeAccount);
-  supporter.mockReturnValueOnce(channel.promise);
+  pro.mockReturnValueOnce(channel.promise);
   render(<BillingPanel />);
   await screen.findByText('Subscription active');
   fireEvent.click(screen.getByRole('button', { name: 'Refresh billing' }));
   await screen.findByText('Free practice access');
   await act(async () => { channel.resolve({ channelUrl: 'https://community.example/private', instructions: 'Old membership' }); });
-  expect(screen.queryByRole('link', { name: 'Open Supporter channel' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Open Pro channel' })).toBeNull();
   expect(screen.queryByText('Old membership')).toBeNull();
 });
-it('never exposes a Supporter channel to Plus', async () => {
-  account.mockResolvedValue(plus);
+it.each([plus, { ...plus, proAccess: true }, { ...proAccount, proAccess: false }])('requires both a Pro tier and verified access before loading the channel: %j', async (value) => {
+  account.mockResolvedValue(value);
   render(<BillingPanel />);
   await screen.findByText('Subscription active');
-  expect(supporter).not.toHaveBeenCalled();
-  expect(screen.queryByRole('link', { name: 'Open Supporter channel' })).toBeNull();
+  expect(pro).not.toHaveBeenCalled();
+  expect(screen.queryByRole('link', { name: 'Open Pro channel' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Need higher limits? Contact us to discuss your needs.' })).toHaveAttribute('href', '/contact?reason=higher-limits');
 });
 it('bounds automatic pending refreshes and leaves an honest pending state', async () => {

@@ -85,6 +85,13 @@
       "when": 1794310614608,
       "tag": "0011_voice_call_order",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794814237812,
+      "tag": "0012_rename_supporter_to_pro",
+      "breakpoints": true
     }
   ]
 }

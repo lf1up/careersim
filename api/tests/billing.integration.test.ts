@@ -23,27 +23,27 @@ const independentLimitsConfig = () =>
     POLAR_WEBHOOK_SECRET: "fixture-secret",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
     POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
-    POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
-    POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
-    SUPPORTER_CHANNEL_URL: "https://private.example/supporters",
+    POLAR_PRO_MONTHLY_PRODUCT_ID: "pro-month",
+    POLAR_PRO_YEARLY_PRODUCT_ID: "pro-year",
+    PRO_CHANNEL_URL: "https://private.example/pros",
     SESSIONS_CREATE_MAX: "1",
     CHAT_MESSAGES_MAX: "1",
     CUSTOM_SIMULATIONS_MAX: "1",
     CUSTOM_PERSONAS_MAX: "1",
     VOICE_DAILY_MINUTES_PER_USER: "1",
-    PRO_SESSIONS_CREATE_MAX: "2",
-    PRO_CHAT_MESSAGES_MAX: "3",
-    PRO_CUSTOM_SIMULATIONS_MAX: "2",
-    PRO_CUSTOM_PERSONAS_MAX: "2",
-    PRO_VOICE_DAILY_MINUTES_PER_USER: "2",
-    SUPPORTER_SESSIONS_CREATE_MAX: "3",
-    SUPPORTER_CHAT_MESSAGES_MAX: "5",
-    SUPPORTER_CUSTOM_SIMULATIONS_MAX: "3",
-    SUPPORTER_CUSTOM_PERSONAS_MAX: "3",
-    SUPPORTER_VOICE_DAILY_MINUTES_PER_USER: "3",
+    PLUS_SESSIONS_CREATE_MAX: "2",
+    PLUS_CHAT_MESSAGES_MAX: "3",
+    PLUS_CUSTOM_SIMULATIONS_MAX: "2",
+    PLUS_CUSTOM_PERSONAS_MAX: "2",
+    PLUS_VOICE_DAILY_MINUTES_PER_USER: "2",
+    PRO_SESSIONS_CREATE_MAX: "3",
+    PRO_CHAT_MESSAGES_MAX: "5",
+    PRO_CUSTOM_SIMULATIONS_MAX: "3",
+    PRO_CUSTOM_PERSONAS_MAX: "3",
+    PRO_VOICE_DAILY_MINUTES_PER_USER: "3",
   });
 function tierSnapshot(
-  tier: "plus" | "supporter",
+  tier: "plus" | "pro",
   start: Date,
   end: Date,
 ): BillingSnapshot {
@@ -78,7 +78,7 @@ describe("subscription access through the full API", () => {
     await harness?.close();
   });
 
-  it("enforces independent Supporter caps and keeps window usage after a verified Plus downgrade", async () => {
+  it("enforces independent Pro caps and keeps window usage after a verified Plus downgrade", async () => {
     let clock = new Date("2026-11-10T12:00:00Z");
     const provider = new FakeBillingProvider();
     harness = await buildTestApp({
@@ -96,19 +96,19 @@ describe("subscription access through the full API", () => {
     provider.snapshots.set(
       userId,
       tierSnapshot(
-        "supporter",
+        "pro",
         new Date("2026-10-10T12:00:15Z"),
         new Date("2026-11-10T12:00:15Z"),
       ),
     );
-    const supporter = await app.inject({
+    const pro = await app.inject({
       method: "POST",
       url: "/v1/billing/refresh",
       headers,
     });
-    expect(supporter.statusCode, supporter.body).toBe(200);
-    expect(supporter.json()).toMatchObject({
-      tier: "supporter",
+    expect(pro.statusCode, pro.body).toBe(200);
+    expect(pro.json()).toMatchObject({
+      tier: "pro",
       limits: {
         sessionsCreateMax: 3,
         chatMessagesMax: 5,
@@ -130,7 +130,7 @@ describe("subscription access through the full API", () => {
     expect((await create()).statusCode).toBe(201);
     expect((await create()).json()).toMatchObject({
       error: "RATE_LIMITED",
-      tier: "supporter",
+      tier: "pro",
       used: 3,
       max: 3,
     });
@@ -146,7 +146,7 @@ describe("subscription access through the full API", () => {
     ).toBe(200);
     expect((await send("six")).json()).toMatchObject({
       error: "RATE_LIMITED",
-      tier: "supporter",
+      tier: "pro",
       used: 5,
       max: 5,
     });
@@ -189,7 +189,7 @@ describe("subscription access through the full API", () => {
       max: 3,
     });
   });
-  it("keeps daily voice seconds when verified Supporter access changes to the lower Plus cap", async () => {
+  it("keeps daily voice seconds when verified Pro access changes to the lower Plus cap", async () => {
     let clock = new Date("2026-11-10T12:00:00Z");
     const provider = new FakeBillingProvider();
     const internal = { "x-internal-key": "test-internal-key" };
@@ -206,7 +206,7 @@ describe("subscription access through the full API", () => {
     provider.snapshots.set(
       userId,
       tierSnapshot(
-        "supporter",
+        "pro",
         new Date("2026-10-10T12:01:00Z"),
         new Date("2026-11-10T12:01:00Z"),
       ),
@@ -316,9 +316,9 @@ describe("subscription access through the full API", () => {
       POLAR_WEBHOOK_SECRET: "fixture-secret",
       POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
       POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
-      POLAR_SUPPORTER_MONTHLY_PRODUCT_ID: "supporter-month",
-      POLAR_SUPPORTER_YEARLY_PRODUCT_ID: "supporter-year",
-      SUPPORTER_CHANNEL_URL: "https://private.example/supporters",
+      POLAR_PRO_MONTHLY_PRODUCT_ID: "pro-month",
+      POLAR_PRO_YEARLY_PRODUCT_ID: "pro-year",
+      PRO_CHANNEL_URL: "https://private.example/pros",
     });
     let clock = new Date("2026-11-10T12:00:00Z");
     const provider = new FakeBillingProvider();
@@ -401,18 +401,18 @@ describe("subscription access through the full API", () => {
     });
     expect((await create()).statusCode).toBe(201);
     expect((await account()).json().usage.sessions.used).toBe(3);
-    const supporter = await app.inject({
+    const pro = await app.inject({
       method: "POST",
       url: "/v1/billing/change",
       headers: auth.authHeader,
-      payload: { tier: "supporter", interval: "month" },
+      payload: { tier: "pro", interval: "month" },
     });
-    expect(supporter.statusCode).toBe(409);
+    expect(pro.statusCode).toBe(409);
     expect(
       (
         await app.inject({
           method: "GET",
-          url: "/v1/billing/supporter",
+          url: "/v1/billing/pro",
           headers: auth.authHeader,
         })
       ).statusCode,

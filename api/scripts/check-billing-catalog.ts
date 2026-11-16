@@ -3,13 +3,13 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { z } from 'zod';
-import { billingPricesSchema } from '../src/modules/billing/prices.js';
+import { billingPricesSchema, tierEnvironmentMigrationError } from '../src/modules/billing/prices.js';
 
 export const expectedProducts = [
-  { key: 'POLAR_PLUS_MONTHLY_PRODUCT_ID', tier: 'plus', interval: 'month', priceKey: 'PRO_MONTHLY_PRICE_CENTS' },
-  { key: 'POLAR_PLUS_YEARLY_PRODUCT_ID', tier: 'plus', interval: 'year', priceKey: 'PRO_YEARLY_PRICE_CENTS' },
-  { key: 'POLAR_SUPPORTER_MONTHLY_PRODUCT_ID', tier: 'supporter', interval: 'month', priceKey: 'SUPPORTER_MONTHLY_PRICE_CENTS' },
-  { key: 'POLAR_SUPPORTER_YEARLY_PRODUCT_ID', tier: 'supporter', interval: 'year', priceKey: 'SUPPORTER_YEARLY_PRICE_CENTS' },
+  { key: 'POLAR_PLUS_MONTHLY_PRODUCT_ID', tier: 'plus', interval: 'month', priceKey: 'PLUS_MONTHLY_PRICE_CENTS' },
+  { key: 'POLAR_PLUS_YEARLY_PRODUCT_ID', tier: 'plus', interval: 'year', priceKey: 'PLUS_YEARLY_PRICE_CENTS' },
+  { key: 'POLAR_PRO_MONTHLY_PRODUCT_ID', tier: 'pro', interval: 'month', priceKey: 'PRO_MONTHLY_PRICE_CENTS' },
+  { key: 'POLAR_PRO_YEARLY_PRODUCT_ID', tier: 'pro', interval: 'year', priceKey: 'PRO_YEARLY_PRICE_CENTS' },
 ] satisfies Array<{ key: string; tier: string; interval: string; priceKey: keyof z.infer<typeof billingPricesSchema> }>;
 
 const ProductSchema = z.object({
@@ -38,6 +38,8 @@ export async function checkBillingCatalog(
   source: NodeJS.ProcessEnv,
   fetchProduct: FetchProduct,
 ): Promise<Report> {
+  const migrationError = tierEnvironmentMigrationError(source);
+  if (migrationError) return { ok: false, lines: [`catalog: ${migrationError}; no requests made`] };
   const configuredPrices = billingPricesSchema.safeParse(source);
   if (!configuredPrices.success) return { ok: false, lines: ['catalog: prices must be positive integer USD cents; no requests made'] };
   const lines: string[] = [];

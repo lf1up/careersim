@@ -10,9 +10,9 @@ All tiers include this shared benefit on pricing and account pages:
 
 ## Release status and gates
 
-`BILLING_ENABLED` defaults to false and controls new purchases for both paid tiers. Supporter checkout is available when billing is enabled, both Supporter products are configured, and a private channel is configured.
+`BILLING_ENABLED` defaults to false and controls new purchases for both paid tiers. Pro checkout is available when billing is enabled, both Pro products are configured, and a private channel is configured.
 
-Supporter provides its published usage limits, shared Creator plugin access, and these additional benefits:
+Pro provides its published usage limits, shared Creator plugin access, and these additional benefits:
 
 - Guidance and support from the development team
 - Chat directly with the developers
@@ -28,7 +28,7 @@ Configure and test the private channel and manual membership procedure. Do not s
 | Signed public webhook delivery, replay and catch-up | Not observed against Polar | Block paid checkout |
 | Portal next-period changes for every tier/interval pair | Not observed; self-service switching stays disabled | Keep contact fallback; do not enable switching |
 | Provider dispute signal or tested dashboard-to-local suspension | Not observed against Polar | Block paid checkout until a working suspension path is tested |
-| Supporter private channel and membership controls | No channel/membership evidence recorded | Block Supporter purchase |
+| Pro private channel and membership controls | No channel/membership evidence recorded | Block Pro purchase |
 | Configured self-hosted LiveKit end-to-end checks | Not observed in this task | Block paid voice claims until verified |
 | Deployment destination, secret configuration, release artifacts | Not deployed by this task | Perform only in an authorized release |
 
@@ -40,12 +40,12 @@ Use four distinct server-only allowlisted product UUIDs. Free has no product. Ke
 
 | Product setting | Tier | Price setting | Default USD cents | Interval | Count |
 | --- | --- | --- | ---: | --- | ---: |
-| `POLAR_PLUS_MONTHLY_PRODUCT_ID` | Plus | `PRO_MONTHLY_PRICE_CENTS` | 900 | `month` | 1 |
-| `POLAR_PLUS_YEARLY_PRODUCT_ID` | Plus | `PRO_YEARLY_PRICE_CENTS` | 9000 | `year` | 1 |
-| `POLAR_SUPPORTER_MONTHLY_PRODUCT_ID` | Supporter | `SUPPORTER_MONTHLY_PRICE_CENTS` | 4900 | `month` | 1 |
-| `POLAR_SUPPORTER_YEARLY_PRODUCT_ID` | Supporter | `SUPPORTER_YEARLY_PRICE_CENTS` | 49000 | `year` | 1 |
+| `POLAR_PLUS_MONTHLY_PRODUCT_ID` | Plus | `PLUS_MONTHLY_PRICE_CENTS` | 900 | `month` | 1 |
+| `POLAR_PLUS_YEARLY_PRODUCT_ID` | Plus | `PLUS_YEARLY_PRICE_CENTS` | 9000 | `year` | 1 |
+| `POLAR_PRO_MONTHLY_PRODUCT_ID` | Pro | `PRO_MONTHLY_PRICE_CENTS` | 4900 | `month` | 1 |
+| `POLAR_PRO_YEARLY_PRODUCT_ID` | Pro | `PRO_YEARLY_PRICE_CENTS` | 49000 | `year` | 1 |
 
-Price settings are positive integer USD cents, up to 2,147,483,647. Omitted settings use the defaults above. The API catalog and read-only catalog audit share these settings. Configure the same amounts on the corresponding Polar products before enabling purchases; changing an environment value does not change a Polar product's charge. The `PRO_*` price names map to the Plus tier, matching its existing paid-limit settings.
+Price settings are positive integer USD cents, up to 2,147,483,647. Omitted settings use the defaults above. The API catalog and read-only catalog audit share these settings. Configure the same amounts on the corresponding Polar products before enabling purchases; changing an environment value does not change a Polar product's charge. The `PLUS_*` price names map to the Plus tier, matching its existing paid-limit settings.
 
 Configure a single active fixed USD price per product, recurring billing, no trial, and explicit `exclusive` tax behavior. Listed prices are before applicable checkout taxes. `location` and `inclusive` do not satisfy that contract; the catalog check rejects both. See Polar's [product configuration](https://polar.sh/docs/api-reference/products/create) and [checkout tax behavior](https://polar.sh/docs/api-reference/checkouts/get-session). Verify actual buyer-country checkout presentation before launch. Do not infer tax handling from a product display name or an organization default.
 
@@ -61,6 +61,36 @@ The command reads `POLAR_ENVIRONMENT`, `POLAR_ACCESS_TOKEN`, the four product va
 
 A passing audit confirms product configuration only. Run it again against the explicitly selected production environment during the authorized release, with the production mappings, before purchases are enabled.
 
+## Breaking configuration and API rename
+
+The tiers are `free`, `plus`, and `pro`. Plus remains the middle tier. The former Supporter tier becomes Pro. This is a breaking configuration and API rename, with no compatibility aliases. An old `PRO_*` value means Plus in the previous release and Pro in this release.
+
+| Previous name | Current name | Meaning |
+| --- | --- | --- |
+| `PRO_*` usage limits and prices | `PLUS_*` usage limits and prices | Preserve the existing Plus values |
+| `SUPPORTER_*` usage limits and prices | `PRO_*` usage limits and prices | Preserve the former Supporter values for Pro |
+| `POLAR_SUPPORTER_MONTHLY_PRODUCT_ID` | `POLAR_PRO_MONTHLY_PRODUCT_ID` | Keep the same monthly product UUID |
+| `POLAR_SUPPORTER_YEARLY_PRODUCT_ID` | `POLAR_PRO_YEARLY_PRODUCT_ID` | Keep the same yearly product UUID |
+| `SUPPORTER_CHANNEL_URL` | `PRO_CHANNEL_URL` | Keep the same private channel |
+| Tier ID `supporter` | Tier ID `pro` | Rename stored and API tier values |
+| API field `supporterAccess` | API field `proAccess` | Verified access to Pro benefits |
+| `GET /billing/supporter` | `GET /billing/pro` | Authenticated private-channel instructions |
+| Contact reason `supporter` | Contact reason `pro` | Personal Pro support requests |
+
+The API and read-only catalog audit reject legacy `SUPPORTER_*` and `POLAR_SUPPORTER_*` settings, including blank entries, rather than silently applying old Plus settings to the new Pro tier. Remove those old keys after remapping their values.
+
+The usage-limit suffixes are `SESSIONS_CREATE_MAX`, `CHAT_MESSAGES_MAX`, `CUSTOM_SIMULATIONS_MAX`, `CUSTOM_PERSONAS_MAX`, and `VOICE_DAILY_MINUTES_PER_USER`. The price suffixes are `MONTHLY_PRICE_CENTS` and `YEARLY_PRICE_CENTS`. `POLAR_PLUS_MONTHLY_PRODUCT_ID`, `POLAR_PLUS_YEARLY_PRODUCT_ID`, and the `plus` tier ID stay unchanged. API paths above use the deployment's configured version prefix.
+
+1. Keep `BILLING_ENABLED=false` and `NEXT_PUBLIC_PRICING_ENABLED=false` during the transition. Back up the production database and deployed configuration.
+2. Move every old `PRO_*` limit and price to its matching `PLUS_*` name first. Remove the old entries before assigning the new Pro values.
+3. Move the former `SUPPORTER_*` limits, prices, and channel setting to `PRO_*`. Rename the two `POLAR_SUPPORTER_*_PRODUCT_ID` keys to `POLAR_PRO_*_PRODUCT_ID`, retaining their exact UUID values.
+4. Save the remapped production environment as one atomic configuration update before deployment, preserving every configured value.
+5. Stop old API writers before applying migration `0012`. The migration changes `supporter` to `pro` in `billing_customers.snapshot` at `choice.tier` and `pendingChange.choice.tier`, and in `checkout_attempts.tier`.
+6. Deploy the compatible API, web, worker, and plugin release together. Update API consumers to `proAccess` and `/billing/pro` in the same release. Old clients and servers do not understand this contract. Do not restart old writers against migrated data.
+7. Verify existing Plus and Pro accounts, pending checkouts, current subscriptions, and private-channel access before reopening purchases.
+
+Keep existing Polar product UUIDs, customer mappings, and live subscriptions. Do not recreate products or subscriptions to rename tiers. Rename merchant product display names separately in Polar, preserving prices, intervals, and subscriptions. A display-name change alone does not change entitlement mapping. Rollback requires code, configuration, and stored tier values that agree on the same contract.
+
 ## Configuration and active deployment path
 
 `docker-compose.local.yml` is the current local Fastify deployment path. Its `api` service loads `api/.env` and overrides database/Redis/agent hostnames and `API_VERSION_PREFIX=v1`. The current bare-container API default has no version prefix. Register the webhook with the actual externally routed prefix, rather than assuming `/v1` everywhere. The web API base URL and voice worker prefix must match.
@@ -74,16 +104,16 @@ The old `infrastructure/k8s/base/backend-deployment.yaml` and legacy AWS infrast
 | `POLAR_ACCESS_TOKEN` | Server-only token with required checkout/customer/subscription/order/dispute reads and operations. Use least privilege supported by Polar; never expose through `NEXT_PUBLIC_*`. |
 | `POLAR_WEBHOOK_SECRET` | Server-only signing secret for this environment's webhook endpoint. |
 | Four `POLAR_*_PRODUCT_ID` values | Exact mappings above; never accept arbitrary IDs from the browser. |
-| `SUPPORTER_CHANNEL_URL` | Private channel URL, exposed only to verified Supporters. A hidden URL alone does not enforce membership. |
+| `PRO_CHANNEL_URL` | Private channel URL, exposed only to verified Pro subscribers. A hidden URL alone does not enforce membership. |
 | `BILLING_CONTACT_URL` | Higher-limit and unavailable-plan contact destination, normally `/contact`. |
 | `REDIS_URL` | Shared quota counters required for multiple API instances. Use persistent Redis and retain keys through their quota window. |
 | Free limit and window settings | Preserve deployed unprefixed overrides. Default session/message windows are six hours. |
-| Five `PRO_*` limit settings | Plus usage caps, shown below. |
-| Five `SUPPORTER_*` limit settings | Independent Supporter usage caps, shown below. |
+| Five `PLUS_*` limit settings | Plus usage caps, shown below. |
+| Five `PRO_*` limit settings | Independent Pro usage caps, shown below. |
 
 Defaults for each tier are:
 
-| Limit | Plus (`PRO_`) | Supporter (`SUPPORTER_`) |
+| Limit | Plus (`PLUS_`) | Pro (`PRO_`) |
 | --- | ---: | ---: |
 | `SESSIONS_CREATE_MAX` | 100 | 200 |
 | `CHAT_MESSAGES_MAX` | 3000 | 6000 |
@@ -91,7 +121,7 @@ Defaults for each tier are:
 | `CUSTOM_PERSONAS_MAX` | 250 | 500 |
 | `VOICE_DAILY_MINUTES_PER_USER` | 360 | 720 |
 
-Each setting combines its tier prefix with the limit name, for example `SUPPORTER_CHAT_MESSAGES_MAX=6000`. Values must be positive safe integers within storage bounds and at least the effective Free caps. Tier overrides are independent. Monthly and yearly billing use the same limits within each tier. A zero unlimited Free voice cap is incompatible with finite paid quotas. Voice resets at midnight UTC. Custom simulation/persona caps count owned, non-deleted inventory including drafts, rather than monthly creation credits.
+Each setting combines its tier prefix with the limit name, for example `PRO_CHAT_MESSAGES_MAX=6000`. Values must be positive safe integers within storage bounds and at least the effective Free caps. Tier overrides are independent. Monthly and yearly billing use the same limits within each tier. A zero unlimited Free voice cap is incompatible with finite paid quotas. Voice resets at midnight UTC. Custom simulation/persona caps count owned, non-deleted inventory including drafts, rather than monthly creation credits.
 
 Quota-storage failures must block new expensive work with a retryable error. Burst limiter fallback is not permission to bypass subscription quotas. Catastrophic Redis data loss can reset a window; these counters are application limits, not a financial ledger. Retain saved records through downgrade, and block only new inventory until the owner is below the effective cap.
 
@@ -129,13 +159,13 @@ For stale state, first verify the configured environment and the user's immutabl
 
 Refunds, cancellations, revocations and dispute handling are payment operations requiring the corresponding release/operator authorization. After an authorized provider action, refresh authoritative local state, verify the affected order/period and confirm quota access. Preserve an audit record without payment credentials. Cancellation is not a substitute for an immediate dispute suspension.
 
-Self-service tier and interval changes stay unavailable until sandbox proves the adapter can schedule one combined replacement with `next_period` and no proration or overlapping subscription. Test monthly-to-yearly, yearly-to-monthly and every tier transition. Confirm the next full charge and effective date before confirmation, preserve current benefits through the paid period, and retain the contact fallback for unsupported combinations. Configure the Polar organization portal policy for `next_period`; customer session creation cannot force that policy. Disable portal product switching while sandbox validation is missing or Supporter products and channel are not configured. Portal access for invoices, payment methods and cancellation must remain available to existing subscribers when new purchases are disabled.
+Self-service tier and interval changes stay unavailable until sandbox proves the adapter can schedule one combined replacement with `next_period` and no proration or overlapping subscription. Test monthly-to-yearly, yearly-to-monthly and every tier transition. Confirm the next full charge and effective date before confirmation, preserve current benefits through the paid period, and retain the contact fallback for unsupported combinations. Configure the Polar organization portal policy for `next_period`; customer session creation cannot force that policy. Disable portal product switching while sandbox validation is missing or Pro products and channel are not configured. Portal access for invoices, payment methods and cancellation must remain available to existing subscribers when new purchases are disabled.
 
-## Manual Supporter membership
+## Manual Pro membership
 
-Do not send invitations during implementation. Before enabling Supporter, choose a private channel with actual membership controls and an operator responsible for the initial cohort.
+Do not send invitations during implementation. Before enabling Pro, choose a private channel with actual membership controls and an operator responsible for the initial cohort.
 
-1. Check the authenticated user's verified Supporter entitlement and current paid/grace deadline in CareerSIM. A forwarded link, checkout screenshot or email address is insufficient.
+1. Check the authenticated user's verified Pro entitlement and current paid/grace deadline in CareerSIM. A forwarded link, checkout screenshot or email address is insufficient.
 2. Match the channel identity to the immutable user UUID using an authenticated support exchange. Record only the minimum identity mapping in the operator's restricted log.
 3. Grant membership manually, record the verified period and provide the configured channel instructions. Honor the four benefit lines above without promising equity, a veto, guaranteed delivery or a fixed response-time SLA.
 4. Review membership on entitlement changes and on a regular operator schedule. Remove access promptly after expiry, revocation, full current-period refund or open/lost dispute. Cancellation alone retains membership through paid-through.
@@ -144,12 +174,12 @@ Do not send invitations during implementation. Before enabling Supporter, choose
 ## Rollout and rollback
 
 1. Back up Postgres and verify additive migration execution on the release database. Keep `BILLING_ENABLED=false`.
-2. Apply billing/voice schema migrations. Do not remove existing tables or saved records.
+2. Apply billing/voice schema migrations, including the tier-data rename, with the compatible release. Follow the [breaking rename procedure](#breaking-configuration-and-api-rename) when upgrading existing configuration. Do not remove existing tables or saved records.
 3. Build the compatible host extension contract and creator source revision together. Record both repository SHAs. Never patch `extensions/installed` generated copies as the source change. Test production builds with plugins enabled and disabled.
 4. Release the compatible API, agent voice worker and web artifacts. Verify shared Redis and runtime reconciliation, signed raw-body webhooks and immutable UUID mapping. Keep checkout disabled while existing paid-state processing operates.
 5. Complete the sandbox matrix, local verification and privacy-safe browser evidence below. Verify LiveKit against its configured self-hosted endpoint, not only a mocked client.
 6. During the authorized release, audit the separate production product mappings and enable purchases with `BILLING_ENABLED=true` after verifying the configured paid tiers.
-7. Verify Supporter private membership controls and checkout for both intervals. No separate Supporter launch flag is required.
+7. Verify Pro private membership controls and checkout for both intervals. No separate Pro launch flag is required.
 
 During an incident, disable new purchases with `BILLING_ENABLED=false`. Keep entitlement resolution, signed event processing, reconciliation and existing-customer portal access running. This kill switch must not downgrade existing subscribers. Roll back only to a build that understands stored billing entitlements and the compatible plugin contract. Keep migrations additive; do not drop the billing/voice tables or restore code that collects payments but ignores access. If compatible rollback is unavailable, hold checkout closed and forward-fix.
 
@@ -171,11 +201,11 @@ For each row, record date, sandbox environment, host/plugin revisions, command o
 | Full current-period, partial and historical refunds | Only current fully refunded access revoked | Not run against Polar |
 | Open, won and lost dispute | Suspend/restore/revoke the correct paid period | Blocked until real signal or local suspension path tested |
 | Two tabs and duplicate provider subscription | Pending checkout reused/conflict; no summed entitlement | Not run against Polar |
-| Portal after purchase kill switch | Existing invoices/payment/cancellation work; gated Supporter unreachable | Not run against Polar |
+| Portal after purchase kill switch | Existing invoices/payment/cancellation work; gated Pro unreachable | Not run against Polar |
 
 Run the full API suite, typecheck and lint; web suite, typecheck and lint; creator source suite/typecheck; the planned Python voice suites; and enabled/disabled plugin production builds. The task coordinator records exact local outputs and limitations. Deterministic integration tests should use a real isolated DB/Redis and test-only credentials, not a live charge.
 
-Inspect pricing/account/contact at desktop/mobile widths in light/dark mode, keyboard navigation, both intervals and all three tiers. Capture all five visible limits, four Supporter benefit lines, clear annual total and renewal terms, unavailable-action explanation and personal contact without company. Intercept the contact destination rather than emailing a real recipient. Never include card/customer data in screenshots.
+Inspect pricing/account/contact at desktop/mobile widths in light/dark mode, keyboard navigation, both intervals and all three tiers. Capture all five visible limits, four Pro benefit lines, clear annual total and renewal terms, unavailable-action explanation and personal contact without company. Intercept the contact destination rather than emailing a real recipient. Never include card/customer data in screenshots.
 
 The configured LiveKit check must cover a call surviving initial token expiry, reconnect, one-active-call enforcement, worker/API failure cutoff within documented bounds, delayed deduplicated checkpoints and injected UTC rollover. See [VOICE_MODE.md](../VOICE_MODE.md) for token, checkpoint and cutoff settings. A Python unit test alone does not establish the deployed reconnect path.
 

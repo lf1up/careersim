@@ -3,10 +3,11 @@ import { afterEach, expect, it, vi } from 'vitest';
 vi.mock('@/components/auth/AltchaWidget', () => ({ AltchaWidget: ({ onVerified }: { onVerified: (value: string) => void }) => <button type="button" onClick={() => onVerified('proof')}>Verify human</button> }));
 import { ContactForm } from './ContactForm';
 afterEach(() => vi.unstubAllGlobals());
-it('sends personal contact without company using shared CAPTCHA endpoint', async () => {
+it.each(['higher-limits', 'pro'] as const)('sends a %s personal contact without company using shared CAPTCHA endpoint', async (reason) => {
   const fetcher = vi.fn().mockResolvedValue(Response.json({ ok: true }));
   vi.stubGlobal('fetch', fetcher);
-  render(<ContactForm reason="higher-limits" />);
+  render(<ContactForm reason={reason} />);
+  expect(screen.getByLabelText('Reason')).toHaveValue(reason);
   expect(screen.getByRole('textbox', { name: /Company/ })).not.toBeRequired();
   expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Sam' } });
@@ -18,7 +19,7 @@ it('sends personal contact without company using shared CAPTCHA endpoint', async
   const [url, init] = fetcher.mock.calls[0];
   expect(url).toBe('/api/contact');
   expect(init.body.get('audience')).toBe('personal');
-  expect(init.body.get('reason')).toBe('higher-limits');
+  expect(init.body.get('reason')).toBe(reason);
   expect(init.body.get('altcha')).toBe('proof');
 });
 it('shows delivery failure and requires a new human check', async () => {

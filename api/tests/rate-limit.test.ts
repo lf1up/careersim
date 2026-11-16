@@ -92,7 +92,7 @@ describe('rate limiting', () => {
   });
 
   it('changes ceilings without resetting the session and text counters', async () => {
-    let current: Entitlement = { tier: 'free', reason: 'free', supporterAccess: false, limits: {
+    let current: Entitlement = { tier: 'free', reason: 'free', proAccess: false, limits: {
       sessionsCreateMax: 1, sessionsWindowMs: 21600000, chatMessagesMax: 1, chatWindowMs: 21600000,
       customSimulationsMax: 3, customPersonasMax: 10, voiceDailyMinutes: 60,
     } };

@@ -120,11 +120,11 @@ repo-level [VOICE_MODE.md](../VOICE_MODE.md) for the end-to-end picture.
 
 ## 💳 Subscriptions and account usage
 
-`/pricing` reads the API's Free, Plus, and Supporter catalog, including monthly/yearly prices and five independent limits. `/billing` reads effective access, renewal/cancellation status, and usage. Session starts and text messages use separate configured windows. Custom simulations and personas count current owned inventory; voice resets at midnight UTC. The API enforces these limits across billing intervals and tier changes.
+`/pricing` reads the API's Free, Plus, and Pro catalog, including monthly/yearly prices and five independent limits. `/billing` reads effective access, renewal/cancellation status, and usage. Session starts and text messages use separate configured windows. Custom simulations and personas count current owned inventory; voice resets at midnight UTC. The API enforces these limits across billing intervals and tier changes.
 
-`NEXT_PUBLIC_PRICING_ENABLED` is off by default. Enabling it exposes `/pricing` and pricing links; it does not enable purchases. The API independently requires `BILLING_ENABLED=true` and provider configuration. When pricing is hidden, account status and payment management remain available. Supporter availability comes from the API catalog, including its product and private-channel configuration.
+`NEXT_PUBLIC_PRICING_ENABLED` is off by default. Enabling it exposes `/pricing` and pricing links; it does not enable purchases. The API independently requires `BILLING_ENABLED=true` and provider configuration. When pricing is hidden, account status and payment management remain available. Pro availability comes from the API catalog, including its product and private-channel configuration.
 
-Checkout and payment management use hosted Polar pages. The return page refreshes provider state and can show confirmation pending; a return URL does not prove payment. Self-service plan changes are disabled, so the UI offers contact instead. Supporter instructions are fetched only for eligible accounts. API responses provide all prices and caps; the web app does not maintain a separate pricing table. See the [billing runbook](../docs/BILLING.md) for configuration and provider verification.
+Checkout and payment management use hosted Polar pages. The return page refreshes provider state and can show confirmation pending; a return URL does not prove payment. Self-service plan changes are disabled, so the UI offers contact instead. Pro instructions are fetched from `/billing/pro` only for eligible accounts with `proAccess`. API responses provide all prices and caps; the web app does not maintain a separate pricing table. See the [billing runbook](../docs/BILLING.md) for configuration and provider verification.
 
 ## 🔌 Optional plugin pages
 

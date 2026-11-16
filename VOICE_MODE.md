@@ -41,8 +41,8 @@ flowchart TD
 ### Daily budgets and runtime cutoff
 
 Free uses the configured `VOICE_DAILY_MINUTES_PER_USER` (default **60**).
-Plus uses `PRO_VOICE_DAILY_MINUTES_PER_USER` (default **720**), and
-Supporter uses `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER` (default **1440**).
+Plus uses `PLUS_VOICE_DAILY_MINUTES_PER_USER` (default **360**), and
+Pro uses `PRO_VOICE_DAILY_MINUTES_PER_USER` (default **720**).
 Monthly and yearly plans share the daily counters and limits for their tier.
 The API resolves current entitlements on every checkpoint; an
 upgrade raises the ceiling and a downgrade reuses the consumed seconds.

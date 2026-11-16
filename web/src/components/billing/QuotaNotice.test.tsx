@@ -4,11 +4,11 @@ vi.mock('@/lib/billing', () => ({ getBillingAccount: vi.fn().mockResolvedValue({
 import { QuotaNotice } from './QuotaNotice';
 beforeEach(() => vi.stubEnv('NEXT_PUBLIC_PRICING_ENABLED', 'true'));
 afterEach(() => vi.unstubAllEnvs());
-it('offers paid users contact after a cap without a Supporter upsell', () => {
+it('offers paid users contact after a cap without a Pro upsell', () => {
   render(<QuotaNotice error={{ payload: { error: 'RATE_LIMITED', quotaKind: 'messages', tier: 'plus', message: 'Text allowance reached.', resetsAt: '2026-11-10T18:00:00Z' } }} />);
   expect(screen.getByText('Text allowance reached.')).toBeVisible();
   expect(screen.getByRole('link', { name: 'Need higher limits? Contact us to discuss your needs.' })).toHaveAttribute('href', '/contact?reason=higher-limits');
-  expect(screen.queryByText(/Supporter/)).toBeNull();
+  expect(screen.queryByText(/Pro/)).toBeNull();
   expect(screen.getByText(/UTC/)).toBeVisible();
 });
 it('preserves the Free reset and Plus upgrade path', () => {

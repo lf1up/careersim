@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { RetroInput } from '@/components/ui/RetroInput';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 
-export type ContactReason = 'general' | 'higher-limits' | 'supporter';
+export type ContactReason = 'general' | 'higher-limits' | 'pro';
 
 export function ContactForm({ reason }: { reason: ContactReason }) {
   const [proof, setProof] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function ContactForm({ reason }: { reason: ContactReason }) {
         <select name="reason" defaultValue={reason} className="w-full border-2 border-black bg-white p-3 text-black dark:bg-retro-surface-dark dark:text-retro-ink-dark dark:border-retro-ink-dark">
           <option value="general">General question</option>
           <option value="higher-limits">Higher limits</option>
-          <option value="supporter">Supporter question</option>
+          <option value="pro">Pro question</option>
         </select>
       </label>
       <label className="block space-y-2 text-sm font-semibold">Message
@@ -61,7 +61,7 @@ export function ContactForm({ reason }: { reason: ContactReason }) {
       <div hidden aria-hidden="true"><label>Website<input name="website" autoComplete="off" tabIndex={-1} /></label></div>
       <AltchaWidget challengeUrl="/api/altcha-challenge" onVerified={setProof} onReset={() => setProof(null)} handleRef={captcha} />
       {error && <RetroAlert tone="error" title="Could not send">{error}</RetroAlert>}
-      <p className="text-sm text-secondary-600 dark:text-secondary-400">A contact request does not change your plan or limits. A Supporter question does not verify membership.</p>
+      <p className="text-sm text-secondary-600 dark:text-secondary-400">A contact request does not change your plan or limits. A Pro question does not verify membership.</p>
       <Button type="submit" disabled={!proof || busy} isLoading={busy}>Send message</Button>
     </form>
   );

@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ApiError } from '@/lib/api';
 import { isPricingEnabled } from '@/lib/pricing';
-import { getBillingAccount, refreshBillingAccount, createBillingPortal, scheduleBillingChange, getSupporterAccess, fetchPlanCatalog, money, windowLabel, type BillingAccount, type BillingChoice, type PlanCatalogResponse } from '@/lib/billing';
+import { getBillingAccount, refreshBillingAccount, createBillingPortal, scheduleBillingChange, getProAccess, fetchPlanCatalog, money, windowLabel, type BillingAccount, type BillingChoice, type PlanCatalogResponse } from '@/lib/billing';
 import { RetroCard } from '@/components/ui/RetroCard';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 import { Button } from '@/components/ui/Button';
 
-const supporterBenefits = ['Guidance and support from the development team', 'Chat directly with the developers', "Help decide the project's future together", 'Early access to upcoming features, including MCP and API access'];
+const proBenefits = ['Guidance and support from the development team', 'Chat directly with the developers', "Help decide the project's future together", 'Early access to upcoming features, including MCP and API access'];
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(value));
 }
@@ -26,7 +26,7 @@ function statusLabel(account: BillingAccount): string {
 export function BillingPanel() {
   const [account, setAccount] = useState<BillingAccount | null>(null);
   const [catalog, setCatalog] = useState<PlanCatalogResponse | null>(null);
-  const [channel, setChannel] = useState<Awaited<ReturnType<typeof getSupporterAccess>> | null>(null);
+  const [channel, setChannel] = useState<Awaited<ReturnType<typeof getProAccess>> | null>(null);
   const [channelError, setChannelError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lostAuth, setLostAuth] = useState(false);
@@ -52,7 +52,7 @@ export function BillingPanel() {
     if (!mounted.current) return;
     currentTier.current = latest.tier;
     setAccount(latest);
-    if (!latest.supporterAccess || latest.tier !== 'supporter') {
+    if (!latest.proAccess || latest.tier !== 'pro') {
       setChannel(null);
       setChannelError(null);
     }
@@ -64,7 +64,7 @@ export function BillingPanel() {
     mounted.current = true;
     void getBillingAccount().then(result => {
       if (!mounted.current) return;
-      setNextChoice({ tier: result.tier === 'supporter' ? 'supporter' : 'plus', interval: result.interval ?? 'month' });
+      setNextChoice({ tier: result.tier === 'pro' ? 'pro' : 'plus', interval: result.interval ?? 'month' });
       return accept(result);
     }).catch(handleFailure);
     void fetchPlanCatalog().then(value => { if (mounted.current) setCatalog(value); }).catch(() => {});
@@ -86,11 +86,11 @@ export function BillingPanel() {
 
   useEffect(() => {
     let canceled = false;
-    if (account?.supporterAccess && account.tier === 'supporter') {
-      void getSupporterAccess().then(value => { if (!canceled) { setChannel(value); setChannelError(null); } }).catch(failure => {
+    if (account?.proAccess && account.tier === 'pro') {
+      void getProAccess().then(value => { if (!canceled) { setChannel(value); setChannelError(null); } }).catch(failure => {
         if (canceled) return;
         if (failure instanceof ApiError && failure.status === 401) handleFailure(failure);
-        else setChannelError('Supporter access could not be verified. Refresh billing or contact us for help.');
+        else setChannelError('Pro access could not be verified. Refresh billing or contact us for help.');
       });
     }
     return () => { canceled = true; };
@@ -123,12 +123,12 @@ export function BillingPanel() {
       {notice && <p role="status">{notice}</p>}
       {account && !lostAuth && <>
         <div className="space-y-2" aria-live="polite">
-          <p className="font-retro text-lg">{account.tier === 'free' ? 'Free' : account.tier === 'plus' ? 'Plus' : 'Supporter'}</p>
+          <p className="font-retro text-lg">{account.tier === 'free' ? 'Free' : account.tier === 'plus' ? 'Plus' : 'Pro'}</p>
           <p>{statusLabel(account)}</p>
           <ul className="list-disc pl-5 text-sm"><li>Creator plugin access for custom personas and simulations</li></ul>
           {account.interval && <p>Current billing: {account.interval === 'year' ? 'Yearly' : 'Monthly'}</p>}
           {account.accessThrough && <p>{account.reason === 'grace' ? 'Grace access through' : 'Paid access through'} {dateLabel(account.accessThrough)} UTC.{account.reason === 'paid' && account.renews && !account.cancelAtPeriodEnd ? ' Renewal is automatic.' : ''}</p>}
-          {account.pendingChange && <p>Scheduled: {account.pendingChange.choice.tier === 'plus' ? 'Plus' : 'Supporter'}, {account.pendingChange.choice.interval === 'year' ? 'yearly' : 'monthly'} on {dateLabel(account.pendingChange.effectiveAt)} UTC.</p>}
+          {account.pendingChange && <p>Scheduled: {account.pendingChange.choice.tier === 'plus' ? 'Plus' : 'Pro'}, {account.pendingChange.choice.interval === 'year' ? 'yearly' : 'monthly'} on {dateLabel(account.pendingChange.effectiveAt)} UTC.</p>}
         </div>
         <section aria-label="Practice allowances" className="space-y-3 border-y-2 border-black/20 dark:border-white/20 py-4">
           <h3 className="font-semibold">Practice allowances</h3>
@@ -149,16 +149,16 @@ export function BillingPanel() {
         </div>
         {account.interval && (account.planChangesAvailable && catalog ? <section aria-label="Change plan" className="space-y-3">
           <h3 className="font-semibold">Next renewal</h3>
-          <label className="block text-sm">Next plan<select className="block w-full p-2 border-2 border-black bg-white text-black" value={nextChoice.tier} onChange={event => setNextChoice({ ...nextChoice, tier: event.target.value === 'supporter' ? 'supporter' : 'plus' })}>{catalog.plans.filter(plan => plan.tier !== 'free').map(plan => <option key={plan.tier} value={plan.tier} disabled={plan.availability !== 'available'}>{plan.name}{plan.availability !== 'available' ? ' (unavailable)' : ''}</option>)}</select></label>
+          <label className="block text-sm">Next plan<select className="block w-full p-2 border-2 border-black bg-white text-black" value={nextChoice.tier} onChange={event => setNextChoice({ ...nextChoice, tier: event.target.value === 'pro' ? 'pro' : 'plus' })}>{catalog.plans.filter(plan => plan.tier !== 'free').map(plan => <option key={plan.tier} value={plan.tier} disabled={plan.availability !== 'available'}>{plan.name}{plan.availability !== 'available' ? ' (unavailable)' : ''}</option>)}</select></label>
           <label className="block text-sm">Next billing interval<select className="block w-full p-2 border-2 border-black bg-white text-black" value={nextChoice.interval} onChange={event => setNextChoice({ ...nextChoice, interval: event.target.value === 'year' ? 'year' : 'month' })}><option value="month">Monthly</option><option value="year">Yearly</option></select></label>
           {account.paidThrough && chosenPrice && <p className="text-sm">Changes take effect on {dateLabel(account.paidThrough)} UTC. Your next full charge is {money(chosenPrice.amountCents)} USD, before applicable taxes, {nextChoice.interval === 'year' ? 'billed yearly and auto-renewing each year' : 'billed monthly and auto-renewing each month'}. Current benefits continue until then.</p>}
           <Button disabled={!canChange || busy} onClick={change}>Schedule {chosenPlan?.name ?? 'plan'} {nextChoice.interval === 'year' ? 'yearly' : 'monthly'} for {money(chosenPrice?.amountCents ?? 0)}</Button>
         </section> : <p className="text-sm">For tier or billing interval changes, <Link href="/contact?reason=general" className="underline">contact us</Link>. Your current paid period stays in place.</p>)}
-        <section aria-label="Supporter benefits" className="space-y-3 border-t-2 border-black/20 dark:border-white/20 pt-5">
-          <h3 className="font-semibold">Supporter</h3>
-          <ul className="list-disc pl-5 text-sm space-y-2">{supporterBenefits.map(benefit => <li key={benefit}>{benefit}</li>)}</ul>
-          {channel && account.supporterAccess ? <><p className="text-sm whitespace-pre-line">{channel.instructions}</p><a className="font-semibold underline" href={channel.channelUrl} target="_blank" rel="noopener noreferrer">Open Supporter channel</a></> : <p className="text-sm">The private channel is available after Supporter membership is verified.</p>}
-          {channelError && <p role="alert" className="text-sm">{channelError} <Link href="/contact?reason=supporter" className="underline">Contact the team</Link></p>}
+        <section aria-label="Pro benefits" className="space-y-3 border-t-2 border-black/20 dark:border-white/20 pt-5">
+          <h3 className="font-semibold">Pro</h3>
+          <ul className="list-disc pl-5 text-sm space-y-2">{proBenefits.map(benefit => <li key={benefit}>{benefit}</li>)}</ul>
+          {channel && account.proAccess ? <><p className="text-sm whitespace-pre-line">{channel.instructions}</p><a className="font-semibold underline" href={channel.channelUrl} target="_blank" rel="noopener noreferrer">Open Pro channel</a></> : <p className="text-sm">The private channel is available after Pro membership is verified.</p>}
+          {channelError && <p role="alert" className="text-sm">{channelError} <Link href="/contact?reason=pro" className="underline">Contact the team</Link></p>}
         </section>
         <p className="text-sm"><Link href="/contact?reason=higher-limits" className="font-semibold underline">Need higher limits? Contact us to discuss your needs.</Link></p>
       </>}
