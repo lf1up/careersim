@@ -1,0 +1,9 @@
+{
+  "name": "careersim-commitlint",
+  "private": true,
+  "packageManager": "pnpm@10.29.3",
+  "devDependencies": {
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4"
+  }
+}
