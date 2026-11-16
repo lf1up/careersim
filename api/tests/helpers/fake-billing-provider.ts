@@ -9,6 +9,7 @@ import type {
 export class FakeBillingProvider implements BillingProvider {
   snapshots = new Map<string, BillingSnapshot>();
   checkouts = new Map<string, ProviderCheckout>();
+  selectedChoices = new Map<string, BillingChoice>();
   created: Array<{ userId: string; choice: BillingChoice; attemptId: string }> =
     [];
   revoked: string[] = [];
@@ -32,6 +33,7 @@ export class FakeBillingProvider implements BillingProvider {
       expiresAt: new Date(Date.now() + 3_600_000),
     };
     this.checkouts.set(input.attemptId, result);
+    this.selectedChoices.set(result.id, input.choice);
     if (this.timeoutAfterCreate) {
       this.timeoutAfterCreate = false;
       throw new Error("Network timeout");
@@ -40,6 +42,20 @@ export class FakeBillingProvider implements BillingProvider {
   }
   async findCheckout(attemptId: string) {
     return this.checkouts.get(attemptId) ?? null;
+  }
+  async updateCheckout({
+    checkoutId,
+    choice,
+  }: {
+    checkoutId: string;
+    choice: BillingChoice;
+  }) {
+    const checkout = [...this.checkouts.values()].find(
+      (item) => item.id === checkoutId,
+    );
+    if (!checkout) throw new Error("Checkout not found");
+    this.selectedChoices.set(checkoutId, choice);
+    return checkout;
   }
   async createPortal(userId: string) {
     return { url: `https://polar.sh/portal/${userId}` };

@@ -242,17 +242,30 @@ export function createBillingService({
             .where(eq(billingCheckoutAttempts.attemptId, attempt.attemptId));
           continue;
         }
-        if (
-          attempt.tier !== choice.tier ||
-          attempt.interval !== choice.interval
-        )
-          return {
-            kind: "conflict",
-            error: conflict(
-              "billing_checkout_conflict",
-              "Finish or wait for the existing checkout before choosing another plan.",
-            ),
-          };
+        // Reapply even the same choice: a prior provider update may have succeeded
+        // before its response or our transaction was lost.
+        try {
+          checkout = await provider.updateCheckout({
+            checkoutId: checkout.id,
+            choice,
+          });
+        } catch (error) {
+          if (error instanceof HttpError) throw error;
+          throw new HttpError(
+            503,
+            "Checkout update is temporarily unavailable. Please retry.",
+            "billing_unavailable",
+          );
+        }
+        await tx
+          .update(billingCheckoutAttempts)
+          .set({
+            tier: choice.tier,
+            interval: choice.interval,
+            url: checkout.url,
+            expiresAt: checkout.expiresAt,
+          })
+          .where(eq(billingCheckoutAttempts.attemptId, attempt.attemptId));
         return { kind: "reuse", url: checkout.url };
       }
       const attemptId = randomUUID();

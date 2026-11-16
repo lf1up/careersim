@@ -139,6 +139,10 @@ Record configured event names, signed fixture replay outcomes and redacted real 
 
 ## Lifecycle and recovery
 
+Unpaid checkouts include every currently available paid product, with the requested plan and interval selected first. Returning from Polar and choosing another plan updates that same checkout under the account lock, so competing tabs share one payment session. Each retry reapplies the requested selection, including after a lost provider response. Once payment is processing, plan selection stays blocked until billing status is refreshed. Existing subscribers continue to use the billing portal.
+
+Polar only allows selecting products included when a checkout was created. Sessions created before this change contain one product and must expire before a different plan can be chosen. Newly enabled products also require a fresh session if they were absent from an existing checkout. An update failure never creates a replacement session while the original can still be paid. Verify plan and interval switching, payment-in-progress rejection, and response-loss recovery in sandbox before release.
+
 | Situation | Required access behavior | Operator check |
 | --- | --- | --- |
 | New account / unpaid initial checkout | Free, no grace | Checkout return remains pending until verified payment |

@@ -7,6 +7,7 @@ import type {
   PaidOrder,
 } from "./billing.schema.js";
 import {
+  buildPlanCatalog,
   choiceForProduct,
   productForChoice,
   type BillingConfig,
@@ -21,6 +22,10 @@ export interface BillingProvider {
     attemptId: string;
   }): Promise<{ id: string; url: string; expiresAt: Date }>;
   findCheckout(attemptId: string): Promise<ProviderCheckout | null>;
+  updateCheckout(input: {
+    checkoutId: string;
+    choice: BillingChoice;
+  }): Promise<ProviderCheckout>;
   createPortal(userId: string): Promise<{ url: string }>;
   scheduleChange(input: {
     subscriptionId: string;
@@ -178,8 +183,17 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
     async createCheckout({ userId, choice, attemptId }) {
       const product = productForChoice(config, choice);
       if (!product) throw new Error("Product is not configured");
+      const alternatives = buildPlanCatalog(config).plans.flatMap(
+        ({ tier, availability, prices }) =>
+          tier !== "free" && availability === "available"
+            ? prices.map(({ interval }) =>
+                productForChoice(config, { tier, interval }),
+              )
+            : [],
+      );
       const result = await polar.checkouts.create({
-        products: [product],
+        // Polar only permits switching to products included at creation.
+        products: [...new Set([product, ...alternatives])],
         external_customer_id: userId,
         metadata: { careersim_attempt_id: attemptId },
         success_url: returnUrl,
@@ -188,6 +202,33 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
         allow_discount_codes: false,
       });
       return checkoutResult(result);
+    },
+    async updateCheckout({ checkoutId, choice }) {
+      const product = productForChoice(config, choice);
+      if (!product) throw new Error("Product is not configured");
+      try {
+        return checkoutResult(
+          await polar.checkouts.update(checkoutId, {
+            product_id: product,
+            allow_trial: false,
+            allow_discount_codes: false,
+          }),
+        );
+      } catch (error) {
+        if (
+          error instanceof PolarClientError &&
+          [403, 409, 422].includes(error.statusCode)
+        )
+          throw new HttpError(
+            409,
+            error.statusCode === 422
+              ? "This checkout cannot offer that plan. Wait for it to expire or contact support."
+              : "This checkout may already be processing a payment. Refresh your billing status before retrying.",
+            "billing_checkout_conflict",
+            { contactUrl: config.BILLING_CONTACT_URL },
+          );
+        throw error;
+      }
     },
     async findCheckout(attemptId) {
       // Correlation metadata belongs to us. It is never supplied by the browser.

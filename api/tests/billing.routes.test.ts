@@ -16,13 +16,14 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vitest";
 
 import { loadEnv } from "../src/config/env.js";
 import { createPgliteClient } from "./helpers/db.js";
 import { billingCheckoutAttempts, users } from "../src/db/schema.js";
 import { registerAuth, SESSION_COOKIE } from "../src/plugins/auth.js";
-import { registerErrorHandler } from "../src/plugins/errors.js";
+import { HttpError, registerErrorHandler } from "../src/plugins/errors.js";
 import { billingRoutes } from "../src/modules/billing/billing.route.js";
 import { createBillingService } from "../src/modules/billing/billing.service.js";
 import { buildPlanCatalog } from "../src/modules/billing/catalog.js";
@@ -238,7 +239,7 @@ describe("billing routes and checkout serialization", () => {
       }
     expect(provider.created).toHaveLength(0);
   });
-  it("reuses one same-choice checkout and rejects conflicting tabs", async () => {
+  it("reuses one checkout when returning to choose a different plan or interval", async () => {
     const choice = { tier: "plus", interval: "month" };
     const results = await Promise.all([
       request("POST", "checkout", choice),
@@ -247,10 +248,77 @@ describe("billing routes and checkout serialization", () => {
     expect(results.some((result) => result.statusCode === 200)).toBe(true);
     const repeated = await request("POST", "checkout", choice);
     expect(repeated.statusCode).toBe(200);
+    for (const nextChoice of [
+      { tier: "plus", interval: "year" },
+      { tier: "pro", interval: "month" },
+      choice,
+    ]) {
+      const switched = await request("POST", "checkout", nextChoice);
+      expect(switched.statusCode).toBe(200);
+      expect(switched.json().url).toBe(repeated.json().url);
+      const [attempt] = await handle.db
+        .select()
+        .from(billingCheckoutAttempts)
+        .where(eq(billingCheckoutAttempts.userId, userId));
+      expect(attempt).toMatchObject({ ...nextChoice, status: "pending" });
+      expect(provider.selectedChoices.get(attempt?.checkoutId ?? "")).toEqual(
+        nextChoice,
+      );
+    }
+    expect(provider.created).toHaveLength(1);
+  });
+  it.each([
+    [new Error("Provider timeout"), 503],
+    [
+      new HttpError(409, "Payment is processing", "billing_checkout_conflict"),
+      409,
+    ],
+  ])(
+    "retains the existing checkout when an update fails with %s",
+    async (error, status) => {
+      const choice = { tier: "plus", interval: "month" };
+      const first = await request("POST", "checkout", choice);
+      vi.spyOn(provider, "updateCheckout").mockRejectedValueOnce(error);
+      const failed = await request("POST", "checkout", {
+        tier: "pro",
+        interval: "year",
+      });
+      expect(failed.statusCode).toBe(status);
+      const [attempt] = await handle.db
+        .select()
+        .from(billingCheckoutAttempts)
+        .where(eq(billingCheckoutAttempts.userId, userId));
+      expect(attempt).toMatchObject({ ...choice, status: "pending" });
+      const retried = await request("POST", "checkout", choice);
+      expect(retried.statusCode).toBe(200);
+      expect(retried.json().url).toBe(first.json().url);
+      expect(provider.created).toHaveLength(1);
+    },
+  );
+  it("reapplies the requested plan after a provider update response is lost", async () => {
+    const choice = { tier: "plus", interval: "month" };
+    const first = await request("POST", "checkout", choice);
+    const update = provider.updateCheckout.bind(provider);
+    vi.spyOn(provider, "updateCheckout").mockImplementationOnce(
+      async (input) => {
+        await update(input);
+        throw new Error("Response lost after provider update");
+      },
+    );
     expect(
-      (await request("POST", "checkout", { tier: "plus", interval: "year" }))
+      (await request("POST", "checkout", { tier: "pro", interval: "year" }))
         .statusCode,
-    ).toBe(409);
+    ).toBe(503);
+    const retried = await request("POST", "checkout", choice);
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json().url).toBe(first.json().url);
+    const [attempt] = await handle.db
+      .select()
+      .from(billingCheckoutAttempts)
+      .where(eq(billingCheckoutAttempts.userId, userId));
+    expect(provider.selectedChoices.get(attempt?.checkoutId ?? "")).toEqual(
+      choice,
+    );
     expect(provider.created).toHaveLength(1);
   });
   it("keeps a returning subscriber's unpaid checkout open through historical-payment refreshes", async () => {
@@ -285,10 +353,12 @@ describe("billing routes and checkout serialization", () => {
     const repeated = await request("POST", "checkout", choice);
     expect(repeated.statusCode).toBe(200);
     expect(repeated.json().url).toBe(first.json().url);
-    expect(
-      (await request("POST", "checkout", { tier: "plus", interval: "year" }))
-        .statusCode,
-    ).toBe(409);
+    const switched = await request("POST", "checkout", {
+      tier: "plus",
+      interval: "year",
+    });
+    expect(switched.statusCode).toBe(200);
+    expect(switched.json().url).toBe(first.json().url);
     expect(provider.created).toHaveLength(1);
 
     const [attempt] = await handle.db
@@ -320,9 +390,17 @@ describe("billing routes and checkout serialization", () => {
       request("POST", "checkout", { tier: "plus", interval: "month" }),
       request("POST", "checkout", { tier: "plus", interval: "year" }),
     ]);
-    expect(results.map((result) => result.statusCode).sort()).toEqual([
-      200, 409,
-    ]);
+    expect(results.some((result) => result.statusCode === 200)).toBe(true);
+    expect(
+      results.every((result) => [200, 409].includes(result.statusCode)),
+    ).toBe(true);
+    expect(
+      new Set(
+        results
+          .filter((result) => result.statusCode === 200)
+          .map((result) => result.json().url),
+      ).size,
+    ).toBe(1);
     expect(provider.created).toHaveLength(1);
   });
   it("rate-limits billing operations independently of each other", async () => {

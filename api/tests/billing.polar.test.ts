@@ -113,7 +113,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
       "2026-10",
     );
     expect(JSON.parse(String(calls[0]?.options.body))).toMatchObject({
-      products: ["plus-year"],
+      products: ["plus-year", "plus-month"],
       external_customer_id: "immutable-user",
       metadata: { careersim_attempt_id: "attempt" },
       allow_trial: false,
@@ -131,6 +131,75 @@ describe("Polar adapter through the installed versioned SDK", () => {
       external_customer_id: "immutable-user",
     });
   });
+  it("offers every available plan with the requested product selected first", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(checkout));
+    vi.stubGlobal("fetch", fetcher);
+    const settings = {
+      ...config(),
+      POLAR_PRO_MONTHLY_PRODUCT_ID: "pro-month",
+      POLAR_PRO_YEARLY_PRODUCT_ID: "pro-year",
+      PRO_CHANNEL_URL: "https://private.example/pro",
+    };
+    await createPolarProvider(settings).createCheckout({
+      userId: "immutable-user",
+      choice: { tier: "pro", interval: "year" },
+      attemptId: "attempt",
+    });
+    expect(
+      JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)).products,
+    ).toEqual(["pro-year", "plus-month", "plus-year", "pro-month"]);
+    await createPolarProvider({
+      ...settings,
+      PRO_CHANNEL_URL: "",
+    }).createCheckout({
+      userId: "immutable-user",
+      choice: { tier: "plus", interval: "month" },
+      attemptId: "attempt",
+    });
+    expect(
+      JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body)).products,
+    ).toEqual(["plus-month", "plus-year"]);
+  });
+  it("changes the product on the existing checkout without creating another session", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () => Response.json(checkout));
+    vi.stubGlobal("fetch", fetcher);
+    const result = await createPolarProvider(config()).updateCheckout({
+      checkoutId: "checkout",
+      choice: { tier: "plus", interval: "year" },
+    });
+    expect(result.id).toBe("checkout");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(String(fetcher.mock.calls[0]?.[0])).toBe(
+      "https://sandbox-api.polar.sh/v1/checkouts/checkout",
+    );
+    expect(fetcher.mock.calls[0]?.[1]?.method).toBe("PATCH");
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      product_id: "plus-year",
+      allow_trial: false,
+      allow_discount_codes: false,
+    });
+  });
+  it.each([403, 409, 422])(
+    "keeps a rejected checkout update recoverable for provider status %s",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(async () =>
+          Response.json({ detail: "Checkout cannot be updated" }, { status }),
+        ),
+      );
+      await expect(
+        createPolarProvider(config()).updateCheckout({
+          checkoutId: "checkout",
+          choice: { tier: "plus", interval: "year" },
+        }),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: "billing_checkout_conflict",
+        extra: { contactUrl: "/contact" },
+      });
+    },
+  );
   it("recovers ambiguous checkouts from every provider page without repeating creation", async () => {
     const pages: string[] = [];
     vi.stubGlobal(
