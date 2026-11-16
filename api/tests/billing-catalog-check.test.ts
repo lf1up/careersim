@@ -15,7 +15,7 @@ const ids = [
 const configured = Object.fromEntries(
   expectedProducts.map(({ key }, index) => [key, ids[index]]),
 );
-const defaultAmounts = [900, 9000, 5900, 59000];
+const defaultAmounts = [900, 9000, 4900, 49000];
 const customPricing = {
   PRO_MONTHLY_PRICE_CENTS: "1200",
   PRO_YEARLY_PRICE_CENTS: "12000",

@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Exactly three tiers: `free`, `plus`, `supporter`; Plus uses `PRO_` caps and Supporter uses independent `SUPPORTER_` caps. No fourth Pro tier.
-- Plus: $9/month or $90/year upfront. Supporter: $59/month or $590/year upfront. Annual discount: "2 months free", 16.67%; yearly auto-renewal disclosed.
+- Plus: $9/month or $90/year upfront. Supporter: $49/month or $490/year upfront. Annual discount: "2 months free", 16.67%; yearly auto-renewal disclosed.
 - `PRO_SESSIONS_CREATE_MAX=100`, `PRO_CHAT_MESSAGES_MAX=3000`, `PRO_CUSTOM_SIMULATIONS_MAX=250`, `PRO_CUSTOM_PERSONAS_MAX=250`, `PRO_VOICE_DAILY_MINUTES_PER_USER=360`.
 - Supporter defaults revised on 2026-11-15: `SUPPORTER_SESSIONS_CREATE_MAX=200`, `SUPPORTER_CHAT_MESSAGES_MAX=6000`, `SUPPORTER_CUSTOM_SIMULATIONS_MAX=500`, `SUPPORTER_CUSTOM_PERSONAS_MAX=500`, `SUPPORTER_VOICE_DAILY_MINUTES_PER_USER=720`.
 - Preserve unprefixed Free settings and the configured session/message windows, currently 6 hours. Voice resets at midnight UTC. Custom records are owned, non-deleted inventory, not monthly credits.
@@ -75,7 +75,7 @@ expect(paid.limits).toMatchObject({ sessionsCreateMax: 100, chatMessagesMax: 300
 expect(catalog.plans.find(p => p.tier === 'plus')?.prices.map(p => p.amountCents))
   .toEqual([900, 9000]);
 expect(catalog.plans.find(p => p.tier === 'supporter')?.prices.map(p => p.amountCents))
-  .toEqual([5900, 59000]);
+  .toEqual([4900, 49000]);
 ```
 
 - [ ] Run `pnpm -C api test -- tests/billing.entitlements.test.ts tests/env.test.ts`; confirm new cases fail for missing contracts, not infrastructure errors.
@@ -204,12 +204,12 @@ expect(screen.getByText('Chat directly with the developers')).toBeVisible();
 expect(screen.getByText("Help decide the project's future together")).toBeVisible();
 expect(screen.getByText("Early access to upcoming features, including MCP and API access")).toBeVisible();
 expect(screen.getByText('Need higher limits? Contact us to discuss your needs.')).toBeVisible();
-// After selecting Yearly, assert the full $90 and $590 totals and "billed yearly".
+// After selecting Yearly, assert the full $90 and $490 totals and "billed yearly".
 // With a 12-hour catalog window, assert "per 12 hours" and absence of "per 6 hours".
 ```
 
 - [ ] Run `pnpm -C web test -- src/components/billing/PricingPage.test.tsx src/lib/landing-proxy.test.ts`; verify new tests fail.
-- [ ] Implement the pricing page in the existing visual style, Plus primary, exact visible limits and benefits. Show Plus as "360 voice minutes / day (6 hours)" and Supporter as "720 voice minutes / day (12 hours)" and explain UTC reset. Label custom assets as saved totals. Annual mode shows $90/$590 upfront, secondary $7.50/about $49.17 monthly equivalents, and "2 months free". Do not headline unlimited use.
+- [ ] Implement the pricing page in the existing visual style, Plus primary, exact visible limits and benefits. Show Plus as "360 voice minutes / day (6 hours)" and Supporter as "720 voice minutes / day (12 hours)" and explain UTC reset. Label custom assets as saved totals. Annual mode shows $90/$490 upfront, secondary $7.50/about $40.83 monthly equivalents, and "2 months free". Do not headline unlimited use.
 - [ ] Fetch a safe current catalog; do not render invented fallback prices on errors. Use a short-lived catalog cache and refresh before checkout. Keep `/pricing` served by Next.js, outside the marketing proxy allowlist. Link landing navigation to it instead of duplicating prices in Astro. Public visitors sign in with a validated internal return path preserving the selected tier/interval.
 - [ ] Link contact notice to `/contact?reason=higher-limits`; authenticated paid cap errors use the same action, never an upsell to Supporter. Preserve the existing Free reset/upgrade path.
 - [ ] Run focused tests and `pnpm -C web typecheck`; expect PASS. Commit: `feat: show subscription pricing and yearly savings`.

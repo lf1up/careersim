@@ -64,14 +64,14 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
             {price && interval === 'year' && <><p className="text-sm">{plan.tier === 'supporter' ? 'About ' : ''}{money(price.amountCents / 12, 2)} monthly equivalent</p>{price.discountLabel && <p className="inline-block px-2 py-1 bg-retro-accent dark:bg-retro-accent-dark text-black font-semibold text-sm">{price.discountLabel}</p>}</>}
           </div>
           <div className="p-6 flex flex-col flex-1 gap-5">
-            <ul className="space-y-3 text-sm leading-relaxed">
+            <ul className="list-disc pl-5 space-y-3 text-sm leading-relaxed">
               <li>{limits.sessionsCreateMax.toLocaleString('en-US')} new sessions per {windowLabel(limits.sessionsWindowMs)}</li>
               <li>{limits.chatMessagesMax.toLocaleString('en-US')} text messages per {windowLabel(limits.chatWindowMs)}</li>
               <li>{limits.customSimulationsMax.toLocaleString('en-US')} saved custom simulations</li>
               <li>{limits.customPersonasMax.toLocaleString('en-US')} saved custom personas</li>
               <li>{limits.voiceDailyMinutes === 0 ? 'Voice quota disabled' : `${limits.voiceDailyMinutes.toLocaleString('en-US')} voice minutes / day (${(limits.voiceDailyMinutes / 60).toLocaleString('en-US')} hours)`}</li>
             </ul>
-            <ul className="space-y-3 text-sm border-t-2 border-black/20 dark:border-white/20 pt-5">{plan.benefits.map(benefit => <li key={benefit}>{benefit}</li>)}</ul>
+            <ul className="list-disc pl-5 space-y-3 text-sm border-t-2 border-black/20 dark:border-white/20 pt-5">{plan.benefits.map(benefit => <li key={benefit}>{benefit}</li>)}</ul>
             <div className="mt-auto pt-2">
               {free ? <Link href={isAuthenticated ? '/simulations' : '/register'} className="retro-btn-base inline-flex px-4 py-2 w-full justify-center bg-white dark:bg-retro-surface-dark">{isAuthenticated ? 'Keep practicing' : 'Start free'}</Link> : plan.availability !== 'available' ? <Button className="w-full" disabled>Checkout unavailable</Button> : isAuthenticated ? <Button className="w-full" variant={plan.tier === 'plus' ? 'secondary' : 'outline'} disabled={busy !== null || isLoading} isLoading={busy === plan.tier} onClick={() => buy({ tier: plan.tier as BillingChoice['tier'], interval })}>Choose {plan.name}</Button> : <Link href={`/login?next=${encodeURIComponent(`/pricing?tier=${plan.tier}&interval=${interval}`)}`} className={`retro-btn-base inline-flex px-4 py-2 w-full justify-center ${plan.tier === 'plus' ? 'bg-retro-accent text-black' : 'bg-white dark:bg-retro-surface-dark'}`}>Sign in for {plan.name}</Link>}
             </div>

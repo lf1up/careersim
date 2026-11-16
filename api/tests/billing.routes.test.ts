@@ -56,7 +56,7 @@ function paidSnapshot(
     productId: `${tier}-month`,
     start: new Date("2026-11-01Z"),
     end: new Date("2026-12-01Z"),
-    totalAmount: tier === "plus" ? 900 : 5900,
+    totalAmount: tier === "plus" ? 900 : 4900,
     refundedAmount: 0,
     dispute: "none" as const,
   };

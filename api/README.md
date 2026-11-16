@@ -164,7 +164,7 @@ Session and chat windows each default to six hours and start with the first admi
 
 Custom inventory is reported by the optional creator plugin through extension API v2. Caps count owned, non-deleted records, including drafts. Downgrades retain existing records and block new inventory above the effective cap. Monthly and yearly plans grant the same limits.
 
-Prices are API configuration in USD cents: `PRO_MONTHLY_PRICE_CENTS=900`, `PRO_YEARLY_PRICE_CENTS=9000`, `SUPPORTER_MONTHLY_PRICE_CENTS=5900`, and `SUPPORTER_YEARLY_PRICE_CENTS=59000`. `PRO_*` maps to Plus. Changing these values does not change Polar products.
+Prices are API configuration in USD cents: `PRO_MONTHLY_PRICE_CENTS=900`, `PRO_YEARLY_PRICE_CENTS=9000`, `SUPPORTER_MONTHLY_PRICE_CENTS=4900`, and `SUPPORTER_YEARLY_PRICE_CENTS=49000`. `PRO_*` maps to Plus. Changing these values does not change Polar products.
 
 Signed events enter a durable inbox and trigger a fresh provider read. Reconciliation runs every five minutes when a provider token is configured, with retries for failed synchronization. Paid access lasts through the verified paid period. Failed renewals can receive 72 hours of grace; voluntary cancellation does not. Refunds, revocation, and disputes affect access according to the verified period. Checkout return alone never grants paid access.
 
