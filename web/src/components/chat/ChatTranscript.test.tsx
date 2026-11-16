@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Message } from '@/lib/types';
 
@@ -20,6 +20,48 @@ function msg(role: 'human' | 'ai', content: string): Message {
 }
 
 describe('ChatTranscript', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('shows the saved time on every human, AI follow-up, and voice message', () => {
+    const messages = [
+      msg('human', 'Hello'),
+      msg('ai', 'Hi there'),
+      msg('ai', 'A follow-up'),
+      { ...msg('human', 'Spoken question'), source: 'voice' as const },
+      { ...msg('ai', 'Spoken reply'), source: 'voice' as const },
+    ];
+    const { container } = render(<ChatTranscript messages={messages} persona={{ name: 'Alex' }} />);
+    const times = container.querySelectorAll('time');
+    expect(times).toHaveLength(messages.length);
+    messages.forEach((message, index) => {
+      expect(times[index]).toHaveAttribute('datetime', message.created_at);
+      expect(times[index].textContent).toMatch(/\d.*\d/);
+      expect(times[index]).toHaveAttribute('title', new Date(message.created_at).toLocaleString());
+    });
+  });
+
+  it('keeps pending message times stable when the transcript rerenders', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-16T10:24:00Z'));
+    const props = {
+      messages: [],
+      keptBurst: ['Interrupted reply'],
+      pendingHumans: ['New question'],
+      burstedAssistant: ['First reply'],
+      pendingAssistant: 'Next reply',
+    };
+    const { container, rerender } = render(<ChatTranscript {...props} />);
+    expect(container.querySelectorAll('time')).toHaveLength(4);
+    for (const time of container.querySelectorAll('time')) {
+      expect(time).toHaveAttribute('datetime', '2026-11-16T10:24:00.000Z');
+    }
+    vi.setSystemTime(new Date('2026-11-16T10:26:00Z'));
+    rerender(<ChatTranscript {...props} isWaiting />);
+    for (const time of container.querySelectorAll('time')) {
+      expect(time).toHaveAttribute('datetime', '2026-11-16T10:24:00.000Z');
+    }
+  });
+
   it('renders kept interrupt bubbles before the new pending human (chronological)', () => {
     const { container } = render(
       <ChatTranscript

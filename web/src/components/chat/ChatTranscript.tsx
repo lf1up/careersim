@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 
 import type { Message, AssistantMessage, SessionParticipant } from '@/lib/types';
@@ -158,6 +158,7 @@ export const ChatTranscript: React.FC<ChatTranscriptProps> = ({
         key={item.key}
         role={item.role}
         content={item.content}
+        createdAt={item.created_at}
         persona={speaker}
         showAvatar={showAvatar}
       />,
@@ -204,6 +205,7 @@ interface BubbleItem extends AssistantMessage {
   key: string;
   role: 'human' | 'ai';
   content: string;
+  created_at?: Message['created_at'];
   /** Origin of the message — drives the voice-call divider grouping. */
   source: 'text' | 'voice';
 }
@@ -211,6 +213,7 @@ interface BubbleItem extends AssistantMessage {
 interface BubbleProps {
   role: 'human' | 'ai';
   content: string;
+  createdAt?: Message['created_at'];
   persona?: ChatPersona;
   /** Render the persona avatar in the gutter (AI bubbles only). */
   showAvatar?: boolean;
@@ -219,6 +222,7 @@ interface BubbleProps {
 const Bubble: React.FC<BubbleProps> = ({
   role,
   content,
+  createdAt,
   persona,
   showAvatar,
 }) => {
@@ -229,11 +233,12 @@ const Bubble: React.FC<BubbleProps> = ({
       <div className="flex justify-end">
         <div
           className={clsx(
-            'max-w-[85%] px-4 py-3 border-2 shadow-retro-2 dark:shadow-retro-dark-2',
+            'min-w-0 max-w-[85%] px-3 sm:px-4 py-3 border-2 shadow-retro-2 dark:shadow-retro-dark-2',
             'bg-primary-100 dark:bg-primary-900 border-black dark:border-retro-ink-dark',
           )}
         >
           <MarkdownMessage content={content} />
+          <MessageTime createdAt={createdAt} />
         </div>
       </div>
     );
@@ -260,22 +265,38 @@ const Bubble: React.FC<BubbleProps> = ({
       ) : (
         <span className="h-9 w-9 shrink-0" aria-hidden />
       )}
-      <div className="min-w-0 max-w-[85%]">
+      <div className="min-w-0 max-w-[calc(100%-2.75rem)] sm:max-w-[85%]">
         {showLabel && (
           <PersonaLabel name={persona!.name} role={persona!.role} />
         )}
         <div
           className={clsx(
-            'px-4 py-3 border-2 shadow-retro-2 dark:shadow-retro-dark-2',
+            'px-3 sm:px-4 py-3 border-2 shadow-retro-2 dark:shadow-retro-dark-2',
             'bg-white dark:bg-retro-surface-dark border-black dark:border-retro-ink-dark',
           )}
         >
           <MarkdownMessage content={content} />
+          <MessageTime createdAt={createdAt} />
         </div>
       </div>
     </div>
   );
 };
+
+function MessageTime({ createdAt }: { createdAt?: Message['created_at'] }) {
+  const [firstShownAt] = useState(() => new Date().toISOString());
+  const timestamp = createdAt ?? firstShownAt;
+  const date = new Date(timestamp);
+  return (
+    <time
+      dateTime={timestamp}
+      title={date.toLocaleString()}
+      className="mt-1 block text-right text-xs leading-4 tabular-nums text-secondary-600 dark:text-secondary-400"
+    >
+      {date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+    </time>
+  );
+}
 
 /**
  * Compact "Name · Title" header rendered above the first bubble of an AI
