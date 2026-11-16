@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+import { QuotaNotice, isQuotaError } from '@/components/billing/QuotaNotice';
 import { simulationLabel } from '@/extensions';
 import { apiClient } from '@/lib/api';
 import { dropPersistedPrefix } from '@/lib/chat-batch';
@@ -162,6 +163,7 @@ export default function SessionDetailPage() {
   // title and metadata pills in the header instead of just the raw slug.
   const [simulation, setSimulation] = useState<SimulationDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [quotaError, setQuotaError] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   // Optimistic echo of the message(s) the user sent for the current turn.
@@ -661,7 +663,8 @@ export default function SessionDetailPage() {
         setIsWaiting(false);
         const message =
           err instanceof Error ? err.message : 'Failed to send message';
-        toast.error(message);
+        if (isQuotaError(err)) setQuotaError(err);
+        else toast.error(message);
         throw err;
       } finally {
         // Only the newest send clears the busy flag — an older superseded
@@ -684,6 +687,7 @@ export default function SessionDetailPage() {
     // can call /voice/start itself; the surface handles errors and
     // calls back through `onCallEnded` to flip us back if anything
     // fails before we get a live LiveKit connection.
+    setQuotaError(null);
     setStartingCall(true);
     setInCall(true);
     // Cancel any in-flight chat stream so we don't get text-mode
@@ -692,7 +696,8 @@ export default function SessionDetailPage() {
     setStartingCall(false);
   }, []);
 
-  const handleCallEnded = useCallback(async () => {
+  const handleCallEnded = useCallback(async (failure?: unknown) => {
+    if (isQuotaError(failure)) setQuotaError(failure);
     setInCall(false);
     // Only the newest call end's settle loop survives.
     const settleGeneration = ++voiceSettleRef.current;
@@ -952,7 +957,8 @@ export default function SessionDetailPage() {
           </RetroPanel>
 
           <RetroCard className="shrink-0" bodyClassName="!p-3 sm:!p-6">
-            <ChatComposer onSend={handleSend} />
+            <QuotaNotice error={quotaError} />
+            <ChatComposer onSend={async (content) => { setQuotaError(null); await handleSend(content); }} />
           </RetroCard>
         </>
       )}

@@ -29,6 +29,7 @@ async function main(): Promise<void> {
 
   const app = await buildApp({
     db: dbHandle.db,
+    billing: { config: env },
     agent,
     jwtSecret: env.JWT_SECRET,
     trustedProxies: env.TRUSTED_PROXIES,

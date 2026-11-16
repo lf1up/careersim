@@ -29,6 +29,17 @@ section. Its button links to `/create` on the `LANDING_APP_URL` origin. Enable i
 only when the creator plugin is live in the app. This page is static, so rebuild
 and redeploy after changing the flag.
 
+Pricing is disabled by default in both apps. Set `LANDING_PRICING_ENABLED=true`
+(or `1`) to show Pricing in the homepage and legal-page footers, and set
+`NEXT_PUBLIC_PRICING_ENABLED=true` in web to enable its pricing links and
+`/pricing` page. Unset, empty, `false`, and `0` keep pricing hidden. Rebuild and redeploy both
+apps after changing these flags. Contact forms and links remain available.
+The homepage, legal-page, and business-page Contact footer links open `/contact` on the
+`LANDING_APP_URL` origin.
+The homepage, Privacy, Terms, and Security pages share `LandingFooter.astro`.
+After building, run `pnpm test:footers` to compare their rendered footers and
+link destinations.
+
 The `/business` contact form on `careersim.ai` is handled by the `web`
 package (`/api/contact`, `/api/altcha-challenge`). Set `RESEND_API_KEY`,
 `CONTACT_*`, and `ALTCHA_HMAC_KEY` in the web Vercel project. The HMAC key must
@@ -46,8 +57,17 @@ pnpm dev          # local dev server on :4321
 pnpm build        # static production build
 pnpm preview      # preview the built output
 pnpm check        # Astro type/template checks
+pnpm test:footers # compare homepage/legal footers after pnpm build
 pnpm sync:figma   # refresh Figma metadata and reference screenshots
 ```
+
+## Crawling and discovery
+
+The web app generates the canonical site's `/sitemap.xml` and `/robots.txt`,
+including the landing pages when `LANDING_ORIGIN` is configured. Keep
+`LANDING_SITE_URL` equal to web's `NEXT_PUBLIC_SITE_URL`; configure the canonical
+web origin in `LANDING_APP_URL` as well. The standalone landing host does not
+publish a separate sitemap or robots file.
 
 ## 🎨 Figma Source
 

@@ -13,7 +13,7 @@ const rawSiteUrl =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
   'https://careersim.local';
 
-export const SITE_URL = rawSiteUrl.replace(/\/$/, '');
+export const SITE_URL = rawSiteUrl.trim().replace(/\/+$/, '');
 
 export function absoluteUrl(path = '/'): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

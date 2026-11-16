@@ -1,4 +1,5 @@
 import { isBlogEnabled } from '@/lib/blog';
+import { crawlableSimulations, publicCrawlPages } from '@/lib/crawl-pages';
 import { getPosts } from '@/lib/ghost';
 import { listPublicSimulations } from '@/lib/public-api';
 import {
@@ -8,10 +9,11 @@ import {
   truncateDescription,
 } from '@/lib/seo';
 
-export const revalidate = 3600;
+export const revalidate = 300;
 
 export async function GET(): Promise<Response> {
   const blogEnabled = isBlogEnabled();
+  const pages = publicCrawlPages();
   const [simulations, { posts }] = await Promise.all([
     listPublicSimulations().catch(() => []),
     blogEnabled
@@ -26,26 +28,22 @@ export async function GET(): Promise<Response> {
     '',
     '## Core Pages',
     '',
-    `- [Simulation catalog](${absoluteUrl('/simulations')}): Browse AI career simulations for interviews, workplace communication, feedback, and professional growth.`,
-    `- [For business](${absoluteUrl('/business')}): Custom AI personas for team training, support practice, and persona-driven content — pilot-first.`,
-    ...(blogEnabled
-      ? [
-          `- [Blog](${absoluteUrl('/blog')}): Guides and practice tips for career-defining conversations.`,
-        ]
-      : []),
+    ...pages.filter(page => page.group === 'core')
+      .map(page => `- [${page.title}](${absoluteUrl(page.path)}): ${page.description}`),
     `- [Sitemap](${absoluteUrl('/sitemap.xml')}): XML sitemap for crawlable public pages.`,
   ];
 
-  if (simulations.length > 0) {
+  const publicSimulations = crawlableSimulations(simulations);
+  if (publicSimulations.length > 0) {
     lines.push('', '## Public Simulations', '');
 
-    for (const simulation of simulations) {
+    for (const simulation of publicSimulations) {
       const description =
         simulation.description ??
         `Practice the ${simulation.title} career simulation.`;
 
       lines.push(
-        `- [${simulation.title}](${absoluteUrl(`/simulations/${simulation.slug}`)}): ${truncateDescription(
+        `- [${simulation.title}](${absoluteUrl(`/simulations/${encodeURIComponent(simulation.slug)}`)}): ${truncateDescription(
           description,
         )}`,
       );
@@ -62,21 +60,18 @@ export async function GET(): Promise<Response> {
         post.excerpt ||
         `Read ${post.title} on the ${SITE_NAME} blog.`;
       lines.push(
-        `- [${post.title}](${absoluteUrl(`/blog/${post.slug}`)}): ${truncateDescription(
+        `- [${post.title}](${absoluteUrl(`/blog/${encodeURIComponent(post.slug)}`)}): ${truncateDescription(
           description,
         )}`,
       );
     }
   }
 
-  lines.push(
-    '',
-    '## Legal',
-    '',
-    `- [Privacy policy](${absoluteUrl('/privacy')}): How ${SITE_NAME} collects, uses, and protects the data shared during practice sessions.`,
-    `- [Terms of service](${absoluteUrl('/terms')}): Rules for using ${SITE_NAME}, including acceptable use, AI-generated output, and the limits of an AI practice tool.`,
-    `- [Security](${absoluteUrl('/security')}): How accounts, transcripts, and infrastructure are protected, plus how to report a vulnerability.`,
-  );
+  const legalPages = pages.filter(page => page.group === 'legal');
+  if (legalPages.length > 0) {
+    lines.push('', '## Legal', '', ...legalPages
+      .map(page => `- [${page.title}](${absoluteUrl(page.path)}): ${page.description}`));
+  }
 
   return new Response(`${lines.join('\n')}\n`, {
     headers: {

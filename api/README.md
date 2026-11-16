@@ -7,10 +7,10 @@ turn.
 
 ## 🧱 Stack
 
-- **Runtime**: Node 20+, TypeScript (strict ESM), pnpm
+- **Runtime**: Node ≥22.12, TypeScript (strict ESM), pnpm
 - **HTTP**: Fastify 5 + `fastify-type-provider-zod` (Zod schemas double as OpenAPI)
 - **DB**: PostgreSQL 17, Drizzle ORM + drizzle-kit migrations
-- **Auth**: JWT bearer (`@fastify/jwt`) + argon2id password/OTP hashing.
+- **Auth**: HTTP-only session cookie for browsers, JWT bearer for other clients (`@fastify/jwt`), and argon2id password/OTP hashing.
   Email-verified registration (6-digit code), passwordless magic-link login,
   password reset, and authenticated email/password change flows
 - **Email**: `nodemailer` with a dev-friendly stdout transport when SMTP is
@@ -41,7 +41,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Interactive OpenAPI docs are exposed at `http://localhost:8000/v1/docs`.
+In development mode, OpenAPI docs are exposed at `http://localhost:8000/v1/docs`. The production API omits the docs and detailed service index.
 
 ## 🛣️ Endpoints (v1)
 
@@ -53,13 +53,14 @@ Process liveness at `GET /health` is **never** prefixed, so load balancers
 don't need to know the API version. Locally the rule is `v1`: `api/.env` and
 `docker-compose.local.yml` set `API_VERSION_PREFIX=v1` on both the API and the
 agent-voice worker, and the web app's `NEXT_PUBLIC_API_URL` (a full base URL)
-carries the matching `/v1` path. The tables below show that local `v1` surface.
+carries the matching `/v1` path. The tables below show that local `v1` surface. With no prefix, `/health` remains liveness only; there is no separate readiness route. In the Auth column, `jwt` accepts either the session cookie or a bearer token.
 
 | Method | Path | Auth | CAPTCHA | Rate limit | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | GET  | `/health` | public | — | 200/min per IP (global) | Process liveness (no db/agent ping) |
 | GET  | `/v1/health` | public | — | 200/min per IP (global) | Version readiness: db + agent + cache + voice ping |
 | GET  | `/v1/auth/challenge` | public | — | 60/min per IP | Issue an ALTCHA proof-of-work challenge for the forms below |
+| POST | `/v1/auth/challenge/verify` | public | ✓ | 60/min per IP | Consume a single-use solution for server-side contact forms |
 | POST | `/v1/auth/register` | public | ✓ | 10/15min per IP | Start registration (password or passwordless); emails a 6-digit verification code. `202 { pending, email }` |
 | POST | `/v1/auth/resend-verification` | public | — | 3/hour per email | Re-send the registration verification code. Not captcha-gated: the pending record it resends against can only be created by `/v1/auth/register`, which *is* gated |
 | POST | `/v1/auth/verify-email` | public | — | 10/5min per email | Consume the 6-digit code; returns `{ user, token }` |
@@ -72,18 +73,22 @@ carries the matching `/v1` path. The tables below show that local `v1` surface.
 | PATCH | `/v1/auth/me/password` | jwt | — | 10/hour per user | Rotate / set a password (current password required when one exists) |
 | POST | `/v1/auth/me/email-change` | jwt | — | 5/hour per user | Start an email change; emails a 6-digit code to the new address |
 | POST | `/v1/auth/me/email-change/confirm` | jwt | — | 10/5min per user | Consume the code + swap the email |
-| GET  | `/v1/simulations` | jwt | — | 200/min per IP (global) | Passthrough to agent `GET /simulations` |
-| POST | `/v1/sessions` | jwt | — | 2 / 6 hours per user (env) | Create session → `POST /conversation/init` → persist |
+| GET  | `/v1/simulations` | public | — | 200/min per IP (global) | Passthrough to agent `GET /simulations` |
+| POST | `/v1/sessions` | jwt | — | Tier allowance per configured window | Create session → `POST /conversation/init` → persist |
 | GET  | `/v1/sessions` | jwt | — | 200/min per IP (global) | List caller's sessions with message counts |
 | GET  | `/v1/sessions/:id` | jwt (owner) | — | 200/min per IP (global) | Persisted messages + latest analysis/goal progress |
-| GET  | `/v1/sessions/:id/report` | jwt (owner) | — | 10 / 5 min per user | LLM debrief report (skill scores, tone journey, advice, key moments). Cached per transcript length; regenerated via agent `POST /conversation/debrief` when the conversation advances. `400 NO_USER_MESSAGES` before the first user message |
+| GET  | `/v1/sessions/:id/report` | jwt (owner) | — | 10 / 5 min per user | LLM debrief report (skill scores, tone journey, advice, key moments). Cached per transcript length; regenerated via agent `POST /conversation/debrief` when the conversation advances. `400 NO_USER_MESSAGES` before the first user message; `400 OPEN_CONVERSATION` for unscored conversations |
 | POST | `/v1/sessions/:id/messages` | jwt (owner) | — | 60 requests/min + shared text allowance | `POST /conversation/turn` → persist delta |
-| POST | `/v1/sessions/:id/messages/stream` | jwt (owner) | — | 60 requests/min + shared text allowance | SSE proxy of `POST /conversation/turn/stream`; persists on `done` |
+| POST | `/v1/sessions/:id/messages/stream` | jwt (owner) | — | 60 requests/min + shared text allowance | SSE proxy of `POST /conversation/turn/stream`; persists each message before forwarding, then final evaluation on `done` |
 | POST | `/v1/sessions/:id/proactive` | jwt (owner) | — | 30/min per user | Batch followup (`trigger_type: "followup"` only) |
 | POST | `/v1/sessions/:id/proactive/stream` | jwt (owner) | — | 30/min per user | SSE followup (`trigger_type: "followup"` only) |
 | POST | `/v1/sessions/:id/nudge` | jwt (owner) | — | 120/min per user | Guarded inactivity nudge (batch only) |
 | POST | `/v1/sessions/:id/voice/start` | jwt (owner) | — | 10/min per user | Mint a LiveKit join token. `503 voice_disabled`, `429 voice_quota_exhausted`, `409 voice_call_in_progress` |
-| POST | `/v1/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | Mark the call ended (clears the active-call guard). Quota debit is worker-authoritative, not here |
+| POST | `/v1/sessions/:id/voice/end` | jwt (owner) | — | 20/min per user | End the identified `call_id` and terminate its room. Duration debit comes from worker checkpoints |
+| GET  | `/v1/simulations/:slug` | public or provider-controlled | — | 200/min per IP (global) | Catalog detail; namespaced plugin slugs use the provider's visibility rules |
+| GET  | `/v1/personas` | jwt | — | 200/min per IP (global) | Public-safe persona summaries |
+| GET  | `/v1/personas/:slug/avatar` | public | — | 200/min per IP (global) | Catalog persona avatar |
+| POST | `/v1/auth/logout` | optional session | — | 200/min per IP (global) | Revoke current stored session and clear its cookie, including when credentials are expired or absent |
 | GET  | `/v1/analytics/overview` | jwt | — | 200/min per IP (global) | Aggregate practice stats across all the caller's sessions: deterministic totals (sessions, goals, completion rate, practice time, voice usage) plus skill averages / score trend / tone distribution derived from cached debrief reports |
 
 Email confirmation accepts an optional `password` alongside `email` and `code`.
@@ -95,19 +100,32 @@ email ownership was proven. Existing verified accounts keep their passwords. All
 and sign-in/reset links are redeemed with an atomic, single-use database update.
 Passwordless users can set a password later through `PATCH /auth/me/password`.
 
-### Internal voice routes (worker ⇄ API)
+### 🎙️ Internal voice routes (worker ⇄ API)
 
-These three are part of the `agent-voice` worker trust boundary, **not** the
-public surface. They authenticate via `X-Internal-Key` (the shared
-`AGENT_INTERNAL_KEY`), are hidden from the OpenAPI docs, keyed per-session for
-rate limiting (30/min), and honour the `VOICE_ENABLED` kill switch before the
-key check so the worker gets a clear `503` to stop polling on.
+These routes use `X-Internal-Key` with a nonempty matching `AGENT_INTERNAL_KEY` and are hidden from OpenAPI. Voice state, budget, checkpoint, and end routes return `503 voice_disabled` when voice is disabled. The internal message route requires the shared key independently of that switch. Limits are 30/min per session, or per call for checkpoints.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/v1/internal/sessions/:id/state-for-voice` | Fresh wire-format `state_snapshot` for a room join |
+| GET | `/v1/internal/sessions/:id/voice-budget` | Remaining tier-specific daily seconds, UTC usage date, and next reset |
+| POST | `/v1/internal/sessions/:id/messages/stream` | Persist a spoken user turn and stream its reply without a user JWT or text-quota debit |
+| POST | `/v1/internal/voice/calls/:callId/checkpoint` | Deduplicate cumulative duration, debit UTC usage buckets, renew the call lease, and return continuation authorization |
+| POST | `/v1/internal/sessions/:id/voice/end` | Finalize aggregate voice analysis for the identified call; no duration debit |
+
+### 💳 Billing routes
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| GET  | `/v1/internal/sessions/:id/state-for-voice` | `X-Internal-Key` | Freshest wire-format `state_snapshot` for a room join |
-| GET  | `/v1/internal/sessions/:id/voice-budget` | `X-Internal-Key` | Remaining daily voice seconds for the session owner (arms the worker's cutoff watchdog) |
-| POST | `/v1/internal/sessions/:id/voice/end` | `X-Internal-Key` | **Authoritative** call-end: debits `voice_minute_usage` by the worker-measured seconds and merges aggregate voice analytics into `state_snapshot.analysis.voice` |
+| GET | `/v1/billing/catalog` | public | Free, Plus, and Supporter prices, limits, benefits, and availability |
+| GET | `/v1/billing/account` | jwt | Effective entitlement, paid period, status, and five usage metrics |
+| POST | `/v1/billing/checkout` | jwt | Start or reuse hosted Polar checkout for an allowlisted tier and interval |
+| POST | `/v1/billing/refresh` | jwt | Synchronize provider state and return the account |
+| POST | `/v1/billing/portal` | jwt | Hosted payment, invoice, and cancellation management |
+| POST | `/v1/billing/change` | jwt | Currently rejects self-service changes; clients use contact fallback |
+| GET | `/v1/billing/supporter` | jwt, Supporter | Private-channel instructions for verified Supporters |
+| POST | `/v1/billing/webhook` | signed Polar event | Verify raw-body signature, store event identity, and refresh authoritative provider state |
+
+Checkout, refresh, portal, and change routes have a 6/min per-user operation limit. The webhook has a 120/min limit.
 
 The CAPTCHA-gated endpoints accept an optional `altcha` field (the solved
 challenge payload) in the JSON body. It is **required in production** and
@@ -128,6 +146,34 @@ When a limit is exceeded the server responds `429 Too Many Requests` with
 keyers — IP, email-from-body, authenticated user id) lives in
 `src/plugins/rate-limit.ts`.
 
+## 💳 Subscriptions and quotas
+
+The API owns Polar billing state and derives entitlements from stored, verified paid periods. `BILLING_ENABLED=false` blocks new purchases by default, while existing access, portal management, signed webhooks, and configured reconciliation continue. Supporter becomes available when billing, both Supporter product mappings, and `SUPPORTER_CHANNEL_URL` are configured. Self-service tier/interval changes remain disabled.
+
+Five limits are independent:
+
+| Limit | Free default | Plus default (`PRO_*`) | Supporter default (`SUPPORTER_*`) |
+| --- | ---: | ---: | ---: |
+| Session starts per session window | 2 | 100 | 200 |
+| Text messages per chat window | 350 | 3000 | 6000 |
+| Owned custom simulations | 3 | 250 | 500 |
+| Owned custom personas | 10 | 250 | 500 |
+| Voice minutes per UTC day | 60 | 360 | 720 |
+
+Session and chat windows each default to six hours and start with the first admitted action. Counters stay attached to the user across tier or billing-interval changes. Accepted submission attempts count even if later generation fails. Text batches count every item and must fit the remaining allowance in full. Internal voice turns use the voice allowance instead of the text allowance. Redis shares session/chat counters across instances; without it they are process-local. Quota-store failures reject expensive work.
+
+Custom inventory is reported by the optional creator plugin through extension API v2. Caps count owned, non-deleted records, including drafts. Downgrades retain existing records and block new inventory above the effective cap. Monthly and yearly plans grant the same limits.
+
+Prices are API configuration in USD cents: `PRO_MONTHLY_PRICE_CENTS=900`, `PRO_YEARLY_PRICE_CENTS=9000`, `SUPPORTER_MONTHLY_PRICE_CENTS=4900`, and `SUPPORTER_YEARLY_PRICE_CENTS=49000`. `PRO_*` maps to Plus. Changing these values does not change Polar products.
+
+Signed events enter a durable inbox and trigger a fresh provider read. Reconciliation runs every five minutes when a provider token is configured, with retries for failed synchronization. Paid access lasts through the verified paid period. Failed renewals can receive 72 hours of grace; voluntary cancellation does not. Refunds, revocation, and disputes affect access according to the verified period. Checkout return alone never grants paid access.
+
+See the [billing runbook](../docs/BILLING.md) for product mappings, provider audit, lifecycle rules, and rollout checks. `pnpm billing:check` audits configured product prices and cadence read-only; it does not load `.env` automatically or exercise payments.
+
+## 🔌 Optional plugins
+
+The API host accepts extension API v2 plugins selected by `CAREERSIM_PLUGINS`. The creator source is in the separate private `careersim-studio` repository. Plugins receive authentication, agent, database, and entitlement services, mount routes under their own ID, and apply migrations in their own schema. The host refuses incompatible API versions or colliding IDs/namespaces. See [root plugin setup](../README.md#-plugin-support) for fetch, local-watch, and Docker configuration.
+
 ## 📁 Layout
 
 ```text
@@ -138,7 +184,7 @@ api/
 │   ├── config/env.ts           # Zod-validated env
 │   ├── db/
 │   │   ├── client.ts           # createPgClient
-│   │   ├── schema.ts           # users, authTokens, sessions (+ voice_call_* + report/report_message_count cols), messages, voiceMinuteUsage
+│   │   ├── schema.ts           # auth, sessions/messages, billing tables; re-exports voice usage tables
 │   │   ├── migrate.ts          # drizzle-orm migrator (node-postgres)
 │   │   └── migrations/         # drizzle-kit output (0002 email verification + authTokens; 0003 voice mode; 0006 cached session report)
 │   ├── agent/
@@ -156,7 +202,10 @@ api/
 │       ├── simulations/        # agent passthrough
 │       ├── sessions/           # create, list, get, turn (batch + SSE), proactive, debrief report (cached)
 │       ├── analytics/          # GET /v1/analytics/overview — read-only aggregation over sessions + cached reports (no tables of its own)
-│       └── voice/              # voice.route.ts (start/end + internal), voice.service.ts (LiveKit token + quota), voice.schema.ts
+│       ├── billing/            # Polar catalog, checkout, sync, entitlements, webhook inbox + reconciliation
+│       ├── quotas/             # per-user session and text windows (Redis or memory)
+│       ├── personas/           # safe summaries + public catalog avatars
+│       └── voice/              # call reservations, cumulative checkpoints + UTC usage
 ├── tests/
 │   ├── helpers/
 │   │   ├── build-test-app.ts   # pglite + FakeAgent + ALTCHA bypass wiring (exports TEST_ALTCHA)
@@ -188,10 +237,7 @@ pnpm typecheck
 
 ### 🎬 Interactive end-to-end flow
 
-`pnpm e2e` runs an interactive CLI that exercises the full journey against a
-real stack (API + agent + Postgres, e.g. `docker compose -f
-docker-compose.local.yml up`): `/v1/health` → `/v1/auth/register` → `/v1/auth/me` →
-`/v1/simulations` → `/v1/sessions` → live chat on the selected simulation.
+`pnpm e2e` is an older interactive CLI for an API at `BASE_URL`, with `/v1` hardcoded in its requests. It still expects registration to return a token and does not solve ALTCHA or confirm email. It cannot complete the current stock registration/login flow. Use the web UI for a real auth smoke test; the examples below document the CLI's existing flags for controlled test setups.
 
 ```bash
 # zero-config: random email/password, base URL = http://localhost:8000
@@ -236,9 +282,9 @@ Tests cover:
   per-email bucket isolation on `/v1/auth/resend-verification`, per-user
   bucket isolation on `/v1/auth/me/password`, per-IP burst ceiling on
   `/v1/auth/login`
-- Simulations: auth-required + passthrough
+- Simulations: public catalog list/detail + agent passthrough; authenticated persona list
 - Sessions (batch): create, get, list, ownership, unknown id, message ordering, validation
-- Sessions (SSE stream): event shape, persistence on `done`, ownership
+- Sessions (SSE stream): event shape, incremental message persistence, interruption, final evaluation, ownership
 - Nudge guardrails: `no_human_activity`, `not_enough_idle`, `budget_exhausted`, counter reset on human reply, override floor honoured
 - Proactive followup: batch + streaming paths, rejection of non-followup triggers
 - Statelessness contract: two users do not bleed, DB as single source of truth, exactly one agent call per turn, deterministic replay across sessions
@@ -251,7 +297,7 @@ Tests cover:
   deterministic totals across sessions, goal completion rate from
   `goal_progress` snapshots, skill averages / trend / tones sourced from
   cached reports only, per-simulation breakdown, and user isolation
-- Voice: token mint shape + ownership/404, `503 voice_disabled` kill switch on both public and internal routes, `429 voice_quota_exhausted` at the daily cap, `409 voice_call_in_progress` concurrency guard, internal-key enforcement, and the worker-authoritative `voice/end` debit + analytics merge
+- Voice: token mint shape, ownership/404, kill switch, daily exhaustion, one-active-call reservation, internal-key enforcement, cumulative checkpoint accounting, UTC rollover, and final analytics merge
 
 The agent contract is faked deterministically in `tests/helpers/fake-agent.ts` in the same style as `_FakeGraph` at `agent/tests/test_api.py:155`, so running the suite requires neither the Python agent nor an OpenAI key.
 
@@ -326,14 +372,14 @@ See `.env.example` for the authoritative list. Required in production:
 | `TRUSTED_PROXIES` | empty | Comma-separated ingress IP addresses/CIDRs whose forwarding headers are trusted. Configure the actual production proxy network; empty trusts no proxies. Wildcards and unrestricted `true` are rejected. |
 | `CLIENT_IP_SOURCE` | `socket` | On DigitalOcean App Platform set `digitalocean` and leave `TRUSTED_PROXIES` empty. Uses the platform's validated `do-connecting-ip` header for rate limits; other hosts ignore that header by default. Signed contact visitor identity takes precedence. |
 | `WEB_APP_URL` | `http://localhost:3000` | Public origin of the Next.js app. Embedded in outbound emails (magic links, password reset) |
-| `CORS_ALLOWED_ORIGINS` | — | Optional comma-separated browser origins allowed to call the API. Leave empty to keep CORS wide open |
+| `CORS_ALLOWED_ORIGINS` | — | Comma-separated browser origins allowed with credentials. Empty permits any origin outside production; production requires explicit origins for cross-origin browser requests |
 | `ALTCHA_HMAC_KEY` | — | Server-only secret (≥16 chars) used to sign + verify ALTCHA challenges. Rotating invalidates in-flight challenges |
 | `ALTCHA_MAX_NUMBER` | `50000` | Upper bound for the PoW target. Raise under attack; lower for low-power clients |
-| `RATE_LIMIT_ENABLED` | `true` | Master on/off switch for `@fastify/rate-limit`. Flip to `false` in an incident / load test |
+| `RATE_LIMIT_ENABLED` | `true` | Disables burst limits and session/text quota enforcement when `false`; voice and inventory enforcement are separate |
 | `REDIS_URL` | — | Optional Redis connection string (e.g. `redis://localhost:6379`). When set, rate-limit buckets are shared across API instances; otherwise the plugin uses a per-process LRU store |
-| `SESSIONS_CREATE_MAX` | `2` | Per-user cap on `POST /v1/sessions` within `SESSIONS_CREATE_WINDOW`. Each new session spins up an agent thread + burns LLM tokens, so this is kept aggressive by default |
-| `SESSIONS_CREATE_WINDOW` | `6 hours` | Window for `SESSIONS_CREATE_MAX`. Accepts any duration `@fastify/rate-limit` understands (`'30 minutes'`, `'1 hour'`, `'6 hours'`, or a raw ms number) |
-| `CHAT_MESSAGES_MAX` | `350` | Shared per-user text-message allowance across ordinary sessions and creator persona/simulation playgrounds. Batches count each message. Submission attempts count even if the handler subsequently fails; a batch exceeding the remaining allowance is rejected before generation. Internal voice turns are excluded. |
+| `SESSIONS_CREATE_MAX` | `2` | Free-tier session-start allowance within `SESSIONS_CREATE_WINDOW`. Paid tiers use their own caps |
+| `SESSIONS_CREATE_WINDOW` | `6 hours` | Window for `SESSIONS_CREATE_MAX`. Accepts positive durations with units such as `30 minutes`, `1 hour`, or `6 hours` |
+| `CHAT_MESSAGES_MAX` | `350` | Free-tier per-user text-message allowance across ordinary sessions and creator persona/simulation playgrounds. Batches count each message. Submission attempts count even if the handler subsequently fails; a batch exceeding the remaining allowance is rejected before generation. Internal voice turns are excluded. |
 | `CHAT_MESSAGES_WINDOW` | `6 hours` | Duration of the text-message allowance, starting with the first send. Returns HTTP 429 with `retryAfter` (milliseconds) and `Retry-After` (seconds) when exhausted. Redis shares the allowance across API instances; without Redis it is local to each process. |
 | `HOST` | `0.0.0.0` | Fastify bind host |
 | `PORT` | `8000` | Fastify bind port |
@@ -345,11 +391,11 @@ a redeploy:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `VOICE_ENABLED` | `true` | When `false`, every `/voice/*` route returns `503 voice_disabled` and the web Call button is hidden |
-| `VOICE_DAILY_MINUTES_PER_USER` | `60` | True per-user-per-day ceiling enforced via `voice_minute_usage`; debited authoritatively by the worker, which hard-disconnects a call once the budget is spent |
-| `VOICE_ACTIVE_CALL_STALE_SECONDS` | `4200` | Single-active-call guard window. An un-ended call row older than this is treated as a crashed worker (so the user isn't locked out); `0` disables the guard |
+| `VOICE_ENABLED` | `false` | API kill switch. The supplied `.env.example` enables it. Match the worker flag and use `NEXT_PUBLIC_VOICE_ENABLED=false` to hide the web Call button |
+| `VOICE_DAILY_MINUTES_PER_USER` | `60` | Free-tier minutes per UTC day, accounted in seconds through cumulative worker checkpoints. Paid caps come from entitlements; `0` disables the Free cap and is incompatible with finite paid caps |
+| `VOICE_ACTIVE_CALL_STALE_SECONDS` | `60` | Lease duration since the last worker checkpoint. Replacing a stale call first requires successful termination of its old room |
 | `LIVEKIT_URL` | — | SFU URL the API mints tokens against. Must match the `livekit` + `agent` services |
-| `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | LiveKit credentials used to sign short-lived join tokens (TTL defaults to `cap + 10 min`) |
+| `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | — | LiveKit credentials used to sign initial-join tokens with a 10-minute TTL, independent of the usage cap |
 | `VOICE_WORKER_URL` | — | LiveKit Agents worker health base URL (`GET /`, default port 8081). Empty or voice disabled → `/v1/health` reports `voice: skipped` |
 
 Outbound email (optional in dev — leave `SMTP_HOST` blank to log rendered
@@ -388,19 +434,11 @@ port (`http://localhost:8001`).
   agent-returned `state.messages` array, then append only the new rows. The DB
   is the source of truth for reads; the snapshot is replayed back to the agent
   for writes.
-- **Streaming persists exactly once.** The SSE proxy forwards every
-  `event: message` 1:1 to the client, then persists the delta + snapshot when
-  the upstream `event: done` arrives. A client that disconnects mid-stream
-  aborts the upstream request via `AbortController`.
+- **Streaming preserves displayed turns.** Text and internal voice streams persist each message before forwarding it. The final `done` saves evaluation state. Proactive streams persist only at `done`. A disconnect aborts upstream generation; a new turn supersedes the prior in-flight turn for that session. `expected_message_count` rejects stale submissions with `TURN_CONFLICT` before generation.
 - **Ownership is checked in the service layer.** Routes only destructure
   `request.user.sub`; the service throws `forbidden()` if the session's
   `user_id` doesn't match, which the error plugin maps to HTTP 403.
-- **Auth secrets at rest are argon2id-hashed.** Passwords, 6-digit
-  verification codes, and magic-link tokens all go through the same
-  argon2id config before being written to `auth_tokens` / `users`. The
-  raw values only ever exist in memory long enough to be emailed and are
-  never logged. Magic-link / reset tokens are single-use (`consumed_at`
-  flipped atomically) and expire on the server.
+- **Auth secrets are hashed at rest.** Passwords and 6-digit codes use argon2id. High-entropy magic-link and password-reset tokens use SHA-256 hashes for lookup. Codes and links are consumed atomically and expire on the server. The development stdout mail transport logs rendered emails, including raw codes and links.
 - **Login sessions are revocable.** JWTs carry a random session ID backed by
   `auth_sessions`. Logout revokes that session; password reset, password change,
   and email change advance the user's authentication version, invalidating all
@@ -451,19 +489,7 @@ port (`http://localhost:8001`).
   practice time) cover every session; skill averages, score trend, and
   tone distribution only cover sessions with a cached report, and
   `reports.analyzed_sessions` tells clients how much coverage they have.
-- **Voice quota is worker-authoritative.** The API only mints a
-  short-lived LiveKit token and enforces ownership + a start-time gate;
-  the user-facing `POST /v1/sessions/:id/voice/end` deliberately does **not** debit the
-  quota. The `agent-voice` worker measures call duration on a server-side
-  clock the browser can't influence and reports it via the internal
-  `POST /v1/internal/sessions/:id/voice/end`, which is the single source of
-  truth for the `voice_minute_usage` debit and the
-  `state_snapshot.analysis.voice` merge. A single-active-call guard
-  (`VOICE_ACTIVE_CALL_STALE_SECONDS`) stops a user opening N tabs to run N
-  concurrent calls past the daily cap. Audio is never persisted — only the
-  transcribed turns (through the existing chat-message path) and aggregate
-  voice analytics. See [VOICE_MODE.md](../VOICE_MODE.md) for the full
-  budget-enforcement design.
+- **Voice usage is durable and call-specific.** The API reserves one active call per user and returns `call_id`; retries for the same active session reuse its reservation. Worker checkpoints carry a sequence and cumulative seconds, so retries do not debit twice. The API splits duration at midnight UTC and serializes reservations and debits with a per-user database lock. Browser hang-up terminates the room but supplies no duration. Internal `voice/end` merges analysis without debiting again. Audio is not persisted. See [VOICE_MODE.md](../VOICE_MODE.md) for cutoff and reconnect behavior.
 
 ---
 
