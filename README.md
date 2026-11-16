@@ -5,7 +5,9 @@
 [![CI](https://github.com/lf1up/careersim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lf1up/careersim/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lf1up/careersim/branch/main/graph/badge.svg)](https://codecov.io/gh/lf1up/careersim)
 
-CareerSIM is a web app for practicing interviews, negotiations, and other workplace conversations with AI personas. It supports text and voice practice, with feedback and debrief reports for scored sessions.
+CareerSIM is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
+
+The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
 > [!NOTE]
 > **Repository is mid-migration.** The active runtime is `api/` + `web/` + `agent/` + `postgres` + `redis` + headless `ghost`, plus `livekit` + `agent-voice` for the browser-native voice surface, with a standalone static marketing site in `landing/`. Four earlier services (`backend/`, `frontend/`, `rag/`, `transformers/`) are still in the tree **for reference only** and are flagged as deprecated in both their own READMEs and `docker-compose.local.yml`. Do not build new features against them.
@@ -394,13 +396,14 @@ cd agent && uv run python test_simulation.py \
 
 ## 🗺️ Roadmap
 
-- **Port infrastructure to the new stack** — Terraform + Kustomize for `api` / `web` / `agent` / `agent-voice` / `livekit`.
+- **Port infrastructure to the new stack** — Terraform + Kubernetes for api / web / agent / agent-voice / livekit.
 - **Remove the deprecated directories** once the migration is considered complete and nothing still references them.
 - **Real phone-call practice with AI personas** — building on the shipped [browser-native voice mode](VOICE_MODE.md), extend to outbound (the persona calls the user at a scheduled time) and inbound (the user dials a number) calls via Twilio Voice / LiveKit SIP, with the same LangGraph engine driving the conversation.
 - **Community features** — public leaderboards and discussion forums.
 - **Certification paths** — structured learning programs with shareable certificates.
 - **AI persona builder** — available through the optional creator plugin in the separate [careersim-studio repository](https://github.com/lf1up/careersim-studio); see [Plugin support](#-plugin-support).
-- **Team / B2B version** — enterprise offering with team analytics and management.
+- **Team / B2B version** — enterprise offering with team analytics and management (see [careersim-studio repository](https://github.com/lf1up/careersim-studio)).
+- **Desktop application** - a complete stand-alone desktop version with BYOK features.
 
 ---
 
