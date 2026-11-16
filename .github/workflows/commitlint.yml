@@ -44,11 +44,15 @@ jobs:
       - name: Validate pushed commits
         if: github.event_name != 'pull_request'
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
         run: |
-          if [ -n "$BEFORE_SHA" ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            pnpm --dir tools/commitlint exec commitlint --last --verbose
+          elif git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             pnpm --dir tools/commitlint exec commitlint --from "$BEFORE_SHA" --to "$HEAD_SHA" --verbose
           else
-            pnpm --dir tools/commitlint exec commitlint --last --verbose
+            echo "Cannot validate push: the previous commit is unavailable. Restore or fetch the commit range before retrying." >&2
+            exit 1
           fi
