@@ -395,6 +395,7 @@ export type StreamEvent = StreamMessageEvent | StreamDoneEvent | StreamErrorEven
 // ---- Voice mode -----------------------------------------------------
 
 export interface VoiceStartResponse {
+  call_id: string;
   token: string;
   livekit_url: string;
   room: string;
@@ -434,6 +435,7 @@ export interface VoiceCaption {
  * correct) but the persona's audio is unavailable.
  */
 export interface VoiceControlEvent {
+  call_id?: string;
   type:
     | 'quota_warning'
     | 'quota_exhausted'

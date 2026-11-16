@@ -1,7 +1,9 @@
-import type { FastifyRequest } from 'fastify';
+import { fastify, type FastifyRequest } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { perUserLimit } from '../src/plugins/rate-limit.js';
+import { createMemoryWindowQuota } from '../src/modules/quotas/window-quota.js';
+import type { Entitlement } from '../src/modules/billing/billing.schema.js';
+import { perUserLimit, rateLimitPolicy } from '../src/plugins/rate-limit.js';
 import { buildTestApp, registerAndAuth, TEST_ALTCHA, type TestHarness } from './helpers/build-test-app.js';
 
 /**
@@ -74,6 +76,46 @@ describe('rate limiting', () => {
     expect(other.statusCode).toBe(200);
   });
 
+  it('fails closed on quota storage failure while the burst limiter stays independent', async () => {
+    h = await buildTestApp({ rateLimitEnabled: true, quotaStore: {
+      consume: async () => { throw new Error('Redis unavailable'); },
+      read: async () => { throw new Error('Redis unavailable'); },
+    } });
+    const { authHeader } = await registerAndAuth(h.app);
+    const calls = h.agent.callLog.length;
+    const rejected = await h.app.inject({ method: 'POST', url: '/v1/sessions', headers: authHeader,
+      payload: { simulation_slug: 'behavioral-interview-brenda' } });
+    expect(rejected.statusCode).toBe(503);
+    expect(rejected.json()).toMatchObject({ error: 'QUOTA_UNAVAILABLE' });
+    expect(h.agent.callLog).toHaveLength(calls);
+    expect((await h.app.inject({ method: 'GET', url: '/v1/health' })).statusCode).toBe(200);
+  });
+
+  it('changes ceilings without resetting the session and text counters', async () => {
+    let current: Entitlement = { tier: 'free', reason: 'free', supporterAccess: false, limits: {
+      sessionsCreateMax: 1, sessionsWindowMs: 21600000, chatMessagesMax: 1, chatWindowMs: 21600000,
+      customSimulationsMax: 3, customPersonasMax: 10, voiceDailyMinutes: 60,
+    } };
+    h = await buildTestApp({ rateLimitEnabled: true, quotaStore: createMemoryWindowQuota(), resolveEntitlements: async () => current });
+    const { authHeader } = await registerAndAuth(h.app);
+    const create = () => h!.app.inject({ method: 'POST', url: '/v1/sessions', headers: authHeader,
+      payload: { simulation_slug: 'behavioral-interview-brenda' } });
+    const first = await create();
+    expect(first.statusCode).toBe(201);
+    expect((await create()).statusCode).toBe(429);
+    const send = () => h!.app.inject({ method: 'POST', url: `/v1/sessions/${first.json().id}/messages`, headers: authHeader, payload: { content: 'hello' } });
+    expect((await send()).statusCode).toBe(200);
+    expect((await send()).statusCode).toBe(429);
+    current = { ...current, tier: 'plus', reason: 'paid', limits: { ...current.limits, sessionsCreateMax: 3, chatMessagesMax: 3 } };
+    expect((await create()).statusCode).toBe(201);
+    expect((await send()).statusCode).toBe(200);
+    current = { ...current, tier: 'free', reason: 'free', limits: { ...current.limits, sessionsCreateMax: 1, chatMessagesMax: 1 } };
+    const blocked = await create();
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.json()).toMatchObject({ tier: 'free', quotaKind: 'sessions', used: 2, max: 1, contactUrl: '/contact' });
+    expect((await send()).statusCode).toBe(429);
+  });
+
   it('renews the shared allowance when the configured window expires', async () => {
     h = await buildTestApp({ rateLimitEnabled: true, chatMessagesMax: 1, chatMessagesTimeWindow: '1 second' });
     const { authHeader } = await registerAndAuth(h.app);
@@ -111,6 +153,9 @@ describe('rate limiting', () => {
     expect(h.agent.callLog).toHaveLength(calls);
     const detail = await h.app.inject({ method: 'GET', url: `/v1/sessions/${created.json().id}`, headers: authHeader });
     expect(detail.json().messages).toHaveLength(created.json().messages.length);
+    const accepted = await h.app.inject({ method: 'POST', url: `/v1/sessions/${created.json().id}/messages`,
+      headers: authHeader, payload: { content: ['one', 'two'] } });
+    expect(accepted.statusCode, accepted.body).toBe(200);
   });
 
   it('enforces the global default and returns a RATE_LIMITED envelope', async () => {
@@ -259,6 +304,24 @@ describe('rate limiting', () => {
 });
 
 describe('perUserLimit', () => {
+  it('keeps session churn separate from legacy allowance keys while isolating users', async () => {
+    const app = fastify();
+    app.get<{ Params: { userId: string } }>('/:userId', async (request) => {
+      request.user = { sub: request.params.userId, email: 'test@example.com', jti: 'test', authVersion: 0 };
+      return { key: rateLimitPolicy.createSession().keyGenerator(request) };
+    });
+    try {
+      const alice = (await app.inject('/alice')).json().key;
+      const bob = (await app.inject('/bob')).json().key;
+      // Old 6-hour buckets must stay read-only during migration; reusing them
+      // as 1-minute abuse counters would retain their old expiry and block paid use.
+      expect(alice).not.toBe('user:alice');
+      expect(alice).not.toBe(bob);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('keys a plugin bucket by user id, then by IP', () => {
     const policy = perUserLimit(4, '1 minute');
     expect(policy).toMatchObject({ max: 4, timeWindow: '1 minute' });

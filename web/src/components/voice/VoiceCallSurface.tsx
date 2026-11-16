@@ -9,19 +9,21 @@ import React, {
 } from 'react';
 import toast from 'react-hot-toast';
 
-import { apiClient, ApiError } from '@/lib/api';
-import { createVoiceConnection, type VoiceConnection } from '@/lib/voice';
+import { QuotaNotice } from '@/components/billing/QuotaNotice';
+import { ApiError } from '@/lib/api';
+import type { VoiceConnection } from '@/lib/voice';
 import type { VoiceCaption } from '@/lib/types';
 import { RetroAlert } from '@/components/ui/RetroBadge';
 
 import { VoiceControls } from './VoiceControls';
+import { acquireVoiceReservation } from './reservations';
 
 export interface VoiceCallSurfaceProps {
   sessionId: string;
   personaName?: string;
   /** Called when the user (or an error) ends the call. The parent should
    *  swap back to the chat surface and refetch the session detail. */
-  onCallEnded: () => void;
+  onCallEnded: (error?: unknown) => void;
 }
 
 type Status = 'connecting' | 'live' | 'reconnecting' | 'ended';
@@ -56,12 +58,17 @@ function elapsedCallSeconds(startMs: number): number {
  * events: both stacks clear when the user speaks after a COMMITTED
  * turn, and abandoned (re-run) replies drop their stale AI bubbles.
  */
-export function VoiceCallSurface({
+export function VoiceCallSurface(props: VoiceCallSurfaceProps) {
+  return <VoiceCallSession key={props.sessionId} {...props} />;
+}
+
+function VoiceCallSession({
   sessionId,
   personaName,
   onCallEnded,
 }: VoiceCallSurfaceProps) {
   const [status, setStatus] = useState<Status>('connecting');
+  const [quotaError, setQuotaError] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -89,6 +96,8 @@ export function VoiceCallSurface({
   // `startTimeRef` is initialised to 0 and overwritten the moment the
   // LiveKit connection comes up — initialising with `Date.now()` here
   // would re-evaluate on every re-render and trip React's purity rule.
+  const callIdRef = useRef<string | null>(null);
+  const reservationRef = useRef<ReturnType<typeof acquireVoiceReservation> | null>(null);
   const connRef = useRef<VoiceConnection | null>(null);
   const startTimeRef = useRef<number>(0);
   const endingRef = useRef<boolean>(false);
@@ -116,26 +125,33 @@ export function VoiceCallSurface({
   // Mount: open the connection.
   useEffect(() => {
     let cancelled = false;
+    let ownedCallId: string | null = null;
+    let ownedConnection: VoiceConnection | null = null;
+    let unsubscribe = () => {};
+    let unsubscribeControl = () => {};
+    let disconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    endingRef.current = false;
+    quotaEndedRef.current = false;
+    const reservation = acquireVoiceReservation(sessionId);
+    reservationRef.current = reservation;
     (async () => {
       try {
-        const meta = await apiClient.startVoiceCall(sessionId);
+        const meta = await reservation.start;
         if (cancelled) return;
+        ownedCallId = meta.call_id;
+        callIdRef.current = meta.call_id;
         setQuotaRemaining(meta.quota_remaining_seconds);
 
-        const conn = await createVoiceConnection({
-          url: meta.livekit_url,
-          token: meta.token,
-        });
-        if (cancelled) {
-          await conn.disconnect();
-          return;
-        }
+        const conn = await reservation.connect();
+        ownedConnection = conn;
+        if (cancelled) return;
         connRef.current = conn;
         startTimeRef.current = Date.now();
         setStatus('live');
 
         // Listen for caption frames published by the agent worker.
-        const unsubscribe = conn.onCaption((c) => {
+        unsubscribe = conn.onCaption((c) => {
+          if (cancelled || connRef.current !== conn || callIdRef.current !== meta.call_id) return;
           if (c.role === 'ai') {
             // Each non-empty AI caption is one bubble of the persona's
             // reply (main message or a follow-up burst). Append rather
@@ -179,7 +195,9 @@ export function VoiceCallSurface({
 
         // Listen for control events: turn lifecycle (caption grouping)
         // and budget (warning + hard cutoff).
-        const unsubscribeControl = conn.onControl((event) => {
+        unsubscribeControl = conn.onControl((event) => {
+          if (cancelled || connRef.current !== conn || callIdRef.current !== meta.call_id) return;
+          if ((event.type === 'quota_warning' || event.type === 'quota_exhausted') && event.call_id !== meta.call_id) return;
           if (event.type === 'turn_committed') {
             // The turn (user batch + persona reply) is persisted; the
             // next user utterance starts a fresh caption group.
@@ -197,6 +215,7 @@ export function VoiceCallSurface({
             quotaEndedRef.current = true;
             const message = formatLimitReached(event.cap_seconds);
             setError(message);
+            setQuotaError({ error: 'voice_quota_exhausted', message });
             toast.error(message);
           } else if (event.type === 'tts_error') {
             // Speech synthesis failed worker-side; the call keeps running
@@ -212,7 +231,9 @@ export function VoiceCallSurface({
         // The Room emits `Disconnected` either on a clean end-call or
         // an unexpected drop; either way we leave the surface.
         const lk = await import('livekit-client');
+        if (cancelled) return;
         conn.room.on(lk.RoomEvent.Disconnected, () => {
+          if (cancelled || connRef.current !== conn || callIdRef.current !== meta.call_id) return;
           // The persona can't be "cooking" once the room is gone.
           setIsThinking(false);
           // If the user pressed End call, the cleanup path handles it.
@@ -221,7 +242,7 @@ export function VoiceCallSurface({
           // Skip the "reconnecting" dance and end cleanly.
           if (quotaEndedRef.current) {
             setStatus('ended');
-            onCallEnded();
+            onCallEnded({ error: 'voice_quota_exhausted', message: 'Daily voice budget reached. Resets at midnight UTC.' });
             return;
           }
           // Otherwise this was an unsolicited disconnect (network drop,
@@ -232,11 +253,10 @@ export function VoiceCallSurface({
           // otherwise leave the session marked "in progress" and block
           // the next /voice/start until the staleness window expires.
           setStatus('reconnecting');
-          window.setTimeout(() => {
-            if (!endingRef.current) {
+          disconnectTimer = setTimeout(() => {
+            if (!cancelled && connRef.current === conn && callIdRef.current === meta.call_id && !endingRef.current) {
               endingRef.current = true;
-              const seconds = elapsedCallSeconds(startTimeRef.current);
-              void apiClient.endVoiceCall(sessionId, seconds).catch(() => {
+              void reservation.release().catch(() => {
                 // Best-effort — the staleness window is the backstop.
               });
               setStatus('ended');
@@ -245,21 +265,25 @@ export function VoiceCallSurface({
           }, 1500);
         });
 
-        return () => {
-          unsubscribe();
-          unsubscribeControl();
-        };
       } catch (err) {
         if (cancelled) return;
         const message = formatStartError(err);
         setError(message);
         setStatus('ended');
         toast.error(message);
-        onCallEnded();
+        void reservation.release().catch(() => {});
+        onCallEnded(err);
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(disconnectTimer);
+      unsubscribe();
+      unsubscribeControl();
+      if (connRef.current === ownedConnection) connRef.current = null;
+      if (callIdRef.current === ownedCallId) callIdRef.current = null;
+      if (reservationRef.current === reservation) reservationRef.current = null;
+      void reservation.release().catch(() => {});
     };
   }, [sessionId, onCallEnded]);
 
@@ -303,36 +327,26 @@ export function VoiceCallSurface({
     }
   }, [aiCaptions, userCaptions, interimUserCaption, isThinking]);
 
-  // Cleanup: disconnect on unmount.
-  useEffect(() => {
-    return () => {
-      const conn = connRef.current;
-      if (!conn) return;
-      void conn.disconnect();
-    };
-  }, []);
-
   const handleEnd = useCallback(async () => {
     if (endingRef.current) return;
     endingRef.current = true;
     setIsThinking(false);
     setStatus('ended');
-    const seconds = elapsedCallSeconds(startTimeRef.current);
+    const callId = callIdRef.current;
     try {
-      await connRef.current?.disconnect();
-    } catch {
-      // disconnection errors are non-fatal
-    }
-    try {
-      const result = await apiClient.endVoiceCall(sessionId, seconds);
-      setQuotaRemaining(result.quota_remaining_seconds);
+      if (callId) {
+        const result = await reservationRef.current?.release();
+        if (result) setQuotaRemaining(result.quota_remaining_seconds);
+      } else {
+        void reservationRef.current?.release().catch(() => {});
+      }
     } catch {
       // Best-effort — if /voice/end fails the SFU close still
       // releases server resources; the next /voice/start will
       // re-check ownership + quota.
     }
     onCallEnded();
-  }, [onCallEnded, sessionId]);
+  }, [onCallEnded]);
 
   const handleToggleMute = useCallback(async () => {
     const conn = connRef.current;
@@ -440,7 +454,8 @@ export function VoiceCallSurface({
           </div>
         </div>
 
-        {error && (
+        <QuotaNotice error={quotaError} />
+        {error && !quotaError && (
           <RetroAlert tone="error" title="Voice unavailable">
             {error}
           </RetroAlert>

@@ -9,6 +9,7 @@ import { UserIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '@/contexts/AuthContext';
 import { guestNavItems, signedInNavItems, type WebNavItem } from '@/extensions';
 import { SITE_NAME } from '@/lib/seo';
+import { isPricingEnabled } from '@/lib/pricing';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GitHubLink } from '@/components/ui/GitHubLink';
 import { RetroBadge } from '@/components/ui/RetroBadge';
@@ -19,11 +20,12 @@ const AUTH_NAV_ITEMS: WebNavItem[] = [
   { href: '/simulations', label: 'Simulations' },
   { href: '/sessions', label: 'Sessions' },
   { href: '/analytics', label: 'Analytics' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 // Host nav items shown to guests. Plugins can add their own guest-visible links.
 // Blog lives in the landing-site header/footer, not the app chrome.
-const GUEST_NAV_ITEMS: WebNavItem[] = [{ href: '/simulations', label: 'Simulations' }];
+const GUEST_NAV_ITEMS: WebNavItem[] = [{ href: '/simulations', label: 'Simulations' }, { href: '/pricing', label: 'Pricing' }];
 const HAS_LANDING_ORIGIN =
   process.env.NEXT_PUBLIC_HAS_LANDING_ORIGIN === 'true';
 
@@ -46,7 +48,8 @@ export const Navbar: React.FC = () => {
   // While the auth bootstrap is running we can't know yet which variant of
   // the bar to show; render a minimal neutral header so the page doesn't
   // flash "guest → auth" or vice-versa.
-  const navItems = isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : guestNavItems(GUEST_NAV_ITEMS);
+  const navItems = (isAuthenticated ? signedInNavItems(AUTH_NAV_ITEMS) : guestNavItems(GUEST_NAV_ITEMS))
+    .filter(item => isPricingEnabled() || item.href !== '/pricing');
 
   const desktopNavLinkClass = (active: boolean) =>
     clsx(
@@ -127,8 +130,8 @@ export const Navbar: React.FC = () => {
                   <ThemeToggle />
                   <Link
                     href="/profile"
-                    aria-label="Profile"
-                    title={user?.email ? `Profile (${user.email})` : 'Profile'}
+                    aria-label="Profile and billing"
+                    title={user?.email ? `Profile and billing (${user.email})` : 'Profile and billing'}
                     className="inline-flex h-10 w-10 items-center justify-center border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark shadow-retro-2 dark:shadow-retro-dark-2 transition-[transform,box-shadow] duration-150 ease-out hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-retro-1 dark:hover:shadow-retro-dark-1 active:translate-x-[2px] active:translate-y-[2px] active:shadow-retro-1 dark:active:shadow-retro-dark-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black dark:focus-visible:ring-retro-ink-dark focus-visible:ring-offset-2"
                   >
                     <UserIcon className="h-5 w-5 text-retro-ink dark:text-retro-ink-dark" aria-hidden="true" />
@@ -235,7 +238,7 @@ export const Navbar: React.FC = () => {
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={mobileActionClass()}
                     >
-                      Profile settings
+                      Profile &amp; billing
                     </Link>
                     <button
                       onClick={() => {

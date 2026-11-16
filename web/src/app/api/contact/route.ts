@@ -23,6 +23,12 @@ const USE_CASE_LABELS: Record<string, string> = {
   other: 'Something else',
 };
 
+const REASON_LABELS: Record<string, string> = {
+  general: 'General question',
+  'higher-limits': 'Higher limits',
+  supporter: 'Supporter question',
+};
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function json(body: unknown, status = 200): NextResponse {
@@ -64,6 +70,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     return json({ ok: true });
   }
 
+  const audience = field(form, 'audience', 40) || 'business';
+  if (audience !== 'business' && audience !== 'personal') return json({ error: 'Invalid audience.' }, 400);
+  const personal = audience === 'personal';
+  const reason = field(form, 'reason', 40);
+  if (personal && !Object.hasOwn(REASON_LABELS, reason)) return json({ error: 'Please pick a valid reason.' }, 400);
+  for (const [key, max] of Object.entries({ name: 120, email: 254, company: 160, message: MAX_MESSAGE_LENGTH })) {
+    const value = form.get(key);
+    if (typeof value === 'string' && value.trim().length > max) return json({ error: `${key} is too long.` }, 400);
+  }
+
   const name = field(form, 'name', 120);
   const email = field(form, 'email', 254);
   const company = field(form, 'company', 160);
@@ -73,10 +89,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   if (!name) return json({ error: 'Please add your name.' }, 400);
   if (!EMAIL_RE.test(email)) {
-    return json({ error: 'Please add a valid work email.' }, 400);
+    return json({ error: personal ? 'Please add a valid email.' : 'Please add a valid work email.' }, 400);
   }
-  if (!company) return json({ error: 'Please add your company.' }, 400);
-  if (!(useCase in USE_CASE_LABELS)) {
+  if (!personal && !company) return json({ error: 'Please add your company.' }, 400);
+  if (!personal && !Object.hasOwn(USE_CASE_LABELS, useCase)) {
     return json({ error: 'Please pick a use case.' }, 400);
   }
   if (message.length < MIN_MESSAGE_LENGTH) {
@@ -122,22 +138,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const useCaseLabel = USE_CASE_LABELS[useCase];
-  const subject = `B2B pilot inquiry — ${company} (${useCaseLabel})`;
+  const useCaseLabel = personal ? REASON_LABELS[reason] : USE_CASE_LABELS[useCase];
+  const subject = personal ? `CareerSim contact: ${useCaseLabel}` : `B2B pilot inquiry — ${company} (${useCaseLabel})`;
   const text = [
     `Name: ${name}`,
     `Email: ${email}`,
-    `Company: ${company}`,
-    `Use case: ${useCaseLabel}`,
+    `Company: ${company || 'Not provided'}`,
+    `${personal ? 'Reason' : 'Use case'}: ${useCaseLabel}`,
     '',
     message,
   ].join('\n');
   const html = `
-    <h2>New B2B pilot inquiry</h2>
+    <h2>${personal ? 'New personal contact request' : 'New B2B pilot inquiry'}</h2>
     <p><strong>Name:</strong> ${escapeHtml(name)}<br/>
     <strong>Email:</strong> ${escapeHtml(email)}<br/>
-    <strong>Company:</strong> ${escapeHtml(company)}<br/>
-    <strong>Use case:</strong> ${escapeHtml(useCaseLabel)}</p>
+    <strong>Company:</strong> ${escapeHtml(company || 'Not provided')}<br/>
+    <strong>${personal ? 'Reason' : 'Use case'}:</strong> ${escapeHtml(useCaseLabel)}</p>
     <hr/>
     <p>${escapeHtml(message).replaceAll('\n', '<br/>')}</p>
   `;

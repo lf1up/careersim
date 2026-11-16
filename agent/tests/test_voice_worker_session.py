@@ -9,6 +9,7 @@ teardown.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import sys
@@ -107,6 +108,7 @@ def _install_livekit(monkeypatch: pytest.MonkeyPatch) -> _Kit:
             self.rate = rate
             self.channels = channels
             self.frames: list[AudioFrame] = []
+            self.clear_calls = 0
             kit.sources.append(self)
 
         async def capture_frame(self, frame: AudioFrame) -> None:
@@ -116,6 +118,7 @@ def _install_livekit(monkeypatch: pytest.MonkeyPatch) -> _Kit:
             return None
 
         def clear_queue(self) -> None:
+            self.clear_calls += 1
             if kit.clear_fails:
                 raise RuntimeError("clear")
 
@@ -331,6 +334,7 @@ class _API:
         self.state_error: BaseException | None = None
         self.report_error: BaseException | None = None
         self.reported: tuple[Any, ...] | None = None
+        self.checkpoints: list[tuple[Any, ...]] = []
 
     async def fetch_state_for_voice(self, session_id: str) -> dict[str, Any]:
         if self.state_error:
@@ -341,6 +345,11 @@ class _API:
         if self.budget_error:
             raise self.budget_error
         return self.budget
+
+    async def checkpoint_call(self, call_id, sequence, cumulative_seconds, ended, *, started_at=None):
+        self.checkpoints.append((call_id, sequence, cumulative_seconds, ended))
+        budget = await self.fetch_voice_budget(call_id)
+        return {"usage_date": "2026-11-10", "reset_at": "2026-11-11T00:00:00Z", "continue_call": True, **budget}
 
     async def stream_user_message(
         self,
@@ -652,7 +661,7 @@ async def test_entrypoint_closes_api_when_state_fetch_fails(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.state_error = RuntimeError("down")
     monkeypatch.setattr(
@@ -669,7 +678,7 @@ async def test_entrypoint_cleans_up_failed_provider_init(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     stt = _STT()
 
@@ -697,7 +706,7 @@ async def test_entrypoint_closes_api_when_stt_init_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     monkeypatch.setattr(
         "careersim_agent.voice.state_bridge.APIClient.from_env",
@@ -715,9 +724,9 @@ async def test_entrypoint_closes_api_when_stt_init_fails(
 @pytest.mark.parametrize(
     ("budget", "remaining", "cap"),
     [
-        ({"remaining_seconds": -3, "cap_seconds": 90}, 0.0, 90.0),
-        ({"remaining_seconds": "later", "cap_seconds": None}, None, None),
-        ({"remaining_seconds": 12.5, "cap_seconds": 30}, 12.5, 30.0),
+        ({"remaining_seconds": 3, "cap_seconds": 90}, 3, 90),
+        ({"remaining_seconds": None, "cap_seconds": None}, None, None),
+        ({"remaining_seconds": 12, "cap_seconds": 30}, 12, 30),
     ],
 )
 async def test_entrypoint_passes_budget_into_the_room(
@@ -727,7 +736,7 @@ async def test_entrypoint_passes_budget_into_the_room(
     cap: float | None,
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.budget = budget
     seen: dict[str, Any] = {}
@@ -749,17 +758,17 @@ async def test_entrypoint_passes_budget_into_the_room(
     assert api.reported[0] == "sess-1"
     assert api.reported[2] is not None
     assert api.closed is True
-    payload = json.loads(room.local_participant.data[0][0])
+    caption = next(data for data in room.local_participant.data if data[1] == "voice-captions")
+    payload = json.loads(caption[0])
     assert payload["role"] == "ai"
     assert payload["is_final"] is True
-    assert room.local_participant.data[0][1] == "voice-captions"
 
 
-async def test_entrypoint_continues_when_budget_lookup_fails(
+async def test_entrypoint_fails_closed_when_budget_lookup_fails(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.budget_error = RuntimeError("quota down")
     seen: dict[str, Any] = {}
@@ -775,7 +784,8 @@ async def test_entrypoint_continues_when_budget_lookup_fails(
     _patch_providers(monkeypatch, _STT(), _TTS())
     with caplog.at_level(logging.ERROR):
         await _voice_entrypoint(_Ctx(room))
-    assert seen["max"] is None
+    assert seen == {}
+    assert api.closed is True
     assert "failed to fetch voice budget" in caplog.text
 
 
@@ -783,10 +793,13 @@ async def test_entrypoint_swallows_finalize_and_report_failures(
     monkeypatch: pytest.MonkeyPatch, caplog: Any
 ) -> None:
     room = _Room()
-    room.metadata = '{"session_id": "sess-1"}'
+    room.metadata = '{"session_id": "sess-1", "call_id": "call-1"}'
     api = _API()
     api.report_error = RuntimeError("end failed")
-    monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", _async_ok)
+    async def finished_room(**_kwargs: Any) -> None:
+        api.budget_error = RuntimeError("checkpoint unavailable during shutdown")
+
+    monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", finished_room)
     monkeypatch.setattr(
         "careersim_agent.voice.state_bridge.APIClient.from_env",
         lambda: api,
@@ -800,6 +813,8 @@ async def test_entrypoint_swallows_finalize_and_report_failures(
     _patch_providers(monkeypatch, stt, tts)
     with caplog.at_level(logging.ERROR):
         await _voice_entrypoint(_Ctx(room))
+    assert "final voice checkpoint failed for call-1" in caplog.text
+    assert api.checkpoints[-1][3] is True
     assert "finalize_voice_analysis failed" in caplog.text
     assert "voice/end report failed" in caplog.text
     assert stt.closed is True
@@ -1352,3 +1367,377 @@ async def test_disconnect_cancels_a_waiting_watchdog(
         ),
         timeout=5,
     )
+
+
+async def test_call_accounting_refreshes_midnight_and_preserves_cumulative_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    accounting = _CallAccounting(api, 'call-1')
+    await accounting.checkpoint()
+    clock[0] = 15
+    api.budget = {"remaining_seconds": 600, "cap_seconds": 600, "usage_date": "2026-11-11", "reset_at": "2026-11-12T00:00:00Z", "continue_call": True}
+    await accounting.checkpoint()
+    assert accounting.budget['usage_date'] == '2026-11-11'
+    assert api.checkpoints == [('call-1', 0, 0, False), ('call-1', 1, 15, False)]
+
+
+async def test_call_accounting_failure_cuts_off_within_thirty_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    accounting = _CallAccounting(api, 'call-1')
+    await accounting.checkpoint()
+    api.budget_error = TimeoutError('down')
+    task = asyncio.create_task(asyncio.Event().wait())
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, 'wait', advance_wait)
+    async def stop_room():
+        clock[0] += 5
+    await accounting.supervise(task, _Captions(), stop_room)
+    assert clock[0] <= 30
+    assert task.cancelled()
+
+
+async def test_entrypoint_cancellation_sends_final_checkpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    room = _Room(); room.metadata = '{"session_id":"sess-1","call_id":"call-1"}'
+    api = _API()
+    monkeypatch.setattr('careersim_agent.voice.state_bridge.APIClient.from_env', lambda: api)
+    async def cancelled(**kwargs):
+        raise asyncio.CancelledError()
+    monkeypatch.setattr('careersim_agent.voice.worker._run_room_session', cancelled)
+    _patch_providers(monkeypatch, _STT(), _TTS())
+    with pytest.raises(asyncio.CancelledError):
+        await _voice_entrypoint(_Ctx(room))
+    assert api.checkpoints[-1][3] is True
+    assert api.reported[1] == 'call-1'
+
+
+async def test_stalled_quota_warning_cannot_block_budget_failure_cutoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    api.budget['remaining_seconds'] = 60
+    accounting = _CallAccounting(api, 'call-warning')
+    await accounting.checkpoint()
+    api.budget_error = TimeoutError('down')
+    class StalledCaptions:
+        async def publish_control(self, payload):
+            await asyncio.Event().wait()
+    original_wait_for = asyncio.wait_for
+    async def fast_timeout(awaitable, timeout):
+        return await original_wait_for(awaitable, 0)
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, 'wait_for', fast_timeout)
+    monkeypatch.setattr(asyncio, 'wait', advance_wait)
+    task = asyncio.create_task(asyncio.Event().wait())
+    supervisor = asyncio.create_task(accounting.supervise(task, StalledCaptions()))
+    try:
+        for _ in range(30):
+            await asyncio.sleep(0)
+        assert supervisor.done(), 'a stalled warning must not hold the supervisor open'
+        await supervisor
+    finally:
+        supervisor.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await supervisor
+    assert task.cancelled()
+    assert clock[0] <= 30
+
+
+async def test_supervisor_refreshes_at_utc_midnight_before_spending_new_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime as RealDatetime, timezone, timedelta
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    class ClockDatetime(RealDatetime):
+        @classmethod
+        def now(cls, tz=None):
+            return RealDatetime(2026, 11, 10, 23, 59, 55, tzinfo=timezone.utc) + timedelta(seconds=clock[0])
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    monkeypatch.setattr('careersim_agent.voice.worker.datetime', ClockDatetime)
+    api = _API()
+    async def checkpoint(call_id, sequence, cumulative_seconds, ended, *, started_at=None):
+        api.checkpoints.append((call_id, sequence, cumulative_seconds, ended))
+        return {"remaining_seconds": 600, "cap_seconds": 600,
+                "usage_date": '2026-11-11' if clock[0] >= 5 else '2026-11-10',
+                "reset_at": '2026-11-12T00:00:00Z' if clock[0] >= 5 else '2026-11-11T00:00:00Z',
+                "continue_call": sequence < 2}
+    api.checkpoint_call = checkpoint
+    accounting = _CallAccounting(api, 'call-midnight')
+    await accounting.checkpoint()
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, 'wait', advance_wait)
+    task = asyncio.create_task(asyncio.Event().wait())
+    await accounting.supervise(task, _Captions())
+    assert api.checkpoints[1][2] == 5
+    assert accounting.budget['usage_date'] == '2026-11-11'
+    assert api.checkpoints[2][2] == 20
+
+
+async def test_call_accounting_starts_duration_after_initial_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import datetime as RealDatetime, timedelta, timezone
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    class ClockDatetime(RealDatetime):
+        @classmethod
+        def now(cls, tz=None):
+            return RealDatetime(2026, 11, 10, 23, 59, 58, tzinfo=timezone.utc) + timedelta(seconds=clock[0])
+    monkeypatch.setattr('careersim_agent.voice.worker.datetime', ClockDatetime)
+    origins = []
+    monkeypatch.setattr('careersim_agent.voice.worker.time.monotonic', lambda: clock[0])
+    api = _API()
+    original_checkpoint = api.checkpoint_call
+    async def delayed_initial(call_id, sequence, cumulative_seconds, ended, *, started_at=None):
+        origins.append(started_at)
+        if sequence == 0:
+            clock[0] = 5.0
+        return await original_checkpoint(call_id, sequence, cumulative_seconds, ended)
+    api.checkpoint_call = delayed_initial
+    accounting = _CallAccounting(api, 'call-delayed-auth')
+    clock[0] = 2.0
+    await accounting.checkpoint()
+    clock[0] = 20.0
+    await accounting.checkpoint()
+    assert api.checkpoints == [('call-delayed-auth', 0, 0, False), ('call-delayed-auth', 1, 15, False)]
+    assert origins == [None, '2026-11-11T00:00:03Z']
+
+
+async def test_non_object_metadata_falls_back_to_the_participant(fast_sleep: Any) -> None:
+    room = _Room()
+    room.metadata = '["sess-wrong"]'
+    room.remote_participants = {
+        "user": types.SimpleNamespace(metadata='{"session_id":"sess-right","call_id":"call-right"}'),
+    }
+    assert await _resolve_session_metadata(room) == "sess-right"
+    assert await _resolve_session_metadata(room, "call_id") == "call-right"
+
+
+@pytest.mark.parametrize("missing_identity", [True, False], ids=["missing-call-id", "authorization-denied"])
+async def test_entrypoint_rejects_unaccounted_calls_before_loading_providers(
+    monkeypatch: pytest.MonkeyPatch, fast_sleep: Any, missing_identity: bool,
+) -> None:
+    room = _Room()
+    room.metadata = '{"session_id":"sess-1"}' if missing_identity else '{"session_id":"sess-1","call_id":"call-1"}'
+    api = _API()
+    api.budget = {"remaining_seconds": 0, "cap_seconds": 600, "continue_call": False}
+    monkeypatch.setattr("careersim_agent.voice.state_bridge.APIClient.from_env", lambda: api)
+
+    def unauthorized_provider(_persona: Any) -> Any:
+        pytest.fail("an unauthorized call must not load paid voice providers")
+
+    monkeypatch.setattr("careersim_agent.voice.providers.get_stt_provider", unauthorized_provider)
+    monkeypatch.setattr("careersim_agent.voice.providers.get_tts_provider", unauthorized_provider)
+    await _voice_entrypoint(_Ctx(room))
+    assert api.closed is True
+    assert api.streams == []
+    assert api.reported is None
+    assert api.checkpoints == ([] if missing_identity else [("call-1", 0, 0, False)])
+
+
+@pytest.mark.parametrize("warning_delay", [False, True], ids=["authorization-already-stale", "warning-uses-last-five-seconds"])
+async def test_expired_authorization_stops_room_without_another_checkpoint(
+    monkeypatch: pytest.MonkeyPatch, warning_delay: bool,
+) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+    clock = [0.0]
+    monkeypatch.setattr("careersim_agent.voice.worker.time.monotonic", lambda: clock[0])
+    api = _API()
+    api.budget["remaining_seconds"] = 60
+    accounting = _CallAccounting(api, "call-expired")
+    await accounting.checkpoint()
+    clock[0] = 20.0 if warning_delay else 25.0
+    warnings = []
+    class Captions:
+        async def publish_control(self, payload):
+            warnings.append(payload)
+            clock[0] += 5.0
+
+    stopped_at = []
+    async def stop_room():
+        stopped_at.append(clock[0])
+        clock[0] += 5.0
+
+    room_task = asyncio.create_task(asyncio.Event().wait())
+    await accounting.supervise(room_task, Captions(), stop_room)
+    assert room_task.cancelled()
+    assert stopped_at == [25.0]
+    assert clock[0] == 30.0
+    assert len(api.checkpoints) == 1
+    assert [frame["type"] for frame in warnings] == (["quota_warning"] if warning_delay else [])
+
+
+async def test_entrypoint_revocation_deletes_livekit_room_and_finishes_cleanup(monkeypatch: pytest.MonkeyPatch) -> None:
+    livekit_api = types.ModuleType("livekit.api")
+    livekit_api.DeleteRoomRequest = lambda *, room: types.SimpleNamespace(room=room)
+    monkeypatch.setitem(sys.modules, "livekit.api", livekit_api)
+    clock = [0.0]
+    monkeypatch.setattr("careersim_agent.voice.worker.time.monotonic", lambda: clock[0])
+    room = _Room()
+    room.metadata = '{"session_id":"sess-1","call_id":"call-1"}'
+    ctx = _Ctx(room)
+    deleted = []
+    async def delete_room(request):
+        deleted.append((request.room, clock[0]))
+    ctx.api = types.SimpleNamespace(room=types.SimpleNamespace(delete_room=delete_room))
+    api = _API()
+    api.budget = {"remaining_seconds": 120, "cap_seconds": 600, "usage_date": "2099-01-01", "reset_at": "2099-01-02T00:00:00Z"}
+    monkeypatch.setattr("careersim_agent.voice.state_bridge.APIClient.from_env", lambda: api)
+    drained = []
+    async def run_room(**_kwargs):
+        api.budget["continue_call"] = False
+        try:
+            await asyncio.Event().wait()
+        finally:
+            drained.append(True)
+    async def advance_wait(tasks, *, timeout):
+        clock[0] += timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+    monkeypatch.setattr(asyncio, "wait", advance_wait)
+    monkeypatch.setattr("careersim_agent.voice.worker._run_room_session", run_room)
+    stt, tts = _STT(), _TTS()
+    _patch_providers(monkeypatch, stt, tts)
+    await _voice_entrypoint(ctx)
+    assert deleted == [("room-1", 15.0)]
+    assert drained == [True]
+    assert stt.closed and tts.closed and api.closed
+    assert api.checkpoints[-1][3] is True
+    assert api.reported is not None
+    controls = [json.loads(data) for data, topic, _ in room.local_participant.data if topic == "voice-control"]
+    assert controls == [{"type": "quota_exhausted", "call_id": "call-1", "cap_seconds": 600}]
+
+
+@pytest.mark.parametrize("deletion_error", [RuntimeError("SFU unavailable"), TimeoutError("SFU timeout")])
+async def test_authorization_cutoff_stops_playback_before_transcript_flush(
+    monkeypatch: pytest.MonkeyPatch, fast_turns: None, deletion_error: Exception,
+) -> None:
+    from careersim_agent.voice.worker import _CallAccounting
+
+    kit = _install_livekit(monkeypatch)
+    kit.audio_script = _hold()
+    commit = asyncio.Event()
+    persisted = asyncio.Event()
+    flush_started = asyncio.Event()
+    playback_stopped = asyncio.Event()
+    release_audio = asyncio.Event()
+    original_flush = TurnManager.flush
+
+    async def flush(self: TurnManager) -> None:
+        flush_started.set()
+        await original_flush(self)
+
+    monkeypatch.setattr(TurnManager, "flush", flush)
+
+    class API(_API):
+        async def stream_user_message(self, session_id, texts, expected_message_count=None):
+            self.streams.append(list(texts))
+            yield {"type": "message", "content": "First reply."}
+            await commit.wait()
+            yield {"type": "message", "content": "Follow-up reply."}
+            persisted.set()
+            yield {"type": "done"}
+
+    class TTS(_TTS):
+        async def synthesize(self, text):
+            try:
+                async for chunk in super().synthesize(text):
+                    yield chunk
+            finally:
+                playback_stopped.set()
+
+    tts = TTS(block=release_audio)
+    api = API()
+    captions = _Captions()
+    room = _Room()
+    room.remote_participants = _user_track()
+    frames = [types.SimpleNamespace(data=b"\x00\x01", samples_per_channel=1, sample_rate=16000)]
+
+    async def vad():
+        yield types.SimpleNamespace(type="end", frames=frames)
+        await asyncio.Event().wait()
+
+    kit.vad_script = vad
+    room_task = asyncio.create_task(_run_room_session(
+        ctx=_Ctx(room), adapter=_Adapter(),
+        stt=_STT([[STTResult(text="hello", is_final=True, confidence=0.9)]]), tts=tts,
+        captions=captions, api=api, session_id="sess-1", tuning=_tuning(),
+        max_duration_sec=None, budget_managed=True,
+    ))
+    supervisor = None
+    try:
+        await asyncio.wait_for(tts.started.wait(), timeout=2)
+        accounting = _CallAccounting(api, "call-expired")
+        accounting.last_confirmed -= 26
+
+        async def stop_room():
+            raise deletion_error
+
+        supervisor = asyncio.create_task(accounting.supervise(room_task, captions, stop_room))
+        await asyncio.wait_for(flush_started.wait(), timeout=2)
+        assert playback_stopped.is_set(), "audio must stop before persistence drains"
+        assert kit.sources[0].clear_calls > 0
+        assert not persisted.is_set()
+        commit.set()
+        await asyncio.wait_for(supervisor, timeout=2)
+        assert persisted.is_set()
+        assert api.streams == [["hello"]]
+        assert tts.texts == ["First reply."]
+        assert [caption.text for caption in captions.published if caption.role == "ai"] == ["First reply."]
+    finally:
+        commit.set()
+        release_audio.set()
+        if not room_task.done():
+            room_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.wait_for(supervisor if supervisor is not None else room_task, timeout=2)
+
+
+async def test_room_cancellation_stops_opening_bubbles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit = _install_livekit(monkeypatch)
+    kit.audio_script = _hold()
+    kit.vad_script = _hold()
+    release_audio = asyncio.Event()
+    tts = _TTS(block=release_audio)
+    room = _Room()
+    room.remote_participants = _user_track()
+    captions = _Captions()
+    task = asyncio.create_task(_run_room_session(
+        ctx=_Ctx(room), adapter=_Adapter(opening=TurnResult(
+            text="Hello there", new_state={}, burst_messages=["Hello", "there"],
+        )), stt=_STT(), tts=tts, captions=captions, api=_API(),
+        session_id="sess-1", tuning=_tuning(), max_duration_sec=None,
+        budget_managed=True,
+    ))
+    try:
+        await asyncio.wait_for(tts.started.wait(), timeout=2)
+        task.cancel()
+        done, _ = await asyncio.wait([task], timeout=1)
+        assert done and task.cancelled(), "room cancellation must propagate through playback"
+        assert tts.texts == ["Hello"]
+        assert kit.sources[0].clear_calls > 0
+    finally:
+        release_audio.set()
+        # A broken implementation swallows cancellation during each opening
+        # bubble. Bound cleanup so that the failing test leaves no live task.
+        for _ in range(3):
+            if task.done():
+                break
+            task.cancel()
+            await asyncio.wait([task], timeout=1)
+        assert task.done()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task

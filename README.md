@@ -5,7 +5,7 @@
 [![CI](https://github.com/lf1up/careersim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lf1up/careersim/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lf1up/careersim/branch/main/graph/badge.svg)](https://codecov.io/gh/lf1up/careersim)
 
-**CareerSIM** is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
+CareerSIM is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
 
 The platform empowers users to build confidence and competence for career-defining moments. By leveraging a LangGraph-based generative AI engine, CareerSIM provides dynamic, conversational practice with a diverse cast of AI personas, moving beyond rote memorization to foster genuine skill development.
 
@@ -22,7 +22,7 @@ CareerSIM runs as three first-party services plus shared infrastructure. The API
                       │   App Router + RSC   │ ◄──── agent audio ─────── │  :7880/:7882 │
                       │   :3000              │                           └──────┬───────┘
                       └──────────┬───────────┘                                  │ PCM
-                                 │  REST + SSE (JWT Bearer)                     │
+                                 │  REST + SSE (cookie/JWT)                     │
                                  │  text chat · sessions · auth · nudges        │
                       ┌──────────▼───────────┐                           ┌──────▼───────┐
                       │  API (Fastify 5 +    │ ◄── internal + voice ──── │  agent-voice │
@@ -59,7 +59,7 @@ through one engine, not a second copy.
 | **web**         | Next.js 16 (App Router, React 19), TypeScript 6, Tailwind 3                     | Client-rendered SPA over the API: auth, simulation picker, session chat with SSE streaming, nudge auto-polling, follow-up bursts.                                                                                                     |
 | **api**         | Node.js 22, Fastify 5, Drizzle ORM, PostgreSQL, `@fastify/jwt`, argon2id, Zod 4 | Owns auth, persistence, and all session state. Proxies agent calls (including SSE) and enforces per-session ownership, nudge cadence, and proactive-trigger policy.                                                                   |
 | **agent**       | Python 3.11+, FastAPI, LangGraph, Chroma (embedded), OpenAI / OpenRouter        | Stateless conversation engine. One binary serves a Gradio dev console, a FastAPI production server (`--serve api`), **or** the voice worker (`--serve voice`). Retrieval uses an embedded Chroma store — **no separate RAG service**. |
-| **agent-voice** | Python 3.11+, LiveKit Agents SDK, faster-whisper / Piper (self-hosted defaults) | Dedicated voice worker. Joins LiveKit rooms minted by the API, runs STT → the same LangGraph turn → TTS, streams captions, and posts transcripts back through the public API on the user's bearer.                                    |
+| **agent-voice** | Python 3.11+, LiveKit Agents SDK, faster-whisper / Piper (self-hosted defaults) | Dedicated voice worker. Joins LiveKit rooms minted by the API, runs STT → the same LangGraph turn → TTS, streams captions, and persists spoken turns through internal API routes authenticated by `X-Internal-Key`.                                    |
 | **livekit**     | LiveKit Server (WebRTC SFU)                                                     | Self-hosted SFU routing audio between the browser and `agent-voice`. Runs in `--dev` mode locally; needs a real config + TLS in production.                                                                                           |
 | **postgres**    | PostgreSQL 17                                                                   | Source of truth for users, sessions, messages, state snapshots, and daily voice-minute usage.                                                                                                                                         |
 | **redis**       | Redis 7                                                                         | Shared rate-limit buckets (`@fastify/rate-limit`); falls back to per-process LRU when `REDIS_URL` is unset.                                                                                                                           |
@@ -78,6 +78,12 @@ through one engine, not a second copy.
 
 
 Each of those directories carries a `> [!WARNING] DEPRECATED` banner at the top of its README. They are also commented out in `docker-compose.local.yml` under a deprecation block and will be removed in a future clean-up pass.
+
+## 💳 Subscriptions
+
+CareerSIM supports three subscription tiers: Free, Plus, and Supporter.
+
+Subscription purchases and the pricing UI are off by default: `BILLING_ENABLED=false` in the API and `NEXT_PUBLIC_PRICING_ENABLED=false` in the web app. See the [billing runbook](docs/BILLING.md) for configuration and rollout.
 
 ## 📁 Project Structure
 
@@ -119,8 +125,8 @@ careersim/
 ### 📋 Prerequisites
 
 - **Docker** + **Docker Compose** (for the one-shot path)
-- **Node.js ≥ 22.12** for `api/`; **Node.js ≥ 20** for `landing/` and `web/`; **pnpm ≥ 10**
-- **Python ≥ 3.11** + `[uv](https://docs.astral.sh/uv/)` (for running `agent/` outside Docker)
+- **Node.js ≥ 22.12** for `api/`; **Node.js ≥ 20** for `landing/` and `web/`; **pnpm** (service manifests pin the package-manager version)
+- **Python ≥ 3.11** + [uv](https://docs.astral.sh/uv/) (for running `agent/` outside Docker)
 - An **OpenAI-compatible API key** (OpenAI, OpenRouter, …) for the agent
 
 ### 🐳 Local development with Docker Compose
@@ -158,9 +164,9 @@ This starts:
 The compose stack also starts the `agent-voice` worker (no published port — it
 joins LiveKit rooms outbound). The first `--build` is slower than the others
 because the voice image prefetches the default faster-whisper + Piper models
-into the image / a named volume. Set `VOICE_ENABLED=false` in `agent/.env` +
-`api/.env` to skip voice entirely (the worker exits cleanly and the Call button
-is hidden) — see [VOICE_MODE.md](VOICE_MODE.md).
+into the image / a named volume. Set `VOICE_ENABLED=false` in `agent/.env` and
+`api/.env` to stop voice work. Set `NEXT_PUBLIC_VOICE_ENABLED=false` in `web/.env`
+to hide the Call button — see [VOICE_MODE.md](VOICE_MODE.md).
 
 The `api` container runs Drizzle migrations on start; no manual seeding needed. Register a new user from the web UI (there is **no default admin account** — that concept belonged to the legacy `backend/`).
 
@@ -192,13 +198,13 @@ When mixing Docker + host, point each service at the others via `host.docker.int
 
 ## 🔌 Plugin support
 
-CareerSIM supports optional plugins in the API and web app. Plugins can add API routes, database migrations in their own schema, simulation providers, web pages, and navigation items. The host SDKs live in [api/src/extensions/sdk.ts](api/src/extensions/sdk.ts) and [web/src/extensions/sdk.ts](web/src/extensions/sdk.ts).
+CareerSIM supports optional plugins in the API and web app. Plugins can add API routes, database migrations in their own schema, simulation providers, web pages, and navigation items. The current host extension API is version 2. The host SDKs live in [api/src/extensions/sdk.ts](api/src/extensions/sdk.ts) and [web/src/extensions/sdk.ts](web/src/extensions/sdk.ts).
 
 **The creator plugin is not part of this repository.** Its source lives in the separate, private [careersim-studio repository](https://github.com/lf1up/careersim-studio), under `plugins/creator`, and requires access to that repository. It adds persona and simulation authoring, reusable personas, multi-persona casts, and a live conversation playground. This repository contains the plugin support code; the stock application works without the creator plugin.
 
 Plugins are copied into generated, Git-ignored directories before the API or web app is built. Plugin source and generated routes are not committed to this repository. Configure the same plugin selection for both services, using compatible host and plugin revisions.
 
-### Local development with plugins
+### 🧩 Local development with plugins
 
 With `careersim-studio` checked out beside `careersim`, the Compose file mounts `../careersim-studio/plugins` and enables `creator` by default:
 
@@ -226,7 +232,7 @@ CAREERSIM_PLUGINS=creator CAREERSIM_PLUGIN_DIR=../../careersim-studio/plugins pn
 
 Both development servers watch the local plugin source for changes. The API restarts and applies migrations; the web app recopies plugin pages for hot reload.
 
-### Build configuration
+### ⚙️ Build configuration
 
 | Variable | Purpose |
 | --- | --- |
@@ -251,11 +257,11 @@ Self-hosted Ghost (Docker + MySQL) is used as a CMS only. Next.js fetches posts 
 
 **Feature flag:** the blog is **off by default**. Omitting `NEXT_PUBLIC_BLOG_ENABLED` entirely (or setting it to anything other than `true`/`1`) keeps it off. It turns on only when `NEXT_PUBLIC_BLOG_ENABLED=true` **and** `GHOST_API_URL` + `GHOST_CONTENT_API_KEY` are set in `web/.env`. Otherwise `/blog` routes 404, sitemap / robots / `llms.txt` omit blog URLs, and the revalidate webhook is rejected. Restart `web` after changing the flag. Landing Blog links appear only when `LANDING_BLOG_URL` is set (leave it unset by default).
 
-See [web/README.md](web/README.md#headless-ghost-blog) for the one-time Admin setup (Private Mode, Content API key, webhook).
+See [web/README.md](web/README.md#-headless-ghost-blog) for the one-time Admin setup (Private Mode, Content API key, webhook).
 
 ### 💬 Live chat with SSE streaming
 
-The `api` exposes `POST /v1/sessions/:id/messages/stream`, which proxies the agent's SSE stream end-to-end. The web client shows an optimistic echo of the user's message, renders a typing indicator until the first AI chunk lands, then streams the reply token-by-token. Persistence happens exactly once when the upstream emits `done`.
+The API proxies `POST /v1/sessions/:id/messages/stream` to the agent. The web client batches rapid user sends, shows an optimistic echo and typing indicator, and displays completed reply bubbles as SSE `message` events arrive. Text and voice messages persist before forwarding; `done` saves final evaluation state. Interrupting a stream preserves messages already displayed.
 
 ### 🤖 LangGraph conversation engine
 
@@ -271,11 +277,11 @@ The `api` exposes `POST /v1/sessions/:id/nudge`; the server decides idempotently
 
 ### 🔁 Follow-up bursts
 
-`POST /v1/sessions/:id/proactive/stream` drives persona-initiated follow-ups capped by `burstiness.max - 1` additional messages. The web UI exposes this behind a "Follow up" button and surfaces the cap as a `{N} followups max` badge alongside typing speed and nudge count.
+The agent can emit persona-driven follow-up bubbles during a streamed turn. The web UI shows each bubble with its typing delay. The API also exposes `POST /v1/sessions/:id/proactive/stream` for explicit follow-up requests; group scenes advance through user messages instead.
 
 ### 🎙️ Voice mode (browser-native)
 
-Real-time spoken practice with the same personas, no install required. The web client mints a short-lived LiveKit token via `POST /v1/sessions/:id/voice/start`, joins a self-hosted WebRTC SFU, and the `agent-voice` worker runs **STT → the existing LangGraph turn → TTS** in the room — captions stream over a data channel and transcripts persist back through the public API on the user's bearer (audio itself is never stored). Defaults are fully self-hosted (`faster-whisper` + Piper); OpenAI, Deepgram, and ElevenLabs are opt-in per provider. Each persona declares a `voice` block (speaking rate, barge-in tolerance, filler-word density, per-provider voice IDs) so characters sound distinct. A daily per-user minute budget (`VOICE_DAILY_MINUTES_PER_USER`) is enforced authoritatively by the worker, and a single `VOICE_ENABLED=false` flag is a full kill switch. See [VOICE_MODE.md](VOICE_MODE.md) for the operator runbook.
+Real-time spoken practice with the same personas, no install required. The web client mints a short-lived LiveKit token via `POST /v1/sessions/:id/voice/start`, joins a self-hosted WebRTC SFU, and the `agent-voice` worker runs **STT → the existing LangGraph turn → TTS** in the room — captions stream over a data channel and transcripts persist through internal API routes using `X-Internal-Key` (audio itself is never stored). Defaults are fully self-hosted (`faster-whisper` + Piper); OpenAI, Deepgram, and ElevenLabs are opt-in per provider. Each persona declares a `voice` block (speaking rate, barge-in tolerance, filler-word density, per-provider voice IDs) so characters sound distinct. The API accounts for a tier-specific daily voice allowance through cumulative worker checkpoints, split at midnight UTC. Set `VOICE_ENABLED=false` on both API and worker, and `NEXT_PUBLIC_VOICE_ENABLED=false` on web, to disable voice. See [VOICE_MODE.md](VOICE_MODE.md) for the operator runbook.
 
 ### 🔎 Retrieval-Augmented Generation (embedded)
 
@@ -287,13 +293,13 @@ Sentiment and emotion for both sides of the conversation, plus per-goal progress
 
 ### 🔐 Authentication
 
-Email + password → JWT bearer (stored in `localStorage` on the web side; `Authorization: Bearer` on every request). Passwords hashed with argon2id. No refresh tokens, email verification, or Stripe billing — all of that lived in the deprecated `backend/` and has not been re-implemented.
+Registration verifies email with a 6-digit code. Sign-in supports passwords and passwordless magic links, with password reset and profile email/password changes. The browser uses an HTTP-only session cookie; non-browser clients can use the returned JWT as a bearer token. Logout revokes the stored login session, and credential changes invalidate previous sessions. Passwords and 6-digit codes use argon2id; ALTCHA and API rate limits protect public auth forms.
 
 ## 🎭 AI Personas
 
 Shipped in `agent/data/personas.json` (plus `simulations.json`, `avatars/`, and `documents/`). Each persona declares a `conversationStyle` that the runtime surfaces in `GET /v1/sessions/:id.session_config` and the web UI badges.
 
-For local development the git-backed `agent/data/` tree is the source of truth. Deployments can instead set `PERSONAS_S3_ENABLED=true` on the agent so it downloads that same layout from an S3 bucket at startup and rewrites the local files before any session loads — useful when future cast updates live in a personas repo that publishes into the bucket. See [agent/README.md](agent/README.md#persona-data-from-s3) for the flag, prefix layout, and credential notes.
+For local development the git-backed `agent/data/` tree is the source of truth. Deployments can instead set `PERSONAS_S3_ENABLED=true` on the agent so it downloads that same layout from an S3 bucket at startup and rewrites the local files before any session loads — useful when future cast updates live in a personas repo that publishes into the bucket. See [agent/README.md](agent/README.md#-persona-data-from-s3) for the flag, prefix layout, and credential notes.
 
 
 | Persona              | Role                               | Simulation slug                          | Typing (wpm) | Nudges max | Burst max |
@@ -325,7 +331,7 @@ cd agent && uv run python test_simulation.py \
   --sim recruiter-coldreach-vikram --auto --log --json
 ```
 
-See [agent/README.md](agent/README.md#end-to-end-simulation-runs-test_simulationpy) for the full flag table and the convention for adding `SIMULATION_PROMPTS` entries when introducing a new simulation.
+See [agent/README.md](agent/README.md#-end-to-end-simulation-runs-test_simulationpy) for the full flag table and the convention for adding `SIMULATION_PROMPTS` entries when introducing a new simulation.
 
 ## 🛠️ Tech Stack
 
@@ -370,7 +376,7 @@ cd landing && pnpm sync:figma  # requires FIGMA_TOKEN in the shell
 
 # API
 cd api && pnpm test          # vitest (pglite + FakeAgent — no OpenAI, no network)
-cd api && pnpm e2e           # interactive CLI against a live stack
+cd api && pnpm e2e           # legacy CLI; see api/README.md for auth limitations
 cd api && pnpm typecheck
 
 # Web
@@ -390,13 +396,14 @@ cd agent && uv run python test_simulation.py \
 
 ## 🗺️ Roadmap
 
-- **Port infrastructure to the new stack** — Terraform + Kustomize for `api` / `web` / `agent` / `agent-voice` / `livekit`.
+- **Port infrastructure to the new stack** — Terraform + Kubernetes for api / web / agent / agent-voice / livekit.
 - **Remove the deprecated directories** once the migration is considered complete and nothing still references them.
 - **Real phone-call practice with AI personas** — building on the shipped [browser-native voice mode](VOICE_MODE.md), extend to outbound (the persona calls the user at a scheduled time) and inbound (the user dials a number) calls via Twilio Voice / LiveKit SIP, with the same LangGraph engine driving the conversation.
 - **Community features** — public leaderboards and discussion forums.
 - **Certification paths** — structured learning programs with shareable certificates.
 - **AI persona builder** — available through the optional creator plugin in the separate [careersim-studio repository](https://github.com/lf1up/careersim-studio); see [Plugin support](#-plugin-support).
-- **Team / B2B version** — enterprise offering with team analytics and management.
+- **Team / B2B version** — enterprise offering with team analytics and management (see [careersim-studio repository](https://github.com/lf1up/careersim-studio)).
+- **Desktop application** - a complete stand-alone desktop version with BYOK features.
 
 ---
 

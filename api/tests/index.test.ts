@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import pkg from '../package.json' with { type: 'json' };
 import { buildTestApp, type TestHarness } from './helpers/build-test-app.js';
 
 describe('GET /v1', () => {
@@ -19,7 +20,7 @@ describe('GET /v1', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
       name: 'careersim-api',
-      version: '1.2.0',
+      version: pkg.version,
       status: 'ok',
       agent: 'ok',
       health: '/v1/health',

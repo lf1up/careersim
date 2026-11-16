@@ -104,7 +104,18 @@ export default function SessionReportPage() {
     );
   }
 
-  if (openConversation) return <div className="space-y-4"><RetroAlert tone="info" title="Open conversation">This conversation has no scoring or debrief.</RetroAlert><Link href={`/sessions/${sessionId}`}><Button>Back to conversation</Button></Link></div>;
+  if (openConversation) {
+    return (
+      <div className="grid justify-items-start gap-4 pt-2 pb-3 sm:pt-0 sm:pb-4 retro-fade-in">
+        <RetroAlert tone="info" title="Open conversation" className="w-full">
+          This conversation has no scoring or debrief.
+        </RetroAlert>
+        <Link href={`/sessions/${sessionId}`}>
+          <Button>Back to conversation</Button>
+        </Link>
+      </div>
+    );
+  }
 
   if (needsMessages) {
     return (

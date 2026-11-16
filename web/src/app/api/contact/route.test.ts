@@ -80,3 +80,46 @@ describe('contact CAPTCHA boundary', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 });
+
+describe('personal contact', () => {
+  let serial = 0;
+  beforeEach(() => {
+    vi.stubEnv('RESEND_API_KEY', 'test-only');
+    vi.stubEnv('ALTCHA_HMAC_KEY', 'test-contact-hmac-key-at-least-32-characters');
+    vi.stubEnv('API_INTERNAL_URL', 'http://api.internal/v1');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })));
+    send.mockReset().mockResolvedValue({ error: null });
+  });
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+  function personal(overrides: Record<string, string> = {}, ip?: string) {
+    serial += 1;
+    const body = new FormData();
+    for (const [key, value] of Object.entries({ audience: 'personal', reason: 'higher-limits', name: '<Practice>', email: `personal-${serial}@example.com`, message: 'I need more practice sessions for interviews.', altcha: 'test-intercepted-proof', ...overrides })) body.set(key, value);
+    return new Request('https://careersim.ai/api/contact', { method: 'POST', body, headers: { 'x-forwarded-for': ip ?? `192.0.2.${serial}` } });
+  }
+  it('accepts a personal request without company and escapes mail HTML', async () => {
+    expect((await POST(personal())).status).toBe(200);
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ html: expect.stringContaining('&lt;Practice&gt;'), text: expect.stringContaining('Higher limits') }));
+    expect(send.mock.calls[0][0].html).not.toContain('<Practice>');
+  });
+  it('keeps company required for legacy business requests', async () => {
+    expect((await POST(personal({ audience: '', useCase: 'training' }))).status).toBe(400);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it.each([{ reason: 'invented' }, { audience: 'admin' }, { message: 'Short' }, { message: 'a'.repeat(4001) }, { name: 'a'.repeat(121) }, { email: 'invalid' }] as Array<Record<string, string>>)('rejects invalid labels and lengths: %j', async (overrides) => {
+    expect((await POST(personal(overrides))).status).toBe(400);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it('requires CAPTCHA verification for personal requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 400 })));
+    expect((await POST(personal())).status).toBe(400);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it('preserves honeypot and per-address limits', async () => {
+    expect((await POST(personal({ website: 'spam' }))).status).toBe(200);
+    expect(send).not.toHaveBeenCalled();
+    for (let n = 0; n < 3; n++) expect((await POST(personal({}, '198.51.100.211'))).status).toBe(200);
+    expect((await POST(personal({}, '198.51.100.211'))).status).toBe(429);
+    expect(send).toHaveBeenCalledTimes(3);
+  });
+});
