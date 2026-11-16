@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import type { FastifyInstance } from 'fastify';
 
-import { createPgliteClient, type PgliteClientHandle } from '../../src/db/client.js';
+import { createPgliteClient, type PgliteClientHandle } from './db.js';
 import type { ApiPlugin } from '../../src/extensions/sdk.js';
 import { buildApp } from '../../src/server.js';
 import { ALTCHA_TEST_BYPASS_TOKEN } from '../../src/plugins/altcha.js';

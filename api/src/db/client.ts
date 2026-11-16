@@ -2,8 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { Pool, type PoolConfig } from 'pg';
 import { drizzle as drizzlePg, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { drizzle as drizzlePglite, type PgliteDatabase } from 'drizzle-orm/pglite';
-import type { PGlite } from '@electric-sql/pglite';
+import type { PgliteDatabase } from 'drizzle-orm/pglite';
 
 import * as schema from './schema.js';
 
@@ -63,23 +62,6 @@ export function createPgClient(databaseUrl: string): PgClientHandle {
     pool,
     async close() {
       await pool.end();
-    },
-  };
-}
-
-export interface PgliteClientHandle {
-  db: PgliteDatabase<Schema>;
-  client: PGlite;
-  close(): Promise<void>;
-}
-
-export function createPgliteClient(client: PGlite): PgliteClientHandle {
-  const db = drizzlePglite(client, { schema });
-  return {
-    db,
-    client,
-    async close() {
-      await client.close();
     },
   };
 }

@@ -137,7 +137,7 @@ api/
 │   ├── server.ts               # buildApp({ db, agent, jwtSecret }) — exported for tests
 │   ├── config/env.ts           # Zod-validated env
 │   ├── db/
-│   │   ├── client.ts           # createPgClient / createPgliteClient
+│   │   ├── client.ts           # createPgClient
 │   │   ├── schema.ts           # users, authTokens, sessions (+ voice_call_* + report/report_message_count cols), messages, voiceMinuteUsage
 │   │   ├── migrate.ts          # drizzle-orm migrator (node-postgres)
 │   │   └── migrations/         # drizzle-kit output (0002 email verification + authTokens; 0003 voice mode; 0006 cached session report)
