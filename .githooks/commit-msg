@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+case "$1" in
+  /*) message=$1 ;;
+  *) message="$PWD/$1" ;;
+esac
+
+exec pnpm --dir "$repo_root/tools/commitlint" exec commitlint --edit "$message"
