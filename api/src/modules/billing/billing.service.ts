@@ -28,6 +28,7 @@ const emptyUsage: BillingUsage = {
 };
 
 export function createBillingService({
+  productName,
   db,
   config,
   catalog,
@@ -37,6 +38,7 @@ export function createBillingService({
   now = () => new Date(),
   readUsage,
 }: {
+  productName: string;
   db: AppDatabase;
   config: BillingConfig;
   catalog: PlanCatalog;
@@ -363,7 +365,7 @@ export function createBillingService({
     return {
       channelUrl: config.PRO_CHANNEL_URL,
       instructions:
-        "Contact the development team through the private channel to verify your membership. Membership is checked against your current CareerSIM Pro access.",
+        `Contact the development team through the private channel to verify your membership. Membership is checked against your current ${productName} Pro access.`,
     };
   }
   return {

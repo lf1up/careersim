@@ -23,7 +23,7 @@ export function generateMetadata(): Metadata {
   return metadataFor({
     title: 'Career skills blog',
     description:
-      'Guides, frameworks, and practice tips for interviews, workplace conversations, feedback, and professional growth — from the CareerSIM team.',
+      `Guides, frameworks, and practice tips for interviews, workplace conversations, feedback, and professional growth — from the ${SITE_NAME} team.`,
     path: '/blog',
     keywords: [
       'career skills blog',
@@ -82,7 +82,7 @@ export default async function BlogIndexPage() {
           <p className="text-sm text-secondary-600 dark:text-secondary-400 mt-1">
             Practical guides for interviews, workplace conversations, and the
             career moments that matter — written to pair with hands-on practice
-            in CareerSIM.
+            in {SITE_NAME}.
           </p>
         </div>
 

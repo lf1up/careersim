@@ -102,6 +102,7 @@ describe("billing routes and checkout serialization", () => {
     });
     const sync = createBillingSync({ db: handle.db, provider, config, now });
     service = createBillingService({
+      productName: "Practice Studio",
       db: handle.db,
       config,
       catalog,
@@ -418,6 +419,7 @@ describe("billing routes and checkout serialization", () => {
   it("propagates database failures rather than turning them into successful refreshes", async () => {
     const catalog = buildPlanCatalog(config);
     const brokenSync = createBillingService({
+      productName: "Practice Studio",
       db: handle.db,
       config,
       catalog,
@@ -542,6 +544,7 @@ describe("billing routes and checkout serialization", () => {
     const response = await request("GET", "pro");
     expect(response.statusCode).toBe(200);
     expect(response.json().channelUrl).toBe(config.PRO_CHANNEL_URL);
+    expect(response.json().instructions).toContain("your current Practice Studio Pro access");
     expect((await request("GET", "account")).body).not.toContain(
       config.PRO_CHANNEL_URL,
     );

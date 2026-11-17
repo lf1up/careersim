@@ -15,16 +15,17 @@ describe('API docs', () => {
   });
 
   it('serves Swagger UI and OpenAPI JSON in development', async () => {
-    h = await buildTestApp({ nodeEnv: 'development' });
+    h = await buildTestApp({ nodeEnv: 'development', productName: 'Practice & <Studio>' });
 
     const docs = await h.app.inject({ method: 'GET', url: '/v1/docs' });
     expect(docs.statusCode).toBe(200);
     expect(docs.headers['content-type']).toContain('text/html');
+    expect(docs.body).toContain('<title>Practice &amp; &lt;Studio&gt; API — Swagger UI</title>');
 
     const spec = await h.app.inject({ method: 'GET', url: '/v1/docs/openapi.json' });
     expect(spec.statusCode).toBe(200);
     expect(spec.json()).toMatchObject({
-      info: { title: 'CareerSIM API', version: pkg.version },
+      info: { title: 'Practice & <Studio> API', description: 'Fastify + Drizzle API gateway in front of the Practice & <Studio> agent.', version: pkg.version },
     });
   });
 

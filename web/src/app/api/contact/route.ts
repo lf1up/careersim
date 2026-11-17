@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { captchaRequest } from '@/lib/captcha';
+import { SITE_NAME } from '@/lib/seo';
 
 import {
   CONTACT_RATE_LIMIT_MESSAGE,
@@ -139,7 +140,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const useCaseLabel = personal ? REASON_LABELS[reason] : USE_CASE_LABELS[useCase];
-  const subject = personal ? `CareerSIM contact: ${useCaseLabel}` : `B2B pilot inquiry — ${company} (${useCaseLabel})`;
+  const subject = personal ? `${SITE_NAME} contact: ${useCaseLabel}` : `B2B pilot inquiry — ${company} (${useCaseLabel})`;
   const text = [
     `Name: ${name}`,
     `Email: ${email}`,

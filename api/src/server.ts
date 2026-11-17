@@ -265,6 +265,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   const billingProvider = opts.billing?.provider ?? createPolarProvider(billingConfig);
   const { syncCustomer } = createBillingSync({ db: opts.db, config: billingConfig, provider: billingProvider, now: billingNow });
   const billingService = createBillingService({
+    productName: opts.mail.productName,
     db: opts.db, config: billingConfig, catalog: billingCatalog, provider: billingProvider,
     syncCustomer, resolveEntitlements, now: billingNow,
     async readUsage(userId: string, limits: PlanLimits): Promise<BillingUsage> {
@@ -306,8 +307,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(swagger, {
     openapi: {
       info: {
-        title: 'CareerSIM API',
-        description: 'Fastify + Drizzle API gateway in front of the CareerSIM agent.',
+        title: `${opts.mail.productName} API`,
+        description: `Fastify + Drizzle API gateway in front of the ${opts.mail.productName} agent.`,
         version: pkg.version,
       },
       components: {
@@ -436,7 +437,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
           '/docs',
           { schema: { tags: ['meta'], summary: 'Swagger UI' } },
           async (_req, reply) => {
-            reply.type('text/html').send(renderSwaggerUiHtml(`${routePrefix}/docs/openapi.json`));
+            reply.type('text/html').send(renderSwaggerUiHtml(`${routePrefix}/docs/openapi.json`, opts.mail.productName));
           },
         );
       }
@@ -550,13 +551,14 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
  * function (rather than a static string) so `specUrl` can be parameterized
  * and we can iterate on the CSP / pinned version in one place.
  */
-function renderSwaggerUiHtml(specUrl: string): string {
+function renderSwaggerUiHtml(specUrl: string, productName: string): string {
   const uiVersion = '5.17.14';
+  const escapedProductName = productName.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>CareerSIM API — Swagger UI</title>
+    <title>${escapedProductName} API — Swagger UI</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/swagger-ui.css" />
     <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${uiVersion}/favicon-32x32.png" sizes="32x32" />
     <style>body { margin: 0; }</style>

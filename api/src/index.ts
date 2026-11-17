@@ -151,7 +151,7 @@ async function main(): Promise<void> {
     [
       '',
       line,
-      `CareerSIM API — ${env.NODE_ENV === 'production' ? 'Production' : 'Developer'} Console`,
+      `${env.MAIL_PRODUCT_NAME} API — ${env.NODE_ENV === 'production' ? 'Production' : 'Developer'} Console`,
       line,
       '',
       `  URL:   ${baseUrl}`,

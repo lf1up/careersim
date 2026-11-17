@@ -34,6 +34,7 @@ export interface TestHarness {
 }
 
 export interface BuildTestAppOptions {
+  productName?: string;
   billing?: BuildAppOptions['billing'];
   resolveEntitlements?: BuildAppOptions['resolveEntitlements'];
   trustedProxies?: string[];
@@ -135,7 +136,7 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<TestH
     logger: process.env.VITEST_DEBUG === '1' ? { level: 'debug' } : false,
     mail: {
       from: `${TEST_SITE_NAME} Test <no-reply@test.careersim.local>`,
-      productName: TEST_SITE_NAME,
+      productName: options?.productName ?? TEST_SITE_NAME,
       devFallback: true,
       outbox,
     },
