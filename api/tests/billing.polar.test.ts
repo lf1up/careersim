@@ -200,6 +200,50 @@ describe("Polar adapter through the installed versioned SDK", () => {
       });
     },
   );
+  it("refuses an unconfigured checkout update before network access", async () => {
+    const fetcher = snapshotTransport();
+    await expect(
+      createPolarProvider(config()).updateCheckout({
+        checkoutId: "checkout",
+        choice: { tier: "pro", interval: "month" },
+      }),
+    ).rejects.toThrow("Product is not configured");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it.each([400, 500])(
+    "propagates unexpected provider status %s when updating checkout",
+    async (status) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(async () =>
+          Response.json({ detail: "Unexpected provider failure" }, { status }),
+        ),
+      );
+      await expect(
+        createPolarProvider(config()).updateCheckout({
+          checkoutId: "checkout",
+          choice: { tier: "plus", interval: "year" },
+        }),
+      ).rejects.toMatchObject({ statusCode: status });
+    },
+  );
+  it("preserves network errors when a checkout update response is lost", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(async () => {
+        throw new Error("Connection reset");
+      }),
+    );
+    await expect(
+      createPolarProvider(config()).updateCheckout({
+        checkoutId: "checkout",
+        choice: { tier: "plus", interval: "year" },
+      }),
+    ).rejects.toMatchObject({
+      name: "PolarNetworkError",
+      message: expect.stringContaining("Connection reset"),
+    });
+  });
   it("recovers ambiguous checkouts from every provider page without repeating creation", async () => {
     const pages: string[] = [];
     vi.stubGlobal(
