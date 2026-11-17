@@ -15,11 +15,13 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { voiceMinuteUsage } from './db/schema.js';
 import { createPolarProvider } from './modules/billing/polar.js';
+import { createCreemProvider } from './modules/billing/creem.js';
+import { providerEnabled } from './modules/billing/routing.js';
 import { createBillingSync } from './modules/billing/sync.js';
 import { createBillingReconciler } from './modules/billing/reconcile.js';
 import { createBillingService } from './modules/billing/billing.service.js';
 import { billingRoutes } from './modules/billing/billing.route.js';
-import { billingWebhookRoutes } from './modules/billing/webhook.route.js';
+import { billingWebhookRoutes, creemBillingWebhookRoutes } from './modules/billing/webhook.route.js';
 
 const require = createRequire(import.meta.url);
 const pkg = require('../package.json') as { name: string; version: string };
@@ -29,7 +31,7 @@ import { buildPlanCatalog, type BillingConfig } from './modules/billing/catalog.
 import type { WindowQuota } from './modules/quotas/window-quota.js';
 import type { Entitlement, PlanLimits, BillingUsage } from './modules/billing/billing.schema.js';
 import { createEntitlementService } from './modules/billing/entitlements.js';
-import type { BillingProvider } from './modules/billing/polar.js';
+import type { BillingProviders } from './modules/billing/provider.js';
 
 import type { AgentClient } from './agent/client.js';
 import type { AppDatabase } from './db/client.js';
@@ -52,7 +54,7 @@ import { contactClientIp } from './utils/contact-client.js';
 
 export interface BuildAppOptions {
   db: AppDatabase;
-  billing?: { config: BillingConfig; provider?: BillingProvider; now?: () => Date };
+  billing?: { config: BillingConfig; providers?: BillingProviders; now?: () => Date };
   resolveEntitlements?: (userId: string) => Promise<Entitlement>;
   agent: AgentClient;
   jwtSecret: string;
@@ -262,11 +264,23 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     quotaStore: opts.rateLimit?.quotaStore,
   });
 
-  const billingProvider = opts.billing?.provider ?? createPolarProvider(billingConfig);
-  const { syncCustomer } = createBillingSync({ db: opts.db, config: billingConfig, provider: billingProvider, now: billingNow });
+  const billingProviders: BillingProviders = {};
+  if (providerEnabled(billingConfig, "creem") && billingConfig.CREEM_API_KEY)
+    billingProviders.creem =
+      opts.billing?.providers?.creem ?? createCreemProvider(billingConfig);
+  if (
+    providerEnabled(billingConfig, "polar") &&
+    billingConfig.POLAR_ACCESS_TOKEN
+  )
+    billingProviders.polar =
+      opts.billing?.providers?.polar ?? createPolarProvider(billingConfig);
+  for (const id of ["creem", "polar"] as const)
+    if (providerEnabled(billingConfig, id) && opts.billing?.providers?.[id])
+      billingProviders[id] = opts.billing.providers[id];
+  const { syncCustomer } = createBillingSync({ db: opts.db, config: billingConfig, providers: billingProviders, now: billingNow });
   const billingService = createBillingService({
     productName: opts.mail.productName,
-    db: opts.db, config: billingConfig, catalog: billingCatalog, provider: billingProvider,
+    db: opts.db, config: billingConfig, catalog: billingCatalog, providers: billingProviders,
     syncCustomer, resolveEntitlements, now: billingNow,
     async readUsage(userId: string, limits: PlanLimits): Promise<BillingUsage> {
       const results = await Promise.allSettled([
@@ -296,8 +310,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     },
   });
   // Continue processing existing billing state even when new checkout is disabled.
-  if (billingConfig.POLAR_ACCESS_TOKEN || opts.billing?.provider) {
-    const reconciler = createBillingReconciler({ db: opts.db, syncCustomer });
+  if (Object.keys(billingProviders).length) {
+    const reconciler = createBillingReconciler({ db: opts.db, syncCustomer, enabledProviders: (['creem', 'polar'] as const).filter(id => Boolean(billingProviders[id])) });
     const stop = reconciler.start({ onResult: result => {
       if (result.failed) app.log.warn(result, 'billing reconciliation failures');
     } });
@@ -507,7 +521,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         jwtExpiresIn: opts.jwtExpiresIn ?? '7d',
       });
       await scope.register(billingRoutes, { service: billingService, catalog: billingCatalog });
-      await scope.register(billingWebhookRoutes, { db: opts.db, secret: billingConfig.POLAR_WEBHOOK_SECRET, syncCustomer });
+      await scope.register(creemBillingWebhookRoutes, { db: opts.db, secret: billingConfig.CREEM_WEBHOOK_SECRET, enabled: Boolean(billingProviders.creem), syncCustomer });
+      await scope.register(billingWebhookRoutes, { db: opts.db, secret: billingConfig.POLAR_WEBHOOK_SECRET, enabled: Boolean(billingProviders.polar), syncCustomer });
       await scope.register(simulationsRoutes, { agent: opts.agent, simulationProviders: providers });
       await scope.register(personasRoutes, { agent: opts.agent });
       await scope.register(sessionsRoutes, {

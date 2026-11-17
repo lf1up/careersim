@@ -7,6 +7,7 @@ import { createPgliteClient } from "./helpers/db.js";
 import {
   users,
   billingCustomers,
+  billingProviderCustomers,
   billingWebhookInbox,
 } from "../src/db/schema.js";
 import { eq } from "drizzle-orm";
@@ -34,6 +35,7 @@ describe("signed Polar webhook inbox", () => {
     await app.register(billingWebhookRoutes, {
       db: handle.db,
       secret,
+      enabled: true,
       syncCustomer: async ({
         userId: synchronizedUser,
       }: {
@@ -180,9 +182,10 @@ describe("signed Polar webhook inbox", () => {
     expect(calls).toBe(0);
   });
   it("uses a stored provider customer mapping when the claimed account no longer exists", async () => {
+    await handle.db.insert(billingCustomers).values({ userId });
     await handle.db
-      .insert(billingCustomers)
-      .values({ userId, customerId: "known-customer" });
+      .insert(billingProviderCustomers)
+      .values({ userId, provider: "polar", customerId: "known-customer" });
     expect(
       (
         await delivery("mapped", false, {

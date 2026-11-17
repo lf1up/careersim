@@ -1,6 +1,6 @@
 # Unified billing with Creem as the initial provider
 
-Status: proposed for approval. This document describes intended changes, not completed implementation or live-payment verification.
+Status: approved for implementation on 2026-11-17. This document defines the target behavior; live-payment verification remains a separate release requirement.
 
 ## Intent and confirmed requirements
 

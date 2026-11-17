@@ -39,6 +39,9 @@ function configFixture() {
     JWT_SECRET: "test-secret-test-secret",
     ALTCHA_HMAC_KEY: "test-secret-test-secret",
     BILLING_ENABLED: "true",
+    CREEM_ENABLED: "false",
+    POLAR_ENABLED: "true",
+    BILLING_DEFAULT_PROVIDER: "polar",
     POLAR_ACCESS_TOKEN: "test-token",
     POLAR_WEBHOOK_SECRET: "test-secret",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
@@ -100,13 +103,18 @@ describe("billing routes and checkout serialization", () => {
       catalog,
       now,
     });
-    const sync = createBillingSync({ db: handle.db, provider, config, now });
+    const sync = createBillingSync({
+      db: handle.db,
+      providers: { polar: provider },
+      config,
+      now,
+    });
     service = createBillingService({
       productName: "Practice Studio",
       db: handle.db,
       config,
       catalog,
-      provider,
+      providers: { polar: provider },
       ...sync,
       ...entitlements,
       now,
@@ -160,7 +168,8 @@ describe("billing routes and checkout serialization", () => {
     const catalog = await request("GET", "catalog", undefined, "");
     expect(catalog.statusCode).toBe(200);
     expect(
-      catalog.json().plans.find((plan: { tier: string }) => plan.tier === "pro").availability,
+      catalog.json().plans.find((plan: { tier: string }) => plan.tier === "pro")
+        .availability,
     ).toBe("available");
     expect(catalog.body).not.toContain(config.PRO_CHANNEL_URL);
     for (const [method, route] of [
@@ -234,8 +243,7 @@ describe("billing routes and checkout serialization", () => {
     for (const interval of ["month", "year"])
       for (const route of ["checkout", "change"]) {
         expect(
-          (await request("POST", route, { tier: "pro", interval }))
-            .statusCode,
+          (await request("POST", route, { tier: "pro", interval })).statusCode,
         ).toBe(409);
       }
     expect(provider.created).toHaveLength(0);
@@ -423,7 +431,7 @@ describe("billing routes and checkout serialization", () => {
       db: handle.db,
       config,
       catalog,
-      provider,
+      providers: { polar: provider },
       syncCustomer: async () => {
         throw new Error("database write failed");
       },
@@ -544,7 +552,9 @@ describe("billing routes and checkout serialization", () => {
     const response = await request("GET", "pro");
     expect(response.statusCode).toBe(200);
     expect(response.json().channelUrl).toBe(config.PRO_CHANNEL_URL);
-    expect(response.json().instructions).toContain("your current Practice Studio Pro access");
+    expect(response.json().instructions).toContain(
+      "your current Practice Studio Pro access",
+    );
     expect((await request("GET", "account")).body).not.toContain(
       config.PRO_CHANNEL_URL,
     );

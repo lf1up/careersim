@@ -1,3 +1,4 @@
+import { providerEnabled, type BillingProviderId } from "./routing.js";
 import type { Env } from "../../config/env.js";
 import type {
   BillingChoice,
@@ -7,6 +8,17 @@ import type {
 export type BillingConfig = Pick<
   Env,
   | "BILLING_ENABLED"
+  | "BILLING_DEFAULT_PROVIDER"
+  | "BILLING_COUNTRY_PROVIDERS"
+  | "CREEM_ENABLED"
+  | "POLAR_ENABLED"
+  | "CREEM_ENVIRONMENT"
+  | "CREEM_API_KEY"
+  | "CREEM_WEBHOOK_SECRET"
+  | "CREEM_PLUS_MONTHLY_PRODUCT_ID"
+  | "CREEM_PLUS_YEARLY_PRODUCT_ID"
+  | "CREEM_PRO_MONTHLY_PRODUCT_ID"
+  | "CREEM_PRO_YEARLY_PRODUCT_ID"
   | "POLAR_ENVIRONMENT"
   | "POLAR_ACCESS_TOKEN"
   | "POLAR_WEBHOOK_SECRET"
@@ -79,6 +91,8 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
   };
   return {
     currency: "USD",
+    billingCountryRequired:
+      Object.keys(config.BILLING_COUNTRY_PROVIDERS).length > 0,
     contactUrl: config.BILLING_CONTACT_URL,
     higherLimitsMessage:
       "Need higher limits? Contact us to discuss your needs.",
@@ -122,9 +136,20 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
         benefits: [...coreBenefits, ...proBenefits],
         availability: !config.BILLING_ENABLED
           ? "billing_disabled"
-          : config.POLAR_PRO_MONTHLY_PRODUCT_ID &&
-              config.POLAR_PRO_YEARLY_PRODUCT_ID &&
-              config.PRO_CHANNEL_URL
+          : (["creem", "polar"] as const).some(
+                (provider) =>
+                  providerEnabled(config, provider) &&
+                  productForChoice(
+                    config,
+                    { tier: "pro", interval: "month" },
+                    provider,
+                  ) &&
+                  productForChoice(
+                    config,
+                    { tier: "pro", interval: "year" },
+                    provider,
+                  ),
+              ) && config.PRO_CHANNEL_URL
             ? "available"
             : "coming_soon",
         prices: [
@@ -150,24 +175,23 @@ export function buildPlanCatalog(config: BillingConfig): PlanCatalog {
 export function productForChoice(
   config: BillingConfig,
   choice: BillingChoice,
+  provider: BillingProviderId = config.BILLING_DEFAULT_PROVIDER,
 ): string {
-  return choice.tier === "plus"
-    ? choice.interval === "month"
-      ? config.POLAR_PLUS_MONTHLY_PRODUCT_ID
-      : config.POLAR_PLUS_YEARLY_PRODUCT_ID
-    : choice.interval === "month"
-      ? config.POLAR_PRO_MONTHLY_PRODUCT_ID
-      : config.POLAR_PRO_YEARLY_PRODUCT_ID;
+  const prefix = provider === "creem" ? "CREEM" : "POLAR";
+  const tier = choice.tier === "plus" ? "PLUS" : "PRO";
+  const interval = choice.interval === "month" ? "MONTHLY" : "YEARLY";
+  return config[`${prefix}_${tier}_${interval}_PRODUCT_ID`];
 }
 export function choiceForProduct(
   config: BillingConfig,
   id: string,
+  provider: BillingProviderId = config.BILLING_DEFAULT_PROVIDER,
 ): BillingChoice | null {
   if (!id) return null;
   for (const tier of ["plus", "pro"] as const)
     for (const interval of ["month", "year"] as const) {
       const choice = { tier, interval };
-      if (productForChoice(config, choice) === id) return choice;
+      if (productForChoice(config, choice, provider) === id) return choice;
     }
   return null;
 }

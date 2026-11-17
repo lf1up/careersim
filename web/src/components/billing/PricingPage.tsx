@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { ApiError } from '@/lib/api';
+import { billingCountries, isBillingCountry } from '@/lib/billing-countries';
 import { fetchPlanCatalog, startCheckout, windowLabel, money, type PlanCatalogResponse, type BillingChoice, type BillingInterval } from '@/lib/billing';
 import { Button } from '@/components/ui/Button';
 import { RetroAlert } from '@/components/ui/RetroBadge';
@@ -13,6 +14,7 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
   const router = useRouter();
   const [catalog, setCatalog] = useState(initialCatalog);
   const [interval, setInterval] = useState<BillingInterval>(initialInterval);
+  const [billingCountry, setBillingCountry] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, isLoading } = useAuth();
@@ -24,7 +26,8 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
       const current = await fetchPlanCatalog(true);
       setCatalog(current);
       if (current.plans.find(plan => plan.tier === selected.tier)?.availability !== 'available') throw new Error('This plan is currently unavailable. Please check again later.');
-      const checkout = await startCheckout(selected);
+      if (current.billingCountryRequired && !isBillingCountry(billingCountry)) throw new Error('Select your billing country before checkout.');
+      const checkout = await startCheckout(current.billingCountryRequired ? { ...selected, billingCountry } : selected);
       window.location.assign(checkout.url);
     } catch (failure) {
       if (failure instanceof ApiError && failure.status === 401) {
@@ -47,6 +50,14 @@ export function PricingPage({ catalog: initialCatalog, initialInterval = 'month'
         {(['month', 'year'] as const).map(value => <label key={value} className={`cursor-pointer border-2 border-black dark:border-retro-ink-dark px-4 py-3 shadow-retro-2 focus-within:ring-2 focus-within:ring-retro-accent ${interval === value ? 'bg-retro-accent dark:bg-retro-accent-dark text-black' : 'bg-white dark:bg-retro-surface-dark'}`}><input className="mr-2 accent-black" type="radio" name="billing-interval" value={value} checked={interval === value} onChange={() => setInterval(value)} />{value === 'month' ? 'Monthly' : 'Yearly'}</label>)}
       </fieldset>
     </header>
+    {catalog.billingCountryRequired && <div className="max-w-md mx-auto space-y-2">
+      <label htmlFor="billing-country" className="block font-semibold">Billing country</label>
+      <select id="billing-country" required aria-describedby="billing-country-help" className="block w-full p-3 border-2 border-black dark:border-retro-ink-dark bg-white dark:bg-retro-surface-dark text-retro-ink dark:text-retro-ink-dark" value={billingCountry} onChange={event => { setBillingCountry(event.target.value); setError(null); }}>
+        <option value="">Select your billing country</option>
+        {billingCountries.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+      </select>
+      <p id="billing-country-help" className="text-sm">Choose the country of your billing address.</p>
+    </div>}
     {error && <RetroAlert tone="error" title="Checkout unavailable">{error} <Link href="/profile#billing" className="underline">Manage existing billing</Link></RetroAlert>}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
       {catalog.plans.map(plan => {

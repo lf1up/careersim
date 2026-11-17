@@ -1,5 +1,7 @@
 import {
   index,
+  primaryKey,
+  foreignKey,
   integer,
   jsonb,
   pgEnum,
@@ -209,115 +211,160 @@ export type VoiceMinuteUsageRow = typeof voiceMinuteUsage.$inferSelect;
 export type NewVoiceMinuteUsageRow = typeof voiceMinuteUsage.$inferInsert;
 
 // The customer row is also the per-account lock for all provider operations.
+export const billingProviderEnum = pgEnum("billing_provider", [
+  "creem",
+  "polar",
+]);
+
 export const billingCustomers = pgTable(
-  'billing_customers',
+  "billing_customers",
   {
-    userId: uuid('user_id')
+    userId: uuid("user_id")
       .primaryKey()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    customerId: text('customer_id'),
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: billingProviderEnum("provider").default("polar"),
+    billingConflict: integer("billing_conflict").notNull().default(0),
     snapshot:
-      jsonb('snapshot').$type<
-        import('../modules/billing/billing.schema.js').BillingSnapshot
+      jsonb("snapshot").$type<
+        import("../modules/billing/billing.schema.js").BillingSnapshot
       >(),
-    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
-    nextSyncAt: timestamp('next_sync_at', { withTimezone: true })
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    nextSyncAt: timestamp("next_sync_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    syncFailures: integer('sync_failures').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true })
+    syncFailures: integer("sync_failures").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
+  (t) => [index("billing_customers_sync_idx").on(t.nextSyncAt)],
+);
+export const billingProviderCustomers = pgTable(
+  "billing_provider_customers",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: billingProviderEnum("provider").notNull(),
+    customerId: text("customer_id"),
+    snapshot:
+      jsonb("snapshot").$type<
+        import("../modules/billing/billing.schema.js").BillingSnapshot
+      >(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    nextSyncAt: timestamp("next_sync_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    syncFailures: integer("sync_failures").notNull().default(0),
+  },
   (t) => [
-    uniqueIndex('billing_customer_provider_unique').on(t.customerId),
-    index('billing_customers_sync_idx').on(t.nextSyncAt),
+    primaryKey({ columns: [t.userId, t.provider] }),
+    uniqueIndex("billing_provider_customer_unique").on(
+      t.provider,
+      t.customerId,
+    ),
   ],
 );
 export const billingSubscriptions = pgTable(
-  'billing_subscriptions',
+  "billing_subscriptions",
   {
-    subscriptionId: text('subscription_id').primaryKey(),
-    userId: uuid('user_id')
+    provider: billingProviderEnum("provider").notNull().default("polar"),
+    subscriptionId: text("subscription_id").notNull(),
+    userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    productId: text('product_id').notNull(),
-    status: text('status').notNull(),
-    paidThrough: timestamp('paid_through', { withTimezone: true }),
-    revokePending: integer('revoke_pending').notNull().default(0),
-    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true })
+      .references(() => users.id, { onDelete: "cascade" }),
+    productId: text("product_id").notNull(),
+    status: text("status").notNull(),
+    paidThrough: timestamp("paid_through", { withTimezone: true }),
+    revokePending: integer("revoke_pending").notNull().default(0),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
-    index('billing_subscriptions_user_idx').on(t.userId),
-    index('billing_subscriptions_revoke_idx').on(t.revokePending),
+    primaryKey({ columns: [t.provider, t.subscriptionId] }),
+    index("billing_subscriptions_user_idx").on(t.userId),
+    index("billing_subscriptions_revoke_idx").on(t.revokePending),
   ],
 );
 export const billingOrders = pgTable(
-  'billing_orders',
+  "billing_orders",
   {
-    orderId: text('order_id').primaryKey(),
-    subscriptionId: text('subscription_id')
-      .notNull()
-      .references(() => billingSubscriptions.subscriptionId, {
-        onDelete: 'cascade',
-      }),
-    productId: text('product_id').notNull(),
-    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
-    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
-    totalAmount: integer('total_amount').notNull(),
-    refundedAmount: integer('refunded_amount').notNull().default(0),
-    dispute: text('dispute').notNull().default('none'),
+    provider: billingProviderEnum("provider").notNull().default("polar"),
+    orderId: text("order_id").notNull(),
+    subscriptionId: text("subscription_id").notNull(),
+    productId: text("product_id").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    totalAmount: integer("total_amount").notNull(),
+    refundedAmount: integer("refunded_amount").notNull().default(0),
+    dispute: text("dispute").notNull().default("none"),
   },
   (t) => [
-    index('billing_orders_subscription_period_idx').on(
+    primaryKey({ columns: [t.provider, t.orderId] }),
+    foreignKey({
+      columns: [t.provider, t.subscriptionId],
+      foreignColumns: [
+        billingSubscriptions.provider,
+        billingSubscriptions.subscriptionId,
+      ],
+    }).onDelete("cascade"),
+    index("billing_orders_subscription_period_idx").on(
       t.subscriptionId,
       t.periodEnd,
     ),
   ],
 );
 export const billingWebhookInbox = pgTable(
-  'billing_webhook_inbox',
+  "billing_webhook_inbox",
   {
-    eventId: text('event_id').primaryKey(),
-    eventType: text('event_type').notNull(),
+    provider: billingProviderEnum("provider").notNull().default("polar"),
+    eventId: text("event_id").notNull(),
+    eventType: text("event_type").notNull(),
     // Minimal verified event evidence, never the raw payment payload.
-    customerId: text('customer_id'),
-    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
-    orderId: text('order_id'),
-    dispute: text('dispute'),
-    receivedAt: timestamp('received_at', { withTimezone: true })
+    customerId: text("customer_id"),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    orderId: text("order_id"),
+    dispute: text("dispute"),
+    receivedAt: timestamp("received_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    processedAt: timestamp('processed_at', { withTimezone: true }),
-    attempts: integer('attempts').notNull().default(0),
-    nextSyncAt: timestamp('next_sync_at', { withTimezone: true })
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    nextSyncAt: timestamp("next_sync_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    syncFailures: integer('sync_failures').notNull().default(0),
+    syncFailures: integer("sync_failures").notNull().default(0),
   },
-  (t) => [index('billing_inbox_pending_idx').on(t.processedAt, t.nextSyncAt)],
+  (t) => [
+    primaryKey({ columns: [t.provider, t.eventId] }),
+    index("billing_inbox_pending_idx").on(t.processedAt, t.nextSyncAt),
+  ],
 );
 export const billingCheckoutAttempts = pgTable(
-  'billing_checkout_attempts',
+  "billing_checkout_attempts",
   {
-    attemptId: uuid('attempt_id').primaryKey(),
-    userId: uuid('user_id')
+    provider: billingProviderEnum("provider").notNull().default("polar"),
+    billingCountry: text("billing_country"),
+    attemptId: uuid("attempt_id").primaryKey(),
+    userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    tier: text('tier').notNull(),
-    interval: text('interval').notNull(),
-    status: text('status').notNull().default('creating'),
-    checkoutId: text('checkout_id'),
-    url: text('url'),
-    expiresAt: timestamp('expires_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true })
+      .references(() => users.id, { onDelete: "cascade" }),
+    tier: text("tier").notNull(),
+    interval: text("interval").notNull(),
+    status: text("status").notNull().default("creating"),
+    checkoutId: text("checkout_id"),
+    url: text("url"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
-    uniqueIndex('billing_checkout_provider_unique').on(t.checkoutId),
-    index('billing_checkout_user_idx').on(t.userId, t.status),
+    uniqueIndex("billing_checkout_provider_unique").on(
+      t.provider,
+      t.checkoutId,
+    ),
+    index("billing_checkout_user_idx").on(t.userId, t.status),
   ],
 );

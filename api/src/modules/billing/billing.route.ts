@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   billingAccountSchema,
   billingChoiceSchema,
+  checkoutChoiceSchema,
   planCatalogSchema,
   type PlanCatalog,
 } from "./billing.schema.js";
@@ -47,7 +48,7 @@ export const billingRoutes: FastifyPluginAsyncZod<BillingRouteOptions> = async (
       config: { rateLimit: billingRateLimit("checkout") },
       schema: {
         tags: ["billing"],
-        body: billingChoiceSchema,
+        body: checkoutChoiceSchema,
         response: { 200: destinationSchema },
       },
     },

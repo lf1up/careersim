@@ -2,20 +2,38 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import type { AppDatabase } from "../../db/client.js";
-import { billingCheckoutAttempts, billingCustomers } from "../../db/schema.js";
+import {
+  billingCheckoutAttempts,
+  billingCustomers,
+  billingProviderCustomers,
+} from "../../db/schema.js";
 import { HttpError } from "../../plugins/errors.js";
 import {
   billingSnapshotSchema,
   type BillingAccount,
   type BillingChoice,
+  type CheckoutChoice,
   type BillingUsage,
   type Entitlement,
   type PlanCatalog,
   type PlanLimits,
 } from "./billing.schema.js";
 import { productForChoice, type BillingConfig } from "./catalog.js";
-import type { BillingProvider, ProviderCheckout } from "./polar.js";
-import { lockBillingCustomer, type SyncCustomer } from "./sync.js";
+import {
+  requireProvider,
+  type BillingProviders,
+  type ProviderCheckout,
+} from "./provider.js";
+import {
+  selectBillingProvider,
+  providerEnabled,
+  type BillingProviderId,
+} from "./routing.js";
+import {
+  lockBillingCustomer,
+  subscriptionObligation,
+  type SyncCustomer,
+} from "./sync.js";
 import { FAILED_RENEWAL_GRACE_MS } from "./entitlements.js";
 
 const openStatuses = ["creating", "pending", "ambiguous"];
@@ -32,7 +50,7 @@ export function createBillingService({
   db,
   config,
   catalog,
-  provider,
+  providers,
   syncCustomer,
   resolveEntitlements,
   now = () => new Date(),
@@ -42,7 +60,7 @@ export function createBillingService({
   db: AppDatabase;
   config: BillingConfig;
   catalog: PlanCatalog;
-  provider: BillingProvider;
+  providers: BillingProviders;
   syncCustomer: SyncCustomer;
   resolveEntitlements: (userId: string) => Promise<Entitlement>;
   now?: () => Date;
@@ -53,19 +71,19 @@ export function createBillingService({
       contactUrl: config.BILLING_CONTACT_URL,
     });
   }
-  function requireChoice(choice: BillingChoice): void {
+  function requireChoice(
+    choice: BillingChoice,
+    provider: BillingProviderId = config.BILLING_DEFAULT_PROVIDER,
+  ): void {
     if (!config.BILLING_ENABLED)
       throw conflict(
         "billing_disabled",
         "New purchases are currently unavailable.",
       );
     if (choice.tier === "pro" && !config.PRO_CHANNEL_URL) {
-      throw conflict(
-        "pro_unavailable",
-        "Pro is not available for purchase.",
-      );
+      throw conflict("pro_unavailable", "Pro is not available for purchase.");
     }
-    if (!productForChoice(config, choice))
+    if (!productForChoice(config, choice, provider))
       throw conflict(
         "billing_product_unavailable",
         "This billing choice is unavailable.",
@@ -94,6 +112,7 @@ export function createBillingService({
     );
     return {
       ...entitlement,
+      billingConflict: Boolean(row?.billingConflict),
       interval:
         snapshot.kind === "subscription"
           ? (snapshot.choice?.interval ?? null)
@@ -141,13 +160,18 @@ export function createBillingService({
       .select()
       .from(billingCustomers)
       .where(eq(billingCustomers.userId, userId));
-    if (!row?.customerId)
+    if (!row?.provider || row.snapshot?.kind !== "subscription")
       throw conflict(
         "billing_customer_missing",
         "No verified billing customer is available.",
       );
     try {
-      return await provider.createPortal(userId);
+      if (!providerEnabled(config, row.provider))
+        throw new Error("Provider disabled");
+      await syncCustomer({ userId, reason: "portal", provider: row.provider });
+      return await requireProvider(providers, row.provider).createPortal(
+        userId,
+      );
     } catch {
       throw new HttpError(
         503,
@@ -158,14 +182,35 @@ export function createBillingService({
   }
   async function startCheckout({
     userId,
-    choice,
+    choice: selected,
   }: {
     userId: string;
-    choice: BillingChoice;
+    choice: CheckoutChoice;
   }): Promise<{ url: string }> {
-    requireChoice(choice);
+    const { billingCountry, ...choice } = selected;
+    if (billingCountry) {
+      const [existing] = await db
+        .select()
+        .from(billingCustomers)
+        .where(eq(billingCustomers.userId, userId));
+      const confirmedCountry =
+        existing?.snapshot?.kind === "subscription"
+          ? existing.snapshot.billingCountry
+          : null;
+      if (confirmedCountry && confirmedCountry !== billingCountry)
+        throw conflict(
+          "billing_country_mismatch",
+          "Update your verified billing country through billing management or contact support before starting checkout.",
+        );
+    }
+    const selectedProvider = selectBillingProvider(config, billingCountry);
+    requireChoice(choice, selectedProvider);
     // A fresh authoritative read is mandatory before any new subscription intent.
-    await syncCustomer({ userId, reason: "checkout" });
+    await syncCustomer({
+      userId,
+      reason: "checkout",
+      provider: selectedProvider,
+    });
     type Action =
       | { kind: "create"; attemptId: string }
       | { kind: "reuse"; url: string }
@@ -177,16 +222,15 @@ export function createBillingService({
         .select()
         .from(billingCustomers)
         .where(eq(billingCustomers.userId, userId));
+      if (customer?.billingConflict)
+        throw conflict(
+          "billing_duplicate_subscriptions",
+          "Multiple subscriptions require reconciliation. Contact support.",
+        );
       const snapshot = billingSnapshotSchema.parse(
         customer?.snapshot ?? { kind: "none" },
       );
-      if (
-        snapshot.kind === "subscription" &&
-        !snapshot.revoked &&
-        (Boolean(snapshot.paidPeriod && snapshot.paidPeriod.end > now()) ||
-          !["canceled", "incomplete_expired"].includes(snapshot.status))
-      )
-        return { kind: "manage" };
+      if (subscriptionObligation(snapshot, now())) return { kind: "manage" };
       const attempts = await tx
         .select()
         .from(billingCheckoutAttempts)
@@ -198,19 +242,32 @@ export function createBillingService({
         )
         .orderBy(desc(billingCheckoutAttempts.createdAt));
       for (const attempt of attempts) {
-        let checkout: ProviderCheckout | null =
-          attempt.checkoutId && attempt.url && attempt.expiresAt
-            ? {
-                id: attempt.checkoutId,
-                url: attempt.url,
-                expiresAt: attempt.expiresAt,
-              }
-            : null;
+        if (
+          attempt.checkoutId &&
+          attempt.expiresAt &&
+          attempt.expiresAt <= now()
+        ) {
+          await tx
+            .update(billingCheckoutAttempts)
+            .set({ status: "expired" })
+            .where(eq(billingCheckoutAttempts.attemptId, attempt.attemptId));
+          continue;
+        }
+        if (!providerEnabled(config, attempt.provider))
+          throw conflict(
+            "billing_checkout_pending",
+            "An existing checkout requires confirmation from its billing provider. Contact support.",
+          );
+        const provider = requireProvider(providers, attempt.provider);
+        let checkout: ProviderCheckout | null = null;
         if (!checkout) {
           // A committed intent survives network failure or process death. Never
           // repeat create blindly when the provider's outcome is unknown.
           try {
-            checkout = await provider.findCheckout(attempt.attemptId);
+            checkout = await provider.findCheckout(
+              attempt.attemptId,
+              attempt.checkoutId,
+            );
           } catch (error) {
             if (error instanceof HttpError) throw error;
             throw new HttpError(
@@ -237,12 +294,31 @@ export function createBillingService({
             })
             .where(eq(billingCheckoutAttempts.attemptId, attempt.attemptId));
         }
-        if (checkout.expiresAt <= now()) {
+        if (
+          checkout.state === "closed" ||
+          (checkout.expiresAt && checkout.expiresAt <= now())
+        ) {
           await tx
             .update(billingCheckoutAttempts)
             .set({ status: "expired" })
             .where(eq(billingCheckoutAttempts.attemptId, attempt.attemptId));
           continue;
+        }
+        if (checkout.state === "completed")
+          throw conflict(
+            "billing_checkout_pending",
+            "A payment is awaiting confirmation. Refresh billing before retrying.",
+          );
+        if (!provider.updateCheckout) {
+          if (
+            attempt.tier !== choice.tier ||
+            attempt.interval !== choice.interval
+          )
+            throw conflict(
+              "billing_checkout_conflict",
+              "Your existing checkout must be completed or closed before choosing another plan. Contact support if needed.",
+            );
+          return { kind: "reuse", url: checkout.url };
         }
         // Reapply even the same choice: a prior provider update may have succeeded
         // before its response or our transaction was lost.
@@ -273,6 +349,8 @@ export function createBillingService({
       const attemptId = randomUUID();
       await tx.insert(billingCheckoutAttempts).values({
         attemptId,
+        provider: selectedProvider,
+        billingCountry,
         userId,
         tier: choice.tier,
         interval: choice.interval,
@@ -286,7 +364,20 @@ export function createBillingService({
     if (action.kind === "conflict") throw action.error;
     let checkout: ProviderCheckout;
     try {
+      const provider = requireProvider(providers, selectedProvider);
+      const [knownCustomer] = await db
+        .select()
+        .from(billingProviderCustomers)
+        .where(
+          and(
+            eq(billingProviderCustomers.userId, userId),
+            eq(billingProviderCustomers.provider, selectedProvider),
+          ),
+        );
       checkout = await provider.createCheckout({
+        ...(knownCustomer?.customerId
+          ? { customerId: knownCustomer.customerId }
+          : {}),
         userId,
         choice,
         attemptId: action.attemptId,
@@ -364,8 +455,7 @@ export function createBillingService({
       );
     return {
       channelUrl: config.PRO_CHANNEL_URL,
-      instructions:
-        `Contact the development team through the private channel to verify your membership. Membership is checked against your current ${productName} Pro access.`,
+      instructions: `Contact the development team through the private channel to verify your membership. Membership is checked against your current ${productName} Pro access.`,
     };
   }
   return {

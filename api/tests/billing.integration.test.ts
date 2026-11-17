@@ -19,6 +19,9 @@ const independentLimitsConfig = () =>
     JWT_SECRET: "test-secret-test-secret",
     ALTCHA_HMAC_KEY: "test-secret-test-secret",
     BILLING_ENABLED: "true",
+    CREEM_ENABLED: "false",
+    POLAR_ENABLED: "true",
+    BILLING_DEFAULT_PROVIDER: "polar",
     POLAR_ACCESS_TOKEN: "fixture-token",
     POLAR_WEBHOOK_SECRET: "fixture-secret",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
@@ -84,7 +87,7 @@ describe("subscription access through the full API", () => {
     harness = await buildTestApp({
       billing: {
         config: independentLimitsConfig(),
-        provider,
+        providers: { polar: provider },
         now: () => clock,
       },
       rateLimitEnabled: true,
@@ -196,7 +199,7 @@ describe("subscription access through the full API", () => {
     harness = await buildTestApp({
       billing: {
         config: independentLimitsConfig(),
-        provider,
+        providers: { polar: provider },
         now: () => clock,
       },
       voice: { enabled: true, now: () => clock, terminateRoom: async () => {} },
@@ -312,6 +315,9 @@ describe("subscription access through the full API", () => {
       JWT_SECRET: "test-secret-test-secret",
       ALTCHA_HMAC_KEY: "test-secret-test-secret",
       BILLING_ENABLED: "true",
+      CREEM_ENABLED: "false",
+      POLAR_ENABLED: "true",
+      BILLING_DEFAULT_PROVIDER: "polar",
       POLAR_ACCESS_TOKEN: "fixture-token",
       POLAR_WEBHOOK_SECRET: "fixture-secret",
       POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
@@ -323,7 +329,7 @@ describe("subscription access through the full API", () => {
     let clock = new Date("2026-11-10T12:00:00Z");
     const provider = new FakeBillingProvider();
     harness = await buildTestApp({
-      billing: { config, provider, now: () => clock },
+      billing: { config, providers: { polar: provider }, now: () => clock },
       rateLimitEnabled: true,
       rateLimitGlobalMax: 1000,
       quotaStore: createMemoryWindowQuota({ now: () => clock }),
@@ -438,35 +444,81 @@ describe("subscription access through the full API", () => {
     });
     expect(history.statusCode).toBe(200);
   });
-  it('keeps verified billing and portal access available when quota reads fail', async () => {
-    const config = loadEnv({ DATABASE_URL: 'postgres://test', AGENT_API_URL: 'http://test',
-      JWT_SECRET: 'test-secret-test-secret', ALTCHA_HMAC_KEY: 'test-secret-test-secret',
-      BILLING_ENABLED: 'true', POLAR_ACCESS_TOKEN: 'fixture-token', POLAR_WEBHOOK_SECRET: 'fixture-secret',
-      POLAR_PLUS_MONTHLY_PRODUCT_ID: 'plus-month', POLAR_PLUS_YEARLY_PRODUCT_ID: 'plus-year' });
+  it("keeps verified billing and portal access available when quota reads fail", async () => {
+    const config = loadEnv({
+      DATABASE_URL: "postgres://test",
+      AGENT_API_URL: "http://test",
+      JWT_SECRET: "test-secret-test-secret",
+      ALTCHA_HMAC_KEY: "test-secret-test-secret",
+      BILLING_ENABLED: "true",
+      CREEM_ENABLED: "false",
+      POLAR_ENABLED: "true",
+      BILLING_DEFAULT_PROVIDER: "polar",
+      POLAR_ACCESS_TOKEN: "fixture-token",
+      POLAR_WEBHOOK_SECRET: "fixture-secret",
+      POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
+      POLAR_PLUS_YEARLY_PRODUCT_ID: "plus-year",
+    });
     const provider = new FakeBillingProvider();
     const store = createMemoryWindowQuota();
-    harness = await buildTestApp({ billing: { config, provider }, quotaStore: {
-      consume: store.consume, async read() { throw new Error('Quota store unavailable'); },
-    } });
+    harness = await buildTestApp({
+      billing: { config, providers: { polar: provider } },
+      quotaStore: {
+        consume: store.consume,
+        async read() {
+          throw new Error("Quota store unavailable");
+        },
+      },
+    });
     const { app } = harness;
     const auth = await registerAndAuth(app);
     const now = Date.now();
-    const order: PaidOrder = { orderId: 'paid-outage-order', productId: 'plus-month',
-      start: new Date(now - 1000), end: new Date(now + 86400000),
-      totalAmount: 900, refundedAmount: 0, dispute: 'none' };
-    provider.snapshots.set(auth.userId, { kind: 'subscription', customerId: 'outage-customer',
-      subscriptionId: 'outage-subscription', productId: 'plus-month', choice: { tier: 'plus', interval: 'month' },
-      status: 'active', paidPeriod: order, orders: [order], cancelAtPeriodEnd: false,
-      failedRenewal: false, revoked: false, pendingChange: null });
-    const refreshed = await app.inject({ method: 'POST', url: '/v1/billing/refresh', headers: auth.authHeader });
+    const order: PaidOrder = {
+      orderId: "paid-outage-order",
+      productId: "plus-month",
+      start: new Date(now - 1000),
+      end: new Date(now + 86400000),
+      totalAmount: 900,
+      refundedAmount: 0,
+      dispute: "none",
+    };
+    provider.snapshots.set(auth.userId, {
+      kind: "subscription",
+      customerId: "outage-customer",
+      subscriptionId: "outage-subscription",
+      productId: "plus-month",
+      choice: { tier: "plus", interval: "month" },
+      status: "active",
+      paidPeriod: order,
+      orders: [order],
+      cancelAtPeriodEnd: false,
+      failedRenewal: false,
+      revoked: false,
+      pendingChange: null,
+    });
+    const refreshed = await app.inject({
+      method: "POST",
+      url: "/v1/billing/refresh",
+      headers: auth.authHeader,
+    });
     expect(refreshed.statusCode, refreshed.body).toBe(200);
-    expect(refreshed.json()).toMatchObject({ tier: 'plus', usage: { sessions: null, chatMessages: null } });
-    const account = await app.inject({ method: 'GET', url: '/v1/billing/account', headers: auth.authHeader });
+    expect(refreshed.json()).toMatchObject({
+      tier: "plus",
+      usage: { sessions: null, chatMessages: null },
+    });
+    const account = await app.inject({
+      method: "GET",
+      url: "/v1/billing/account",
+      headers: auth.authHeader,
+    });
     expect(account.statusCode, account.body).toBe(200);
-    expect(account.json().tier).toBe('plus');
-    const portal = await app.inject({ method: 'POST', url: '/v1/billing/portal', headers: auth.authHeader });
+    expect(account.json().tier).toBe("plus");
+    const portal = await app.inject({
+      method: "POST",
+      url: "/v1/billing/portal",
+      headers: auth.authHeader,
+    });
     expect(portal.statusCode, portal.body).toBe(200);
     expect(portal.json().url).toMatch(/^https:/);
   });
-
 });

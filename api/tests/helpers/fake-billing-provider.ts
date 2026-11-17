@@ -5,7 +5,7 @@ import type {
 import type {
   BillingProvider,
   ProviderCheckout,
-} from "../../src/modules/billing/polar.js";
+} from "../../src/modules/billing/provider.js";
 export class FakeBillingProvider implements BillingProvider {
   snapshots = new Map<string, BillingSnapshot>();
   checkouts = new Map<string, ProviderCheckout>();

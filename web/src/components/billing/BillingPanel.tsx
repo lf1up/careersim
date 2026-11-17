@@ -14,6 +14,7 @@ function dateLabel(value: string): string {
   return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(value));
 }
 function statusLabel(account: BillingAccount): string {
+  if (account.billingConflict) return 'Billing needs review.';
   if (account.confirmationPending || account.pendingCheckout) return 'Pending payment confirmation. Returning from checkout does not activate a subscription.';
   if (account.reason === 'grace') return 'Payment failed. Grace access is temporary; update your payment method in the billing portal.';
   if (account.reason === 'revoked') return 'Paid access revoked. Your saved content is retained.';
@@ -115,13 +116,17 @@ export function BillingPanel() {
   const chosenPlan = catalog?.plans.find(plan => plan.tier === nextChoice.tier);
   const chosenPrice = chosenPlan?.prices.find(price => price.interval === nextChoice.interval);
   const usageLabels = { sessions: 'New sessions', chatMessages: 'Text messages', customSimulations: 'Saved custom simulations', customPersonas: 'Saved custom personas', voice: 'Voice minutes today' };
-  const canChange = !!account?.planChangesAvailable && chosenPlan?.availability === 'available' && chosenPrice && account.paidThrough && (nextChoice.tier !== account.tier || nextChoice.interval !== account.interval);
+  const canChange = !account?.billingConflict && !!account?.planChangesAvailable && chosenPlan?.availability === 'available' && chosenPrice && account.paidThrough && (nextChoice.tier !== account.tier || nextChoice.interval !== account.interval);
   return <section id="billing" aria-label="Billing" className="scroll-mt-6"><RetroCard title="BILLING" titleAs="h2" subtitle="Your verified access, allowances, and payment settings.">
     <div className="space-y-5">
       {lostAuth ? <Link className="underline" href="/login?next=%2Fprofile%23billing">Sign in to view billing</Link> : !account && !error ? <p role="status">Loading billing…</p> : null}
       {error && <RetroAlert tone="error" title="Billing unavailable">{error}</RetroAlert>}
       {notice && <p role="status">{notice}</p>}
       {account && !lostAuth && <>
+        {account.billingConflict && <RetroAlert tone="warning" title="Billing needs review">
+          We found conflicting subscription records. Contact us before starting another subscription.{' '}
+          <Link href={account.contactUrl} className="underline">Contact billing support</Link>
+        </RetroAlert>}
         <div className="space-y-2" aria-live="polite">
           <p className="font-retro text-lg">{account.tier === 'free' ? 'Free' : account.tier === 'plus' ? 'Plus' : 'Pro'}</p>
           <p>{statusLabel(account)}</p>
@@ -144,10 +149,10 @@ export function BillingPanel() {
         </section>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" disabled={busy} onClick={() => { attempts.current = 0; void refresh(); }}>Refresh billing</Button>
-          {(account.interval || account.paidThrough) && <Button disabled={busy} onClick={portal}>Manage payments and cancellation</Button>}
-          {isPricingEnabled() && <Link className="retro-btn-base inline-flex px-4 py-2 bg-retro-accent dark:bg-retro-accent-dark text-black" href="/pricing">{account.tier === 'free' ? 'Explore Plus' : 'Compare plans'}</Link>}
+          {(account.interval || account.paidThrough) && <Button disabled={busy || account.billingConflict} onClick={portal}>Manage payments and cancellation</Button>}
+          {isPricingEnabled() && !account.billingConflict && <Link className="retro-btn-base inline-flex px-4 py-2 bg-retro-accent dark:bg-retro-accent-dark text-black" href="/pricing">{account.tier === 'free' ? 'Explore Plus' : 'Compare plans'}</Link>}
         </div>
-        {account.interval && (account.planChangesAvailable && catalog ? <section aria-label="Change plan" className="space-y-3">
+        {!account.billingConflict && account.interval && (account.planChangesAvailable && catalog ? <section aria-label="Change plan" className="space-y-3">
           <h3 className="font-semibold">Next renewal</h3>
           <label className="block text-sm">Next plan<select className="block w-full p-2 border-2 border-black bg-white text-black" value={nextChoice.tier} onChange={event => setNextChoice({ ...nextChoice, tier: event.target.value === 'pro' ? 'pro' : 'plus' })}>{catalog.plans.filter(plan => plan.tier !== 'free').map(plan => <option key={plan.tier} value={plan.tier} disabled={plan.availability !== 'available'}>{plan.name}{plan.availability !== 'available' ? ' (unavailable)' : ''}</option>)}</select></label>
           <label className="block text-sm">Next billing interval<select className="block w-full p-2 border-2 border-black bg-white text-black" value={nextChoice.interval} onChange={event => setNextChoice({ ...nextChoice, interval: event.target.value === 'year' ? 'year' : 'month' })}><option value="month">Monthly</option><option value="year">Yearly</option></select></label>
