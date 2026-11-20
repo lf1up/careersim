@@ -248,6 +248,101 @@ it("reconciles a due provider even when the account retry deadline is later", as
   expect(refreshed).toBe(1);
 });
 
+it("backs off rolled-back provider syncs so healthy accounts get the next batch", async () => {
+  const { db, userId } = await setup();
+  const healthyUserId = randomUUID();
+  await db.insert(users).values({
+    id: healthyUserId,
+    email: `${healthyUserId}@test.local`,
+  });
+  let clock = new Date("2026-11-20T12:00:00Z");
+  const later = new Date("2026-11-20T13:00:00Z");
+  await db
+    .update(billingCustomers)
+    .set({ nextSyncAt: later })
+    .where(eq(billingCustomers.userId, userId));
+  await db.insert(billingCustomers).values({
+    userId: healthyUserId,
+    nextSyncAt: later,
+  });
+  await db.insert(billingProviderCustomers).values([
+    { userId, provider: "creem", nextSyncAt: new Date("2026-11-20T11:00:00Z") },
+    { userId, provider: "polar", nextSyncAt: later, syncFailures: 2 },
+    {
+      userId: healthyUserId,
+      provider: "creem",
+      nextSyncAt: new Date("2026-11-20T11:30:00Z"),
+    },
+  ]);
+  const creem = new FakeBillingProvider();
+  let conflicting = true;
+  creem.fetchSnapshot = async (id) => {
+    if (id === userId && conflicting)
+      throw new HttpError(
+        409,
+        "Conflicting subscriptions",
+        "billing_duplicate_subscriptions",
+      );
+    return { kind: "none" };
+  };
+  const { syncCustomer } = createBillingSync({
+    db,
+    providers: { creem, polar: new FakeBillingProvider() },
+    config: configFixture(),
+    now: () => clock,
+  });
+  const worker = () =>
+    createBillingReconciler({
+      db,
+      enabledProviders: ["creem", "polar"],
+      syncCustomer,
+      now: () => clock,
+    });
+  expect(await worker().reconcileBilling({ limit: 1 })).toEqual({
+    processed: 0,
+    failed: 1,
+  });
+  const rows = await db
+    .select()
+    .from(billingProviderCustomers)
+    .where(eq(billingProviderCustomers.userId, userId));
+  expect(rows.find((row) => row.provider === "creem")).toMatchObject({
+    syncFailures: 1,
+    nextSyncAt: new Date("2026-11-20T12:01:00Z"),
+  });
+  expect(rows.find((row) => row.provider === "polar")).toMatchObject({
+    syncFailures: 2,
+    nextSyncAt: later,
+  });
+
+  clock = new Date("2026-11-20T12:05:00Z");
+  expect(await worker().reconcileBilling({ limit: 1 })).toEqual({
+    processed: 1,
+    failed: 0,
+  });
+  const [healthy] = await db
+    .select()
+    .from(billingCustomers)
+    .where(eq(billingCustomers.userId, healthyUserId));
+  expect(healthy?.lastSyncedAt).toEqual(clock);
+
+  conflicting = false;
+  expect(await worker().reconcileBilling({ limit: 1 })).toEqual({
+    processed: 1,
+    failed: 0,
+  });
+  const [recovered] = await db
+    .select()
+    .from(billingProviderCustomers)
+    .where(eq(billingProviderCustomers.userId, userId))
+    .orderBy(billingProviderCustomers.provider);
+  expect(recovered).toMatchObject({
+    provider: "creem",
+    syncFailures: 0,
+    nextSyncAt: new Date("2026-11-20T12:10:00Z"),
+  });
+});
+
 it("requires updating verified billing details before routing through another country", async () => {
   const { db, userId } = await setup();
   const creem = new FakeBillingProvider();

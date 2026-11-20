@@ -141,6 +141,21 @@ export function createBillingReconciler({
                 nextSyncAt,
               },
             });
+          // Rolled-back syncs leave provider rows due. Defer them too, without
+          // replacing retry deadlines already committed by individual providers.
+          await db
+            .update(billingProviderCustomers)
+            .set({
+              syncFailures: sql`${billingProviderCustomers.syncFailures} + 1`,
+              nextSyncAt,
+            })
+            .where(
+              and(
+                eq(billingProviderCustomers.userId, userId),
+                inArray(billingProviderCustomers.provider, enabledProviders),
+                lte(billingProviderCustomers.nextSyncAt, dueAt),
+              ),
+            );
           await db
             .update(billingWebhookInbox)
             .set({
