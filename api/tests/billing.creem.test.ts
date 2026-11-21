@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadEnv } from "../src/config/env.js";
 import { subscriptionObligation } from "../src/modules/billing/entitlements.js";
 import { createCreemProvider } from "../src/modules/billing/creem.js";
+
+afterEach(() => vi.useRealTimers());
 
 const config = () =>
   loadEnv({
@@ -280,6 +282,8 @@ describe("Creem REST billing boundary", () => {
     },
   );
   it("confirms a replacement after a canceled disputed subscription stops being an obligation", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-21Z"));
     let paid = false;
     const old = {
       ...subscription,
