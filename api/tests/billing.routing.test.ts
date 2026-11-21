@@ -55,4 +55,18 @@ describe("provider routing", () => {
     ).not.toThrow();
     expect(() => loadEnv({ ...base, BILLING_ENABLED: "true" })).toThrow();
   });
+  it.each(["creem", "polar"] as const)(
+    "rejects a disabled default %s rather than routing to another provider",
+    (provider) => {
+      const config = loadEnv({ ...base });
+      expect(() =>
+        selectBillingProvider({
+          ...config,
+          BILLING_DEFAULT_PROVIDER: provider,
+          CREEM_ENABLED: false,
+          POLAR_ENABLED: false,
+        }),
+      ).toThrow("billing provider is unavailable");
+    },
+  );
 });

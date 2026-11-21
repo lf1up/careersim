@@ -12,6 +12,7 @@ import {
   billingWebhookInbox,
 } from "../src/db/schema.js";
 import { creemBillingWebhookRoutes } from "../src/modules/billing/webhook.route.js";
+import { eq } from "drizzle-orm";
 
 const secret = "test-creem-webhook";
 let handle: ReturnType<typeof createPgliteClient>;
@@ -139,6 +140,99 @@ it("does not acknowledge or process a disabled provider webhook", async () => {
     },
   });
   expect((await delivery({})).statusCode).toBe(503);
+  expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+  expect(calls).toBe(0);
+});
+it("rejects a well-formed signature that does not authenticate the raw body", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/billing/webhook/creem",
+    headers: {
+      "content-type": "application/json",
+      "creem-signature": "0".repeat(64),
+    },
+    payload: JSON.stringify({
+      id: "forged",
+      eventType: "checkout.completed",
+      object: {},
+    }),
+  });
+  expect(response.statusCode).toBe(403);
+  expect(response.json()).toEqual({ error: "billing_invalid_signature" });
+  expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+});
+it.each(["not-json", JSON.stringify({ object: {} })])(
+  "rejects a signed malformed envelope %s without persisting it",
+  async (payload) => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/billing/webhook/creem",
+      headers: {
+        "content-type": "application/json",
+        "creem-signature": createHmac("sha256", secret)
+          .update(payload)
+          .digest("hex"),
+      },
+      payload,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({ error: "billing_invalid_body" });
+    expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+  },
+);
+it("rejects a non-JSON body before storing a webhook", async () => {
+  const response = await app.inject({
+    method: "POST",
+    url: "/billing/webhook/creem",
+    headers: { "content-type": "text/plain" },
+    payload: "event",
+  });
+  expect(response.statusCode).toBe(400);
+  expect(response.json()).toEqual({ error: "billing_invalid_body" });
+  expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+});
+it("recovers checkout identity from nested signed checkout metadata", async () => {
+  const response = await delivery(
+    {
+      checkout: {
+        id: "nested-checkout",
+        request_id: attemptId,
+        metadata: { careersim_user_id: userId },
+      },
+      customer: "customer",
+    },
+    true,
+    "subscription.paid",
+  );
+  expect(response.statusCode).toBe(202);
+  expect(
+    (await handle.db.select().from(billingCheckoutAttempts))[0],
+  ).toMatchObject({
+    userId,
+    checkoutId: "nested-checkout",
+  });
+  expect((await handle.db.select().from(billingWebhookInbox))[0]).toMatchObject(
+    {
+      userId,
+      eventType: "subscription.paid",
+    },
+  );
+  expect(calls).toBe(1);
+});
+it("refuses to replace an already bound checkout with a different signed identity", async () => {
+  await handle.db
+    .update(billingCheckoutAttempts)
+    .set({ checkoutId: "original" })
+    .where(eq(billingCheckoutAttempts.attemptId, attemptId));
+  const response = await delivery({
+    id: "replacement",
+    metadata: { careersim_user_id: userId, careersim_attempt_id: attemptId },
+  });
+  expect(response.statusCode).toBe(409);
+  expect(response.json()).toEqual({ error: "billing_identity_mismatch" });
+  expect(
+    (await handle.db.select().from(billingCheckoutAttempts))[0]?.checkoutId,
+  ).toBe("original");
   expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
   expect(calls).toBe(0);
 });

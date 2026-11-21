@@ -590,4 +590,191 @@ describe("Creem REST billing boundary", () => {
       ).findCheckout("attempt", "checkout"),
     ).rejects.toMatchObject({ code: "billing_provider_error" });
   });
+  it("refuses an unmapped plan before making a checkout request", async () => {
+    const fetcher = transport();
+    await expect(
+      createCreemProvider(
+        { ...config(), CREEM_PLUS_MONTHLY_PRODUCT_ID: "" },
+        fetcher,
+      ).createCheckout({ userId: "user", choice, attemptId: "attempt" }),
+    ).rejects.toMatchObject({ code: "billing_product_unavailable" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("reuses only the verified customer identity when creating checkout", async () => {
+    const fetcher = transport({ check: { ...checkout, status: "pending" } });
+    await createCreemProvider(config(), fetcher).createCheckout({
+      userId: "user",
+      choice,
+      attemptId: "attempt",
+      customerId: "customer",
+    });
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
+      customer: { id: "customer" },
+    });
+    await expect(
+      createCreemProvider(config(), fetcher).createCheckout({
+        userId: "user",
+        choice,
+        attemptId: "attempt",
+        customerId: "foreign",
+      }),
+    ).rejects.toMatchObject({ code: "billing_identity_mismatch" });
+  });
+  it("normalizes expanded remote references without losing payment ownership", async () => {
+    const snapshot = await createCreemProvider(
+      config(),
+      transport({
+        check: {
+          ...checkout,
+          product: { id: "plus-month" },
+          customer: { id: "customer" },
+          subscription: { id: "subscription" },
+          order: { id: "initial-order", product: { id: "plus-month" } },
+        },
+        sub: { ...subscription, product: { id: "plus-month" } },
+        transactions: [
+          {
+            ...transaction,
+            customer: { id: "customer" },
+            subscription: { id: "subscription" },
+            order: { id: "initial-order" },
+          },
+        ],
+      }),
+    ).fetchSnapshot("user", {
+      ...references,
+      checkouts: [{ attemptId: "attempt", checkoutId: "checkout", choice }],
+    });
+    expect(snapshot).toMatchObject({
+      customerId: "customer",
+      subscriptionId: "subscription",
+      paidPeriod: {
+        orderId: "transaction",
+        checkoutId: "checkout",
+        productId: "plus-month",
+      },
+    });
+  });
+  it.each([
+    { id: "foreign-subscription" },
+    { metadata: { careersim_user_id: "foreign-user" } },
+  ])(
+    "rejects mismatched direct subscription ownership %j",
+    async (override) => {
+      await expect(
+        createCreemProvider(
+          config(),
+          transport({
+            sub: { ...subscription, ...override },
+          }),
+        ).fetchSnapshot("user", references),
+      ).rejects.toMatchObject({
+        code: "billing_identity_mismatch",
+      });
+    },
+  );
+  it.each([
+    { current_page: 2, next_page: null },
+    { current_page: 1, next_page: 1 },
+  ])("rejects inconsistent transaction pagination %j", async (pagination) => {
+    const fetcher = vi.fn<typeof fetch>(async (input) =>
+      Response.json(
+        new URL(String(input)).pathname === "/v1/subscriptions"
+          ? subscription
+          : { items: [], pagination },
+      ),
+    );
+    await expect(
+      createCreemProvider(config(), fetcher).fetchSnapshot("user", references),
+    ).rejects.toMatchObject({
+      code: "billing_provider_error",
+    });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+  it("selects the latest canceled subscription after all paid obligations expire", async () => {
+    const fetcher = vi.fn<typeof fetch>(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/v1/subscriptions") {
+        const latest = url.searchParams.get("subscription_id") === "latest";
+        return Response.json({
+          ...subscription,
+          id: latest ? "latest" : "older",
+          status: "canceled",
+          created_at: latest ? "2026-02-01T00:00:00Z" : "2026-01-01T00:00:00Z",
+        });
+      }
+      return Response.json({
+        items: [],
+        pagination: { current_page: 1, next_page: null },
+      });
+    });
+    expect(
+      await createCreemProvider(config(), fetcher).fetchSnapshot("user", {
+        ...references,
+        subscriptionIds: ["older", "latest"],
+      }),
+    ).toMatchObject({
+      subscriptionId: "latest",
+      status: "canceled",
+      paidPeriod: null,
+    });
+  });
+  it("rejects an owned checkout whose order claims a different product", async () => {
+    await expect(
+      createCreemProvider(
+        config(),
+        transport({
+          check: { ...checkout, order: { id: "order", product: "pro-month" } },
+        }),
+      ).fetchSnapshot("user", {
+        ...references,
+        checkouts: [{ attemptId: "attempt", checkoutId: "checkout", choice }],
+      }),
+    ).rejects.toMatchObject({ code: "billing_identity_mismatch" });
+  });
+  it.each([
+    { customer: null },
+    { subscription: null },
+    { id: "foreign-checkout" },
+  ])(
+    "rejects incomplete or substituted completed checkout identity %j",
+    async (override) => {
+      await expect(
+        createCreemProvider(
+          config(),
+          transport({
+            check: { ...checkout, ...override },
+          }),
+        ).fetchSnapshot("user", {
+          ...references,
+          checkouts: [{ attemptId: "attempt", checkoutId: "checkout", choice }],
+        }),
+      ).rejects.toMatchObject({ code: "billing_identity_mismatch" });
+    },
+  );
+  it.each(["missing-local-id", "missing-remote-checkout", "pending-checkout"])(
+    "does not discover a subscription from %s",
+    async (state) => {
+      const fetcher =
+        state === "missing-remote-checkout"
+          ? vi.fn<typeof fetch>(async () => Response.json({}, { status: 404 }))
+          : transport({ check: { ...checkout, status: "pending" } });
+      expect(
+        await createCreemProvider(config(), fetcher).fetchSnapshot("user", {
+          customerId: null,
+          subscriptionIds: [],
+          checkouts: [
+            {
+              attemptId: "attempt",
+              choice,
+              checkoutId: state === "missing-local-id" ? null : "checkout",
+            },
+          ],
+        }),
+      ).toEqual({ kind: "none" });
+      expect(fetcher).toHaveBeenCalledTimes(
+        state === "missing-local-id" ? 0 : 1,
+      );
+    },
+  );
 });

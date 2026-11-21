@@ -6,6 +6,7 @@ import { createPgliteClient } from "./helpers/db.js";
 import { loadEnv } from "../src/config/env.js";
 import {
   billingCustomers,
+  billingCheckoutAttempts,
   billingProviderCustomers,
   billingWebhookInbox,
   users,
@@ -546,4 +547,108 @@ it("keeps a subscription portal available when an unrelated historical provider 
   await expect(
     service(db, providers, config).portal(userId),
   ).resolves.toHaveProperty("url");
+});
+
+it.each(["GE", "US"])(
+  "persists provider-confirmed country %s against the paid checkout",
+  async (country) => {
+    const { db, userId } = await setup();
+    const creem = new FakeBillingProvider();
+    const snapshot = providerSnapshot(
+      "prod_pm",
+      "country-order",
+      new Date(Date.now() + 3_600_000),
+    );
+    creem.snapshots.set(userId, {
+      ...snapshot,
+      billingCountry: country,
+      orders: snapshot.orders.map((order) => ({
+        ...order,
+        checkoutId: "country-checkout",
+      })),
+    });
+    await db.insert(billingCheckoutAttempts).values({
+      userId,
+      provider: "creem",
+      attemptId: randomUUID(),
+      checkoutId: "country-checkout",
+      billingCountry: "GE",
+      tier: "plus",
+      interval: "month",
+    });
+    await createBillingSync({
+      db,
+      providers: { creem },
+      config: configFixture(),
+    }).syncCustomer({ userId, reason: "refresh" });
+    const [customer] = await db
+      .select()
+      .from(billingCustomers)
+      .where(eq(billingCustomers.userId, userId));
+    expect(customer?.snapshot).toMatchObject({
+      billingCountry: country,
+      billingCountryMismatch: country === "US",
+    });
+    expect((await db.select().from(billingCheckoutAttempts))[0]?.status).toBe(
+      "completed",
+    );
+  },
+);
+
+it.each(["subscription", "order"])(
+  "rejects a %s identity already owned by another account",
+  async (collision) => {
+    const { db, userId } = await setup();
+    const otherUserId = randomUUID();
+    await db
+      .insert(users)
+      .values({ id: otherUserId, email: `${otherUserId}@test.local` });
+    const creem = new FakeBillingProvider();
+    const snapshot = providerSnapshot(
+      "prod_pm",
+      "owned-order",
+      new Date(Date.now() + 3_600_000),
+    );
+    creem.snapshots.set(userId, snapshot);
+    const config = configFixture();
+    const sync = createBillingSync({ db, providers: { creem }, config });
+    await sync.syncCustomer({ userId, reason: "refresh" });
+    creem.snapshots.set(otherUserId, {
+      ...snapshot,
+      customerId: "different-customer",
+      subscriptionId:
+        collision === "subscription"
+          ? "subscription"
+          : "different-subscription",
+    });
+    await expect(
+      sync.syncCustomer({ userId: otherUserId, reason: "refresh" }),
+    ).rejects.toThrow(
+      collision === "subscription"
+        ? "Provider subscription identity mismatch"
+        : "Provider order identity mismatch",
+    );
+    expect(
+      await db
+        .select()
+        .from(billingProviderCustomers)
+        .where(eq(billingProviderCustomers.userId, otherUserId)),
+    ).toEqual([]);
+    expect(
+      await service(db, { creem }, config).getAccount(userId),
+    ).toMatchObject({ tier: "plus" });
+  },
+);
+
+it("does not create checkout when the selected enabled provider has no adapter", async () => {
+  const { db, userId } = await setup();
+  const creem = new FakeBillingProvider();
+  await expect(
+    service(db, { creem }, configFixture("IN=polar")).startCheckout({
+      userId,
+      choice: { tier: "plus", interval: "month", billingCountry: "IN" },
+    }),
+  ).rejects.toMatchObject({ statusCode: 503, code: "billing_unavailable" });
+  expect(creem.created).toEqual([]);
+  expect(await db.select().from(billingCheckoutAttempts)).toEqual([]);
 });
