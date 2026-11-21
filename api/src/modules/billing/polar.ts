@@ -1,11 +1,7 @@
 // This import deliberately pins the API contract, independently of npm releases.
 import { PolarClientError } from "@polar-sh/sdk";
 import { createPolar, type models } from "@polar-sh/sdk/2026-10";
-import type {
-  BillingChoice,
-  BillingSnapshot,
-  PaidOrder,
-} from "./billing.schema.js";
+import type { PaidOrder } from "./billing.schema.js";
 import {
   buildPlanCatalog,
   choiceForProduct,
@@ -14,28 +10,7 @@ import {
 } from "./catalog.js";
 import { HttpError } from "../../plugins/errors.js";
 
-export interface BillingProvider {
-  fetchSnapshot(userId: string): Promise<BillingSnapshot>;
-  createCheckout(input: {
-    userId: string;
-    choice: BillingChoice;
-    attemptId: string;
-  }): Promise<{ id: string; url: string; expiresAt: Date }>;
-  findCheckout(attemptId: string): Promise<ProviderCheckout | null>;
-  updateCheckout(input: {
-    checkoutId: string;
-    choice: BillingChoice;
-  }): Promise<ProviderCheckout>;
-  createPortal(userId: string): Promise<{ url: string }>;
-  scheduleChange(input: {
-    subscriptionId: string;
-    choice: BillingChoice;
-  }): Promise<void>;
-  revokeSubscription(subscriptionId: string): Promise<void>;
-}
-export type ProviderCheckout = Awaited<
-  ReturnType<BillingProvider["createCheckout"]>
->;
+import type { BillingProvider, ProviderCheckout } from "./provider.js";
 
 /** Keep SDK DTOs inside this boundary. In particular subscription status is not payment proof. */
 export function createPolarProvider(config: BillingConfig): BillingProvider {
@@ -156,7 +131,11 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
             b.end.getTime() - a.end.getTime(),
         )[0] ?? null;
       const pendingChoice = subscription.pending_update?.product_id
-        ? choiceForProduct(config, subscription.pending_update.product_id)
+        ? choiceForProduct(
+            config,
+            subscription.pending_update.product_id,
+            "polar",
+          )
         : null;
       return {
         kind: "subscription",
@@ -164,8 +143,8 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
         subscriptionId: subscription.id,
         productId: subscription.product_id,
         choice: paidPeriod
-          ? choiceForProduct(config, paidPeriod.productId)
-          : choiceForProduct(config, subscription.product_id),
+          ? choiceForProduct(config, paidPeriod.productId, "polar")
+          : choiceForProduct(config, subscription.product_id, "polar"),
         status: subscription.status,
         paidPeriod,
         orders,
@@ -181,13 +160,13 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
       };
     },
     async createCheckout({ userId, choice, attemptId }) {
-      const product = productForChoice(config, choice);
+      const product = productForChoice(config, choice, "polar");
       if (!product) throw new Error("Product is not configured");
       const alternatives = buildPlanCatalog(config).plans.flatMap(
         ({ tier, availability, prices }) =>
           tier !== "free" && availability === "available"
             ? prices.map(({ interval }) =>
-                productForChoice(config, { tier, interval }),
+                productForChoice(config, { tier, interval }, "polar"),
               )
             : [],
       );
@@ -204,7 +183,7 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
       return checkoutResult(result);
     },
     async updateCheckout({ checkoutId, choice }) {
-      const product = productForChoice(config, choice);
+      const product = productForChoice(config, choice, "polar");
       if (!product) throw new Error("Product is not configured");
       try {
         return checkoutResult(
@@ -248,7 +227,7 @@ export function createPolarProvider(config: BillingConfig): BillingProvider {
     },
     async scheduleChange({ subscriptionId, choice }) {
       await polar.subscriptions.update(subscriptionId, {
-        product_id: productForChoice(config, choice),
+        product_id: productForChoice(config, choice, "polar"),
         proration_behavior: "next_period",
       });
     },

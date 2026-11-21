@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadEnv } from "../src/config/env.js";
 import { buildPlanCatalog } from "../src/modules/billing/catalog.js";
-import { deriveEntitlement } from "../src/modules/billing/entitlements.js";
+import { deriveEntitlement, subscriptionObligation } from "../src/modules/billing/entitlements.js";
 import {
   planCatalogSchema,
   entitlementSchema,
@@ -309,3 +309,23 @@ describe("billing entitlement policy", () => {
     ).toBe("plus");
   });
 });
+
+it.each([false, true])(
+  "keeps future paid periods separate from renewal eligibility %s",
+  (renews) => {
+    const now = new Date("2026-11-09Z");
+    const future = snapshot({
+      status: renews ? "active" : "canceled",
+      cancelAtPeriodEnd: !renews,
+      paidPeriod: {
+        ...period,
+        start: new Date("2026-11-10Z"),
+        end: new Date("2026-12-10Z"),
+      },
+    });
+    expect(
+      deriveEntitlement(future, buildPlanCatalog(config()), now).tier,
+    ).toBe("free");
+    expect(subscriptionObligation(future, now)).toBe(renews);
+  },
+);

@@ -1,8 +1,16 @@
 import { z } from "zod";
 import ms from "ms";
+import {
+  billingProviderIdSchema,
+  countryRoutesSchema,
+  providerEnabled,
+} from "../modules/billing/routing.js";
 
 import { parseCorsAllowedOrigins } from "../utils/cors.js";
-import { billingPricesSchema, tierEnvironmentMigrationError } from "../modules/billing/prices.js";
+import {
+  billingPricesSchema,
+  tierEnvironmentMigrationError,
+} from "../modules/billing/prices.js";
 
 /**
  * Normalize `API_VERSION_PREFIX` into the path segment versioned routes
@@ -192,6 +200,17 @@ const EnvSchema = z
       .max(35_791_394)
       .default(720),
     BILLING_ENABLED: bool,
+    BILLING_DEFAULT_PROVIDER: billingProviderIdSchema.default("creem"),
+    BILLING_COUNTRY_PROVIDERS: countryRoutesSchema,
+    CREEM_ENABLED: bool.default(true),
+    POLAR_ENABLED: bool,
+    CREEM_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+    CREEM_API_KEY: z.string().default(""),
+    CREEM_WEBHOOK_SECRET: z.string().default(""),
+    CREEM_PLUS_MONTHLY_PRODUCT_ID: z.string().default(""),
+    CREEM_PLUS_YEARLY_PRODUCT_ID: z.string().default(""),
+    CREEM_PRO_MONTHLY_PRODUCT_ID: z.string().default(""),
+    CREEM_PRO_YEARLY_PRODUCT_ID: z.string().default(""),
     POLAR_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
     POLAR_ACCESS_TOKEN: z.string().default(""),
     POLAR_WEBHOOK_SECRET: z.string().default(""),
@@ -277,15 +296,33 @@ const EnvSchema = z
         });
       }
     }
+    const providerProducts = (prefix: "POLAR" | "CREEM") =>
+      [
+        `${prefix}_PLUS_MONTHLY_PRODUCT_ID`,
+        `${prefix}_PLUS_YEARLY_PRODUCT_ID`,
+        `${prefix}_PRO_MONTHLY_PRODUCT_ID`,
+        `${prefix}_PRO_YEARLY_PRODUCT_ID`,
+      ] as const;
     const products = [
-      "POLAR_PLUS_MONTHLY_PRODUCT_ID",
-      "POLAR_PLUS_YEARLY_PRODUCT_ID",
-      "POLAR_PRO_MONTHLY_PRODUCT_ID",
-      "POLAR_PRO_YEARLY_PRODUCT_ID",
-    ] as const;
+      ...providerProducts("POLAR"),
+      ...providerProducts("CREEM"),
+    ];
+    const routedProviders = new Set([
+      env.BILLING_DEFAULT_PROVIDER,
+      ...Object.values(env.BILLING_COUNTRY_PROVIDERS),
+    ]);
+    for (const provider of routedProviders) {
+      if (provider && !providerEnabled(env, provider))
+        ctx.addIssue({
+          code: "custom",
+          path: ["BILLING_COUNTRY_PROVIDERS"],
+          message: "Billing routes must reference enabled providers",
+        });
+    }
     const billingConfigured =
       env.BILLING_ENABLED ||
       Boolean(env.POLAR_ACCESS_TOKEN) ||
+      Boolean(env.CREEM_API_KEY) ||
       products.some((key) => Boolean(env[key]));
     const pairs = [
       ["PLUS_SESSIONS_CREATE_MAX", "SESSIONS_CREATE_MAX"],
@@ -297,10 +334,7 @@ const EnvSchema = z
       ["PRO_CHAT_MESSAGES_MAX", "CHAT_MESSAGES_MAX"],
       ["PRO_CUSTOM_SIMULATIONS_MAX", "CUSTOM_SIMULATIONS_MAX"],
       ["PRO_CUSTOM_PERSONAS_MAX", "CUSTOM_PERSONAS_MAX"],
-      [
-        "PRO_VOICE_DAILY_MINUTES_PER_USER",
-        "VOICE_DAILY_MINUTES_PER_USER",
-      ],
+      ["PRO_VOICE_DAILY_MINUTES_PER_USER", "VOICE_DAILY_MINUTES_PER_USER"],
     ] as const;
     for (const [paid, free] of pairs)
       if (
@@ -328,45 +362,55 @@ const EnvSchema = z
           message: "Must be enabled for production billing quota enforcement",
         });
     }
-    const configured = products.map((k) => env[k]).filter(Boolean);
-    if (new Set(configured).size !== configured.length)
-      ctx.addIssue({
-        code: "custom",
-        path: ["POLAR_PLUS_MONTHLY_PRODUCT_ID"],
-        message: "Product IDs must be unique",
-      });
-    const required = env.BILLING_ENABLED
-      ? ([
-          "POLAR_ACCESS_TOKEN",
-          "POLAR_WEBHOOK_SECRET",
-          ...products.slice(0, 2),
-        ] as const)
-      : [];
-    for (const key of required)
-      if (!env[key])
+    for (const provider of ["creem", "polar"] as const) {
+      if (!providerEnabled(env, provider)) continue;
+      const prefix = provider === "creem" ? "CREEM" : "POLAR";
+      const keys = providerProducts(prefix);
+      const configured = keys.map((key) => env[key]).filter(Boolean);
+      if (new Set(configured).size !== configured.length)
         ctx.addIssue({
           code: "custom",
-          path: [key],
-          message: "Required when billing is enabled",
+          path: [keys[0]],
+          message: "Product IDs must be unique within a provider",
         });
-    if (
-      env.BILLING_ENABLED &&
-      (env.POLAR_PRO_MONTHLY_PRODUCT_ID ||
-        env.POLAR_PRO_YEARLY_PRODUCT_ID ||
-        env.PRO_CHANNEL_URL)
-    ) {
+      if (!env.BILLING_ENABLED) continue;
+      const credential =
+        provider === "creem" ? "CREEM_API_KEY" : "POLAR_ACCESS_TOKEN";
       for (const key of [
-        "POLAR_PRO_MONTHLY_PRODUCT_ID",
-        "POLAR_PRO_YEARLY_PRODUCT_ID",
-        "PRO_CHANNEL_URL",
+        credential,
+        `${prefix}_WEBHOOK_SECRET`,
+        keys[0],
+        keys[1],
       ] as const)
         if (!env[key])
           ctx.addIssue({
             code: "custom",
             path: [key],
-            message: "Required when Pro billing is configured",
+            message: "Required for enabled billing provider",
           });
+      if (env[keys[2]] || env[keys[3]])
+        for (const key of [keys[2], keys[3], "PRO_CHANNEL_URL"] as const)
+          if (!env[key])
+            ctx.addIssue({
+              code: "custom",
+              path: [key],
+              message: "Required when Pro billing is configured",
+            });
     }
+    if (
+      env.BILLING_ENABLED &&
+      env.PRO_CHANNEL_URL &&
+      !(["creem", "polar"] as const).some((provider) => {
+        const keys = providerProducts(provider === "creem" ? "CREEM" : "POLAR");
+        return providerEnabled(env, provider) && env[keys[2]] && env[keys[3]];
+      })
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["PRO_CHANNEL_URL"],
+        message:
+          "Pro requires both products from at least one enabled provider",
+      });
     if (
       env.NODE_ENV === "production" &&
       env.SMTP_HOST &&

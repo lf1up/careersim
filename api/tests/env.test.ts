@@ -157,6 +157,9 @@ describe("billing configuration", () => {
   const enabled = {
     ...baseEnv,
     BILLING_ENABLED: "true",
+    CREEM_ENABLED: "false",
+    POLAR_ENABLED: "true",
+    BILLING_DEFAULT_PROVIDER: "polar",
     POLAR_ACCESS_TOKEN: "test-token",
     POLAR_WEBHOOK_SECRET: "test-webhook",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
@@ -297,7 +300,7 @@ describe("billing configuration", () => {
   });
   it("requires private keys and Plus products only when enabled", () => {
     expect(() => loadEnv({ ...baseEnv, BILLING_ENABLED: "true" })).toThrow(
-      /POLAR_ACCESS_TOKEN/,
+      /CREEM_API_KEY/,
     );
     expect(loadEnv(enabled).BILLING_ENABLED).toBe(true);
   });
@@ -353,6 +356,30 @@ describe("billing configuration", () => {
         VOICE_DAILY_MINUTES_PER_USER: "0",
       }).BILLING_ENABLED,
     ).toBe(false);
+  });
+  it("allows Pro at one enabled provider while another offers only Plus", () => {
+    const mixed = {
+      ...enabled,
+      CREEM_ENABLED: "true",
+      CREEM_API_KEY: "fixture",
+      CREEM_WEBHOOK_SECRET: "fixture",
+      CREEM_PLUS_MONTHLY_PRODUCT_ID: "prod_pm",
+      CREEM_PLUS_YEARLY_PRODUCT_ID: "prod_py",
+      CREEM_PRO_MONTHLY_PRODUCT_ID: "prod_pro_m",
+      CREEM_PRO_YEARLY_PRODUCT_ID: "prod_pro_y",
+      PRO_CHANNEL_URL: "https://private.example/pro",
+    };
+    expect(() => loadEnv(mixed)).not.toThrow();
+    expect(() =>
+      loadEnv({ ...mixed, CREEM_PRO_YEARLY_PRODUCT_ID: "" }),
+    ).toThrow("CREEM_PRO_YEARLY_PRODUCT_ID");
+    expect(() =>
+      loadEnv({
+        ...mixed,
+        CREEM_PRO_MONTHLY_PRODUCT_ID: "",
+        CREEM_PRO_YEARLY_PRODUCT_ID: "",
+      }),
+    ).toThrow("Pro");
   });
   it("enables configured Pro billing without a separate launch flag", () => {
     const pro = {
@@ -410,12 +437,27 @@ describe("billing configuration", () => {
   });
 });
 
-
 describe("tier environment migration", () => {
-  it.each(["SUPPORTER_CHAT_MESSAGES_MAX", "SUPPORTER_MONTHLY_PRICE_CENTS", "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID", "SUPPORTER_CHANNEL_URL"])("rejects legacy %s rather than silently applying old PRO values to the new Pro tier", (key) => {
-    expect(() => loadEnv({ ...baseEnv, PRO_MONTHLY_PRICE_CENTS: "900", [key]: "private-value" })).toThrow(/PLUS_/);
-    try { loadEnv({ ...baseEnv, [key]: "private-value" }); } catch (error) {
-      expect(String(error)).not.toContain("private-value");
-    }
-  });
+  it.each([
+    "SUPPORTER_CHAT_MESSAGES_MAX",
+    "SUPPORTER_MONTHLY_PRICE_CENTS",
+    "POLAR_SUPPORTER_MONTHLY_PRODUCT_ID",
+    "SUPPORTER_CHANNEL_URL",
+  ])(
+    "rejects legacy %s rather than silently applying old PRO values to the new Pro tier",
+    (key) => {
+      expect(() =>
+        loadEnv({
+          ...baseEnv,
+          PRO_MONTHLY_PRICE_CENTS: "900",
+          [key]: "private-value",
+        }),
+      ).toThrow(/PLUS_/);
+      try {
+        loadEnv({ ...baseEnv, [key]: "private-value" });
+      } catch (error) {
+        expect(String(error)).not.toContain("private-value");
+      }
+    },
+  );
 });
