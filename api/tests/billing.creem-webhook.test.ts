@@ -2,7 +2,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import Fastify from "fastify";
-import { beforeEach, afterEach, expect, it } from "vitest";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { createPgliteClient } from "./helpers/db.js";
 import {
   users,
@@ -29,15 +29,13 @@ beforeEach(async () => {
   await handle.db
     .insert(users)
     .values({ id: userId, email: `${userId}@test.local` });
-  await handle.db
-    .insert(billingCheckoutAttempts)
-    .values({
-      provider: "creem",
-      attemptId,
-      userId,
-      tier: "plus",
-      interval: "month",
-    });
+  await handle.db.insert(billingCheckoutAttempts).values({
+    provider: "creem",
+    attemptId,
+    userId,
+    tier: "plus",
+    interval: "month",
+  });
   app = Fastify();
   await app.register(creemBillingWebhookRoutes, {
     db: handle.db,
@@ -49,6 +47,7 @@ beforeEach(async () => {
   });
 });
 afterEach(async () => {
+  vi.restoreAllMocks();
   await app.close();
   await handle.close();
 });
@@ -77,7 +76,7 @@ it("binds an ambiguous checkout only through its server-created intent and signe
     metadata: { careersim_user_id: userId, careersim_attempt_id: attemptId },
     request_id: attemptId,
   });
-  expect(response.statusCode).toBe(202);
+  expect(response.statusCode).toBe(200);
   expect(
     (await handle.db.select().from(billingCheckoutAttempts))[0]?.checkoutId,
   ).toBe("ch_1");
@@ -104,7 +103,7 @@ it("does not bind arbitrary UUID metadata without a matching stored intent", asy
         },
       })
     ).statusCode,
-  ).toBe(202);
+  ).toBe(200);
   expect(
     (await handle.db.select().from(billingWebhookInbox))[0]?.userId,
   ).toBeNull();
@@ -123,7 +122,7 @@ it("scopes customer lookup and dispute transaction evidence to Creem", async () 
         "dispute.created",
       )
     ).statusCode,
-  ).toBe(202);
+  ).toBe(200);
   expect((await handle.db.select().from(billingWebhookInbox))[0]).toMatchObject(
     { provider: "creem", orderId: "tran_1", dispute: "open", userId },
   );
@@ -204,7 +203,7 @@ it("recovers checkout identity from nested signed checkout metadata", async () =
     true,
     "subscription.paid",
   );
-  expect(response.statusCode).toBe(202);
+  expect(response.statusCode).toBe(200);
   expect(
     (await handle.db.select().from(billingCheckoutAttempts))[0],
   ).toMatchObject({
@@ -233,6 +232,37 @@ it("refuses to replace an already bound checkout with a different signed identit
   expect(
     (await handle.db.select().from(billingCheckoutAttempts))[0]?.checkoutId,
   ).toBe("original");
+  expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
+  expect(calls).toBe(0);
+});
+
+it("acknowledges durable evidence with 200 while failed synchronization stays pending", async () => {
+  await app.close();
+  app = Fastify();
+  await app.register(creemBillingWebhookRoutes, {
+    db: handle.db,
+    secret,
+    enabled: true,
+    syncCustomer: async () => {
+      throw new Error("Provider offline");
+    },
+  });
+  const response = await delivery({
+    id: "checkout",
+    metadata: { careersim_user_id: userId, careersim_attempt_id: attemptId },
+  });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toEqual({ received: true, pending: true });
+  expect((await handle.db.select().from(billingWebhookInbox))[0]).toMatchObject(
+    { userId, processedAt: null, attempts: 1 },
+  );
+});
+
+it("does not acknowledge evidence when the inbox write fails", async () => {
+  vi.spyOn(handle.db, "insert").mockImplementationOnce(() => {
+    throw new Error("Database offline");
+  });
+  expect((await delivery({})).statusCode).toBe(500);
   expect(await handle.db.select().from(billingWebhookInbox)).toEqual([]);
   expect(calls).toBe(0);
 });

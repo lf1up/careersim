@@ -388,7 +388,7 @@ const EnvSchema = z
             path: [key],
             message: "Required for enabled billing provider",
           });
-      if (env[keys[2]] || env[keys[3]] || env.PRO_CHANNEL_URL)
+      if (env[keys[2]] || env[keys[3]])
         for (const key of [keys[2], keys[3], "PRO_CHANNEL_URL"] as const)
           if (!env[key])
             ctx.addIssue({
@@ -397,6 +397,20 @@ const EnvSchema = z
               message: "Required when Pro billing is configured",
             });
     }
+    if (
+      env.BILLING_ENABLED &&
+      env.PRO_CHANNEL_URL &&
+      !(["creem", "polar"] as const).some((provider) => {
+        const keys = providerProducts(provider === "creem" ? "CREEM" : "POLAR");
+        return providerEnabled(env, provider) && env[keys[2]] && env[keys[3]];
+      })
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["PRO_CHANNEL_URL"],
+        message:
+          "Pro requires both products from at least one enabled provider",
+      });
     if (
       env.NODE_ENV === "production" &&
       env.SMTP_HOST &&

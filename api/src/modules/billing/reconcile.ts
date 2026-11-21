@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, lte, or, sql } from "drizzle-orm";
 import type { AppDatabase } from "../../db/client.js";
 import {
   billingCustomers,
@@ -121,7 +121,11 @@ export function createBillingReconciler({
         if (users.size < limit) users.add(customer.userId);
       for (const userId of users) {
         try {
-          await syncCustomer({ userId, reason: "reconciliation", reconcileAt: dueAt });
+          await syncCustomer({
+            userId,
+            reason: "reconciliation",
+            reconcileAt: dueAt,
+          });
         } catch {
           const [customer] = await db
             .select()
@@ -181,19 +185,39 @@ export function createBillingReconciler({
             nextSyncAt: new Date(dueAt.getTime() + REFRESH_INTERVAL_MS),
           })
           .where(eq(billingCustomers.userId, userId));
-        const delivered = pending
-          .filter((event) => event.userId === userId)
-          .map((event) => event.eventId);
-        if (delivered.length)
+        const delivered = pending.filter((event) => event.userId === userId);
+        if (delivered.length) {
+          const keys = or(
+            ...delivered.map((event) =>
+              and(
+                eq(billingWebhookInbox.provider, event.provider),
+                eq(billingWebhookInbox.eventId, event.eventId),
+              ),
+            ),
+          );
           await db
             .update(billingWebhookInbox)
             .set({ syncFailures: 0 })
-            .where(
-              and(
-                inArray(billingWebhookInbox.provider, enabledProviders),
-                inArray(billingWebhookInbox.eventId, delivered),
-              ),
-            );
+            .where(and(keys, isNotNull(billingWebhookInbox.processedAt)));
+          const unresolved = await db
+            .select()
+            .from(billingWebhookInbox)
+            .where(and(keys, isNull(billingWebhookInbox.processedAt)));
+          for (const event of unresolved)
+            await db
+              .update(billingWebhookInbox)
+              .set({
+                syncFailures: sql`${billingWebhookInbox.syncFailures} + 1`,
+                nextSyncAt: retryAt(dueAt, event.syncFailures),
+              })
+              .where(
+                and(
+                  eq(billingWebhookInbox.provider, event.provider),
+                  eq(billingWebhookInbox.eventId, event.eventId),
+                  isNull(billingWebhookInbox.processedAt),
+                ),
+              );
+        }
         processed++;
       }
       return { processed, failed };

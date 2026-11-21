@@ -256,6 +256,7 @@ export const billingProviderCustomers = pgTable(
       .notNull()
       .defaultNow(),
     syncFailures: integer("sync_failures").notNull().default(0),
+    billingConflict: integer("billing_conflict").notNull().default(0),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.provider] }),
@@ -297,7 +298,8 @@ export const billingOrders = pgTable(
     periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
     periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
     totalAmount: integer("total_amount").notNull(),
-    refundedAmount: integer("refunded_amount").notNull().default(0),
+    refundedAmount: integer("refunded_amount").default(0),
+    checkoutId: text("checkout_id"),
     dispute: text("dispute").notNull().default("none"),
   },
   (t) => [

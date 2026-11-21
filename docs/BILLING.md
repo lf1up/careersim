@@ -10,7 +10,7 @@ All tiers include this shared benefit on pricing and account pages:
 
 ## Release status and gates
 
-`BILLING_ENABLED` defaults to false and controls new purchases for both paid tiers. Creem starts enabled as the default provider; Polar starts disabled. Provider enablement does not open checkout by itself. Pro checkout also requires both Pro products for the selected provider and a configured private channel.
+`BILLING_ENABLED` defaults to false and controls new purchases for both paid tiers. Creem starts enabled as the default provider; Polar starts disabled on fresh installations. Existing Polar deployments must keep Polar enabled until their obligations are resolved. Provider enablement does not open checkout by itself. Pro checkout also requires both Pro products for the selected provider and a configured private channel.
 
 Keep the purchase gate closed until the release checks pass. The merchant reports completing Creem KYC; that does not establish complete store approval, live product configuration, or payment acceptance.
 
@@ -139,7 +139,11 @@ The old `infrastructure/k8s/base/backend-deployment.yaml` and legacy AWS infrast
 
 With the initial Creem default and no country overrides, all new purchases use Creem and pricing shows no country selector. When overrides exist, checkout requires an explicit billing country and the UI submits its uppercase ISO code. Country means the customer's billing address, not merchant residency or an inferred IP, language, or timezone. Selection uses the exact country override or the default provider and never falls back after a timeout or rejected payment. Existing subscriptions and pending checkouts keep their stored provider regardless of routing changes.
 
+Mixed-provider Pro setup is supported: one enabled provider may offer both Pro products while another offers only Plus. Each provider with either Pro product must configure both, and Pro requires `PRO_CHANNEL_URL` plus both Pro products from at least one enabled provider. A route to a provider without Pro products cannot sell Pro.
+
 Disabling a provider is different from closing purchases with `BILLING_ENABLED=false`. Its webhook returns a retryable 503 without acknowledgement, its jobs make no calls, and its customers use the contact path for unavailable management. Stored paid access expires at its verified deadline. To keep existing Polar subscriptions synchronized while Creem handles new purchases, enable Polar with its own credentials and mappings while leaving Creem as the default.
+
+Do not disable Polar while existing Polar obligations remain. Route new purchases to Creem while retaining `POLAR_ENABLED=true`, its credentials, product mappings, webhook, and reconciliation. Polar can be disabled after renewal has stopped, verified paid access and grace have expired, and pending checkout, refund, dispute, and cancellation work is resolved. Routing new purchases away from Polar does not stop its existing renewals.
 
 Defaults for each tier are:
 
@@ -161,7 +165,11 @@ Bind each provider customer to the immutable CareerSIM user UUID through the per
 
 Register Creem at `{API_VERSION_PREFIX}/billing/webhook/creem`. Preserve the raw request bytes and validate the `creem-signature` HMAC before processing. The retained Polar endpoint is `{API_VERSION_PREFIX}/billing/webhook`; it validates Standard Webhooks headers with `POLAR_WEBHOOK_SECRET`. Use the actual deployed prefix. A disabled provider returns 503 without acknowledging or processing its events.
 
+Following the [Creem webhook contract](https://docs.creem.io/skills/creem-api/WEBHOOKS), acknowledge a verified Creem delivery with HTTP 200 after its inbox write succeeds, including unbound deliveries and failed immediate syncs. The durable inbox retries unresolved processing; a failed inbox write is not acknowledged.
+
 Persist normalized events with provider-scoped identity and synchronize under the account lock. Events trigger authoritative provider reads; reordered payloads cannot overwrite newer facts. A signed event, `subscription.active`, `subscription.created`, or checkout return alone does not prove a paid period. Creem requires verified paid transactions with recognized product, ownership, amount, USD currency, and real period boundaries. Polar requires the corresponding successful paid order. Refund evidence stays attached to its transaction and period, so historical refunds cannot erase newer access.
+
+The [Creem transaction reference](https://docs.creem.io/skills/creem-api/REFERENCE) defines `refunded` as fully refunded; when its refund amount is omitted, retain the verified paid amount as refunded. A chargeback with a null refund amount remains stored with an open dispute and an unknown refund amount. Do not discard the invoice or manufacture zero.
 
 The Polar adapter retains `@polar-sh/sdk` 1.0.2 and API version 2026-10, including order period timestamps and dispute reads. Verify configured event names, signature replay, payment evidence, and dispute-read permissions for each enabled provider before launch. No real provider event has been observed in this implementation task.
 
@@ -175,7 +183,7 @@ Polar checkouts include the available paid products and retain the tested same-s
 
 Creem has no supported checkout replacement capability in this adapter. Open Creem checkouts can have unknown expiry. A different choice stays blocked while the old checkout could still be paid. A local timeout is not remote closure.
 
-Treat an ambiguous create response as unresolved. Creem `request_id` is correlation, not assumed idempotency or a documented lookup by attempt. Do not issue a fresh create merely because a response was lost. Keep replacement blocked until a verified signed event binds the attempt to its remote checkout, an authoritative read confirms closure, or an operator establishes closure with provider evidence. A signed reference still needs a fresh read to establish payment. Document the evidence and recovery procedure before opening purchases; this release adds no automatic operator override.
+Treat an ambiguous create response as unresolved. Creem `request_id` is correlation, not assumed idempotency or a documented lookup by attempt. Do not issue a fresh create merely because a response was lost. A verified signed event may bind the attempt to its remote checkout; binding identifies that checkout and does not establish closure. Retrieve the bound checkout and reuse it only for the same choice and country while it is open. Keep a different checkout blocked until an authoritative read or documented operator evidence confirms closure, then check for an existing subscription before admitting another purchase. A signed reference still needs a fresh read to establish payment. Document the evidence and recovery procedure before opening purchases; this release adds no automatic operator override.
 
 | Situation | Required access behavior | Operator check |
 | --- | --- | --- |
@@ -214,7 +222,7 @@ Do not send invitations during implementation. Before enabling Pro, choose a pri
 ## Rollout and rollback
 
 1. Back up Postgres and the deployed configuration. Stop old API writers before migration `0013`. Keep `BILLING_ENABLED=false`.
-2. Apply billing/voice schema migrations, including the tier-data rename and provider-ownership migration `0013`, with the compatible release. Follow the [breaking rename procedure](#breaking-configuration-and-api-rename) when upgrading existing configuration. Do not remove existing tables or saved records.
+2. Apply billing/voice schema migrations, including the tier-data rename, provider-ownership migration `0013`, and billing-evidence migration `0014`, with the compatible release. Follow the [breaking rename procedure](#breaking-configuration-and-api-rename) when upgrading existing configuration. Do not remove existing tables or saved records.
 3. Build the compatible host extension contract and creator source revision together. Record both repository SHAs. Never patch `extensions/installed` generated copies as the source change. Test production builds with plugins enabled and disabled.
 4. Release the compatible API, agent voice worker and web artifacts. Verify shared Redis and runtime reconciliation, signed raw-body webhooks and immutable UUID mapping. Keep checkout disabled while existing paid-state processing operates.
 5. Complete the sandbox matrix, local verification and privacy-safe browser evidence below. Verify LiveKit against its configured self-hosted endpoint, not only a mocked client.

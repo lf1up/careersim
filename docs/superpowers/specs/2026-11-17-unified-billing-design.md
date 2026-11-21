@@ -6,7 +6,7 @@ Status: approved for implementation on 2026-11-17. This document defines the tar
 
 CareerSIM needs one subscription system that can use several payment providers concurrently, with new purchases routed by customer country. Keep the Polar integration for future use.
 
-Initially, Creem handles every new purchase. Polar is disabled. The merchant operates from Georgia and reports completing Creem KYC. A future US or UK company is outside this change.
+Initially, Creem handles every new purchase. Polar is disabled only on installations without existing Polar obligations; otherwise keep Polar enabled until those obligations are retired. The merchant operates from Georgia and reports completing Creem KYC. A future US or UK company is outside this change.
 
 Keep Free, Plus, and Pro, their current limits, the four monthly and yearly prices, and the existing access policies. Provider selection must not change usage counters.
 
@@ -41,7 +41,7 @@ Retain the shared entitlement service. Change the provider boundaries rather tha
 
 Use a closed provider identifier, initially `creem | polar`. Each provider has independent credentials, environment, product mappings, and an enabled flag.
 
-The initial configuration has Creem enabled, Polar disabled, Creem as the default provider, and no country overrides. `BILLING_ENABLED` continues to control new purchases independently of provider availability.
+A fresh installation has Creem enabled, Polar disabled, Creem as the default provider, and no country overrides. Existing Polar deployments must retain Polar processing until their obligations end. `BILLING_ENABLED` continues to control new purchases independently of provider availability.
 
 Country overrides map validated ISO 3166-1 alpha-2 country codes to enabled providers. Validate duplicates, unknown provider identifiers, and references to disabled providers at startup. Provider credentials and product completeness are required only for enabled providers and supported paid choices. Disabled Polar needs no credentials and makes no network calls.
 
@@ -61,7 +61,7 @@ Add the provider identifier to subscriptions, orders, webhook inbox records, and
 
 Use one account-wide lock for checkout admission, provider-state merges, aggregate snapshot selection, and duplicate-subscription detection. Do not serialize independent users through a global lock.
 
-The account may retain historical subscriptions and customer mappings with several providers. It may have only one intended billable subscription or unresolved checkout at a time. Do not sum paid tiers or allowances. If more than one subscription still grants access or can renew, flag a billing conflict, block additional purchases, and require reconciliation. Preserve the last unambiguous verified snapshot through its existing deadline while the conflict is unresolved.
+The account may retain historical subscriptions and customer mappings with several providers. It may have only one intended billable subscription or unresolved checkout at a time. Do not sum paid tiers or allowances. If more than one subscription still grants access or can renew, flag a billing conflict, block additional purchases, and require reconciliation. Preserve the last unambiguous verified snapshot through its existing deadline while the conflict is unresolved, but apply verified current-period refunds, open or lost disputes, and revocations immediately. A conflict never prevents verified suspension evidence from removing access.
 
 A migration marks all existing billing records as `polar`, creates matching provider customer rows, and preserves the current aggregate snapshots and history. Migrate referencing keys together. Never infer that an old record belongs to Creem from the new default.
 
@@ -85,7 +85,7 @@ Use the official core `creem` TypeScript SDK in the Fastify API if its pinned co
 
 1. Authenticate the CareerSIM user and validate the internal plan choice and optional billing country.
 2. Refresh relevant known provider state before admitting a new subscription. Skip disabled providers' network calls, but inspect their stored billing obligations.
-3. Under the account lock, block an existing billable subscription, unexpired paid access, or unresolved checkout across all providers.
+3. Under the account lock, recheck the requested country against freshly verified billing details and block an existing billable subscription or unexpired paid access. Return a known open checkout for the same choice and country on its stored provider before blocking unresolved checkout admission across providers. A different country or an unresolved create without a usable checkout still blocks a new attempt.
 4. Persist the checkout intent with provider, immutable CareerSIM user UUID, server-selected product, and attempt UUID before the external call.
 5. Create hosted checkout using server-written identity and attempt metadata. Use Creem `request_id` for attempt correlation. Verify retry behavior before relying on it for duplicate prevention.
 6. Persist the returned remote checkout reference and redirect the customer.
@@ -105,6 +105,8 @@ Persist minimal normalized evidence with provider-scoped event identity. Creem m
 
 Persist webhook work before acknowledgement and process it through the shared account lock. Fetch current authoritative state rather than overwrite the account with stale event snapshots. Missing customer bindings remain pending for retry. Keep the existing bounded retry and backoff behavior.
 
+Keep Polar enabled and configured while any existing Polar obligation remains, even when all new purchases route to Creem. Disable Polar only after renewal has been authoritatively stopped, verified paid access and grace have ended, and outstanding payment, refund, dispute, checkout, and cancellation work has been reconciled. Changing purchase routing does not retire existing subscriptions.
+
 Reconcile enabled providers' known customer and subscription records independently. Do not scan Creem's entire store for every account. At startup, ignore disabled Polar credentials and jobs. Disabled-provider webhook requests return a retryable error without acknowledgement or processing. Preserve stored paid access only through its verified deadline.
 
 ## Access behavior and lifecycle
@@ -115,7 +117,7 @@ Creem `subscription.paid` and authoritative paid transactions establish payment 
 
 Cancellation state must distinguish stopped renewal from explicit immediate revocation. Do not map every Creem `canceled` status to immediate loss of the paid period. Confirm portal cancellation behavior in test mode.
 
-Preserve the existing current-period full-refund policy and historical or partial refund behavior. Immediate provider cancellation used for a fully refunded current period must be scoped to that provider and subscription.
+Preserve the existing current-period full-refund policy and historical or partial refund behavior. Creem documents `refunded` as fully refunded, so an omitted refund amount uses the verified paid amount for that status only. A chargeback with an unknown refund amount remains a disputed invoice with an unknown amount, never an invented zero. Immediate provider cancellation used for a fully refunded current period must be scoped to that provider and subscription.
 
 An open or lost current-period dispute removes paid access. Absence of dispute evidence does not restore it. Creem's public reference does not establish a complete dispute-resolution API. Keep unresolved suspensions until provider-confirmed evidence supports restoration. Document and verify an operator recovery procedure before live launch. Do not build an unaudited override endpoint.
 

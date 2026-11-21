@@ -29,12 +29,11 @@ import {
   providerEnabled,
   type BillingProviderId,
 } from "./routing.js";
+import { lockBillingCustomer, type SyncCustomer } from "./sync.js";
 import {
-  lockBillingCustomer,
+  FAILED_RENEWAL_GRACE_MS,
   subscriptionObligation,
-  type SyncCustomer,
-} from "./sync.js";
-import { FAILED_RENEWAL_GRACE_MS } from "./entitlements.js";
+} from "./entitlements.js";
 
 const openStatuses = ["creating", "pending", "ambiguous"];
 const emptyUsage: BillingUsage = {
@@ -212,7 +211,7 @@ export function createBillingService({
       provider: selectedProvider,
     });
     type Action =
-      | { kind: "create"; attemptId: string }
+      | { kind: "create"; attemptId: string; customerId: string | null }
       | { kind: "reuse"; url: string }
       | { kind: "manage" }
       | { kind: "conflict"; error: HttpError };
@@ -230,6 +229,16 @@ export function createBillingService({
       const snapshot = billingSnapshotSchema.parse(
         customer?.snapshot ?? { kind: "none" },
       );
+      if (
+        billingCountry &&
+        snapshot.kind === "subscription" &&
+        snapshot.billingCountry &&
+        snapshot.billingCountry !== billingCountry
+      )
+        throw conflict(
+          "billing_country_mismatch",
+          "Update your verified billing country through billing management or contact support before starting checkout.",
+        );
       if (subscriptionObligation(snapshot, now())) return { kind: "manage" };
       const attempts = await tx
         .select()
@@ -309,6 +318,15 @@ export function createBillingService({
             "billing_checkout_pending",
             "A payment is awaiting confirmation. Refresh billing before retrying.",
           );
+        if (
+          billingCountry &&
+          attempt.billingCountry &&
+          attempt.billingCountry !== billingCountry
+        )
+          throw conflict(
+            "billing_checkout_conflict",
+            "Your existing checkout must be completed or closed before choosing another billing country. Contact support if needed.",
+          );
         if (!provider.updateCheckout) {
           if (
             attempt.tier !== choice.tier ||
@@ -346,6 +364,16 @@ export function createBillingService({
           .where(eq(billingCheckoutAttempts.attemptId, attempt.attemptId));
         return { kind: "reuse", url: checkout.url };
       }
+      const [knownCustomer] = await tx
+        .select()
+        .from(billingProviderCustomers)
+        .where(
+          and(
+            eq(billingProviderCustomers.userId, userId),
+            eq(billingProviderCustomers.provider, selectedProvider),
+          ),
+        );
+      requireProvider(providers, selectedProvider);
       const attemptId = randomUUID();
       await tx.insert(billingCheckoutAttempts).values({
         attemptId,
@@ -357,7 +385,11 @@ export function createBillingService({
         status: "creating",
         createdAt: now(),
       });
-      return { kind: "create", attemptId };
+      return {
+        kind: "create",
+        attemptId,
+        customerId: knownCustomer?.customerId ?? null,
+      };
     });
     if (action.kind === "manage") return portal(userId);
     if (action.kind === "reuse") return { url: action.url };
@@ -365,19 +397,8 @@ export function createBillingService({
     let checkout: ProviderCheckout;
     try {
       const provider = requireProvider(providers, selectedProvider);
-      const [knownCustomer] = await db
-        .select()
-        .from(billingProviderCustomers)
-        .where(
-          and(
-            eq(billingProviderCustomers.userId, userId),
-            eq(billingProviderCustomers.provider, selectedProvider),
-          ),
-        );
       checkout = await provider.createCheckout({
-        ...(knownCustomer?.customerId
-          ? { customerId: knownCustomer.customerId }
-          : {}),
+        ...(action.customerId ? { customerId: action.customerId } : {}),
         userId,
         choice,
         attemptId: action.attemptId,

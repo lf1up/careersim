@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { createPgliteClient } from "./helpers/db.js";
 import { loadEnv } from "../src/config/env.js";
 import {
   billingCustomers,
   billingCheckoutAttempts,
+  billingSubscriptions,
+  billingOrders,
   billingProviderCustomers,
   billingWebhookInbox,
   users,
@@ -20,10 +22,12 @@ import type { BillingProvider } from "../src/modules/billing/provider.js";
 import type { BillingSnapshot } from "../src/modules/billing/billing.schema.js";
 import { createBillingReconciler } from "../src/modules/billing/reconcile.js";
 import { eq } from "drizzle-orm";
+import { createCreemProvider } from "../src/modules/billing/creem.js";
 import { HttpError } from "../src/plugins/errors.js";
 
 const handles: ReturnType<typeof createPgliteClient>[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
   for (const handle of handles.splice(0)) await handle.close();
 });
 async function setup() {
@@ -72,10 +76,15 @@ it("makes no calls to a disabled provider even when an adapter and credentials e
     ALTCHA_HMAC_KEY: "test-secret-test-secret",
     POLAR_ACCESS_TOKEN: "leftover",
   });
+  await db
+    .insert(billingProviderCustomers)
+    .values({ userId, provider: "polar", customerId: "disabled-polar" });
+  const fetchPolar = vi.spyOn(polar, "fetchSnapshot");
   const sync = createBillingSync({ db, providers: { polar, creem }, config });
   await expect(
     sync.syncCustomer({ userId, reason: "refresh" }),
   ).resolves.toBeUndefined();
+  expect(fetchPolar).not.toHaveBeenCalled();
 });
 
 function configFixture(routes = "") {
@@ -118,7 +127,7 @@ it("serializes concurrent country routes into one payable checkout across provid
   const creem = new FakeBillingProvider();
   const polar = new FakeBillingProvider();
   const billing = service(db, { creem, polar }, configFixture("IN=polar"));
-  await Promise.allSettled([
+  const outcomes = await Promise.allSettled([
     billing.startCheckout({
       userId,
       choice: { tier: "plus", interval: "month", billingCountry: "GE" },
@@ -129,6 +138,14 @@ it("serializes concurrent country routes into one payable checkout across provid
     }),
   ]);
   expect(creem.created.length + polar.created.length).toBe(1);
+  const attempts = await db.select().from(billingCheckoutAttempts);
+  expect(attempts).toHaveLength(1);
+  const urls = outcomes.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value.url] : [],
+  );
+  expect(urls.length).toBeGreaterThan(0);
+  expect(urls).toContain(attempts[0]?.url);
+  expect(attempts[0]?.status).toBe("pending");
 });
 it("inspects unknown-expiry checkouts before allowing a different plan after confirmed closure", async () => {
   const { db, userId } = await setup();
@@ -282,7 +299,7 @@ it("backs off rolled-back provider syncs so healthy accounts get the next batch"
       throw new HttpError(
         409,
         "Conflicting subscriptions",
-        "billing_duplicate_subscriptions",
+        "billing_identity_mismatch",
       );
     return { kind: "none" };
   };
@@ -652,3 +669,469 @@ it("does not create checkout when the selected enabled provider has no adapter",
   expect(creem.created).toEqual([]);
   expect(await db.select().from(billingCheckoutAttempts)).toEqual([]);
 });
+
+it.each([undefined, "US", "CA"])(
+  "uses freshly verified country %s under the checkout admission lock",
+  async (country) => {
+    const { db, userId } = await setup();
+    const creem = new FakeBillingProvider();
+    const expired = providerSnapshot(
+      "prod_pm",
+      "expired",
+      new Date(Date.now() - 60_000),
+    );
+    creem.snapshots.set(userId, {
+      ...expired,
+      billingCountry: country,
+      status: "canceled",
+      cancelAtPeriodEnd: true,
+    });
+    const checkout = service(db, { creem }).startCheckout({
+      userId,
+      choice: { tier: "plus", interval: "month", billingCountry: "US" },
+    });
+    if (country === "CA") {
+      await expect(checkout).rejects.toMatchObject({
+        code: "billing_country_mismatch",
+      });
+      expect(creem.created).toEqual([]);
+      expect(await db.select().from(billingCheckoutAttempts)).toEqual([]);
+    } else await expect(checkout).resolves.toHaveProperty("url");
+  },
+);
+
+it("retains the original provider for same-country retries and blocks another country", async () => {
+  const { db, userId } = await setup();
+  const fake = new FakeBillingProvider();
+  const creem: BillingProvider = {
+    fetchSnapshot: fake.fetchSnapshot.bind(fake),
+    createCheckout: fake.createCheckout.bind(fake),
+    findCheckout: fake.findCheckout.bind(fake),
+    createPortal: fake.createPortal.bind(fake),
+    scheduleChange: fake.scheduleChange.bind(fake),
+    revokeSubscription: fake.revokeSubscription.bind(fake),
+  };
+  const polar = new FakeBillingProvider();
+  const providers = { creem, polar };
+  const first = await service(db, providers).startCheckout({
+    userId,
+    choice: { tier: "plus", interval: "month", billingCountry: "US" },
+  });
+  const rerouted = service(db, providers, configFixture("US=polar,CA=polar"));
+  await expect(
+    rerouted.startCheckout({
+      userId,
+      choice: { tier: "plus", interval: "month", billingCountry: "US" },
+    }),
+  ).resolves.toEqual(first);
+  await expect(
+    rerouted.startCheckout({
+      userId,
+      choice: { tier: "plus", interval: "month", billingCountry: "CA" },
+    }),
+  ).rejects.toMatchObject({ code: "billing_checkout_conflict" });
+  expect(fake.created).toHaveLength(1);
+  expect(polar.created).toEqual([]);
+});
+
+it("rolls back admission when the customer lookup fails before any checkout POST", async () => {
+  const { db, client, userId } = await setup();
+  const creem = new FakeBillingProvider();
+  const config = configFixture();
+  const catalog = buildPlanCatalog(config);
+  let fail = true;
+  const billing = createBillingService({
+    productName: "CareerSIM",
+    db,
+    config,
+    catalog,
+    providers: { creem },
+    ...createEntitlementService({ db, catalog }),
+    syncCustomer: async () => {
+      if (fail) {
+        fail = false;
+        await client.exec(
+          "ALTER TABLE billing_provider_customers RENAME TO unavailable_customers",
+        );
+      }
+    },
+  });
+  await expect(
+    billing.startCheckout({
+      userId,
+      choice: { tier: "plus", interval: "month" },
+    }),
+  ).rejects.toThrow();
+  await client.exec(
+    "ALTER TABLE unavailable_customers RENAME TO billing_provider_customers",
+  );
+  expect(creem.created).toEqual([]);
+  expect(await db.select().from(billingCheckoutAttempts)).toEqual([]);
+  await expect(
+    billing.startCheckout({
+      userId,
+      choice: { tier: "plus", interval: "month" },
+    }),
+  ).resolves.toHaveProperty("url");
+  expect(creem.created).toHaveLength(1);
+});
+
+it.each(["creem", "polar"] as const)(
+  "commits a Polar refund when %s runs first and Creem reports duplicate subscriptions",
+  async (first) => {
+    const { db, userId } = await setup();
+    const creem = new FakeBillingProvider();
+    const polar = new FakeBillingProvider();
+    const config = configFixture();
+    const providers = { creem, polar };
+    const paid = providerSnapshot(
+      "polar_pm",
+      "refunded",
+      new Date(Date.now() + 3_600_000),
+    );
+    polar.snapshots.set(userId, paid);
+    const sync = createBillingSync({ db, providers, config });
+    await sync.syncCustomer({ userId, provider: "polar", reason: "refresh" });
+    expect(
+      await service(db, providers, config).getAccount(userId),
+    ).toMatchObject({ tier: "plus" });
+    creem.fetchSnapshot = async () => {
+      throw new HttpError(409, "Duplicate", "billing_duplicate_subscriptions");
+    };
+    polar.snapshots.set(userId, {
+      ...paid,
+      orders: paid.orders.map((order) => ({ ...order, refundedAmount: 900 })),
+    });
+    await expect(
+      sync.syncCustomer({ userId, provider: first, reason: "refresh" }),
+    ).resolves.toBeUndefined();
+    expect(
+      await service(db, providers, config).getAccount(userId),
+    ).toMatchObject({ billingConflict: true, tier: "free", reason: "revoked" });
+    const [conflicting] = await db
+      .select()
+      .from(billingProviderCustomers)
+      .where(eq(billingProviderCustomers.provider, "creem"));
+    expect(conflicting).toMatchObject({ billingConflict: 1, syncFailures: 1 });
+    await sync.syncCustomer({
+      userId,
+      reason: "reconciliation",
+      reconcileAt: new Date(),
+    });
+    expect(
+      await service(db, providers, config).getAccount(userId),
+    ).toMatchObject({ billingConflict: true, tier: "free" });
+  },
+);
+
+it("skips an unconfigured default without hiding a known Polar renewal", async () => {
+  const { db, userId } = await setup();
+  const polar = new FakeBillingProvider();
+  polar.snapshots.set(
+    userId,
+    providerSnapshot("polar_pm", "renewal", new Date(Date.now() + 3_600_000)),
+  );
+  await db
+    .insert(billingProviderCustomers)
+    .values({ userId, provider: "polar", customerId: "customer" });
+  const config = {
+    ...configFixture(),
+    BILLING_ENABLED: false,
+    CREEM_API_KEY: "",
+  };
+  const sync = createBillingSync({ db, providers: { polar }, config });
+  await expect(
+    sync.syncCustomer({ userId, reason: "refresh" }),
+  ).resolves.toBeUndefined();
+  expect(
+    (await db.select().from(billingProviderCustomers)).map(
+      (row) => row.provider,
+    ),
+  ).toEqual(["polar"]);
+  expect(
+    await createEntitlementService({
+      db,
+      catalog: buildPlanCatalog(config),
+    }).resolveEntitlements(userId),
+  ).toMatchObject({ tier: "plus" });
+});
+
+it("opens the Creem portal without retrying a historical Polar cancellation", async () => {
+  const { db, userId } = await setup();
+  const creem = new FakeBillingProvider();
+  const polar = new FakeBillingProvider();
+  const config = configFixture();
+  const providers = { creem, polar };
+  creem.snapshots.set(
+    userId,
+    providerSnapshot("prod_pm", "paid", new Date(Date.now() + 3_600_000)),
+  );
+  await createBillingSync({ db, providers, config }).syncCustomer({
+    userId,
+    reason: "refresh",
+  });
+  await db
+    .insert(billingSubscriptions)
+    .values({
+      userId,
+      provider: "polar",
+      subscriptionId: "old-polar",
+      productId: "polar_pm",
+      status: "canceled",
+      revokePending: 1,
+    });
+  polar.failFetch = true;
+  const fetchPolar = vi.spyOn(polar, "fetchSnapshot");
+  await expect(
+    service(db, providers, config).portal(userId),
+  ).resolves.toHaveProperty("url");
+  expect(fetchPolar).not.toHaveBeenCalled();
+  expect(
+    (
+      await db
+        .select()
+        .from(billingSubscriptions)
+        .where(eq(billingSubscriptions.provider, "polar"))
+    )[0]?.revokePending,
+  ).toBe(1);
+});
+
+it("defers a known-user dispute with no order so the next payment gets a bounded batch", async () => {
+  const { db, userId } = await setup();
+  const other = randomUUID();
+  const clock = new Date();
+  await db.insert(users).values({ id: other, email: `${other}@test.local` });
+  await db.insert(billingCustomers).values({ userId: other });
+  await db.insert(billingWebhookInbox).values([
+    {
+      provider: "creem",
+      userId,
+      eventId: "older-dispute",
+      eventType: "dispute.created",
+      orderId: "unknown",
+      dispute: "open",
+      nextSyncAt: new Date(clock.getTime() - 2000),
+    },
+    {
+      provider: "creem",
+      userId: other,
+      eventId: "newer-payment",
+      eventType: "subscription.paid",
+      nextSyncAt: new Date(clock.getTime() - 1000),
+    },
+  ]);
+  const sync = createBillingSync({
+    db,
+    providers: { creem: new FakeBillingProvider() },
+    config: configFixture(),
+    now: () => clock,
+  });
+  const worker = createBillingReconciler({
+    db,
+    enabledProviders: ["creem"],
+    ...sync,
+    now: () => clock,
+  });
+  expect(await worker.reconcileBilling({ limit: 1 })).toEqual({
+    processed: 1,
+    failed: 0,
+  });
+  const [deferred] = await db
+    .select()
+    .from(billingWebhookInbox)
+    .where(eq(billingWebhookInbox.eventId, "older-dispute"));
+  expect(deferred?.processedAt).toBeNull();
+  expect(deferred?.syncFailures).toBe(1);
+  expect(deferred?.nextSyncAt.getTime()).toBeGreaterThan(clock.getTime());
+  expect(await worker.reconcileBilling({ limit: 1 })).toEqual({
+    processed: 1,
+    failed: 0,
+  });
+  const [payment] = await db
+    .select()
+    .from(billingWebhookInbox)
+    .where(eq(billingWebhookInbox.eventId, "newer-payment"));
+  expect(payment?.processedAt).toEqual(clock);
+});
+
+it("resets retries only for the provider/event pairs actually processed", async () => {
+  const { db, userId } = await setup();
+  const other = randomUUID();
+  const clock = new Date();
+  const future = new Date(clock.getTime() + 3_600_000);
+  await db.insert(users).values({ id: other, email: `${other}@test.local` });
+  await db.insert(billingWebhookInbox).values([
+    {
+      provider: "polar",
+      userId,
+      eventId: "same",
+      eventType: "order.paid",
+      nextSyncAt: clock,
+      syncFailures: 2,
+    },
+    {
+      provider: "creem",
+      userId: other,
+      eventId: "same",
+      eventType: "subscription.paid",
+      nextSyncAt: future,
+      syncFailures: 4,
+    },
+  ]);
+  const worker = createBillingReconciler({
+    db,
+    enabledProviders: ["creem", "polar"],
+    now: () => clock,
+    syncCustomer: async () => {
+      await db
+        .update(billingWebhookInbox)
+        .set({ processedAt: clock })
+        .where(eq(billingWebhookInbox.provider, "polar"));
+    },
+  });
+  await worker.reconcileBilling({ limit: 1 });
+  const rows = await db.select().from(billingWebhookInbox);
+  expect(rows.find((row) => row.provider === "polar")).toMatchObject({
+    syncFailures: 0,
+    processedAt: clock,
+  });
+  expect(rows.find((row) => row.provider === "creem")).toMatchObject({
+    syncFailures: 4,
+    processedAt: null,
+    nextSyncAt: future,
+  });
+});
+
+it("persists verified checkout linkage before removing completed checkouts from live reads", async () => {
+  const { db, userId } = await setup();
+  const attemptId = randomUUID();
+  const start = Date.now() - 60_000;
+  const end = Date.now() + 3_600_000;
+  await db
+    .insert(billingCheckoutAttempts)
+    .values({
+      userId,
+      provider: "creem",
+      attemptId,
+      checkoutId: "checkout",
+      tier: "plus",
+      interval: "month",
+      status: "pending",
+    });
+  let failOldCheckout = false;
+  const fetcher = vi.fn<typeof fetch>(async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === "/v1/checkouts") {
+      if (failOldCheckout) throw new Error("Historical checkout unavailable");
+      return Response.json({
+        id: "checkout",
+        status: "completed",
+        checkout_url: "https://creem.io/checkout",
+        product: "prod_pm",
+        customer: "customer",
+        subscription: "subscription",
+        order: { id: "order", product: "prod_pm" },
+        request_id: attemptId,
+        metadata: {
+          careersim_user_id: userId,
+          careersim_attempt_id: attemptId,
+        },
+      });
+    }
+    if (url.pathname === "/v1/subscriptions")
+      return Response.json({
+        id: "subscription",
+        status: "active",
+        customer: "customer",
+        product: "prod_pm",
+        created_at: new Date(start).toISOString(),
+        current_period_start_date: new Date(start).toISOString(),
+        current_period_end_date: new Date(end).toISOString(),
+        last_transaction_id: "transaction",
+      });
+    return Response.json({
+      items: [
+        {
+          id: "transaction",
+          amount: 900,
+          amount_paid: 900,
+          refunded_amount: 0,
+          currency: "USD",
+          type: "invoice",
+          status: "paid",
+          customer: "customer",
+          subscription: "subscription",
+          order: "order",
+          period_start: start,
+          period_end: end,
+        },
+      ],
+      pagination: { current_page: 1, next_page: null },
+    });
+  });
+  const config = configFixture();
+  const creem = createCreemProvider(config, fetcher);
+  const sync = createBillingSync({ db, providers: { creem }, config });
+  await sync.syncCustomer({ userId, reason: "refresh" });
+  expect((await db.select().from(billingOrders))[0]).toMatchObject({
+    checkoutId: "checkout",
+    orderId: "transaction",
+  });
+  expect((await db.select().from(billingCheckoutAttempts))[0]?.status).toBe(
+    "completed",
+  );
+  fetcher.mockClear();
+  failOldCheckout = true;
+  await expect(
+    sync.syncCustomer({ userId, reason: "refresh" }),
+  ).resolves.toBeUndefined();
+  expect(
+    fetcher.mock.calls.map(([input]) => new URL(String(input)).pathname),
+  ).toEqual(["/v1/subscriptions", "/v1/transactions/search"]);
+  expect(await service(db, { creem }, config).getAccount(userId)).toMatchObject(
+    { tier: "plus" },
+  );
+});
+
+it.each(["refund", "dispute"])(
+  "applies verified %s restrictions to a frozen snapshot during conflict",
+  async (restriction) => {
+    const { db, userId } = await setup();
+    const creem = new FakeBillingProvider();
+    const polar = new FakeBillingProvider();
+    const config = configFixture();
+    const providers = { creem, polar };
+    const paid = providerSnapshot(
+      "prod_pm",
+      "frozen",
+      new Date(Date.now() + 3_600_000),
+    );
+    creem.snapshots.set(userId, paid);
+    const sync = createBillingSync({ db, providers, config });
+    await sync.syncCustomer({ userId, reason: "refresh" });
+    polar.snapshots.set(
+      userId,
+      providerSnapshot("polar_pm", "other", new Date(Date.now() + 3_600_000)),
+    );
+    await sync.syncCustomer({ userId, provider: "polar", reason: "refresh" });
+    expect(
+      await service(db, providers, config).getAccount(userId),
+    ).toMatchObject({ billingConflict: true, tier: "plus" });
+    creem.snapshots.set(userId, {
+      ...paid,
+      orders: paid.orders.map((order) => ({
+        ...order,
+        refundedAmount: restriction === "refund" ? 900 : null,
+        dispute: restriction === "dispute" ? "open" : "none",
+      })),
+    });
+    await sync.syncCustomer({ userId, reason: "refresh" });
+    expect(
+      await service(db, providers, config).getAccount(userId),
+    ).toMatchObject({
+      billingConflict: true,
+      tier: "free",
+      reason: restriction === "refund" ? "revoked" : "disputed",
+    });
+  },
+);

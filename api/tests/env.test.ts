@@ -357,6 +357,30 @@ describe("billing configuration", () => {
       }).BILLING_ENABLED,
     ).toBe(false);
   });
+  it("allows Pro at one enabled provider while another offers only Plus", () => {
+    const mixed = {
+      ...enabled,
+      CREEM_ENABLED: "true",
+      CREEM_API_KEY: "fixture",
+      CREEM_WEBHOOK_SECRET: "fixture",
+      CREEM_PLUS_MONTHLY_PRODUCT_ID: "prod_pm",
+      CREEM_PLUS_YEARLY_PRODUCT_ID: "prod_py",
+      CREEM_PRO_MONTHLY_PRODUCT_ID: "prod_pro_m",
+      CREEM_PRO_YEARLY_PRODUCT_ID: "prod_pro_y",
+      PRO_CHANNEL_URL: "https://private.example/pro",
+    };
+    expect(() => loadEnv(mixed)).not.toThrow();
+    expect(() =>
+      loadEnv({ ...mixed, CREEM_PRO_YEARLY_PRODUCT_ID: "" }),
+    ).toThrow("CREEM_PRO_YEARLY_PRODUCT_ID");
+    expect(() =>
+      loadEnv({
+        ...mixed,
+        CREEM_PRO_MONTHLY_PRODUCT_ID: "",
+        CREEM_PRO_YEARLY_PRODUCT_ID: "",
+      }),
+    ).toThrow("Pro");
+  });
   it("enables configured Pro billing without a separate launch flag", () => {
     const pro = {
       ...enabled,

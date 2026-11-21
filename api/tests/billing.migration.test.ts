@@ -126,3 +126,81 @@ it("preserves populated Polar billing records and supports identical Creem IDs a
     rmSync(folder, { recursive: true, force: true });
   }
 });
+
+it("backfills verified checkout linkage and allows unknown refund evidence", async () => {
+  const folder = mkdtempSync(join(tmpdir(), "careersim-billing-evidence-"));
+  const migrationsFolder = resolve("src/db/migrations");
+  const journal = JSON.parse(
+    readFileSync(join(migrationsFolder, "meta/_journal.json"), "utf8"),
+  );
+  journal.entries = journal.entries.filter(
+    (entry: { idx: number }) => entry.idx < 14,
+  );
+  mkdirSync(join(folder, "meta"));
+  writeFileSync(join(folder, "meta/_journal.json"), JSON.stringify(journal));
+  for (const entry of journal.entries)
+    copyFileSync(
+      join(migrationsFolder, `${entry.tag}.sql`),
+      join(folder, `${entry.tag}.sql`),
+    );
+  const handle = createPgliteClient(new PGlite());
+  const userId = randomUUID();
+  try {
+    await migrate(handle.db, { migrationsFolder: folder });
+    await handle.db
+      .insert(users)
+      .values({ id: userId, email: `${userId}@test.local` });
+    const snapshot = JSON.stringify({
+      kind: "subscription",
+      customerId: "customer",
+      subscriptionId: "subscription",
+      productId: "prod_pm",
+      choice: { tier: "plus", interval: "month" },
+      status: "active",
+      paidPeriod: null,
+      orders: [
+        {
+          orderId: "transaction",
+          checkoutId: "verified-checkout",
+          productId: "prod_pm",
+          start: "2026-11-01Z",
+          end: "2026-12-01Z",
+          totalAmount: 900,
+          refundedAmount: 0,
+          dispute: "none",
+        },
+      ],
+      cancelAtPeriodEnd: false,
+      failedRenewal: false,
+      revoked: false,
+      pendingChange: null,
+    });
+    await handle.db.execute(
+      sql`INSERT INTO billing_provider_customers (user_id,provider,customer_id,snapshot) VALUES (${userId},'creem','customer',${snapshot}::jsonb)`,
+    );
+    await handle.db.execute(
+      sql`INSERT INTO billing_subscriptions (provider,subscription_id,user_id,product_id,status) VALUES ('creem','subscription',${userId},'prod_pm','active')`,
+    );
+    await handle.db.execute(
+      sql`INSERT INTO billing_orders (provider,order_id,subscription_id,product_id,period_start,period_end,total_amount) VALUES ('creem','transaction','subscription','prod_pm','2026-11-01Z','2026-12-01Z',900)`,
+    );
+    await migrate(handle.db, { migrationsFolder });
+    expect((await handle.db.select().from(billingOrders))[0]).toMatchObject({
+      checkoutId: "verified-checkout",
+      refundedAmount: 0,
+    });
+    expect(
+      (await handle.db.select().from(billingProviderCustomers))[0],
+    ).toMatchObject({ billingConflict: 0 });
+    await handle.db
+      .update(billingOrders)
+      .set({ refundedAmount: null, dispute: "open" });
+    expect((await handle.db.select().from(billingOrders))[0]).toMatchObject({
+      refundedAmount: null,
+      dispute: "open",
+    });
+  } finally {
+    await handle.close();
+    rmSync(folder, { recursive: true, force: true });
+  }
+});

@@ -21,6 +21,7 @@ import {
   requireProvider,
 } from "./provider.js";
 import { providerEnabled, type BillingProviderId } from "./routing.js";
+import { subscriptionObligation } from "./entitlements.js";
 import { HttpError } from "../../plugins/errors.js";
 
 export type SyncCustomer = (input: {
@@ -42,23 +43,6 @@ export async function lockBillingCustomer(
     .from(billingCustomers)
     .where(eq(billingCustomers.userId, userId))
     .for("update");
-}
-export function subscriptionObligation(
-  snapshot: BillingSnapshot,
-  now: Date,
-): boolean {
-  if (snapshot.kind !== "subscription" || snapshot.revoked) return false;
-  const paid = snapshot.paidPeriod;
-  const grantsAccess = Boolean(
-    paid &&
-    paid.end > now &&
-    paid.refundedAmount < paid.totalAmount &&
-    !["open", "lost"].includes(paid.dispute),
-  );
-  const canRenew =
-    !snapshot.cancelAtPeriodEnd &&
-    !["canceled", "incomplete_expired", "expired"].includes(snapshot.status);
-  return grantsAccess || canRenew;
 }
 export async function providerReferences(
   tx: BillingTransaction | AppDatabase,
@@ -90,6 +74,11 @@ export async function providerReferences(
       and(
         eq(billingCheckoutAttempts.userId, userId),
         eq(billingCheckoutAttempts.provider, provider),
+        inArray(billingCheckoutAttempts.status, [
+          "creating",
+          "pending",
+          "ambiguous",
+        ]),
       ),
     );
   const orders = await tx
@@ -111,6 +100,7 @@ export async function providerReferences(
   return {
     orders: orders.map(({ billing_orders: row }) => ({
       orderId: row.orderId,
+      checkoutId: row.checkoutId,
       productId: row.productId,
       subscriptionId: row.subscriptionId,
       start: row.periodStart,
@@ -128,6 +118,15 @@ export async function providerReferences(
     })),
   };
 }
+function mergeRefundedAmount(
+  incoming: number | null,
+  previous?: number | null,
+): number | null {
+  // Unknown evidence must not invent zero or erase a verified refund.
+  return incoming === null
+    ? previous || null
+    : Math.max(incoming, previous ?? 0);
+}
 function mergeDispute(
   incoming: PaidOrder,
   previous?: typeof billingOrders.$inferSelect,
@@ -140,9 +139,9 @@ function mergeDispute(
   return {
     ...incoming,
     dispute,
-    refundedAmount: Math.max(
+    refundedAmount: mergeRefundedAmount(
       incoming.refundedAmount,
-      previous?.refundedAmount ?? 0,
+      previous?.refundedAmount,
     ),
   };
 }
@@ -163,7 +162,10 @@ function restrictDuringConflict(
     if (!evidence) return order;
     return {
       ...order,
-      refundedAmount: Math.max(order.refundedAmount, evidence.refundedAmount),
+      refundedAmount: mergeRefundedAmount(
+        evidence.refundedAmount,
+        order.refundedAmount,
+      ),
       dispute:
         order.dispute === "open" || order.dispute === "lost"
           ? order.dispute
@@ -222,6 +224,7 @@ export function createBillingSync({
   }) => {
     const scheduleNow = reconcileAt ?? now();
     let unavailable = false;
+    const conflictingProviders = new Set<BillingProviderId>();
     await db.transaction(async (tx) => {
       await lockBillingCustomer(tx, userId);
       const [account] = await tx
@@ -232,6 +235,8 @@ export function createBillingSync({
         .select()
         .from(billingProviderCustomers)
         .where(eq(billingProviderCustomers.userId, userId));
+      for (const row of stored)
+        if (row.billingConflict) conflictingProviders.add(row.provider);
       const attempts = await tx
         .select()
         .from(billingCheckoutAttempts)
@@ -253,7 +258,9 @@ export function createBillingSync({
       );
       const relevant = new Set<BillingProviderId>([
         ...(requestedProvider ? [requestedProvider] : []),
-        config.BILLING_DEFAULT_PROVIDER,
+        ...(providers[config.BILLING_DEFAULT_PROVIDER]
+          ? [config.BILLING_DEFAULT_PROVIDER]
+          : []),
         ...stored.map((row) => row.provider),
         ...attempts.map((row) => row.provider),
         ...deliveries.map((row) => row.provider),
@@ -282,12 +289,18 @@ export function createBillingSync({
         try {
           snapshot = await fetchSnapshot(tx, userId, provider);
         } catch (error) {
-          // Keep other providers' verified revocations moving during an outage.
+          const duplicate =
+            error instanceof HttpError &&
+            error.statusCode === 409 &&
+            error.code === "billing_duplicate_subscriptions";
+          // A provider conflict must not roll back another provider's restrictions.
           if (
-            !(error instanceof HttpError) ||
-            ![502, 503, 504].includes(error.statusCode)
+            !duplicate &&
+            (!(error instanceof HttpError) ||
+              ![502, 503, 504].includes(error.statusCode))
           )
             throw error;
+          if (duplicate) conflictingProviders.add(provider);
           const failures = (previousCustomer?.syncFailures ?? 0) + 1;
           const nextSyncAt = new Date(
             scheduleNow.getTime() +
@@ -295,15 +308,25 @@ export function createBillingSync({
           );
           await tx
             .insert(billingProviderCustomers)
-            .values({ userId, provider, syncFailures: failures, nextSyncAt })
+            .values({
+              userId,
+              provider,
+              syncFailures: failures,
+              nextSyncAt,
+              billingConflict: conflictingProviders.has(provider) ? 1 : 0,
+            })
             .onConflictDoUpdate({
               target: [
                 billingProviderCustomers.userId,
                 billingProviderCustomers.provider,
               ],
-              set: { syncFailures: failures, nextSyncAt },
+              set: {
+                syncFailures: failures,
+                nextSyncAt,
+                billingConflict: conflictingProviders.has(provider) ? 1 : 0,
+              },
             });
-          unavailable = true;
+          unavailable ||= !duplicate;
           continue;
         }
         if (snapshot.kind === "subscription") {
@@ -338,6 +361,7 @@ export function createBillingSync({
             if (!orders.some((order) => order.orderId === previous.orderId))
               orders.push({
                 orderId: previous.orderId,
+                checkoutId: previous.checkoutId,
                 productId: previous.productId,
                 start: previous.periodStart,
                 end: previous.periodEnd,
@@ -400,6 +424,7 @@ export function createBillingSync({
             paidPeriod &&
             snapshot.choice &&
             paidPeriod.totalAmount > 0 &&
+            paidPeriod.refundedAmount !== null &&
             paidPeriod.refundedAmount >= paidPeriod.totalAmount,
           );
           await tx
@@ -449,6 +474,7 @@ export function createBillingSync({
               .values({
                 provider,
                 orderId: order.orderId,
+                checkoutId: order.checkoutId,
                 subscriptionId,
                 productId: order.productId,
                 periodStart: order.start,
@@ -462,6 +488,7 @@ export function createBillingSync({
                 set: {
                   refundedAmount: order.refundedAmount,
                   dispute: order.dispute,
+                  ...(order.checkoutId ? { checkoutId: order.checkoutId } : {}),
                 },
               });
           }
@@ -495,6 +522,7 @@ export function createBillingSync({
                 ),
               );
         }
+        conflictingProviders.delete(provider);
         snapshots.set(provider, snapshot);
         await tx
           .insert(billingProviderCustomers)
@@ -507,6 +535,7 @@ export function createBillingSync({
             lastSyncedAt: now(),
             nextSyncAt: new Date(scheduleNow.getTime() + 300_000),
             syncFailures: 0,
+            billingConflict: 0,
           })
           .onConflictDoUpdate({
             target: [
@@ -516,6 +545,7 @@ export function createBillingSync({
             set: {
               nextSyncAt: new Date(scheduleNow.getTime() + 300_000),
               syncFailures: 0,
+              billingConflict: 0,
               ...(snapshot.kind === "subscription"
                 ? { customerId: snapshot.customerId }
                 : {}),
@@ -551,7 +581,7 @@ export function createBillingSync({
       const obligations = [...snapshots].filter(([, snapshot]) =>
         subscriptionObligation(snapshot, now()),
       );
-      const conflict = obligations.length > 1;
+      const conflict = conflictingProviders.size > 0 || obligations.length > 1;
       const fallback = [...snapshots].sort(
         (a, b) =>
           (b[1].kind === "subscription"
@@ -597,7 +627,14 @@ export function createBillingSync({
         );
       for (const subscription of pending) {
         const provider = subscription.provider;
-        if (!providerEnabled(config, provider)) continue;
+        if (
+          !providerEnabled(config, provider) ||
+          conflictingProviders.has(provider) ||
+          (reason === "portal" &&
+            requestedProvider &&
+            provider !== requestedProvider)
+        )
+          continue;
         const fresh = await fetchSnapshot(tx, userId, provider);
         const latest =
           fresh.kind === "subscription"
@@ -611,6 +648,7 @@ export function createBillingSync({
           latest &&
           choiceForProduct(config, latest.productId, provider) &&
           latest.totalAmount > 0 &&
+          latest.refundedAmount !== null &&
           latest.refundedAmount >= latest.totalAmount,
         );
         if (stillRefunded) {

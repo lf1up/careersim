@@ -63,7 +63,7 @@ export const paidOrderSchema = z.object({
   start: z.coerce.date(),
   end: z.coerce.date(),
   totalAmount: z.number().int().nonnegative(),
-  refundedAmount: z.number().int().nonnegative(),
+  refundedAmount: z.number().int().nonnegative().nullable(),
   dispute: z.enum(["none", "open", "lost", "won"]),
 });
 export type PaidOrder = z.infer<typeof paidOrderSchema>;

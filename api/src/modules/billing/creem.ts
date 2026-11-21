@@ -6,6 +6,7 @@ import {
   type BillingConfig,
 } from "./catalog.js";
 import type { BillingSnapshot, PaidOrder } from "./billing.schema.js";
+import { subscriptionObligation } from "./entitlements.js";
 import { billingCountrySchema } from "./routing.js";
 import type {
   BillingProvider,
@@ -193,8 +194,15 @@ export function createCreemProvider(
     knownOrders: Map<string, NonNullable<ProviderReferences["orders"]>[number]>,
   ): PaidOrder | null {
     const knownOrder = knownOrders.get(transaction.id);
+    const disputed = ["chargeback", "chargedBack"].includes(transaction.status);
+    // Creem documents refunded as fully refunded; a chargeback's amount may be unknown.
     const refundedAmount =
-      transaction.refunded_amount ?? (transaction.status === "paid" ? 0 : null);
+      transaction.refunded_amount ??
+      (transaction.status === "refunded"
+        ? (transaction.amount_paid ?? null)
+        : transaction.status === "paid"
+          ? 0
+          : null);
     if (
       knownOrder &&
       (knownOrder.subscriptionId !== transaction.subscription ||
@@ -219,10 +227,11 @@ export function createCreemProvider(
       !Number.isSafeInteger(transaction.amount_paid) ||
       transaction.amount_paid == null ||
       transaction.amount_paid <= 0 ||
-      !Number.isSafeInteger(refundedAmount) ||
-      refundedAmount == null ||
-      refundedAmount < 0 ||
-      refundedAmount > transaction.amount_paid ||
+      (refundedAmount === null
+        ? !disputed
+        : !Number.isSafeInteger(refundedAmount) ||
+          refundedAmount < 0 ||
+          refundedAmount > transaction.amount_paid) ||
       (transaction.status === "refunded" &&
         refundedAmount !== transaction.amount_paid) ||
       (["partialRefund", "partially_refunded"].includes(transaction.status) &&
@@ -262,16 +271,14 @@ export function createCreemProvider(
       return null;
     return {
       orderId: transaction.id,
-      checkoutId: ownedOrder?.checkoutId ?? null,
+      checkoutId: knownOrder?.checkoutId ?? ownedOrder?.checkoutId ?? null,
       productId,
       start,
       end,
       totalAmount: transaction.amount_paid,
       refundedAmount,
       // The public API cannot prove a chargeback was won. Persist suspension until verified resolution.
-      dispute: ["chargeback", "chargedBack"].includes(transaction.status)
-        ? "open"
-        : "none",
+      dispute: disputed ? "open" : "none",
     };
   }
   return {
@@ -435,12 +442,8 @@ export function createCreemProvider(
             pendingChange: null,
           };
         });
-      const obligations = snapshots.filter(
-        (item) =>
-          item.status !== "canceled" ||
-          (item.paidPeriod &&
-            item.paidPeriod.end.getTime() > Date.now() &&
-            item.paidPeriod.refundedAmount < item.paidPeriod.totalAmount),
+      const obligations = snapshots.filter((snapshot) =>
+        subscriptionObligation(snapshot, new Date()),
       );
       if (obligations.length > 1) duplicate();
       const selected =

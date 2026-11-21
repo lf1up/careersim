@@ -62,6 +62,7 @@ async function receive(
   evidence: Evidence,
   reply: FastifyReply,
 ) {
+  const acknowledgement = evidence.provider === "creem" ? 200 : 202;
   await options.db
     .insert(billingWebhookInbox)
     .values(evidence)
@@ -88,10 +89,12 @@ async function receive(
         reason: `webhook:${inbox.eventType}`,
       });
     } catch {
-      return reply.code(202).send({ received: true, pending: true });
+      return reply
+        .code(acknowledgement)
+        .send({ received: true, pending: true });
     }
   }
-  return reply.code(202).send({ received: true });
+  return reply.code(acknowledgement).send({ received: true });
 }
 const polarReference = z.object({
   id: z.string().optional(),
@@ -131,13 +134,11 @@ export const billingWebhookRoutes: FastifyPluginAsync<WebhookOptions> = async (
         event = await webhooks.validateEvent(body, headers, options.secret);
       } catch (error) {
         const unknown = error instanceof webhooks.PolarWebhookUnknownTypeError;
-        return reply
-          .code(unknown ? 400 : 403)
-          .send({
-            error: unknown
-              ? "billing_unsupported_event"
-              : "billing_invalid_signature",
-          });
+        return reply.code(unknown ? 400 : 403).send({
+          error: unknown
+            ? "billing_unsupported_event"
+            : "billing_invalid_signature",
+        });
       }
       const parsed = polarReference.safeParse(event.data);
       const ref = parsed.success ? parsed.data : null;

@@ -259,7 +259,7 @@ describe("authoritative billing synchronization", () => {
     }
     expect(provider.revoked).toEqual([]);
   });
-  it("preserves explicit provider conflicts and malformed payment errors without replacing verified access", async () => {
+  it("records provider conflicts and propagates malformed payment errors without replacing verified access", async () => {
     const service = services();
     provider.snapshots.set(userId, paidSnapshot());
     await service.syncCustomer({ userId, reason: "initial payment" });
@@ -271,7 +271,10 @@ describe("authoritative billing synchronization", () => {
     vi.spyOn(provider, "fetchSnapshot").mockRejectedValueOnce(conflict);
     await expect(
       service.syncCustomer({ userId, reason: "duplicate" }),
-    ).rejects.toBe(conflict);
+    ).resolves.toBeUndefined();
+    expect(
+      (await handle.db.select().from(billingCustomers))[0]?.billingConflict,
+    ).toBe(1);
     provider.snapshots.set(
       userId,
       paidSnapshot({ orders: [paidOrder({ totalAmount: -1 })] }),

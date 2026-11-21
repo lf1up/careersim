@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadEnv } from "../src/config/env.js";
+import { subscriptionObligation } from "../src/modules/billing/entitlements.js";
 import { createCreemProvider } from "../src/modules/billing/creem.js";
 
 const config = () =>
@@ -245,6 +246,102 @@ describe("Creem REST billing boundary", () => {
       ).fetchSnapshot("user", references),
     ).toMatchObject({ status: "active", paidPeriod: null, orders: [] });
   });
+  it("records a documented full refund even when its amount is omitted", async () => {
+    expect(
+      await createCreemProvider(
+        config(),
+        transport({
+          transactions: [
+            { ...transaction, status: "refunded", refunded_amount: null },
+          ],
+        }),
+      ).fetchSnapshot("user", references),
+    ).toMatchObject({
+      paidPeriod: { orderId: "transaction", refundedAmount: 900 },
+    });
+  });
+  it.each(["chargeback", "chargedBack"])(
+    "preserves %s with an unknown refund amount",
+    async (status) => {
+      expect(
+        await createCreemProvider(
+          config(),
+          transport({
+            transactions: [{ ...transaction, status, refunded_amount: null }],
+          }),
+        ).fetchSnapshot("user", references),
+      ).toMatchObject({
+        paidPeriod: {
+          orderId: "transaction",
+          refundedAmount: null,
+          dispute: "open",
+        },
+      });
+    },
+  );
+  it("confirms a replacement after a canceled disputed subscription stops being an obligation", async () => {
+    let paid = false;
+    const old = {
+      ...subscription,
+      id: "old-subscription",
+      status: "canceled",
+      last_transaction_id: "old-transaction",
+    };
+    const disputed = {
+      ...transaction,
+      id: "old-transaction",
+      subscription: old.id,
+      status: "chargeback",
+    };
+    const nextCheckout = {
+      ...checkout,
+      request_id: "next",
+      metadata: { careersim_user_id: "user", careersim_attempt_id: "next" },
+    };
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/v1/checkouts")
+        return Response.json({
+          ...nextCheckout,
+          status: init?.method === "POST" ? "pending" : "completed",
+        });
+      if (url.pathname === "/v1/subscriptions")
+        return Response.json(
+          url.searchParams.get("subscription_id") === old.id
+            ? old
+            : subscription,
+        );
+      return Response.json({
+        items: paid ? [disputed, transaction] : [disputed],
+        pagination: { current_page: 1, next_page: null },
+      });
+    });
+    const provider = createCreemProvider(config(), fetcher);
+    const first = await provider.fetchSnapshot("user", {
+      ...references,
+      subscriptionIds: [old.id],
+    });
+    expect(subscriptionObligation(first, new Date("2026-11-21Z"))).toBe(false);
+    await provider.createCheckout({
+      userId: "user",
+      choice,
+      attemptId: "next",
+    });
+    paid = true;
+    expect(
+      await provider.fetchSnapshot("user", {
+        ...references,
+        subscriptionIds: [old.id],
+        checkouts: [{ attemptId: "next", checkoutId: "checkout", choice }],
+      }),
+    ).toMatchObject({
+      subscriptionId: "subscription",
+      paidPeriod: { orderId: "transaction", dispute: "none" },
+    });
+    expect(
+      fetcher.mock.calls.filter(([, init]) => init?.method === "POST"),
+    ).toHaveLength(1);
+  });
   it("normalizes null refund amounts only for authoritative paid transactions", async () => {
     expect(
       await createCreemProvider(
@@ -388,7 +485,6 @@ describe("Creem REST billing boundary", () => {
     { period_end: 99999999999999999 },
     { refunded_amount: -1 },
     { refunded_amount: 1000 },
-    { status: "refunded", refunded_amount: null },
     { status: "refunded", refunded_amount: 0 },
     { status: "refunded", refunded_amount: 100 },
     { status: "partialRefund", refunded_amount: null },

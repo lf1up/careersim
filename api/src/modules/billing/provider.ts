@@ -4,6 +4,7 @@ import { HttpError } from "../../plugins/errors.js";
 export interface ProviderReferences {
   orders?: Array<{
     orderId: string;
+    checkoutId?: string | null;
     productId: string;
     subscriptionId: string;
     start: Date;
