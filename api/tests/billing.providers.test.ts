@@ -13,7 +13,7 @@ import {
   billingWebhookInbox,
   users,
 } from "../src/db/schema.js";
-import { createBillingSync } from "../src/modules/billing/sync.js";
+import { createBillingSync, providerReferences } from "../src/modules/billing/sync.js";
 import { FakeBillingProvider } from "./helpers/fake-billing-provider.js";
 import { createBillingService } from "../src/modules/billing/billing.service.js";
 import { buildPlanCatalog } from "../src/modules/billing/catalog.js";
@@ -1135,3 +1135,49 @@ it.each(["refund", "dispute"])(
     });
   },
 );
+
+it("passes only provider-scoped stored and pending dispute evidence to the adapter", async () => {
+  const { db, userId } = await setup();
+  const creem = new FakeBillingProvider();
+  creem.snapshots.set(
+    userId,
+    providerSnapshot("prod_pm", "stored", new Date(Date.now() + 3_600_000)),
+  );
+  await createBillingSync({
+    db,
+    providers: { creem },
+    config: configFixture(),
+  }).syncCustomer({ userId, reason: "refresh" });
+  await db.update(billingOrders).set({ dispute: "lost" });
+  await db.insert(billingWebhookInbox).values([
+    {
+      userId,
+      provider: "creem",
+      eventId: "pending",
+      eventType: "dispute.created",
+      orderId: "pending-order",
+      dispute: "open",
+    },
+    {
+      userId,
+      provider: "polar",
+      eventId: "other-provider",
+      eventType: "dispute.created",
+      orderId: "foreign-order",
+      dispute: "open",
+    },
+    {
+      userId,
+      provider: "creem",
+      eventId: "processed",
+      eventType: "dispute.created",
+      orderId: "processed-order",
+      dispute: "open",
+      processedAt: new Date(),
+    },
+  ]);
+  expect((await providerReferences(db, userId, "creem")).disputes).toEqual([
+    { orderId: "stored", dispute: "lost" },
+    { orderId: "pending-order", dispute: "open" },
+  ]);
+});

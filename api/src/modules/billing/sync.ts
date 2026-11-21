@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { AppDatabase } from "../../db/client.js";
 import {
   billingCustomers,
@@ -97,7 +97,29 @@ export async function providerReferences(
         eq(billingOrders.provider, provider),
       ),
     );
+  const pendingDisputes = await tx
+    .select({
+      orderId: billingWebhookInbox.orderId,
+      dispute: billingWebhookInbox.dispute,
+    })
+    .from(billingWebhookInbox)
+    .where(
+      and(
+        eq(billingWebhookInbox.userId, userId),
+        eq(billingWebhookInbox.provider, provider),
+        isNull(billingWebhookInbox.processedAt),
+        inArray(billingWebhookInbox.dispute, ["open", "lost"]),
+      ),
+    );
   return {
+    disputes: [
+      ...orders.map(({ billing_orders: row }) => row),
+      ...pendingDisputes,
+    ].flatMap((row) =>
+      row.orderId && (row.dispute === "open" || row.dispute === "lost")
+        ? [{ orderId: row.orderId, dispute: row.dispute }]
+        : [],
+    ),
     orders: orders.map(({ billing_orders: row }) => ({
       orderId: row.orderId,
       checkoutId: row.checkoutId,
@@ -225,6 +247,7 @@ export function createBillingSync({
     const scheduleNow = reconcileAt ?? now();
     let unavailable = false;
     const conflictingProviders = new Set<BillingProviderId>();
+    const deferredProviders = new Set<BillingProviderId>();
     await db.transaction(async (tx) => {
       await lockBillingCustomer(tx, userId);
       const [account] = await tx
@@ -250,6 +273,17 @@ export function createBillingSync({
             isNull(billingWebhookInbox.processedAt),
           ),
         );
+      if (reason === "reconciliation")
+        for (const customer of stored)
+          if (
+            customer.nextSyncAt > scheduleNow &&
+            !deliveries.some(
+              (row) =>
+                row.provider === customer.provider &&
+                row.nextSyncAt <= scheduleNow,
+            )
+          )
+            deferredProviders.add(customer.provider);
       const snapshots = new Map<BillingProviderId, BillingSnapshot>(
         stored.map((row) => [
           row.provider,
@@ -276,15 +310,7 @@ export function createBillingSync({
         const previousCustomer = stored.find(
           (row) => row.provider === provider,
         );
-        if (
-          reason === "reconciliation" &&
-          previousCustomer &&
-          previousCustomer.nextSyncAt > scheduleNow &&
-          !deliveries.some(
-            (row) => row.provider === provider && row.nextSyncAt <= scheduleNow,
-          )
-        )
-          continue;
+        if (deferredProviders.has(provider)) continue;
         let snapshot: BillingSnapshot;
         try {
           snapshot = await fetchSnapshot(tx, userId, provider);
@@ -301,6 +327,7 @@ export function createBillingSync({
           )
             throw error;
           if (duplicate) conflictingProviders.add(provider);
+          deferredProviders.add(provider);
           const failures = (previousCustomer?.syncFailures ?? 0) + 1;
           const nextSyncAt = new Date(
             scheduleNow.getTime() +
@@ -613,72 +640,172 @@ export function createBillingSync({
         })
         .where(eq(billingCustomers.userId, userId));
     });
-    // Persist access changes and cancellation intent before mutating the provider.
-    await db.transaction(async (tx) => {
-      await lockBillingCustomer(tx, userId);
-      const pending = await tx
-        .select()
-        .from(billingSubscriptions)
-        .where(
-          and(
-            eq(billingSubscriptions.userId, userId),
-            eq(billingSubscriptions.revokePending, 1),
-          ),
-        );
-      for (const subscription of pending) {
-        const provider = subscription.provider;
-        if (
-          !providerEnabled(config, provider) ||
-          conflictingProviders.has(provider) ||
-          (reason === "portal" &&
-            requestedProvider &&
-            provider !== requestedProvider)
-        )
-          continue;
-        const fresh = await fetchSnapshot(tx, userId, provider);
-        const latest =
-          fresh.kind === "subscription"
-            ? fresh.orders
-                .filter((order) => order.start <= now())
-                .sort((a, b) => b.start.getTime() - a.start.getTime())[0]
-            : null;
-        const stillRefunded = Boolean(
-          fresh.kind === "subscription" &&
-          fresh.subscriptionId === subscription.subscriptionId &&
-          latest &&
-          choiceForProduct(config, latest.productId, provider) &&
-          latest.totalAmount > 0 &&
-          latest.refundedAmount !== null &&
-          latest.refundedAmount >= latest.totalAmount,
-        );
-        if (stillRefunded) {
-          try {
-            await requireProvider(providers, provider).revokeSubscription(
-              subscription.subscriptionId,
-            );
-          } catch (error) {
-            if (error instanceof HttpError) throw error;
-            throw new HttpError(
-              503,
-              "Billing provider is temporarily unavailable.",
-              "billing_unavailable",
-            );
-          }
-        }
-        await tx
-          .update(billingSubscriptions)
-          .set({ revokePending: stillRefunded ? 2 : 0 })
-          .where(
-            and(
-              eq(billingSubscriptions.provider, provider),
-              eq(
-                billingSubscriptions.subscriptionId,
-                subscription.subscriptionId,
+    // Each remote cancellation gets its own commit boundary. A later failure
+    // must not undo an earlier provider's durable completion marker.
+    const pending = await db
+      .select()
+      .from(billingSubscriptions)
+      .where(
+        and(
+          eq(billingSubscriptions.userId, userId),
+          eq(billingSubscriptions.revokePending, 1),
+        ),
+      );
+    const cancellationErrors: unknown[] = [];
+    for (const candidate of pending) {
+      const provider = candidate.provider;
+      try {
+        await db.transaction(async (tx) => {
+          await lockBillingCustomer(tx, userId);
+          const [subscription] = await tx
+            .select()
+            .from(billingSubscriptions)
+            .where(
+              and(
+                eq(billingSubscriptions.userId, userId),
+                eq(billingSubscriptions.provider, provider),
+                eq(
+                  billingSubscriptions.subscriptionId,
+                  candidate.subscriptionId,
+                ),
+                eq(billingSubscriptions.revokePending, 1),
               ),
-            ),
+            );
+          if (
+            !subscription ||
+            !providerEnabled(config, provider) ||
+            conflictingProviders.has(provider) ||
+            deferredProviders.has(provider) ||
+            (reason === "portal" &&
+              requestedProvider &&
+              provider !== requestedProvider)
+          )
+            return;
+          const fresh = await fetchSnapshot(tx, userId, provider);
+          const latest =
+            fresh.kind === "subscription"
+              ? fresh.orders
+                  .filter((order) => order.start <= now())
+                  .sort(
+                    (a, b) =>
+                      b.start.getTime() - a.start.getTime() ||
+                      b.end.getTime() - a.end.getTime(),
+                  )[0]
+              : null;
+          const stillRefunded = Boolean(
+            fresh.kind === "subscription" &&
+            fresh.subscriptionId === subscription.subscriptionId &&
+            latest &&
+            choiceForProduct(config, latest.productId, provider) &&
+            latest.totalAmount > 0 &&
+            latest.refundedAmount !== null &&
+            latest.refundedAmount >= latest.totalAmount,
           );
+          if (stillRefunded) {
+            try {
+              await requireProvider(providers, provider).revokeSubscription(
+                subscription.subscriptionId,
+              );
+            } catch (error) {
+              if (error instanceof HttpError) throw error;
+              throw new HttpError(
+                503,
+                "Billing provider is temporarily unavailable.",
+                "billing_unavailable",
+              );
+            }
+          } else if (fresh.kind !== "none") {
+            // Missing/unknown or contradictory evidence cannot undo a verified
+            // refund. Only a newer eligible payment supersedes its intent.
+            if (
+              !latest ||
+              latest.refundedAmount === null ||
+              latest.totalAmount <= 0 ||
+              latest.refundedAmount >= latest.totalAmount ||
+              ["open", "lost"].includes(latest.dispute) ||
+              !choiceForProduct(config, latest.productId, provider)
+            )
+              return;
+            const [verified] = await tx
+              .select()
+              .from(billingOrders)
+              .where(
+                and(
+                  eq(billingOrders.provider, provider),
+                  eq(billingOrders.subscriptionId, subscription.subscriptionId),
+                  lte(billingOrders.periodStart, now()),
+                ),
+              )
+              .orderBy(
+                desc(billingOrders.periodStart),
+                desc(billingOrders.periodEnd),
+              )
+              .limit(1);
+            if (
+              !verified ||
+              latest.orderId === verified.orderId ||
+              latest.start < verified.periodStart ||
+              (latest.start.getTime() === verified.periodStart.getTime() &&
+                latest.end <= verified.periodEnd)
+            )
+              return;
+          }
+          await tx
+            .update(billingSubscriptions)
+            .set({ revokePending: stillRefunded ? 2 : 0 })
+            .where(
+              and(
+                eq(billingSubscriptions.provider, provider),
+                eq(
+                  billingSubscriptions.subscriptionId,
+                  subscription.subscriptionId,
+                ),
+              ),
+            );
+        });
+      } catch (error) {
+        deferredProviders.add(provider);
+        cancellationErrors.push(error);
+        // The failed transaction retains revokePending=1. Persist retry timing
+        // separately, and continue to other providers before surfacing errors.
+        try {
+          await db.transaction(async (tx) => {
+            await lockBillingCustomer(tx, userId);
+            const [customer] = await tx
+              .select()
+              .from(billingProviderCustomers)
+              .where(
+                and(
+                  eq(billingProviderCustomers.userId, userId),
+                  eq(billingProviderCustomers.provider, provider),
+                ),
+              );
+            const failures = (customer?.syncFailures ?? 0) + 1;
+            const nextSyncAt = new Date(
+              scheduleNow.getTime() +
+                Math.min(3_600_000, 60_000 * 2 ** Math.min(failures - 1, 6)),
+            );
+            await tx
+              .insert(billingProviderCustomers)
+              .values({ userId, provider, syncFailures: failures, nextSyncAt })
+              .onConflictDoUpdate({
+                target: [
+                  billingProviderCustomers.userId,
+                  billingProviderCustomers.provider,
+                ],
+                set: { syncFailures: failures, nextSyncAt },
+              });
+          });
+        } catch (scheduleError) {
+          cancellationErrors.push(scheduleError);
+        }
       }
-    });
+    }
+    if (cancellationErrors.length)
+      throw (
+        cancellationErrors.find((error) => !(error instanceof HttpError)) ??
+        cancellationErrors[0]
+      );
     if (unavailable)
       throw new HttpError(
         503,

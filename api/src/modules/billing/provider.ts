@@ -2,6 +2,7 @@ import type { BillingChoice, BillingSnapshot } from "./billing.schema.js";
 import type { BillingProviderId } from "./routing.js";
 import { HttpError } from "../../plugins/errors.js";
 export interface ProviderReferences {
+  disputes?: Array<{ orderId: string; dispute: "open" | "lost" }>;
   orders?: Array<{
     orderId: string;
     checkoutId?: string | null;

@@ -281,6 +281,59 @@ describe("Creem REST billing boundary", () => {
       });
     },
   );
+  it.each(["open", "lost", "none"] as const)(
+    "counts stored %s evidence before checking duplicate obligations",
+    async (dispute) => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-21Z"));
+      const old = {
+        ...subscription,
+        id: "old-subscription",
+        status: "canceled",
+        last_transaction_id: "old-transaction",
+      };
+      const fetcher = vi.fn<typeof fetch>(async (input) => {
+        const url = new URL(String(input));
+        if (url.pathname === "/v1/subscriptions")
+          return Response.json(
+            url.searchParams.get("subscription_id") === old.id
+              ? old
+              : subscription,
+          );
+        if (url.pathname === "/v1/customers/billing")
+          return Response.json({
+            customer_portal_link: "https://creem.io/portal",
+          });
+        return Response.json({
+          items: [
+            { ...transaction, id: "old-transaction", subscription: old.id },
+            transaction,
+          ],
+          pagination: { current_page: 1, next_page: null },
+        });
+      });
+      const provider = createCreemProvider(config(), fetcher);
+      const confirmation = provider.fetchSnapshot("user", {
+        ...references,
+        subscriptionIds: [old.id, subscription.id],
+        disputes:
+          dispute === "none" ? [] : [{ orderId: "old-transaction", dispute }],
+      });
+      if (dispute === "none")
+        await expect(confirmation).rejects.toMatchObject({
+          code: "billing_duplicate_subscriptions",
+        });
+      else {
+        await expect(confirmation).resolves.toMatchObject({
+          subscriptionId: subscription.id,
+          paidPeriod: { orderId: "transaction" },
+        });
+        await expect(provider.createPortal("user")).resolves.toEqual({
+          url: "https://creem.io/portal",
+        });
+      }
+    },
+  );
   it("confirms a replacement after a canceled disputed subscription stops being an obligation", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-21Z"));

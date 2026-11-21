@@ -15,6 +15,7 @@ export function subscriptionObligation(
   const paid = snapshot.paidPeriod;
   const grantsAccess = Boolean(
     paid &&
+    paid.start <= now &&
     paid.end > now &&
     paid.refundedAmount !== null &&
     paid.refundedAmount < paid.totalAmount &&

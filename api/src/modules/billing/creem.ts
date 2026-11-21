@@ -326,6 +326,10 @@ export function createCreemProvider(
         string,
         { productId: string; checkoutId: string }
       >();
+      const storedDisputes = new Map<string, "open" | "lost">();
+      for (const evidence of references?.disputes ?? [])
+        if (storedDisputes.get(evidence.orderId) !== "lost")
+          storedDisputes.set(evidence.orderId, evidence.dispute);
       const knownOrders = new Map(
         (references?.orders ?? []).map((order) => [order.orderId, order]),
       );
@@ -409,7 +413,15 @@ export function createCreemProvider(
                 orderProducts,
                 knownOrders,
               );
-              return order ? [order] : [];
+              return order
+                ? [
+                    {
+                      ...order,
+                      dispute:
+                        storedDisputes.get(order.orderId) ?? order.dispute,
+                    },
+                  ]
+                : [];
             })
             .sort(
               (a, b) =>
