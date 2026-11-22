@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/lf1up/careersim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lf1up/careersim/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/lf1up/careersim/branch/main/graph/badge.svg)](https://codecov.io/gh/lf1up/careersim)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 
 CareerSIM is a direct-to-consumer (B2C) web application that helps individuals master critical career skills through hyper-realistic, AI-powered simulations. Users practice challenging professional situations — from behavioral interviews to difficult conversations — in a safe, repeatable environment and receive immediate, data-driven feedback to accelerate their personal and professional growth.
 
