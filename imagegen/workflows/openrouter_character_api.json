@@ -1,0 +1,44 @@
+{
+  "1": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Create a single full-body manga character sprite: A manga office worker with long dark brown hair, amber eyes, a navy blazer, white shirt, and ID badge. Standing, facing the viewer, entire head and feet visible, clean linework, consistent anime shading. Isolated on a transparent background, no text.",
+      "aspect_ratio": "2:3",
+      "background": "transparent"
+    }
+  },
+  "2": {
+    "class_type": "CareerSimOpenRouterImage",
+    "inputs": {
+      "model": "openai/gpt-image-2.6-flare",
+      "prompt": "Close-up portrait of this exact character's face and shoulders, smiling warmly with a cheerful, happy expression. Keep the same character: identical face, hairstyle, hair color, eye color and outfit. Preserve the reference image's manga illustration style. Clean white background.",
+      "aspect_ratio": "2:3",
+      "background": "opaque",
+      "reference_image": [
+        "1",
+        0
+      ]
+    }
+  },
+  "3": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_base",
+      "images": [
+        "1",
+        0
+      ]
+    }
+  },
+  "4": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "careersim_openrouter_face_happy",
+      "images": [
+        "2",
+        0
+      ]
+    }
+  }
+}
