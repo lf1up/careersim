@@ -9,6 +9,9 @@ const config = () =>
     JWT_SECRET: "test-secret-test-secret",
     ALTCHA_HMAC_KEY: "test-secret-test-secret",
     BILLING_ENABLED: "true",
+    CREEM_ENABLED: "false",
+    POLAR_ENABLED: "true",
+    BILLING_DEFAULT_PROVIDER: "polar",
     POLAR_ACCESS_TOKEN: "fixture-token",
     POLAR_WEBHOOK_SECRET: "fixture-secret",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
@@ -163,7 +166,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
   it("changes the product on the existing checkout without creating another session", async () => {
     const fetcher = vi.fn<typeof fetch>(async () => Response.json(checkout));
     vi.stubGlobal("fetch", fetcher);
-    const result = await createPolarProvider(config()).updateCheckout({
+    const result = await createPolarProvider(config()).updateCheckout!({
       checkoutId: "checkout",
       choice: { tier: "plus", interval: "year" },
     });
@@ -189,7 +192,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
         ),
       );
       await expect(
-        createPolarProvider(config()).updateCheckout({
+        createPolarProvider(config()).updateCheckout!({
           checkoutId: "checkout",
           choice: { tier: "plus", interval: "year" },
         }),
@@ -203,7 +206,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
   it("refuses an unconfigured checkout update before network access", async () => {
     const fetcher = snapshotTransport();
     await expect(
-      createPolarProvider(config()).updateCheckout({
+      createPolarProvider(config()).updateCheckout!({
         checkoutId: "checkout",
         choice: { tier: "pro", interval: "month" },
       }),
@@ -220,7 +223,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
         ),
       );
       await expect(
-        createPolarProvider(config()).updateCheckout({
+        createPolarProvider(config()).updateCheckout!({
           checkoutId: "checkout",
           choice: { tier: "plus", interval: "year" },
         }),
@@ -235,7 +238,7 @@ describe("Polar adapter through the installed versioned SDK", () => {
       }),
     );
     await expect(
-      createPolarProvider(config()).updateCheckout({
+      createPolarProvider(config()).updateCheckout!({
         checkoutId: "checkout",
         choice: { tier: "plus", interval: "year" },
       }),

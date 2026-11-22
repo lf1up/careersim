@@ -98,3 +98,41 @@ it.each(['month', 'year'] as const)('starts Pro checkout with %s billing', async
   await screen.findByText('Checkout request failed.');
   expect(checkout).toHaveBeenCalledWith({ tier: 'pro', interval });
 });
+
+
+it('keeps the initial Creem purchase flow free of a country selector', () => {
+  auth.isAuthenticated = true;
+  render(<PricingPage catalog={catalog} />);
+  expect(screen.queryByRole('combobox', { name: 'Billing country' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Choose Plus' })).toBeEnabled();
+});
+it('requires an explicit billing country before routed checkout', async () => {
+  auth.isAuthenticated = true;
+  const routed = { ...catalog, billingCountryRequired: true };
+  fetchCatalog.mockResolvedValue(routed);
+  render(<PricingPage catalog={routed} />);
+  expect(screen.getByRole('combobox', { name: 'Billing country' })).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Choose Plus' }));
+  await screen.findByText('Select your billing country before checkout.');
+  expect(checkout).not.toHaveBeenCalled();
+});
+it('sends the selected ISO country with the paid choice', async () => {
+  auth.isAuthenticated = true;
+  const routed = { ...catalog, billingCountryRequired: true };
+  fetchCatalog.mockResolvedValue(routed);
+  checkout.mockRejectedValueOnce(new Error('Checkout request failed.'));
+  render(<PricingPage catalog={routed} initialInterval="year" />);
+  fireEvent.change(screen.getByRole('combobox', { name: 'Billing country' }), { target: { value: 'GE' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Choose Plus' }));
+  await screen.findByText('Checkout request failed.');
+  expect(checkout).toHaveBeenCalledWith({ tier: 'plus', interval: 'year', billingCountry: 'GE' });
+});
+it('asks for a country if routing changes during the catalog refresh', async () => {
+  auth.isAuthenticated = true;
+  fetchCatalog.mockResolvedValue({ ...catalog, billingCountryRequired: true });
+  render(<PricingPage catalog={catalog} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Choose Plus' }));
+  await screen.findByText('Select your billing country before checkout.');
+  expect(screen.getByRole('combobox', { name: 'Billing country' })).toHaveValue('');
+  expect(checkout).not.toHaveBeenCalled();
+});

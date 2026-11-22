@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import { request } from './api';
 import { safeNextPath } from './safe-next-path';
+import { isBillingCountry } from './billing-countries';
 
 const tier = z.enum(['free', 'plus', 'pro']);
 const interval = z.enum(['month', 'year']);
 const choice = z.strictObject({ tier: z.enum(['plus', 'pro']), interval });
+const checkoutChoice = choice.extend({ billingCountry: z.string().refine(isBillingCountry, 'Select a valid billing country.').optional() });
 const date = z.iso.datetime({ offset: true });
 const secureUrl = z.url().refine(value => new URL(value).protocol === 'https:', 'A secure destination is required.');
 const contactUrl = z.string().refine(value => safeNextPath(value, '') !== '', 'Invalid contact destination.');
@@ -14,7 +16,7 @@ const limits = z.object({
   customSimulationsMax: z.number().int().nonnegative(), customPersonasMax: z.number().int().nonnegative(), voiceDailyMinutes: z.number().int().nonnegative(),
 });
 const catalogSchema = z.object({
-  currency: z.literal('USD'), contactUrl, higherLimitsMessage: z.string(), planChangesAvailable: z.boolean(),
+  currency: z.literal('USD'), billingCountryRequired: z.boolean(), contactUrl, higherLimitsMessage: z.string(), planChangesAvailable: z.boolean(),
   plans: z.array(z.object({
     tier, name: z.string(), limits, benefits: z.array(z.string()), availability: z.enum(['available', 'billing_disabled', 'coming_soon']),
     prices: z.array(z.object({ interval, amountCents: z.number().int().nonnegative(), discountLabel: z.string().nullable() })),
@@ -23,7 +25,7 @@ const catalogSchema = z.object({
 const usageMetric = z.object({ used: z.number().nonnegative(), limit: z.number().nonnegative(), resetAt: date.nullable() }).nullable();
 const accountSchema = z.object({
   tier, limits, proAccess: z.boolean(), reason: z.enum(['free', 'paid', 'grace', 'expired', 'revoked', 'disputed']), interval: interval.nullable(), paidThrough: date.nullable(), accessThrough: date.nullable(),
-  status: z.string(), cancelAtPeriodEnd: z.boolean(), renews: z.boolean(), pendingChange: z.object({ choice, effectiveAt: date }).nullable(), pendingCheckout: z.boolean(), confirmationPending: z.boolean(),
+  status: z.string(), billingConflict: z.boolean().default(false), cancelAtPeriodEnd: z.boolean(), renews: z.boolean(), pendingChange: z.object({ choice, effectiveAt: date }).nullable(), pendingCheckout: z.boolean(), confirmationPending: z.boolean(),
   usage: z.object({ sessions: usageMetric, chatMessages: usageMetric, customSimulations: usageMetric, customPersonas: usageMetric, voice: usageMetric }), planChangesAvailable: z.boolean(), contactUrl,
 });
 export type BillingChoice = z.infer<typeof choice>;
@@ -39,8 +41,8 @@ export async function fetchPlanCatalog(refresh = false): Promise<PlanCatalogResp
   cachedCatalog = { value, until: Date.now() + 60_000 };
   return value;
 }
-export async function startCheckout(selected: BillingChoice): Promise<{ url: string }> {
-  return hostedDestination.parse(await request<unknown>('/billing/checkout', { method: 'POST', body: choice.parse(selected) }));
+export async function startCheckout(selected: z.infer<typeof checkoutChoice>): Promise<{ url: string }> {
+  return hostedDestination.parse(await request<unknown>('/billing/checkout', { method: 'POST', body: checkoutChoice.parse(selected) }));
 }
 export async function getBillingAccount(): Promise<BillingAccount> {
   return accountSchema.parse(await request<unknown>('/billing/account', { cache: 'no-store' }));

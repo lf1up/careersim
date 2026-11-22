@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { billingCountrySchema } from "./routing.js";
 
 export const tierSchema = z.enum(["free", "plus", "pro"]);
 export const paidTierSchema = z.enum(["plus", "pro"]);
@@ -7,6 +8,10 @@ export const billingChoiceSchema = z.strictObject({
   tier: paidTierSchema,
   interval: billingIntervalSchema,
 });
+export const checkoutChoiceSchema = billingChoiceSchema.extend({
+  billingCountry: billingCountrySchema.optional(),
+});
+export type CheckoutChoice = z.infer<typeof checkoutChoiceSchema>;
 export type Tier = z.infer<typeof tierSchema>;
 export type PaidTier = z.infer<typeof paidTierSchema>;
 export type BillingInterval = z.infer<typeof billingIntervalSchema>;
@@ -28,6 +33,7 @@ export const availabilitySchema = z.enum([
 ]);
 export const planCatalogSchema = z.object({
   currency: z.literal("USD"),
+  billingCountryRequired: z.boolean(),
   contactUrl: z.string(),
   higherLimitsMessage: z.string(),
   plans: z.array(
@@ -57,7 +63,7 @@ export const paidOrderSchema = z.object({
   start: z.coerce.date(),
   end: z.coerce.date(),
   totalAmount: z.number().int().nonnegative(),
-  refundedAmount: z.number().int().nonnegative(),
+  refundedAmount: z.number().int().nonnegative().nullable(),
   dispute: z.enum(["none", "open", "lost", "won"]),
 });
 export type PaidOrder = z.infer<typeof paidOrderSchema>;
@@ -70,6 +76,8 @@ export const billingSnapshotSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("subscription"),
     customerId: z.string(),
+    billingCountry: billingCountrySchema.nullish(),
+    billingCountryMismatch: z.boolean().optional(),
     subscriptionId: z.string(),
     productId: z.string(),
     choice: billingChoiceSchema.nullable(),
@@ -106,6 +114,7 @@ export const billingUsageSchema = z.object({
 });
 export type BillingUsage = z.infer<typeof billingUsageSchema>;
 export const billingAccountSchema = entitlementSchema.extend({
+  billingConflict: z.boolean(),
   interval: billingIntervalSchema.nullable(),
   paidThrough: z.string().nullable(),
   accessThrough: z.string().nullable(),

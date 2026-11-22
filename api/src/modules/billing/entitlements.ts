@@ -7,6 +7,25 @@ import {
   type Entitlement,
   type PlanCatalog,
 } from "./billing.schema.js";
+export function subscriptionObligation(
+  snapshot: BillingSnapshot,
+  now: Date,
+): boolean {
+  if (snapshot.kind !== "subscription" || snapshot.revoked) return false;
+  const paid = snapshot.paidPeriod;
+  const grantsAccess = Boolean(
+    paid &&
+    paid.start <= now &&
+    paid.end > now &&
+    paid.refundedAmount !== null &&
+    paid.refundedAmount < paid.totalAmount &&
+    !["open", "lost"].includes(paid.dispute),
+  );
+  const canRenew =
+    !snapshot.cancelAtPeriodEnd &&
+    !["canceled", "incomplete_expired", "expired"].includes(snapshot.status);
+  return grantsAccess || canRenew;
+}
 export const FAILED_RENEWAL_GRACE_MS = 72 * 60 * 60 * 1000;
 export function deriveEntitlement(
   snapshot: BillingSnapshot,
@@ -24,11 +43,14 @@ export function deriveEntitlement(
   const paid = snapshot.paidPeriod;
   if (
     snapshot.revoked ||
-    (paid.totalAmount > 0 && paid.refundedAmount >= paid.totalAmount)
+    (paid.totalAmount > 0 &&
+      paid.refundedAmount !== null &&
+      paid.refundedAmount >= paid.totalAmount)
   )
     return free("revoked");
   if (paid.dispute === "open" || paid.dispute === "lost")
     return free("disputed");
+  if (paid.refundedAmount === null) return free("revoked");
   if (paid.start.getTime() > now.getTime()) return free("free");
   const paidThrough = paid.end.getTime();
   const active = now.getTime() < paidThrough;

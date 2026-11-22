@@ -166,3 +166,14 @@ it.each([freeAccount, plus])('hides pricing links for $tier while retaining Cont
   expect(screen.getByRole('link', { name: 'Need higher limits? Contact us to discuss your needs.' })).toHaveAttribute('href', '/contact?reason=higher-limits');
   if (value.tier === 'plus') expect(screen.getByRole('button', { name: 'Manage payments and cancellation' })).toBeVisible();
 });
+
+
+it('gives a support path for billing conflicts without offering another subscription', async () => {
+  account.mockResolvedValue({ ...plus, billingConflict: true, planChangesAvailable: true });
+  render(<BillingPanel />);
+  await screen.findByText(/conflicting subscription records/);
+  expect(screen.getByRole('link', { name: 'Contact billing support' })).toHaveAttribute('href', plus.contactUrl);
+  expect(screen.queryByRole('link', { name: /Explore Plus|Compare plans/ })).toBeNull();
+  expect(screen.queryByRole('region', { name: 'Change plan' })).toBeNull();
+  expect(screen.queryByText('Subscription active')).toBeNull();
+});

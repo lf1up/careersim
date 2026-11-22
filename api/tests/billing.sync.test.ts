@@ -6,6 +6,7 @@ import { createPgliteClient } from "./helpers/db.js";
 import {
   users,
   billingCustomers,
+  billingProviderCustomers,
   billingWebhookInbox,
   billingOrders,
   billingSubscriptions,
@@ -29,6 +30,9 @@ export const testConfig = () =>
     JWT_SECRET: "test-secret-test-secret",
     ALTCHA_HMAC_KEY: "test-secret-test-secret",
     BILLING_ENABLED: "true",
+    CREEM_ENABLED: "false",
+    POLAR_ENABLED: "true",
+    BILLING_DEFAULT_PROVIDER: "polar",
     POLAR_ACCESS_TOKEN: "test-token",
     POLAR_WEBHOOK_SECRET: "test-secret",
     POLAR_PLUS_MONTHLY_PRODUCT_ID: "plus-month",
@@ -85,7 +89,7 @@ describe("authoritative billing synchronization", () => {
     return {
       ...createBillingSync({
         db: handle.db,
-        provider,
+        providers: { polar: provider },
         config: testConfig(),
         now,
       }),
@@ -181,6 +185,7 @@ describe("authoritative billing synchronization", () => {
       .values({ eventId: "retry", eventType: "order.paid", userId });
     provider.failFetch = false;
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
     });
@@ -254,7 +259,7 @@ describe("authoritative billing synchronization", () => {
     }
     expect(provider.revoked).toEqual([]);
   });
-  it("preserves explicit provider conflicts and malformed payment errors without replacing verified access", async () => {
+  it("records provider conflicts and propagates malformed payment errors without replacing verified access", async () => {
     const service = services();
     provider.snapshots.set(userId, paidSnapshot());
     await service.syncCustomer({ userId, reason: "initial payment" });
@@ -266,7 +271,10 @@ describe("authoritative billing synchronization", () => {
     vi.spyOn(provider, "fetchSnapshot").mockRejectedValueOnce(conflict);
     await expect(
       service.syncCustomer({ userId, reason: "duplicate" }),
-    ).rejects.toBe(conflict);
+    ).resolves.toBeUndefined();
+    expect(
+      (await handle.db.select().from(billingCustomers))[0]?.billingConflict,
+    ).toBe(1);
     provider.snapshots.set(
       userId,
       paidSnapshot({ orders: [paidOrder({ totalAmount: -1 })] }),
@@ -352,7 +360,7 @@ describe("authoritative billing synchronization", () => {
     const before = Date.now();
     const { syncCustomer } = createBillingSync({
       db: handle.db,
-      provider,
+      providers: { polar: provider },
       config: testConfig(),
     });
     await syncCustomer({ userId, reason: "default clock" });
@@ -371,6 +379,7 @@ describe("authoritative billing synchronization", () => {
     provider.failFetchFor.add(userId);
     const service = services();
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
     });
@@ -379,6 +388,7 @@ describe("authoritative billing synchronization", () => {
       failed: 1,
     });
     const restarted = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
     });
@@ -409,6 +419,7 @@ describe("authoritative billing synchronization", () => {
     ]);
     const service = services();
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
     });
@@ -417,6 +428,7 @@ describe("authoritative billing synchronization", () => {
       failed: 1,
     });
     const restarted = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
     });
@@ -435,18 +447,20 @@ describe("authoritative billing synchronization", () => {
     const clock = new Date();
     await handle.db
       .insert(billingCustomers)
-      .values({ userId, customerId: "customer", nextSyncAt: clock });
+      .values({ userId, nextSyncAt: clock });
     await handle.db
-      .insert(billingWebhookInbox)
-      .values({
-        eventId: "unbound-customer",
-        eventType: "order.paid",
-        customerId: "customer",
-        nextSyncAt: clock,
-      });
+      .insert(billingProviderCustomers)
+      .values({ userId, provider: "polar", customerId: "customer" });
+    await handle.db.insert(billingWebhookInbox).values({
+      eventId: "unbound-customer",
+      eventType: "order.paid",
+      customerId: "customer",
+      nextSyncAt: clock,
+    });
     provider.snapshots.set(userId, paidSnapshot());
     const service = services();
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
       now: () => clock,
@@ -462,17 +476,16 @@ describe("authoritative billing synchronization", () => {
   });
   it("persists first-sync failure backoff and retries the inbox after the deadline", async () => {
     let clock = new Date();
-    await handle.db
-      .insert(billingWebhookInbox)
-      .values({
-        eventId: "first-payment",
-        eventType: "order.paid",
-        userId,
-        nextSyncAt: clock,
-      });
+    await handle.db.insert(billingWebhookInbox).values({
+      eventId: "first-payment",
+      eventType: "order.paid",
+      userId,
+      nextSyncAt: clock,
+    });
     provider.failFetch = true;
     const service = services();
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: service.syncCustomer,
       now: () => clock,
@@ -517,6 +530,7 @@ describe("authoritative billing synchronization", () => {
   });
   it("rejects invalid reconciliation batch sizes before processing customers", async () => {
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: services().syncCustomer,
     });
@@ -539,7 +553,11 @@ describe("authoritative billing synchronization", () => {
         await service.syncCustomer(input);
       },
     );
-    const reconciler = createBillingReconciler({ db: handle.db, syncCustomer });
+    const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
+      db: handle.db,
+      syncCustomer,
+    });
     const first = reconciler.reconcileBilling({ limit: 1 });
     await vi.waitFor(() => expect(syncCustomer).toHaveBeenCalledTimes(1));
     expect(await reconciler.reconcileBilling({ limit: 1 })).toEqual({
@@ -555,6 +573,7 @@ describe("authoritative billing synchronization", () => {
   it("runs scheduled reconciliation, reports database failures, and stops its timer", async () => {
     await handle.db.insert(billingCustomers).values({ userId });
     const reconciler = createBillingReconciler({
+      enabledProviders: ["polar"],
       db: handle.db,
       syncCustomer: services().syncCustomer,
     });
